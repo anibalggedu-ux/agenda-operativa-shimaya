@@ -10,7 +10,7 @@ import {
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
-const ESTILOS_URGENCIA: Record
+const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
   { emoji: string; borde: string; fondo: string; texto: string; etiqueta: string }
 > = {
