@@ -43,9 +43,7 @@ const ESTILOS_URGENCIA: Record<
     etiqueta: "ANTES DE AYER",
   },
 };
-
-const estadoInicialReporte: ResultadoReporte = {};
-
+const estadoInicialReporte: ResultadoReporte = { exito: false };
 function BotonEnviar() {
   const { pending } = useFormStatus();
   return (
