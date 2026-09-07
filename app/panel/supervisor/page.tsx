@@ -2,6 +2,7 @@ import { obtenerSesion } from "@/lib/session";
 import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
 import SelectorTiendas from "./selector-tiendas";
+import GpsMarcador from "./gps-marcador";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,10 @@ export default async function PanelSupervisor() {
       <p className="text-slate-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
+
+      <div className="mb-6">
+        <GpsMarcador />
+      </div>
 
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">
         BITÁCORA DE CAMPO
