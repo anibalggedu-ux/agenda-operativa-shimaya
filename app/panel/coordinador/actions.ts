@@ -790,3 +790,97 @@ export async function obtenerPerfilCoordinador(): Promise<PerfilCoordinador> {
     proximoAniversario,
   };
 }
+
+// ---------- Historial y monitoreo operativo ----------
+
+export type AsistenciaGeneral = {
+  fecha: string;
+  usuarioNombre: string;
+  rol: string;
+  horaIngreso: string | null;
+  ubicacionIngreso: string | null;
+  horaSalida: string | null;
+  ubicacionSalida: string | null;
+  tarde: boolean;
+};
+
+export async function obtenerAsistenciaGeneral(
+  desde: string,
+  hasta: string
+): Promise<AsistenciaGeneral[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("asistencia")
+    .select("fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol)")
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar la asistencia general.");
+
+  return (data ?? []).map((a: any) => {
+    const rol = a.usuarios?.rol ?? "";
+    const limite = HORA_LIMITE_TARDANZA[rol];
+    return {
+      fecha: a.fecha,
+      usuarioNombre: a.usuarios?.nombre ?? "—",
+      rol,
+      horaIngreso: a.hora_ingreso,
+      ubicacionIngreso: a.ubicacion_ingreso,
+      horaSalida: a.hora_salida,
+      ubicacionSalida: a.ubicacion_salida,
+      tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
+    };
+  });
+}
+
+export type RankingTiendaCompleto = { tiendaId: string; tiendaNombre: string; visitas: number };
+
+export type RankingTiendasCompleto = {
+  top20: RankingTiendaCompleto[];
+  resto: RankingTiendaCompleto[];
+  sinVisitas: RankingTiendaCompleto[];
+};
+
+export async function obtenerRankingTiendasCompleto(
+  desde: string,
+  hasta: string
+): Promise<RankingTiendasCompleto> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const [{ data: tiendas, error: errorTiendas }, { data: visitas, error: errorVisitas }] =
+    await Promise.all([
+      supabase.from("tiendas").select("id, nombre").order("nombre"),
+      supabase
+        .from("rutas_diarias")
+        .select("tienda_id")
+        .gte("fecha", desde)
+        .lte("fecha", hasta),
+    ]);
+
+  if (errorTiendas || errorVisitas) {
+    throw new Error("No se pudo cargar el ranking de tiendas.");
+  }
+
+  const conteo = new Map<string, number>();
+  (visitas ?? []).forEach((r) => {
+    if (!r.tienda_id) return;
+    conteo.set(r.tienda_id, (conteo.get(r.tienda_id) ?? 0) + 1);
+  });
+
+  const ranking = (tiendas ?? [])
+    .map((t) => ({ tiendaId: t.id, tiendaNombre: t.nombre, visitas: conteo.get(t.id) ?? 0 }))
+    .sort((a, b) => b.visitas - a.visitas);
+
+  const conVisitas = ranking.filter((r) => r.visitas > 0);
+  const sinVisitas = ranking.filter((r) => r.visitas === 0);
+
+  return {
+    top20: conVisitas.slice(0, 20),
+    resto: conVisitas.slice(20),
+    sinVisitas,
+  };
+}

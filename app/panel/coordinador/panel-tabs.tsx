@@ -12,9 +12,10 @@ import DescansosSemanales from "./descansos-semanales";
 import EstadoPersonalHoy from "./estado-personal-hoy";
 import Anuncios from "./anuncios";
 import Reportes from "./reportes";
+import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
 
-type Pestana = "rutas" | "mi-ruta" | "reportes" | "personal" | "anuncios";
+type Pestana = "rutas" | "mi-ruta" | "reportes" | "personal" | "anuncios" | "historial";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "rutas", etiqueta: "Rutas" },
@@ -22,6 +23,7 @@ const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "reportes", etiqueta: "Reportes" },
   { id: "personal", etiqueta: "Personal" },
   { id: "anuncios", etiqueta: "Anuncios" },
+  { id: "historial", etiqueta: "Historial y Monitoreo" },
 ];
 
 export default function PanelTabs({ nombre }: { nombre: string }) {
@@ -70,6 +72,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
       )}
 
       {pestana === "anuncios" && <Anuncios />}
+
+      {pestana === "historial" && <HistorialMonitoreo />}
     </div>
   );
 }
