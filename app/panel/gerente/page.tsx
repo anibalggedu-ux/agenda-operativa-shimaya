@@ -3,6 +3,7 @@ import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Dashboard from "./dashboard";
+import AnunciosWidget from "../anuncios-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,10 @@ export default async function PanelGerente() {
       <p className="text-gray-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
+
+      <div className="mb-6">
+        <AnunciosWidget />
+      </div>
 
       <Dashboard />
     </main>

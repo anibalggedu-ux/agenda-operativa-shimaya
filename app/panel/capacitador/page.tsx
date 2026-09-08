@@ -5,6 +5,7 @@ import Link from "next/link";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import GpsMarcador from "../supervisor/gps-marcador";
 import HistorialPdf from "../supervisor/historial-pdf";
+import AnunciosWidget from "../anuncios-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,10 @@ export default async function PanelCapacitador() {
       <p className="text-slate-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
+
+      <div className="mb-6">
+        <AnunciosWidget />
+      </div>
 
       <div className="mb-6">
         <GpsMarcador />
