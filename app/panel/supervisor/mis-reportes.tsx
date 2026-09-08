@@ -3,7 +3,45 @@
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { obtenerMisReportesRecientes, editarReporte, type MiReporte, type ResultadoReporte } from "./actions";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
+
+function SelectorFechas({
+  desde,
+  hasta,
+  onDesde,
+  onHasta,
+}: {
+  desde: string;
+  hasta: string;
+  onDesde: (v: string) => void;
+  onHasta: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex-1">
+        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Desde</label>
+        <input
+          type="date"
+          value={desde}
+          max={hasta}
+          onChange={(e) => onDesde(e.target.value)}
+          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+        />
+      </div>
+      <div className="flex-1">
+        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Hasta</label>
+        <input
+          type="date"
+          value={hasta}
+          min={desde}
+          max={hoyPeru()}
+          onChange={(e) => onHasta(e.target.value)}
+          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+        />
+      </div>
+    </div>
+  );
+}
 
 const estadoInicial: ResultadoReporte = { exito: false };
 
@@ -74,9 +112,12 @@ export default function MisReportes() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [hasta, setHasta] = useState(hoyPeru());
 
   function cargar() {
-    obtenerMisReportesRecientes()
+    setCargando(true);
+    obtenerMisReportesRecientes(desde, hasta)
       .then(setReportes)
       .catch((e) => setError(e.message || "Error al cargar tus reportes."))
       .finally(() => setCargando(false));
@@ -84,26 +125,25 @@ export default function MisReportes() {
 
   useEffect(() => {
     cargar();
-  }, []);
-
-  if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tus reportes...</p>;
-  }
-
-  if (error) {
-    return <p className="text-red-400 text-sm">{error}</p>;
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desde, hasta]);
 
   return (
     <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-3">
       <h3 className="text-xs font-black tracking-widest text-slate-300">
-        🗂️ MIS REPORTES RECIENTES
+        🗂️ MIS REGISTROS DE OBSERVACIONES
       </h3>
       <p className="text-slate-600 text-[11px]">
         Puedes corregir un reporte hasta 48 horas después de haberlo enviado.
       </p>
 
-      {reportes.length === 0 ? (
+      <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {cargando ? (
+        <p className="text-slate-500 text-sm animate-pulse">Cargando tus reportes...</p>
+      ) : reportes.length === 0 ? (
         <p className="text-slate-500 text-sm italic">Todavía no has enviado ningún reporte.</p>
       ) : (
         <div className="space-y-2">

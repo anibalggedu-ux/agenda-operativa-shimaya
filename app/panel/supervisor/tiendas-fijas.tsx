@@ -10,7 +10,45 @@ import {
   type ObservacionTiendaFija,
   type ResultadoReporte,
 } from "./actions";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
+
+function SelectorFechas({
+  desde,
+  hasta,
+  onDesde,
+  onHasta,
+}: {
+  desde: string;
+  hasta: string;
+  onDesde: (v: string) => void;
+  onHasta: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex-1">
+        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Desde</label>
+        <input
+          type="date"
+          value={desde}
+          max={hasta}
+          onChange={(e) => onDesde(e.target.value)}
+          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+        />
+      </div>
+      <div className="flex-1">
+        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Hasta</label>
+        <input
+          type="date"
+          value={hasta}
+          min={desde}
+          max={hoyPeru()}
+          onChange={(e) => onHasta(e.target.value)}
+          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+        />
+      </div>
+    </div>
+  );
+}
 
 const estadoInicial: ResultadoReporte = { exito: false };
 
@@ -82,26 +120,36 @@ function ObservacionItem({
   );
 }
 
+const AYER = sumarDias(hoyPeru(), -1);
+
 export default function TiendasFijas() {
   const [tiendas, setTiendas] = useState<TiendaFija[]>([]);
   const [observaciones, setObservaciones] = useState<ObservacionTiendaFija[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [cargandoObs, setCargandoObs] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [desde, setDesde] = useState(AYER);
+  const [hasta, setHasta] = useState(AYER);
 
-  function cargar() {
-    setCargando(true);
-    Promise.all([obtenerMisTiendasFijas(), obtenerObservacionesTiendasFijas()])
-      .then(([t, o]) => {
-        setTiendas(t);
-        setObservaciones(o);
-      })
+  useEffect(() => {
+    obtenerMisTiendasFijas()
+      .then(setTiendas)
       .catch((e) => setError(e.message || "Error al cargar tus tiendas fijas."))
       .finally(() => setCargando(false));
+  }, []);
+
+  function cargarObservaciones() {
+    setCargandoObs(true);
+    obtenerObservacionesTiendasFijas(desde, hasta)
+      .then(setObservaciones)
+      .catch((e) => setError(e.message || "Error al cargar las observaciones."))
+      .finally(() => setCargandoObs(false));
   }
 
   useEffect(() => {
-    cargar();
-  }, []);
+    cargarObservaciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desde, hasta]);
 
   if (cargando) {
     return <p className="text-slate-500 text-sm animate-pulse">Cargando tus tiendas fijas...</p>;
@@ -135,18 +183,22 @@ export default function TiendasFijas() {
         )}
       </div>
 
-      <div>
-        <h3 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+      <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-4">
+        <h3 className="text-xs font-black tracking-widest text-slate-300">
           OBSERVACIONES EN TUS TIENDAS FIJAS ({observaciones.length})
         </h3>
-        {observaciones.length === 0 ? (
+        <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+
+        {cargandoObs ? (
+          <p className="text-slate-500 text-sm animate-pulse">Cargando observaciones...</p>
+        ) : observaciones.length === 0 ? (
           <p className="text-slate-500 text-sm italic">
-            Nadie más ha dejado observaciones en tus tiendas fijas todavía.
+            Nadie más ha dejado observaciones en tus tiendas fijas en este rango de fechas.
           </p>
         ) : (
           <div className="space-y-2">
             {observaciones.map((o) => (
-              <ObservacionItem key={o.id} obs={o} onRespondida={cargar} />
+              <ObservacionItem key={o.id} obs={o} onRespondida={cargarObservaciones} />
             ))}
           </div>
         )}

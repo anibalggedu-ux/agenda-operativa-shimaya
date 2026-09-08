@@ -58,6 +58,10 @@ export default async function PanelSupervisor() {
       <PerfilBanner />
 
       <div className="mb-6">
+        <MiDescanso />
+      </div>
+
+      <div className="mb-6">
         <MisPuntosWidget />
       </div>
 
@@ -75,10 +79,6 @@ export default async function PanelSupervisor() {
 
       <div className="mb-6">
         <TiendasFijas />
-      </div>
-
-      <div className="mb-6">
-        <MiDescanso />
       </div>
 
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">

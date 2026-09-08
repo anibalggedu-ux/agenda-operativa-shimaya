@@ -15,6 +15,11 @@ export default function PerfilBanner() {
 
   if (!perfil) return null;
 
+  const textoDescanso =
+    perfil.diasDescanso.length === 0
+      ? "Sin descanso fijo asignado"
+      : perfil.diasDescanso.join(" y ");
+
   const textoAntiguedad = perfil.antiguedad
     ? `${perfil.antiguedad.anios} año${perfil.antiguedad.anios !== 1 ? "s" : ""}` +
       (perfil.antiguedad.meses > 0
@@ -23,7 +28,14 @@ export default function PerfilBanner() {
     : "No registrada";
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div className="bg-[#0f111a] border border-indigo-700/40 rounded-xl px-4 py-3">
+        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+          🛌 Descanso semanal
+        </p>
+        <p className="text-white text-sm font-bold mt-1">{textoDescanso}</p>
+      </div>
+
       <div className="bg-[#0f111a] border border-yellow-700/40 rounded-xl px-4 py-3">
         <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest">
           📅 Antigüedad

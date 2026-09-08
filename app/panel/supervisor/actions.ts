@@ -139,7 +139,10 @@ export type MiReporte = {
   puedeEditar: boolean;
 };
 
-export async function obtenerMisReportesRecientes(): Promise<MiReporte[]> {
+export async function obtenerMisReportesRecientes(
+  desde: string,
+  hasta: string
+): Promise<MiReporte[]> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
     throw new Error("No autorizado.");
@@ -150,9 +153,10 @@ export async function obtenerMisReportesRecientes(): Promise<MiReporte[]> {
     .from("rutas_diarias")
     .select("id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, tiendas(nombre)")
     .eq("usuario_id", sesion.id)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
     .order("fecha", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(15);
+    .order("created_at", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar tus reportes.");
 
@@ -314,7 +318,10 @@ export type ObservacionTiendaFija = {
   respuestaPor: string | null;
 };
 
-export async function obtenerObservacionesTiendasFijas(): Promise<ObservacionTiendaFija[]> {
+export async function obtenerObservacionesTiendasFijas(
+  desde: string,
+  hasta: string
+): Promise<ObservacionTiendaFija[]> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
@@ -337,9 +344,10 @@ export async function obtenerObservacionesTiendasFijas(): Promise<ObservacionTie
     )
     .in("tienda_id", tiendaIds)
     .neq("usuario_id", sesion.id)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
     .order("fecha", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(30);
+    .order("created_at", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar las observaciones.");
 
