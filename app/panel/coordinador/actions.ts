@@ -622,7 +622,7 @@ export async function obtenerHistorialTienda(
     supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
     supabase
       .from("rutas_diarias")
-      .select("fecha, rol, observacion, actividad, usuarios(nombre)")
+      .select("fecha, usuario_id, rol, observacion, actividad, usuarios(nombre)")
       .eq("tienda_id", tiendaId)
       .gte("fecha", desde)
       .lte("fecha", hasta)
@@ -639,17 +639,28 @@ export async function obtenerHistorialTienda(
 
   const filas = data ?? [];
 
+  // "Total visitas" y el conteo por colaborador cuentan visitas, no
+  // reportes: si la misma persona escribió más de un reporte de esta tienda
+  // el mismo día, eso sigue siendo UNA visita (aunque abajo se muestren
+  // todas las observaciones escritas, esas sí completas, una por una).
+  const visitasUnicas = new Set(filas.map((r: any) => `${r.usuario_id}|${r.fecha}`));
+
   const visitantesMap = new Map<string, VisitanteTienda>();
+  const usuarioFechaContado = new Set<string>();
   filas.forEach((r: any) => {
+    const clave = `${r.usuario_id}|${r.fecha}`;
     const nombre = r.usuarios?.nombre ?? "—";
-    const existente = visitantesMap.get(nombre);
-    if (existente) existente.visitas += 1;
-    else visitantesMap.set(nombre, { usuarioNombre: nombre, rol: r.rol ?? "—", visitas: 1 });
+    if (!usuarioFechaContado.has(clave)) {
+      usuarioFechaContado.add(clave);
+      const existente = visitantesMap.get(nombre);
+      if (existente) existente.visitas += 1;
+      else visitantesMap.set(nombre, { usuarioNombre: nombre, rol: r.rol ?? "—", visitas: 1 });
+    }
   });
 
   return {
     tiendaNombre: tienda?.nombre ?? "—",
-    totalVisitas: filas.length,
+    totalVisitas: visitasUnicas.size,
     observaciones: filas.map((r: any) => ({
       fecha: r.fecha,
       usuarioNombre: r.usuarios?.nombre ?? "—",
@@ -976,11 +987,19 @@ async function obtenerVisitasEnRango(
     throw new Error("No se pudo cargar las visitas.");
   }
 
-  const clavesReportadas = new Set(
-    (reportes ?? []).map((r: any) => `${r.usuario_id}|${r.tienda_id}|${r.fecha}`)
-  );
+  // Una misma persona puede enviar más de un reporte para la misma tienda el
+  // mismo día (reportes duplicados legítimos en los datos). Para efectos de
+  // "cuántas veces se visitó", eso cuenta como UNA sola visita, no varias —
+  // se agrupa por usuario+tienda+fecha antes de contar.
+  const reportesUnicos = new Map<string, any>();
+  (reportes ?? []).forEach((r: any) => {
+    const clave = `${r.usuario_id}|${r.tienda_id}|${r.fecha}`;
+    if (!reportesUnicos.has(clave)) reportesUnicos.set(clave, r);
+  });
 
-  const visitas: VisitaTienda[] = (reportes ?? []).map((r: any) => ({
+  const clavesReportadas = new Set(reportesUnicos.keys());
+
+  const visitas: VisitaTienda[] = Array.from(reportesUnicos.values()).map((r: any) => ({
     fecha: r.fecha,
     tiendaId: r.tienda_id,
     usuarioId: r.usuario_id,
