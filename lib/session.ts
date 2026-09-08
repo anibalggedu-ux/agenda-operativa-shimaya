@@ -49,9 +49,9 @@ export async function cerrarSesion() {
   cookies().delete(COOKIE_NAME);
 }
 
-// El Coordinador también hace visitas de campo bajo su propia "Mi Ruta",
-// además de Supervisor — ambos roles comparten la bitácora (selector de
-// tiendas, reporte y PDF).
+// Coordinador y Capacitador también hacen visitas de campo bajo su propia
+// "Mi Ruta" / bitácora, igual que Supervisor — los tres roles comparten el
+// selector de tiendas, el reporte, el GPS y el PDF.
 export function tieneBitacora(rol: SesionUsuario["rol"]): boolean {
-  return rol === "supervisor" || rol === "coordinador";
+  return rol === "supervisor" || rol === "coordinador" || rol === "capacitador";
 }

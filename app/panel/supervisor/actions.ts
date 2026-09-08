@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, sumarDias } from "@/lib/fechas";
+import { sumarDias, diaLaboralPeru } from "@/lib/fechas";
 
 export type Urgencia = "HOY" | "MANANA" | "AYER" | "ANTES_DE_AYER";
 
@@ -27,7 +27,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
   }
 
   const supabase = supabaseServer();
-  const hoy = hoyPeru();
+  const hoy = diaLaboralPeru(sesion.rol === "capacitador");
   const manana = sumarDias(hoy, 1);
   const ayer = sumarDias(hoy, -1);
 
@@ -97,7 +97,7 @@ export async function enviarReporte(
   const supabase = supabaseServer();
 
   const { error: errorInsert } = await supabase.from("rutas_diarias").insert({
-    fecha: hoyPeru(),
+    fecha: diaLaboralPeru(sesion.rol === "capacitador"),
     usuario_id: sesion.id,
     tienda_id: tiendaId,
     rol: sesion.rol,

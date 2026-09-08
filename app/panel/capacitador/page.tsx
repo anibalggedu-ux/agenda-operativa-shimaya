@@ -1,15 +1,20 @@
 import { obtenerSesion } from "@/lib/session";
 import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
+import SelectorTiendas from "../supervisor/selector-tiendas";
+import GpsMarcador from "../supervisor/gps-marcador";
+import HistorialPdf from "../supervisor/historial-pdf";
+
+export const dynamic = "force-dynamic";
 
 export default async function PanelCapacitador() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "capacitador") redirect("/login");
 
   return (
-    <main className="min-h-screen bg-[#07080c] text-white p-8 font-mono">
+    <main className="min-h-screen bg-[#07080c] text-white p-6 sm:p-8 font-mono">
       <div className="flex justify-between items-center border-b border-blue-500/30 pb-4 mb-6">
-        <h1 className="text-2xl font-black tracking-widest">
+        <h1 className="text-xl sm:text-2xl font-black tracking-widest">
           <span className="text-blue-500">PANEL</span> CAPACITADOR
         </h1>
         <form action={cerrarSesionAction}>
@@ -18,13 +23,23 @@ export default async function PanelCapacitador() {
           </button>
         </form>
       </div>
-      <p className="text-slate-400 text-sm">
+
+      <p className="text-slate-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
-      <p className="text-slate-600 text-xs mt-4 italic">
-        Base del panel lista — Reconocimiento/Avance y GPS se agregan en las
-        próximas sesiones.
-      </p>
+
+      <div className="mb-6">
+        <GpsMarcador />
+      </div>
+
+      <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">
+        BITÁCORA DE CAMPO
+      </h2>
+      <SelectorTiendas supervisorNombre={sesion.nombre} />
+
+      <div className="mt-6">
+        <HistorialPdf supervisorNombre={sesion.nombre} />
+      </div>
     </main>
   );
 }

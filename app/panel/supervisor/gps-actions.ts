@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { hoyPeru, horaPeru } from "@/lib/fechas";
+import { horaPeru, diaLaboralPeru } from "@/lib/fechas";
 
 export type EstadoAsistencia = {
   horaIngreso: string | null;
@@ -18,7 +18,7 @@ export async function obtenerEstadoAsistenciaHoy(): Promise<EstadoAsistencia> {
     .from("asistencia")
     .select("hora_ingreso, hora_salida")
     .eq("usuario_id", sesion.id)
-    .eq("fecha", hoyPeru())
+    .eq("fecha", diaLaboralPeru(sesion.rol === "capacitador"))
     .maybeSingle();
 
   return {
@@ -39,7 +39,7 @@ export async function marcarIngreso(lat: number, lng: number): Promise<Resultado
 
   const { error } = await supabase.from("asistencia").upsert(
     {
-      fecha: hoyPeru(),
+      fecha: diaLaboralPeru(sesion.rol === "capacitador"),
       usuario_id: sesion.id,
       hora_ingreso: hora,
       ubicacion_ingreso: ubicacion,
@@ -56,12 +56,13 @@ export async function marcarSalida(lat: number, lng: number): Promise<ResultadoM
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
 
   const supabase = supabaseServer();
+  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
 
   const { data: existente } = await supabase
     .from("asistencia")
     .select("id")
     .eq("usuario_id", sesion.id)
-    .eq("fecha", hoyPeru())
+    .eq("fecha", fecha)
     .maybeSingle();
 
   if (!existente) {
@@ -75,7 +76,7 @@ export async function marcarSalida(lat: number, lng: number): Promise<ResultadoM
     .from("asistencia")
     .update({ hora_salida: hora, ubicacion_salida: ubicacion })
     .eq("usuario_id", sesion.id)
-    .eq("fecha", hoyPeru());
+    .eq("fecha", fecha);
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la salida." };
   return { exito: true, hora: hora };
