@@ -242,3 +242,73 @@ export async function eliminarComunicado(id: string): Promise<ResultadoAccion> {
   if (error) return { exito: false, mensaje: "No se pudo eliminar el anuncio." };
   return { exito: true };
 }
+
+// ---------- Reportes de campo (bitácora) ----------
+
+export type ReporteBitacora = {
+  id: string;
+  fecha: string;
+  usuarioNombre: string;
+  tiendaNombre: string;
+  rol: string;
+  observacion: string;
+  actividad: string | null;
+  respuesta: string | null;
+  respuestaPor: string | null;
+};
+
+export async function obtenerReportesRecientes(): Promise<ReporteBitacora[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("rutas_diarias")
+    .select(
+      "id, fecha, rol, observacion, actividad, respuesta, respuesta_por, usuarios(nombre), tiendas(nombre)"
+    )
+    .order("fecha", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error) throw new Error("No se pudo cargar los reportes.");
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    fecha: r.fecha,
+    usuarioNombre: r.usuarios?.nombre ?? "—",
+    tiendaNombre: r.tiendas?.nombre ?? "—",
+    rol: r.rol,
+    observacion: r.observacion,
+    actividad: r.actividad,
+    respuesta: r.respuesta,
+    respuestaPor: r.respuesta_por,
+  }));
+}
+
+export async function responderReporte(
+  _prevState: ResultadoAccion,
+  formData: FormData
+): Promise<ResultadoAccion> {
+  const sesion = await exigirCoordinador();
+
+  const reporteId = String(formData.get("reporteId") || "");
+  const respuesta = String(formData.get("respuesta") || "").trim();
+
+  if (!reporteId || !respuesta) {
+    return { exito: false, mensaje: "Escribe una respuesta antes de enviar." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("rutas_diarias")
+    .update({
+      respuesta,
+      respuesta_por: sesion.nombre,
+      respuesta_fecha: new Date().toISOString(),
+      leido: true,
+    })
+    .eq("id", reporteId);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
+  return { exito: true, mensaje: "Respuesta enviada." };
+}

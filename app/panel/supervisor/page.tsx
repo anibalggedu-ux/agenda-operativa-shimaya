@@ -5,6 +5,7 @@ import Link from "next/link";
 import SelectorTiendas from "./selector-tiendas";
 import GpsMarcador from "./gps-marcador";
 import HistorialPdf from "./historial-pdf";
+import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,10 @@ export default async function PanelSupervisor() {
 
       <div className="mt-6">
         <HistorialPdf supervisorNombre={sesion.nombre} />
+      </div>
+
+      <div className="mt-6">
+        <MisReportes />
       </div>
     </main>
   );

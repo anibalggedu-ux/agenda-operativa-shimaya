@@ -5,6 +5,7 @@ import Link from "next/link";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import GpsMarcador from "../supervisor/gps-marcador";
 import HistorialPdf from "../supervisor/historial-pdf";
+import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,10 @@ export default async function PanelCapacitador() {
 
       <div className="mt-6">
         <HistorialPdf supervisorNombre={sesion.nombre} />
+      </div>
+
+      <div className="mt-6">
+        <MisReportes />
       </div>
     </main>
   );

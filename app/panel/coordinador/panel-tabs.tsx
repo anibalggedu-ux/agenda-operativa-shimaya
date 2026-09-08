@@ -7,12 +7,14 @@ import HistorialPdf from "../supervisor/historial-pdf";
 import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
 import Anuncios from "./anuncios";
+import Reportes from "./reportes";
 
-type Pestana = "rutas" | "mi-ruta" | "personal" | "anuncios";
+type Pestana = "rutas" | "mi-ruta" | "reportes" | "personal" | "anuncios";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "rutas", etiqueta: "Rutas" },
   { id: "mi-ruta", etiqueta: "Mi Ruta" },
+  { id: "reportes", etiqueta: "Reportes" },
   { id: "personal", etiqueta: "Personal" },
   { id: "anuncios", etiqueta: "Anuncios" },
 ];
@@ -47,6 +49,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
           <HistorialPdf supervisorNombre={nombre} />
         </div>
       )}
+
+      {pestana === "reportes" && <Reportes />}
 
       {pestana === "personal" && <AsignacionesEspeciales />}
 

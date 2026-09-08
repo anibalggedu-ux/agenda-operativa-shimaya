@@ -115,3 +115,41 @@ export async function enviarReporte(
 
   return { exito: true, mensaje: "Reporte enviado correctamente." };
 }
+
+export type MiReporte = {
+  id: string;
+  fecha: string;
+  tiendaNombre: string;
+  observacion: string;
+  actividad: string | null;
+  respuesta: string | null;
+  respuestaPor: string | null;
+};
+
+export async function obtenerMisReportesRecientes(): Promise<MiReporte[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    throw new Error("No autorizado.");
+  }
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("rutas_diarias")
+    .select("id, fecha, observacion, actividad, respuesta, respuesta_por, tiendas(nombre)")
+    .eq("usuario_id", sesion.id)
+    .order("fecha", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(15);
+
+  if (error) throw new Error("No se pudo cargar tus reportes.");
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    fecha: r.fecha,
+    tiendaNombre: r.tiendas?.nombre ?? "—",
+    observacion: r.observacion,
+    actividad: r.actividad,
+    respuesta: r.respuesta,
+    respuestaPor: r.respuesta_por,
+  }));
+}
