@@ -722,3 +722,71 @@ export async function obtenerHistorialPersona(
     puntos,
   };
 }
+
+// ---------- Perfil del coordinador ----------
+
+function diasEntreFechas(desdeISO: string, hastaISO: string): number {
+  const [y1, m1, d1] = desdeISO.split("-").map(Number);
+  const [y2, m2, d2] = hastaISO.split("-").map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t2 - t1) / 86400000);
+}
+
+export type PerfilCoordinador = {
+  nombre: string;
+  diasDescanso: string[];
+  fechaIngreso: string | null;
+  antiguedad: { anios: number; meses: number } | null;
+  proximoAniversario: { fecha: string; diasFaltantes: number } | null;
+};
+
+export async function obtenerPerfilCoordinador(): Promise<PerfilCoordinador> {
+  const sesion = await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: usuario, error } = await supabase
+    .from("usuarios")
+    .select("nombre, dias_descanso, fecha_ingreso")
+    .eq("id", sesion.id)
+    .maybeSingle();
+
+  if (error) throw new Error("No se pudo cargar el perfil.");
+
+  const fechaIngreso = usuario?.fecha_ingreso ?? null;
+  let antiguedad: PerfilCoordinador["antiguedad"] = null;
+  let proximoAniversario: PerfilCoordinador["proximoAniversario"] = null;
+
+  if (fechaIngreso) {
+    const hoy = hoyPeru();
+    const [yIng, mIng, dIng] = fechaIngreso.split("-").map(Number);
+    const [yHoy, mHoy, dHoy] = hoy.split("-").map(Number);
+
+    let anios = yHoy - yIng;
+    let meses = mHoy - mIng;
+    if (dHoy < dIng) meses -= 1;
+    if (meses < 0) {
+      anios -= 1;
+      meses += 12;
+    }
+    antiguedad = { anios, meses };
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const aniversarioEsteAnio = `${yHoy}-${pad(mIng)}-${pad(dIng)}`;
+    const anioAniversario = aniversarioEsteAnio < hoy ? yHoy + 1 : yHoy;
+    const fechaAniversario = `${anioAniversario}-${pad(mIng)}-${pad(dIng)}`;
+
+    proximoAniversario = {
+      fecha: fechaAniversario,
+      diasFaltantes: diasEntreFechas(hoy, fechaAniversario),
+    };
+  }
+
+  return {
+    nombre: usuario?.nombre ?? sesion.nombre,
+    diasDescanso: usuario?.dias_descanso ?? [],
+    fechaIngreso,
+    antiguedad,
+    proximoAniversario,
+  };
+}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import GpsMarcador from "../supervisor/gps-marcador";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
+import PerfilBanner from "./perfil-banner";
 import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
 import TiendasPermanentes from "./tiendas-permanentes";
@@ -28,6 +29,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
 
   return (
     <div>
+      <PerfilBanner />
+
       <div className="flex gap-2 mb-6 overflow-x-auto">
         {PESTANAS.map((p) => (
           <button
