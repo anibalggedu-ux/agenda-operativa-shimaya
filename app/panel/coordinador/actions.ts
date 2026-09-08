@@ -244,20 +244,33 @@ export type Comunicado = {
   tipo: string;
   mensaje: string;
   autor: string | null;
+  fechaEvento: string | null;
+  ubicacion: string | null;
+  vigente: boolean;
 };
 
 export async function obtenerComunicados(): Promise<Comunicado[]> {
   await exigirCoordinador();
   const supabase = supabaseServer();
+  const hoy = hoyPeru();
 
   const { data, error } = await supabase
     .from("comunicados")
-    .select("id, fecha, tipo, mensaje, autor")
-    .order("fecha", { ascending: false })
-    .limit(30);
+    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion")
+    .order("fecha", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar los anuncios.");
-  return data ?? [];
+
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    fecha: c.fecha,
+    tipo: c.tipo,
+    mensaje: c.mensaje,
+    autor: c.autor,
+    fechaEvento: c.fecha_evento,
+    ubicacion: c.ubicacion,
+    vigente: !c.fecha_evento || c.fecha_evento >= hoy,
+  }));
 }
 
 export async function crearComunicado(
@@ -268,6 +281,8 @@ export async function crearComunicado(
 
   const tipo = String(formData.get("tipo") || "").trim();
   const mensaje = String(formData.get("mensaje") || "").trim();
+  const fechaEvento = String(formData.get("fechaEvento") || "").trim();
+  const ubicacion = String(formData.get("ubicacion") || "").trim();
 
   if (!tipo || !mensaje) {
     return { exito: false, mensaje: "Completa el tipo y el mensaje del anuncio." };
@@ -279,6 +294,8 @@ export async function crearComunicado(
     tipo,
     mensaje,
     autor: sesion.nombre,
+    fecha_evento: fechaEvento || null,
+    ubicacion: ubicacion || null,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo publicar el anuncio." };

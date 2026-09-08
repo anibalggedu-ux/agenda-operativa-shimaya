@@ -26,10 +26,59 @@ function BotonPublicar() {
   );
 }
 
+function TarjetaAnuncio({
+  c,
+  onEliminar,
+}: {
+  c: Comunicado;
+  onEliminar: (id: string) => void;
+}) {
+  return (
+    <div
+      className={`flex items-start justify-between bg-[#0f111a] border rounded-xl p-4 ${
+        c.vigente ? "border-slate-800" : "border-slate-800/50 opacity-60"
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-red-400 text-[10px] font-black uppercase tracking-widest">
+          {c.tipo}
+        </p>
+        <p className="text-white text-sm mt-1">{c.mensaje}</p>
+        {c.fechaEvento && (
+          <p className="text-cyan-400 text-[11px] font-bold mt-2">
+            📅 Evento: {formatearFechaLegible(c.fechaEvento)}
+          </p>
+        )}
+        {c.ubicacion && (
+          <a
+            href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-cyan-400 hover:text-cyan-300 underline text-[11px] font-bold mt-1"
+          >
+            📍 {c.ubicacion} — Ver en Maps
+          </a>
+        )}
+        <p className="text-slate-500 text-[11px] capitalize mt-2">
+          {formatearFechaLegible(c.fecha)}
+          {c.autor ? " · " + c.autor : ""}
+        </p>
+      </div>
+      <button
+        onClick={() => onEliminar(c.id)}
+        className="text-red-400 hover:text-red-300 text-[11px] font-bold uppercase shrink-0 ml-3"
+      >
+        Eliminar
+      </button>
+    </div>
+  );
+}
+
 export default function Anuncios() {
   const [comunicados, setComunicados] = useState<Comunicado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verHistorico, setVerHistorico] = useState(false);
 
   const [estado, formAction] = useFormState(crearComunicado, estadoInicial);
 
@@ -62,6 +111,9 @@ export default function Anuncios() {
   if (error) {
     return <p className="text-red-400 text-sm">{error}</p>;
   }
+
+  const vigentes = comunicados.filter((c) => c.vigente);
+  const historicos = comunicados.filter((c) => !c.vigente);
 
   return (
     <div className="space-y-6">
@@ -98,6 +150,37 @@ export default function Anuncios() {
           />
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+              Fecha del evento (opcional)
+            </label>
+            <input
+              type="date"
+              name="fechaEvento"
+              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+            />
+            <p className="text-slate-600 text-[10px] mt-1">
+              Si la pones, el anuncio desaparece automáticamente al día siguiente del evento
+              (queda guardado como histórico).
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+              Ubicación exacta (opcional)
+            </label>
+            <input
+              name="ubicacion"
+              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+              placeholder="Ej: Av 28 de julio 1445, Miraflores"
+            />
+            <p className="text-slate-600 text-[10px] mt-1">
+              Se mostrará como link directo a Google Maps.
+            </p>
+          </div>
+        </div>
+
         <BotonPublicar />
 
         {estado.mensaje && (
@@ -113,38 +196,36 @@ export default function Anuncios() {
 
       <div>
         <h3 className="text-xs font-black tracking-widest text-slate-300 mb-3">
-          ANUNCIOS RECIENTES ({comunicados.length})
+          ANUNCIOS VIGENTES ({vigentes.length})
         </h3>
-        {comunicados.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">No hay anuncios publicados todavía.</p>
+        {vigentes.length === 0 ? (
+          <p className="text-slate-500 text-sm italic">No hay anuncios vigentes.</p>
         ) : (
           <div className="space-y-2">
-            {comunicados.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-start justify-between bg-[#0f111a] border border-slate-800 rounded-xl p-4"
-              >
-                <div>
-                  <p className="text-red-400 text-[10px] font-black uppercase tracking-widest">
-                    {c.tipo}
-                  </p>
-                  <p className="text-white text-sm mt-1">{c.mensaje}</p>
-                  <p className="text-slate-500 text-[11px] capitalize mt-2">
-                    {formatearFechaLegible(c.fecha)}
-                    {c.autor ? " · " + c.autor : ""}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleEliminar(c.id)}
-                  className="text-red-400 hover:text-red-300 text-[11px] font-bold uppercase shrink-0 ml-3"
-                >
-                  Eliminar
-                </button>
-              </div>
+            {vigentes.map((c) => (
+              <TarjetaAnuncio key={c.id} c={c} onEliminar={handleEliminar} />
             ))}
           </div>
         )}
       </div>
+
+      {historicos.length > 0 && (
+        <div>
+          <button
+            onClick={() => setVerHistorico((v) => !v)}
+            className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest mb-3"
+          >
+            {verHistorico ? "▾" : "▸"} Histórico de eventos vencidos ({historicos.length})
+          </button>
+          {verHistorico && (
+            <div className="space-y-2">
+              {historicos.map((c) => (
+                <TarjetaAnuncio key={c.id} c={c} onEliminar={handleEliminar} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

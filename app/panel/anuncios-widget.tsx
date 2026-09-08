@@ -38,6 +38,21 @@ export default function AnunciosWidget() {
                 {c.tipo}
               </p>
               <p className="text-white text-sm mt-1">{c.mensaje}</p>
+              {c.fechaEvento && (
+                <p className="text-cyan-400 text-[11px] font-bold mt-2">
+                  📅 Evento: {formatearFechaLegible(c.fechaEvento)}
+                </p>
+              )}
+              {c.ubicacion && (
+                <a
+                  href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-cyan-400 hover:text-cyan-300 underline text-[11px] font-bold mt-1"
+                >
+                  📍 {c.ubicacion} — Ver en Maps
+                </a>
+              )}
               <p className="text-slate-500 text-[11px] capitalize mt-2">
                 {formatearFechaLegible(c.fecha)}
                 {c.autor ? " · " + c.autor : ""}
