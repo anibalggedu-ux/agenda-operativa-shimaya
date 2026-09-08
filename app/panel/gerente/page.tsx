@@ -1,15 +1,18 @@
 import { obtenerSesion } from "@/lib/session";
 import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
+import Dashboard from "./dashboard";
+
+export const dynamic = "force-dynamic";
 
 export default async function PanelGerente() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "gerente") redirect("/login");
 
   return (
-    <main className="min-h-screen bg-[#0f0f12] text-white p-8 font-mono">
+    <main className="min-h-screen bg-[#0f0f12] text-white p-6 sm:p-8 font-mono">
       <div className="flex justify-between items-center border-b border-gray-800 pb-4 mb-6">
-        <h1 className="text-2xl font-black tracking-widest">
+        <h1 className="text-xl sm:text-2xl font-black tracking-widest">
           <span className="text-red-600">DASHBOARD</span> GERENCIAL
         </h1>
         <form action={cerrarSesionAction}>
@@ -18,13 +21,11 @@ export default async function PanelGerente() {
           </button>
         </form>
       </div>
-      <p className="text-gray-400 text-sm">
+      <p className="text-gray-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
-      <p className="text-gray-600 text-xs mt-4 italic">
-        Base del panel lista — KPIs, Ranking y Estado del Personal se agregan
-        en las próximas sesiones.
-      </p>
+
+      <Dashboard />
     </main>
   );
 }

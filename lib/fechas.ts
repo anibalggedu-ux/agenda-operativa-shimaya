@@ -50,6 +50,26 @@ export function diaLaboralPeru(esTurnoNocturno: boolean): string {
   return horaActual < CORTE_MADRUGADA_HORA ? sumarDias(hoyPeru(), -1) : hoyPeru();
 }
 
+const DIAS_SEMANA = [
+  "DOMINGO",
+  "LUNES",
+  "MARTES",
+  "MIERCOLES",
+  "JUEVES",
+  "VIERNES",
+  "SABADO",
+];
+
+// Coincide con el formato guardado en usuarios.descanso (mayúsculas, sin
+// tilde), para poder cruzar "hoy" contra el día de descanso fijo de cada
+// persona.
+export function diaSemanaPeru(fechaISO?: string): string {
+  const fecha = fechaISO ?? hoyPeru();
+  const partes = fecha.split("-").map(Number);
+  const d = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2]));
+  return DIAS_SEMANA[d.getUTCDay()];
+}
+
 export function formatearHora(horaHHMMSS: string): string {
   const partes = horaHHMMSS.split(":");
   const h = Number(partes[0]);
