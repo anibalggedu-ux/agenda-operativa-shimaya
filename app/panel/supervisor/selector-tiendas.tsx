@@ -9,6 +9,7 @@ import {
   type ResultadoReporte,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { generarPdfReporteIndividual } from "@/lib/generar-pdf";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -57,12 +58,14 @@ function BotonEnviar() {
   );
 }
 
-export default function SelectorTiendas() {
+export default function SelectorTiendas({ supervisorNombre }: { supervisorNombre: string }) {
   const [tiendas, setTiendas] = useState<TiendaClasificada[] | null>(null);
   const [diaDescanso, setDiaDescanso] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<TiendaClasificada | null>(null);
+  const [observacion, setObservacion] = useState("");
+  const [actividad, setActividad] = useState("");
 
   const [estadoReporte, formAction] = useFormState(enviarReporte, estadoInicialReporte);
 
@@ -80,10 +83,21 @@ export default function SelectorTiendas() {
 
   useEffect(() => {
     if (estadoReporte.exito && seleccionada) {
+      generarPdfReporteIndividual({
+        supervisorNombre,
+        tiendaNombre: seleccionada.tiendaNombre,
+        fecha: seleccionada.fechaPlanificada,
+        area: seleccionada.area,
+        enfoque: seleccionada.enfoque,
+        observacion,
+        actividad,
+      });
       setTiendas((prev) =>
         (prev ?? []).filter((t) => t.rutaActivaId !== seleccionada.rutaActivaId)
       );
       setSeleccionada(null);
+      setObservacion("");
+      setActividad("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoReporte.exito]);
@@ -138,7 +152,11 @@ export default function SelectorTiendas() {
                 return (
                   <button
                     key={tienda.rutaActivaId}
-                    onClick={() => setSeleccionada(tienda)}
+                    onClick={() => {
+                      setSeleccionada(tienda);
+                      setObservacion("");
+                      setActividad("");
+                    }}
                     disabled={tienda.yaReportado}
                     className={`text-left rounded-xl border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
                       estaSeleccionada ? "ring-2 ring-white" : ""
@@ -187,6 +205,8 @@ export default function SelectorTiendas() {
               name="observacion"
               required
               rows={3}
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value)}
               className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
               placeholder="¿Qué encontraste en la visita?"
             />
@@ -198,6 +218,8 @@ export default function SelectorTiendas() {
             </label>
             <input
               name="actividad"
+              value={actividad}
+              onChange={(e) => setActividad(e.target.value)}
               className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
               placeholder="Ej: capacitación de caja, revisión de inventario..."
             />

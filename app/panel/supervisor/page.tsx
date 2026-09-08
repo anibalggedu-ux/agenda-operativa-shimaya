@@ -3,6 +3,7 @@ import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
 import SelectorTiendas from "./selector-tiendas";
 import GpsMarcador from "./gps-marcador";
+import HistorialPdf from "./historial-pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,11 @@ export default async function PanelSupervisor() {
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">
         BITÁCORA DE CAMPO
       </h2>
-      <SelectorTiendas />
+      <SelectorTiendas supervisorNombre={sesion.nombre} />
+
+      <div className="mt-6">
+        <HistorialPdf supervisorNombre={sesion.nombre} />
+      </div>
     </main>
   );
 }
