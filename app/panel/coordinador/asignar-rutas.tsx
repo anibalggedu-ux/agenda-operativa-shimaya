@@ -7,12 +7,12 @@ import {
   obtenerRutasActivas,
   asignarRuta,
   eliminarRutaActiva,
-  AREAS_RUTA,
   type UsuarioBasico,
   type TiendaBasica,
   type RutaActiva,
   type ResultadoAccion,
 } from "./actions";
+import { AREAS_RUTA } from "./constantes";
 import { formatearFechaLegible, formatearHora, hoyPeru } from "@/lib/fechas";
 import SelectorGrid from "./selector-grid";
 

@@ -19,7 +19,7 @@ export type TiendaClasificada = {
 
 export async function obtenerTiendasClasificadas(): Promise<{
   tiendas: TiendaClasificada[];
-  diaDescansoFijo: string | null;
+  diaDescansoFijo: string[] | null;
 }> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
@@ -33,7 +33,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
 
   const { data: usuario } = await supabase
     .from("usuarios")
-    .select("descanso")
+    .select("dias_descanso")
     .eq("id", sesion.id)
     .maybeSingle();
 
@@ -71,7 +71,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     };
   });
 
-  return { tiendas, diaDescansoFijo: usuario?.descanso ?? null };
+  return { tiendas, diaDescansoFijo: usuario?.dias_descanso ?? null };
 }
 
 export type ResultadoReporte = { exito: boolean; mensaje?: string };

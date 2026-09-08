@@ -60,7 +60,7 @@ function BotonEnviar() {
 
 export default function SelectorTiendas({ supervisorNombre }: { supervisorNombre: string }) {
   const [tiendas, setTiendas] = useState<TiendaClasificada[] | null>(null);
-  const [diaDescanso, setDiaDescanso] = useState<string | null>(null);
+  const [diaDescanso, setDiaDescanso] = useState<string[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<TiendaClasificada | null>(null);
@@ -133,9 +133,10 @@ export default function SelectorTiendas({ supervisorNombre }: { supervisorNombre
 
   return (
     <div className="space-y-6">
-      {diaDescanso && (
+      {diaDescanso && diaDescanso.length > 0 && (
         <div className="bg-indigo-950/30 border border-indigo-700/40 rounded-xl px-4 py-2 text-indigo-300 text-xs font-bold">
-          🛌 Tu día de descanso fijo: {diaDescanso}
+          🛌 Tu{diaDescanso.length > 1 ? "s días de descanso fijos" : " día de descanso fijo"}:{" "}
+          {diaDescanso.join(" y ")}
         </div>
       )}
 

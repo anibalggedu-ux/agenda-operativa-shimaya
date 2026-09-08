@@ -6,6 +6,9 @@ import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
+import TiendasPermanentes from "./tiendas-permanentes";
+import DescansosSemanales from "./descansos-semanales";
+import EstadoPersonalHoy from "./estado-personal-hoy";
 import Anuncios from "./anuncios";
 import Reportes from "./reportes";
 import MisPuntosWidget from "../mis-puntos-widget";
@@ -54,7 +57,14 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
 
       {pestana === "reportes" && <Reportes />}
 
-      {pestana === "personal" && <AsignacionesEspeciales />}
+      {pestana === "personal" && (
+        <div className="space-y-8">
+          <EstadoPersonalHoy />
+          <AsignacionesEspeciales />
+          <TiendasPermanentes />
+          <DescansosSemanales />
+        </div>
+      )}
 
       {pestana === "anuncios" && <Anuncios />}
     </div>

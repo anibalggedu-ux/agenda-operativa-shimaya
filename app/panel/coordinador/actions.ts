@@ -2,7 +2,8 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { hoyPeru } from "@/lib/fechas";
+import { hoyPeru, diaSemanaPeru, DIAS_SEMANA } from "@/lib/fechas";
+import { AREAS_RUTA, MAX_TIENDAS_PERMANENTES, MAX_DIAS_DESCANSO } from "./constantes";
 
 async function exigirCoordinador() {
   const sesion = await obtenerSesion();
@@ -36,15 +37,6 @@ export async function obtenerUsuariosYTiendas(): Promise<{
 }
 
 // ---------- Rutas / asignaciones ----------
-
-export const AREAS_RUTA = [
-  "Caja",
-  "Cocina",
-  "Salón",
-  "Supervisión General",
-  "Auditoría",
-  "Administración",
-] as const;
 
 export type RutaActiva = {
   id: string;
@@ -363,4 +355,203 @@ export async function responderReporte(
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
   return { exito: true, mensaje: "Respuesta enviada." };
+}
+
+// ---------- Tiendas permanentes ----------
+
+const ROLES_CON_RUTA = ["supervisor", "capacitador"];
+
+export type SupervisorConTiendas = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  tiendas: { id: string; tiendaId: string; tiendaNombre: string }[];
+};
+
+export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const [{ data: usuarios, error: errorUsuarios }, { data: asignadas, error: errorAsignadas }] =
+    await Promise.all([
+      supabase
+        .from("usuarios")
+        .select("id, nombre, rol")
+        .in("rol", ROLES_CON_RUTA)
+        .order("nombre"),
+      supabase.from("tiendas_permanentes").select("id, usuario_id, tienda_id, tiendas(nombre)"),
+    ]);
+
+  if (errorUsuarios || errorAsignadas) {
+    throw new Error("No se pudo cargar las tiendas permanentes.");
+  }
+
+  const porUsuario = new Map<string, SupervisorConTiendas["tiendas"]>();
+  (asignadas ?? []).forEach((a: any) => {
+    const lista = porUsuario.get(a.usuario_id) ?? [];
+    lista.push({ id: a.id, tiendaId: a.tienda_id, tiendaNombre: a.tiendas?.nombre ?? "—" });
+    porUsuario.set(a.usuario_id, lista);
+  });
+
+  return (usuarios ?? []).map((u) => ({
+    usuarioId: u.id,
+    usuarioNombre: u.nombre,
+    rol: u.rol,
+    tiendas: porUsuario.get(u.id) ?? [],
+  }));
+}
+
+export async function asignarTiendaPermanente(
+  usuarioId: string,
+  tiendaId: string
+): Promise<ResultadoAccion> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: actuales, error: errorActuales } = await supabase
+    .from("tiendas_permanentes")
+    .select("id, tienda_id")
+    .eq("usuario_id", usuarioId);
+
+  if (errorActuales) return { exito: false, mensaje: "No se pudo verificar las tiendas actuales." };
+
+  if ((actuales ?? []).some((a) => a.tienda_id === tiendaId)) {
+    return { exito: false, mensaje: "Esa tienda ya está asignada a esta persona." };
+  }
+
+  if ((actuales ?? []).length >= MAX_TIENDAS_PERMANENTES) {
+    return { exito: false, mensaje: `Máximo ${MAX_TIENDAS_PERMANENTES} tiendas permanentes por persona.` };
+  }
+
+  const { error } = await supabase
+    .from("tiendas_permanentes")
+    .insert({ usuario_id: usuarioId, tienda_id: tiendaId });
+
+  if (error) return { exito: false, mensaje: "No se pudo asignar la tienda permanente." };
+  return { exito: true };
+}
+
+export async function eliminarTiendaPermanente(id: string): Promise<ResultadoAccion> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("tiendas_permanentes").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo quitar la tienda permanente." };
+  return { exito: true };
+}
+
+// ---------- Descansos semanales ----------
+
+export type UsuarioDescanso = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  diasDescanso: string[];
+};
+
+export async function obtenerDescansosUsuarios(): Promise<UsuarioDescanso[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol, dias_descanso")
+    .order("nombre");
+
+  if (error) throw new Error("No se pudo cargar los descansos.");
+
+  return (data ?? []).map((u: any) => ({
+    usuarioId: u.id,
+    usuarioNombre: u.nombre,
+    rol: u.rol,
+    diasDescanso: u.dias_descanso ?? [],
+  }));
+}
+
+export async function actualizarDiasDescanso(
+  usuarioId: string,
+  dias: string[]
+): Promise<ResultadoAccion> {
+  await exigirCoordinador();
+
+  if (dias.length > MAX_DIAS_DESCANSO) {
+    return { exito: false, mensaje: `Máximo ${MAX_DIAS_DESCANSO} días de descanso por semana.` };
+  }
+  if (dias.some((d) => !(DIAS_SEMANA as readonly string[]).includes(d))) {
+    return { exito: false, mensaje: "Día inválido." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ dias_descanso: dias.length > 0 ? dias : null })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar el descanso." };
+  return { exito: true };
+}
+
+// ---------- Estado del personal hoy ----------
+
+export type EstadoPersonalHoy = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  estado: "DESCANSO_SEMANAL" | "VACACIONES" | "PERMISO" | "DESCANSO_MEDICO" | "MISION_ESPECIAL" | null;
+  detalle: string | null;
+};
+
+export async function obtenerEstadoPersonalHoy(): Promise<EstadoPersonalHoy[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+  const hoy = hoyPeru();
+  const diaSemana = diaSemanaPeru();
+
+  const [{ data: usuarios, error: errorUsuarios }, { data: especiales, error: errorEspeciales }] =
+    await Promise.all([
+      supabase.from("usuarios").select("id, nombre, rol, dias_descanso").order("nombre"),
+      supabase
+        .from("asignaciones_especiales")
+        .select("usuario_id, tipo, fecha_inicio, fecha_fin")
+        .lte("fecha_inicio", hoy)
+        .gte("fecha_fin", hoy),
+    ]);
+
+  if (errorUsuarios || errorEspeciales) {
+    throw new Error("No se pudo cargar el estado del personal.");
+  }
+
+  const especialPorUsuario = new Map<string, string>();
+  (especiales ?? []).forEach((e) => {
+    especialPorUsuario.set(e.usuario_id, e.tipo);
+  });
+
+  const tipoAEstado: Record<string, EstadoPersonalHoy["estado"]> = {
+    Vacaciones: "VACACIONES",
+    Permiso: "PERMISO",
+    "Descanso Médico": "DESCANSO_MEDICO",
+    "Misión Especial": "MISION_ESPECIAL",
+  };
+
+  return (usuarios ?? []).map((u: any) => {
+    const tipoEspecial = especialPorUsuario.get(u.id);
+    if (tipoEspecial) {
+      return {
+        usuarioId: u.id,
+        usuarioNombre: u.nombre,
+        rol: u.rol,
+        estado: tipoAEstado[tipoEspecial] ?? null,
+        detalle: tipoEspecial,
+      };
+    }
+    if ((u.dias_descanso ?? []).includes(diaSemana)) {
+      return {
+        usuarioId: u.id,
+        usuarioNombre: u.nombre,
+        rol: u.rol,
+        estado: "DESCANSO_SEMANAL",
+        detalle: "Descanso semanal",
+      };
+    }
+    return { usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, estado: null, detalle: null };
+  });
 }

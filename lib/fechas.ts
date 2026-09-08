@@ -50,7 +50,7 @@ export function diaLaboralPeru(esTurnoNocturno: boolean): string {
   return horaActual < CORTE_MADRUGADA_HORA ? sumarDias(hoyPeru(), -1) : hoyPeru();
 }
 
-const DIAS_SEMANA = [
+export const DIAS_SEMANA = [
   "DOMINGO",
   "LUNES",
   "MARTES",
