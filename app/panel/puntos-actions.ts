@@ -103,6 +103,20 @@ export async function obtenerMisPuntos(): Promise<MisPuntos> {
   };
 }
 
+export async function obtenerPuntosDeUsuario(usuarioId: string): Promise<MisPuntos> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const todos = await calcularPuntosDeTodos();
+  const puntos = todos.find((p) => p.usuarioId === usuarioId)?.puntos ?? 0;
+
+  return {
+    puntos,
+    medallas: calcularConteoMedallas(puntos),
+    progresoBronce: progresoProximoBronce(puntos),
+  };
+}
+
 export type FilaVitrina = PuntosUsuario & { medallas: ConteoMedallas };
 
 export async function obtenerVitrinaTrofeos(): Promise<FilaVitrina[]> {

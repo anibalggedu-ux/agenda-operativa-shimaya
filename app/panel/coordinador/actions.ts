@@ -3,7 +3,13 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { hoyPeru, diaSemanaPeru, DIAS_SEMANA } from "@/lib/fechas";
-import { AREAS_RUTA, MAX_TIENDAS_PERMANENTES, MAX_DIAS_DESCANSO } from "./constantes";
+import {
+  AREAS_RUTA,
+  MAX_TIENDAS_PERMANENTES,
+  MAX_DIAS_DESCANSO,
+  HORA_LIMITE_TARDANZA,
+} from "./constantes";
+import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 
 async function exigirCoordinador() {
   const sesion = await obtenerSesion();
@@ -301,7 +307,10 @@ export type ReporteBitacora = {
   respuestaPor: string | null;
 };
 
-export async function obtenerReportesRecientes(): Promise<ReporteBitacora[]> {
+export async function obtenerReportesRecientes(
+  desde: string,
+  hasta: string
+): Promise<ReporteBitacora[]> {
   await exigirCoordinador();
   const supabase = supabaseServer();
 
@@ -310,9 +319,10 @@ export async function obtenerReportesRecientes(): Promise<ReporteBitacora[]> {
     .select(
       "id, fecha, rol, observacion, actividad, respuesta, respuesta_por, usuarios(nombre), tiendas(nombre)"
     )
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
     .order("fecha", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(30);
+    .order("created_at", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar los reportes.");
 
@@ -554,4 +564,144 @@ export async function obtenerEstadoPersonalHoy(): Promise<EstadoPersonalHoy[]> {
     }
     return { usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, estado: null, detalle: null };
   });
+}
+
+// ---------- Historial por tienda ----------
+
+export type ObservacionTienda = {
+  fecha: string;
+  usuarioNombre: string;
+  rol: string;
+  observacion: string;
+  actividad: string | null;
+};
+
+export type VisitanteTienda = { usuarioNombre: string; rol: string; visitas: number };
+
+export type HistorialTienda = {
+  tiendaNombre: string;
+  totalVisitas: number;
+  observaciones: ObservacionTienda[];
+  visitantes: VisitanteTienda[];
+};
+
+export async function obtenerHistorialTienda(
+  tiendaId: string,
+  desde: string,
+  hasta: string
+): Promise<HistorialTienda> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const [{ data: tienda, error: errorTienda }, { data, error }] = await Promise.all([
+    supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
+    supabase
+      .from("rutas_diarias")
+      .select("fecha, rol, observacion, actividad, usuarios(nombre)")
+      .eq("tienda_id", tiendaId)
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: false }),
+  ]);
+
+  if (errorTienda || error) throw new Error("No se pudo cargar el historial de la tienda.");
+
+  const filas = data ?? [];
+
+  const visitantesMap = new Map<string, VisitanteTienda>();
+  filas.forEach((r: any) => {
+    const nombre = r.usuarios?.nombre ?? "—";
+    const existente = visitantesMap.get(nombre);
+    if (existente) existente.visitas += 1;
+    else visitantesMap.set(nombre, { usuarioNombre: nombre, rol: r.rol ?? "—", visitas: 1 });
+  });
+
+  return {
+    tiendaNombre: tienda?.nombre ?? "—",
+    totalVisitas: filas.length,
+    observaciones: filas.map((r: any) => ({
+      fecha: r.fecha,
+      usuarioNombre: r.usuarios?.nombre ?? "—",
+      rol: r.rol,
+      observacion: r.observacion,
+      actividad: r.actividad,
+    })),
+    visitantes: Array.from(visitantesMap.values()).sort((a, b) => b.visitas - a.visitas),
+  };
+}
+
+// ---------- Historial por persona ----------
+
+export type TiendaVisitada = { fecha: string; tiendaNombre: string; observacion: string };
+
+export type MarcacionPersona = {
+  fecha: string;
+  horaIngreso: string | null;
+  horaSalida: string | null;
+  tarde: boolean;
+};
+
+export type HistorialPersona = {
+  usuarioNombre: string;
+  rol: string;
+  tiendasVisitadas: TiendaVisitada[];
+  marcaciones: MarcacionPersona[];
+  puntos: MisPuntos;
+};
+
+export async function obtenerHistorialPersona(
+  usuarioId: string,
+  desde: string,
+  hasta: string
+): Promise<HistorialPersona> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const [
+    { data: usuario, error: errorUsuario },
+    { data: rutas, error: errorRutas },
+    { data: marcaciones, error: errorMarcaciones },
+    puntos,
+  ] = await Promise.all([
+    supabase.from("usuarios").select("nombre, rol").eq("id", usuarioId).maybeSingle(),
+    supabase
+      .from("rutas_diarias")
+      .select("fecha, observacion, tiendas(nombre)")
+      .eq("usuario_id", usuarioId)
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: false }),
+    supabase
+      .from("asistencia")
+      .select("fecha, hora_ingreso, hora_salida")
+      .eq("usuario_id", usuarioId)
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: false }),
+    obtenerPuntosDeUsuario(usuarioId),
+  ]);
+
+  if (errorUsuario || errorRutas || errorMarcaciones) {
+    throw new Error("No se pudo cargar el historial de la persona.");
+  }
+
+  const rol = usuario?.rol ?? "";
+  const limite = HORA_LIMITE_TARDANZA[rol];
+
+  return {
+    usuarioNombre: usuario?.nombre ?? "—",
+    rol,
+    tiendasVisitadas: (rutas ?? []).map((r: any) => ({
+      fecha: r.fecha,
+      tiendaNombre: r.tiendas?.nombre ?? "—",
+      observacion: r.observacion,
+    })),
+    marcaciones: (marcaciones ?? []).map((m) => ({
+      fecha: m.fecha,
+      horaIngreso: m.hora_ingreso,
+      horaSalida: m.hora_salida,
+      tarde: !!(limite && m.hora_ingreso && m.hora_ingreso > limite),
+    })),
+    puntos,
+  };
 }

@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { formatearFechaLegible } from "./fechas";
+import { formatearFechaLegible, formatearHora } from "./fechas";
 
 const AMARILLO: [number, number, number] = [234, 179, 8];
 const FONDO_OSCURO: [number, number, number] = [15, 17, 26];
@@ -145,5 +145,199 @@ export function generarPdfHistorial(
   });
 
   const nombreArchivo = "historial_" + desde + "_a_" + hasta + ".pdf";
+  doc.save(nombreArchivo);
+}
+
+const ALTO_PAGINA = 280;
+
+export type DatosHistorialTienda = {
+  tiendaNombre: string;
+  desde: string;
+  hasta: string;
+  totalVisitas: number;
+  observaciones: {
+    fecha: string;
+    usuarioNombre: string;
+    rol: string;
+    observacion: string;
+    actividad: string | null;
+  }[];
+  visitantes: { usuarioNombre: string; rol: string; visitas: number }[];
+};
+
+export function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
+  const doc = new jsPDF();
+  dibujarEncabezado(doc, "Historial de tienda — Coordinador");
+
+  let y = 40;
+  y = campo(doc, "Tienda:", datos.tiendaNombre, y);
+  y = campo(
+    doc,
+    "Rango:",
+    formatearFechaLegible(datos.desde) + "  →  " + formatearFechaLegible(datos.hasta),
+    y
+  );
+  y = campo(doc, "Total visitas:", String(datos.totalVisitas), y);
+  y += 4;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Colaboradores que visitaron:", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  if (datos.visitantes.length === 0) {
+    doc.text("—", 14, y);
+    y += 6;
+  } else {
+    datos.visitantes.forEach((v) => {
+      doc.text(`${v.usuarioNombre} (${v.rol}) — ${v.visitas} visita(s)`, 14, y);
+      y += 5.5;
+    });
+  }
+  y += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Observaciones:", 14, y);
+  y += 7;
+
+  if (datos.observaciones.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.text("No hay observaciones en este rango de fechas.", 14, y);
+  }
+
+  datos.observaciones.forEach((o) => {
+    const lineasObservacion = doc.splitTextToSize(o.observacion, ANCHO_UTIL);
+    const lineasActividad = o.actividad
+      ? doc.splitTextToSize("Actividad: " + o.actividad, ANCHO_UTIL)
+      : [];
+    const altoBloque = 7 + lineasActividad.length * 5 + lineasObservacion.length * 5 + 6;
+
+    if (y + altoBloque > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(formatearFechaLegible(o.fecha) + " — " + o.usuarioNombre + " (" + o.rol + ")", 14, y);
+    y += 6;
+
+    if (lineasActividad.length > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.text(lineasActividad, 14, y);
+      y += lineasActividad.length * 5;
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(lineasObservacion, 14, y);
+    y += lineasObservacion.length * 5 + 8;
+  });
+
+  const nombreArchivo =
+    "historial_" + datos.tiendaNombre.replace(/\s+/g, "_") + "_" + datos.desde + "_a_" + datos.hasta + ".pdf";
+  doc.save(nombreArchivo);
+}
+
+export type DatosHistorialPersona = {
+  usuarioNombre: string;
+  rol: string;
+  desde: string;
+  hasta: string;
+  tiendasVisitadas: { fecha: string; tiendaNombre: string; observacion: string }[];
+  marcaciones: { fecha: string; horaIngreso: string | null; horaSalida: string | null; tarde: boolean }[];
+  puntos: { puntos: number; medallas: Record<"bronce" | "plata" | "oro" | "estrella", number> };
+};
+
+export function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
+  const doc = new jsPDF();
+  dibujarEncabezado(doc, "Historial de colaborador — Coordinador");
+
+  let y = 40;
+  y = campo(doc, "Nombre:", datos.usuarioNombre + " (" + datos.rol + ")", y);
+  y = campo(
+    doc,
+    "Rango:",
+    formatearFechaLegible(datos.desde) + "  →  " + formatearFechaLegible(datos.hasta),
+    y
+  );
+  y = campo(
+    doc,
+    "Puntos:",
+    `${datos.puntos.puntos} pts — 🥉x${datos.puntos.medallas.bronce} 🥈x${datos.puntos.medallas.plata} 🥇x${datos.puntos.medallas.oro} 🌟x${datos.puntos.medallas.estrella}`,
+    y
+  );
+  y += 4;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Marcaciones de entrada / salida:", 14, y);
+  y += 7;
+
+  if (datos.marcaciones.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Sin marcaciones en este rango.", 14, y);
+    y += 6;
+  } else {
+    datos.marcaciones.forEach((m) => {
+      if (y + 6 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      if (m.tarde) doc.setTextColor(200, 30, 30);
+      else doc.setTextColor(0, 0, 0);
+      const ingreso = m.horaIngreso ? formatearHora(m.horaIngreso) : "—";
+      const salida = m.horaSalida ? formatearHora(m.horaSalida) : "—";
+      doc.text(
+        `${formatearFechaLegible(m.fecha)} — Ingreso: ${ingreso}${m.tarde ? " (TARDE)" : ""} · Salida: ${salida}`,
+        14,
+        y
+      );
+      y += 5.5;
+    });
+    doc.setTextColor(0, 0, 0);
+    y += 4;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Tiendas visitadas:", 14, y);
+  y += 7;
+
+  if (datos.tiendasVisitadas.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Sin visitas registradas en este rango.", 14, y);
+  }
+
+  datos.tiendasVisitadas.forEach((t) => {
+    const lineasObservacion = doc.splitTextToSize(t.observacion, ANCHO_UTIL);
+    const altoBloque = 6 + lineasObservacion.length * 5 + 5;
+
+    if (y + altoBloque > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.text(formatearFechaLegible(t.fecha) + " — " + t.tiendaNombre, 14, y);
+    y += 5.5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(lineasObservacion, 14, y);
+    y += lineasObservacion.length * 5 + 6;
+  });
+
+  const nombreArchivo =
+    "historial_" + datos.usuarioNombre.replace(/\s+/g, "_") + "_" + datos.desde + "_a_" + datos.hasta + ".pdf";
   doc.save(nombreArchivo);
 }
