@@ -12,6 +12,7 @@ import {
   type ResultadoAccion,
 } from "./actions";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
+import SelectorGrid from "./selector-grid";
 
 const TIPOS = ["Vacaciones", "Permiso", "Descanso Médico", "Misión Especial"] as const;
 
@@ -43,6 +44,8 @@ export default function AsignacionesEspeciales() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
+
   const [estado, formAction] = useFormState(crearAsignacionEspecial, estadoInicial);
 
   function cargarTodo() {
@@ -61,7 +64,10 @@ export default function AsignacionesEspeciales() {
   }, []);
 
   useEffect(() => {
-    if (estado.exito) cargarTodo();
+    if (estado.exito) {
+      cargarTodo();
+      setUsuarioId(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
@@ -88,25 +94,20 @@ export default function AsignacionesEspeciales() {
           NUEVA ASIGNACIÓN ESPECIAL
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
-              Usuario
-            </label>
-            <select
-              name="usuarioId"
-              required
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
-            >
-              <option value="">Selecciona...</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre} ({u.rol})
-                </option>
-              ))}
-            </select>
-          </div>
+        <input type="hidden" name="usuarioId" value={usuarioId ?? ""} />
 
+        <div>
+          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-2">
+            Usuario
+          </label>
+          <SelectorGrid
+            opciones={usuarios.map((u) => ({ id: u.id, titulo: u.nombre, subtitulo: u.rol }))}
+            seleccionadoId={usuarioId}
+            onSeleccionar={setUsuarioId}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
               Tipo

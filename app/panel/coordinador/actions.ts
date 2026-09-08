@@ -37,34 +37,82 @@ export async function obtenerUsuariosYTiendas(): Promise<{
 
 // ---------- Rutas / asignaciones ----------
 
+export const AREAS_RUTA = [
+  "Caja",
+  "Cocina",
+  "Salón",
+  "Supervisión General",
+  "Auditoría",
+  "Administración",
+] as const;
+
 export type RutaActiva = {
   id: string;
   fechaPlanificada: string;
   area: string | null;
   enfoque: string | null;
+  usuarioId: string;
   usuarioNombre: string;
+  tiendaId: string;
   tiendaNombre: string;
+  horaIngreso: string | null;
+  ubicacionIngreso: string | null;
+  horaSalida: string | null;
+  ubicacionSalida: string | null;
 };
 
 export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   await exigirCoordinador();
   const supabase = supabaseServer();
 
+  // Solo hoy en adelante — las rutas de días ya pasados quedan como
+  // historial y no deben seguir acumulándose en esta lista de trabajo.
   const { data, error } = await supabase
     .from("rutas_activas")
-    .select("id, fecha_planificada, area, enfoque, usuarios(nombre), tiendas(nombre)")
+    .select(
+      "id, fecha_planificada, area, enfoque, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)"
+    )
+    .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
 
   if (error) throw new Error("No se pudo cargar las rutas activas.");
 
-  return (data ?? []).map((r: any) => ({
-    id: r.id,
-    fechaPlanificada: r.fecha_planificada,
-    area: r.area,
-    enfoque: r.enfoque,
-    usuarioNombre: r.usuarios?.nombre ?? "—",
-    tiendaNombre: r.tiendas?.nombre ?? "—",
-  }));
+  const filas = data ?? [];
+  if (filas.length === 0) return [];
+
+  const usuarioIds = Array.from(new Set(filas.map((r: any) => r.usuario_id)));
+  const fechas = Array.from(new Set(filas.map((r: any) => r.fecha_planificada)));
+
+  const { data: marcaciones, error: errorMarcaciones } = await supabase
+    .from("asistencia")
+    .select("usuario_id, fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida")
+    .in("usuario_id", usuarioIds)
+    .in("fecha", fechas);
+
+  if (errorMarcaciones) throw new Error("No se pudo cargar las marcaciones de asistencia.");
+
+  const mapaMarcaciones = new Map<string, (typeof marcaciones)[number]>();
+  (marcaciones ?? []).forEach((m) => {
+    mapaMarcaciones.set(m.usuario_id + "|" + m.fecha, m);
+  });
+
+  return filas.map((r: any) => {
+    const marcacion = mapaMarcaciones.get(r.usuario_id + "|" + r.fecha_planificada);
+    return {
+      id: r.id,
+      fechaPlanificada: r.fecha_planificada,
+      area: r.area,
+      enfoque: r.enfoque,
+      usuarioId: r.usuario_id,
+      usuarioNombre: r.usuarios?.nombre ?? "—",
+      tiendaId: r.tienda_id,
+      tiendaNombre: r.tiendas?.nombre ?? "—",
+      horaIngreso: marcacion?.hora_ingreso ?? null,
+      ubicacionIngreso: marcacion?.ubicacion_ingreso ?? null,
+      horaSalida: marcacion?.hora_salida ?? null,
+      ubicacionSalida: marcacion?.ubicacion_salida ?? null,
+    };
+  });
 }
 
 export type ResultadoAccion = { exito: boolean; mensaje?: string };
@@ -83,6 +131,10 @@ export async function asignarRuta(
 
   if (!usuarioId || !tiendaId || !fechaPlanificada) {
     return { exito: false, mensaje: "Selecciona usuario, tienda y fecha." };
+  }
+
+  if (area && !(AREAS_RUTA as readonly string[]).includes(area)) {
+    return { exito: false, mensaje: "Área inválida." };
   }
 
   const supabase = supabaseServer();
