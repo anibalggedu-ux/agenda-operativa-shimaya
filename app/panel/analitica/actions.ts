@@ -53,14 +53,22 @@ export async function obtenerRankingTiendas(
 
   const { data, error } = await supabase
     .from("rutas_diarias")
-    .select("fecha, tiendas(nombre)")
+    .select("fecha, usuario_id, tienda_id, tiendas(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta);
 
   if (error) throw new Error("No se pudo cargar el ranking de tiendas.");
 
-  const conteo = new Map<string, number>();
+  // Si la misma persona reportó la misma tienda más de una vez el mismo día,
+  // eso cuenta como UNA sola visita (mismo criterio que en Coordinador).
+  const visitasUnicas = new Map<string, any>();
   (data ?? []).forEach((r: any) => {
+    const clave = `${r.usuario_id}|${r.tienda_id}|${r.fecha}`;
+    if (!visitasUnicas.has(clave)) visitasUnicas.set(clave, r);
+  });
+
+  const conteo = new Map<string, number>();
+  visitasUnicas.forEach((r: any) => {
     const nombre = r.tiendas?.nombre ?? "—";
     conteo.set(nombre, (conteo.get(nombre) ?? 0) + 1);
   });
@@ -82,14 +90,22 @@ export async function obtenerDesempenoPorPersona(
 
   const { data, error } = await supabase
     .from("rutas_diarias")
-    .select("rol, usuarios(nombre)")
+    .select("fecha, usuario_id, tienda_id, rol, usuarios(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta);
 
   if (error) throw new Error("No se pudo cargar el desempeño por persona.");
 
-  const conteo = new Map<string, { nombre: string; rol: string; reportes: number }>();
+  // Reportes duplicados de la misma persona para la misma tienda el mismo día
+  // cuentan como UNA sola visita, no varias (mismo criterio que en Coordinador).
+  const visitasUnicas = new Map<string, any>();
   (data ?? []).forEach((r: any) => {
+    const clave = `${r.usuario_id}|${r.tienda_id}|${r.fecha}`;
+    if (!visitasUnicas.has(clave)) visitasUnicas.set(clave, r);
+  });
+
+  const conteo = new Map<string, { nombre: string; rol: string; reportes: number }>();
+  visitasUnicas.forEach((r: any) => {
     const nombre = r.usuarios?.nombre ?? "—";
     const existente = conteo.get(nombre);
     if (existente) existente.reportes += 1;
