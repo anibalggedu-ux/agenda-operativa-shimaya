@@ -70,6 +70,44 @@ export function diaSemanaPeru(fechaISO?: string): string {
   return DIAS_SEMANA[d.getUTCDay()];
 }
 
+export function diasEntreFechas(desdeISO: string, hastaISO: string): number {
+  const [y1, m1, d1] = desdeISO.split("-").map(Number);
+  const [y2, m2, d2] = hastaISO.split("-").map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t2 - t1) / 86400000);
+}
+
+export function calcularAntiguedad(
+  fechaIngreso: string,
+  hoy: string
+): { anios: number; meses: number } {
+  const [yIng, mIng, dIng] = fechaIngreso.split("-").map(Number);
+  const [yHoy, mHoy, dHoy] = hoy.split("-").map(Number);
+
+  let anios = yHoy - yIng;
+  let meses = mHoy - mIng;
+  if (dHoy < dIng) meses -= 1;
+  if (meses < 0) {
+    anios -= 1;
+    meses += 12;
+  }
+  return { anios, meses };
+}
+
+export function calcularProximaFechaAnual(
+  mes: number,
+  dia: number,
+  hoy: string
+): { fecha: string; diasFaltantes: number } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const [yHoy] = hoy.split("-").map(Number);
+  const esteAnio = `${yHoy}-${pad(mes)}-${pad(dia)}`;
+  const anio = esteAnio < hoy ? yHoy + 1 : yHoy;
+  const fecha = `${anio}-${pad(mes)}-${pad(dia)}`;
+  return { fecha, diasFaltantes: diasEntreFechas(hoy, fecha) };
+}
+
 export function formatearHora(horaHHMMSS: string): string {
   const partes = horaHHMMSS.split(":");
   const h = Number(partes[0]);

@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import {
   obtenerEstadoAsistenciaHoy,
+  obtenerAmbiguedadSalida,
   marcarIngreso,
   marcarSalida,
 } from "./gps-actions";
-import { formatearHora } from "@/lib/fechas";
+import { formatearHora, formatearFechaLegible } from "@/lib/fechas";
 
 type Coordenadas = { lat: number; lng: number };
 
@@ -16,6 +17,7 @@ export default function GpsMarcador() {
   const [cargando, setCargando] = useState<boolean>(true);
   const [procesando, setProcesando] = useState<boolean>(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [preguntaFecha, setPreguntaFecha] = useState<{ hoy: string; ayer: string } | null>(null);
 
   useEffect(() => {
     obtenerEstadoAsistenciaHoy()
@@ -70,8 +72,28 @@ export default function GpsMarcador() {
     setProcesando(true);
     setMensaje(null);
     try {
+      const ambiguedad = await obtenerAmbiguedadSalida();
+      if (ambiguedad.ambiguo) {
+        // Pasada la medianoche no se sabe si esta salida cierra el turno de
+        // hoy o el de ayer — se le pregunta al colaborador antes de marcar.
+        setPreguntaFecha({ hoy: ambiguedad.hoy, ayer: ambiguedad.ayer });
+        setProcesando(false);
+        return;
+      }
+      await confirmarSalida();
+    } catch (e: any) {
+      setMensaje(e && e.message ? e.message : "Ocurrió un error.");
+      setProcesando(false);
+    }
+  }
+
+  async function confirmarSalida(fechaElegida?: string) {
+    setPreguntaFecha(null);
+    setProcesando(true);
+    setMensaje(null);
+    try {
       const coords = await obtenerUbicacion();
-      const resultado = await marcarSalida(coords.lat, coords.lng);
+      const resultado = await marcarSalida(coords.lat, coords.lng, fechaElegida);
       if (resultado.exito) {
         setHoraSalida(resultado.hora || null);
         setMensaje("Salida registrada correctamente.");
@@ -110,22 +132,46 @@ export default function GpsMarcador() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button
-          onClick={handleIngreso}
-          disabled={procesando || !!horaIngreso}
-          className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
-        >
-          {procesando ? "..." : "Marcar Ingreso"}
-        </button>
-        <button
-          onClick={handleSalida}
-          disabled={procesando || !horaIngreso || !!horaSalida}
-          className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
-        >
-          {procesando ? "..." : "Marcar Salida"}
-        </button>
-      </div>
+      {preguntaFecha ? (
+        <div className="bg-yellow-950/20 border border-yellow-600/50 rounded-xl p-4 space-y-3">
+          <p className="text-yellow-300 text-xs font-bold text-center">
+            Ya pasó la medianoche — ¿esta salida pertenece al turno de hoy o al de ayer?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => confirmarSalida(preguntaFecha.hoy)}
+              disabled={procesando}
+              className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-black py-2.5 rounded-xl text-[11px] tracking-widest uppercase transition"
+            >
+              Hoy ({formatearFechaLegible(preguntaFecha.hoy)})
+            </button>
+            <button
+              onClick={() => confirmarSalida(preguntaFecha.ayer)}
+              disabled={procesando}
+              className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white font-black py-2.5 rounded-xl text-[11px] tracking-widest uppercase transition"
+            >
+              Ayer ({formatearFechaLegible(preguntaFecha.ayer)})
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-3">
+          <button
+            onClick={handleIngreso}
+            disabled={procesando || !!horaIngreso}
+            className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+          >
+            {procesando ? "..." : "Marcar Ingreso"}
+          </button>
+          <button
+            onClick={handleSalida}
+            disabled={procesando || !horaIngreso || !!horaSalida}
+            className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+          >
+            {procesando ? "..." : "Marcar Salida"}
+          </button>
+        </div>
+      )}
 
       {mensaje && (
         <p className="text-yellow-400 text-xs font-bold text-center">{mensaje}</p>

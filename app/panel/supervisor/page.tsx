@@ -9,6 +9,10 @@ import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
+import PerfilBanner from "./perfil-banner";
+import TiendasFijas from "./tiendas-fijas";
+import MiDescanso from "./mi-descanso";
+import MisMarcaciones from "./mis-marcaciones";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +55,8 @@ export default async function PanelSupervisor() {
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
 
+      <PerfilBanner />
+
       <div className="mb-6">
         <MisPuntosWidget />
       </div>
@@ -61,6 +67,18 @@ export default async function PanelSupervisor() {
 
       <div className="mb-6">
         <GpsMarcador />
+      </div>
+
+      <div className="mb-6">
+        <MisMarcaciones />
+      </div>
+
+      <div className="mb-6">
+        <TiendasFijas />
+      </div>
+
+      <div className="mb-6">
+        <MiDescanso />
       </div>
 
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">

@@ -2,7 +2,11 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { horaPeru, diaLaboralPeru } from "@/lib/fechas";
+import { horaPeru, diaLaboralPeru, hoyPeru, sumarDias } from "@/lib/fechas";
+
+// Antes de esta hora, marcar la salida es ambiguo (¿pertenece a hoy o al
+// turno que empezó ayer?) — se le pregunta al colaborador en vez de asumir.
+const CORTE_AMBIGUEDAD_SALIDA = 6;
 
 export type EstadoAsistencia = {
   horaIngreso: string | null;
@@ -25,6 +29,19 @@ export async function obtenerEstadoAsistenciaHoy(): Promise<EstadoAsistencia> {
     horaIngreso: data ? data.hora_ingreso : null,
     horaSalida: data ? data.hora_salida : null,
   };
+}
+
+export type AmbiguedadSalida = { ambiguo: boolean; hoy: string; ayer: string };
+
+export async function obtenerAmbiguedadSalida(): Promise<AmbiguedadSalida> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const hoy = hoyPeru();
+  const ayer = sumarDias(hoy, -1);
+  const horaActual = Number(horaPeru().split(":")[0]);
+
+  return { ambiguo: horaActual < CORTE_AMBIGUEDAD_SALIDA, hoy, ayer };
 }
 
 export type ResultadoMarcado = { exito: boolean; mensaje?: string; hora?: string };
@@ -51,12 +68,25 @@ export async function marcarIngreso(lat: number, lng: number): Promise<Resultado
   return { exito: true, hora: hora };
 }
 
-export async function marcarSalida(lat: number, lng: number): Promise<ResultadoMarcado> {
+export async function marcarSalida(
+  lat: number,
+  lng: number,
+  fechaElegida?: string
+): Promise<ResultadoMarcado> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
 
   const supabase = supabaseServer();
-  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+
+  // Si viene una fecha elegida por el usuario (por la ambigüedad de
+  // madrugada), se respeta solo si es hoy o ayer — cualquier otro valor se
+  // ignora y se usa la regla automática de siempre.
+  const hoy = hoyPeru();
+  const ayer = sumarDias(hoy, -1);
+  const fecha =
+    fechaElegida && (fechaElegida === hoy || fechaElegida === ayer)
+      ? fechaElegida
+      : diaLaboralPeru(sesion.rol === "capacitador");
 
   const { data: existente } = await supabase
     .from("asistencia")

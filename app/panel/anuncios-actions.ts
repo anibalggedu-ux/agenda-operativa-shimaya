@@ -2,7 +2,9 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { hoyPeru } from "@/lib/fechas";
+import { hoyPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+
+const DIAS_ANTICIPACION_CUMPLEANOS = 2;
 
 export type ComunicadoPublico = {
   id: string;
@@ -44,4 +46,49 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
     fechaEvento: c.fecha_evento,
     ubicacion: c.ubicacion,
   }));
+}
+
+export type ProximoCumpleanos = {
+  usuarioNombre: string;
+  rol: string;
+  fecha: string;
+  diasFaltantes: number;
+  edadQueCumple: number | null;
+};
+
+// Cumpleaños de cualquier colaborador que caiga dentro de los próximos
+// DIAS_ANTICIPACION_CUMPLEANOS días (incluye el día de hoy) — visible para
+// cualquier rol autenticado, igual que el resto de Anuncios.
+export async function obtenerProximosCumpleanos(): Promise<ProximoCumpleanos[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("nombre, rol, fecha_nacimiento")
+    .not("fecha_nacimiento", "is", null);
+
+  if (error) throw new Error("No se pudo cargar los cumpleaños.");
+
+  const hoy = hoyPeru();
+
+  const proximos: ProximoCumpleanos[] = [];
+  (data ?? []).forEach((u) => {
+    if (!u.fecha_nacimiento) return;
+    const [yNac, mNac, dNac] = u.fecha_nacimiento.split("-").map(Number);
+    const { fecha, diasFaltantes } = calcularProximaFechaAnual(mNac, dNac, hoy);
+    if (diasFaltantes > DIAS_ANTICIPACION_CUMPLEANOS) return;
+
+    const [yProximo] = fecha.split("-").map(Number);
+    proximos.push({
+      usuarioNombre: u.nombre,
+      rol: u.rol,
+      fecha,
+      diasFaltantes,
+      edadQueCumple: yProximo - yNac,
+    });
+  });
+
+  return proximos.sort((a, b) => a.diasFaltantes - b.diasFaltantes);
 }
