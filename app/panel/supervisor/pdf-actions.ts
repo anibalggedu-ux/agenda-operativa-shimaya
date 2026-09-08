@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import type { ReporteHistorialItem } from "@/lib/generar-pdf";
 
 export async function obtenerHistorialReportes(
@@ -9,7 +9,7 @@ export async function obtenerHistorialReportes(
   hasta: string
 ): Promise<ReporteHistorialItem[]> {
   const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "supervisor") {
+  if (!sesion || !tieneBitacora(sesion.rol)) {
     throw new Error("No autorizado.");
   }
 

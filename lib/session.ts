@@ -48,3 +48,10 @@ export async function obtenerSesion(): Promise<SesionUsuario | null> {
 export async function cerrarSesion() {
   cookies().delete(COOKIE_NAME);
 }
+
+// El Coordinador también hace visitas de campo bajo su propia "Mi Ruta",
+// además de Supervisor — ambos roles comparten la bitácora (selector de
+// tiendas, reporte y PDF).
+export function tieneBitacora(rol: SesionUsuario["rol"]): boolean {
+  return rol === "supervisor" || rol === "coordinador";
+}

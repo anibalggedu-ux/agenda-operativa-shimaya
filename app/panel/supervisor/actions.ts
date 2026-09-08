@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
 
 export type Urgencia = "HOY" | "MANANA" | "AYER" | "ANTES_DE_AYER";
@@ -22,7 +22,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
   diaDescansoFijo: string | null;
 }> {
   const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "supervisor") {
+  if (!sesion || !tieneBitacora(sesion.rol)) {
     throw new Error("No autorizado.");
   }
 
@@ -81,7 +81,7 @@ export async function enviarReporte(
   formData: FormData
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "supervisor") {
+  if (!sesion || !tieneBitacora(sesion.rol)) {
     return { exito: false, mensaje: "No autorizado." };
   }
 
