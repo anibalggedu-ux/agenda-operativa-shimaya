@@ -8,6 +8,7 @@ import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
 import Anuncios from "./anuncios";
 import Reportes from "./reportes";
+import MisPuntosWidget from "../mis-puntos-widget";
 
 type Pestana = "rutas" | "mi-ruta" | "reportes" | "personal" | "anuncios";
 
@@ -44,6 +45,7 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
 
       {pestana === "mi-ruta" && (
         <div className="space-y-6">
+          <MisPuntosWidget />
           <GpsMarcador />
           <SelectorTiendas supervisorNombre={nombre} />
           <HistorialPdf supervisorNombre={nombre} />

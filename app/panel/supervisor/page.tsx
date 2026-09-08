@@ -7,6 +7,7 @@ import GpsMarcador from "./gps-marcador";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
+import MisPuntosWidget from "../mis-puntos-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,10 @@ export default async function PanelSupervisor() {
       <p className="text-slate-400 text-sm mb-6">
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
+
+      <div className="mb-6">
+        <MisPuntosWidget />
+      </div>
 
       <div className="mb-6">
         <AnunciosWidget />

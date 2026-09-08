@@ -24,6 +24,7 @@ import {
   type TendenciaAsistencia,
   type RankingTardanza,
 } from "./actions";
+import { obtenerVitrinaTrofeos, type FilaVitrina } from "../puntos-actions";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
 
 const COLOR_EJE = "#64748b";
@@ -51,6 +52,17 @@ export default function CentralAnalitica() {
   const [tendenciaAsistencia, setTendenciaAsistencia] = useState<TendenciaAsistencia[]>([]);
   const [rankingTardanzas, setRankingTardanzas] = useState<RankingTardanza[]>([]);
 
+  const [vitrina, setVitrina] = useState<FilaVitrina[]>([]);
+  const [cargandoVitrina, setCargandoVitrina] = useState(true);
+  const [errorVitrina, setErrorVitrina] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerVitrinaTrofeos()
+      .then(setVitrina)
+      .catch((e) => setErrorVitrina(e.message || "Error al cargar la vitrina de trofeos."))
+      .finally(() => setCargandoVitrina(false));
+  }, []);
+
   useEffect(() => {
     setCargando(true);
     setError(null);
@@ -74,6 +86,48 @@ export default function CentralAnalitica() {
 
   return (
     <div className="space-y-8">
+      <section className="bg-[#0f111a] border border-yellow-500/30 rounded-2xl p-5">
+        <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+          🏆 VITRINA DE TROFEOS
+        </h3>
+        <p className="text-slate-500 text-[11px] mb-4">
+          Puntos acumulados de por vida — puntualidad (10 a 30 pts según cuánto antes marcó
+          ingreso) + 10 pts por reporte enviado. 🥉 250 · 🥈 600 · 🥇 1200 · 🌟 2000
+        </p>
+        {cargandoVitrina ? (
+          <p className="text-slate-500 text-sm animate-pulse">Cargando vitrina...</p>
+        ) : errorVitrina ? (
+          <p className="text-red-400 text-sm">{errorVitrina}</p>
+        ) : vitrina.length === 0 ? (
+          <TarjetaVacia>Todavía no hay puntos acumulados.</TarjetaVacia>
+        ) : (
+          <div className="space-y-2">
+            {vitrina.map((fila, i) => (
+              <div
+                key={fila.usuarioId}
+                className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-600 font-black text-xs w-5 text-right">
+                    {i + 1}
+                  </span>
+                  <span className="text-2xl leading-none">
+                    {fila.medalla ? fila.medalla.emoji : "🎯"}
+                  </span>
+                  <div>
+                    <p className="text-white font-bold text-sm">{fila.nombre}</p>
+                    <p className="text-slate-500 text-[11px] uppercase">{fila.rol}</p>
+                  </div>
+                </div>
+                <span className="text-yellow-400 font-black text-sm shrink-0 ml-3">
+                  {fila.puntos} pts
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="flex flex-col sm:flex-row gap-3 bg-[#0f111a] border border-slate-800 rounded-2xl p-4">
         <div className="flex-1">
           <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
