@@ -1,6 +1,7 @@
 import { obtenerSesion } from "@/lib/session";
 import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import GpsMarcador from "../supervisor/gps-marcador";
 import HistorialPdf from "../supervisor/historial-pdf";
@@ -17,11 +18,19 @@ export default async function PanelCapacitador() {
         <h1 className="text-xl sm:text-2xl font-black tracking-widest">
           <span className="text-blue-500">PANEL</span> CAPACITADOR
         </h1>
-        <form action={cerrarSesionAction}>
-          <button className="bg-[#181b29] border border-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#22273a] transition">
-            Cerrar sesión
-          </button>
-        </form>
+        <div className="flex gap-2">
+          <Link
+            href="/panel/analitica"
+            className="bg-purple-950/40 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-950/70 transition"
+          >
+            📊 Central Analítica
+          </Link>
+          <form action={cerrarSesionAction}>
+            <button className="bg-[#181b29] border border-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#22273a] transition">
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
       </div>
 
       <p className="text-slate-400 text-sm mb-6">
