@@ -163,6 +163,7 @@ export type DatosHistorialTienda = {
     actividad: string | null;
   }[];
   visitantes: { usuarioNombre: string; rol: string; visitas: number }[];
+  supervisoresPermanentes: { usuarioNombre: string; rol: string }[];
 };
 
 export function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
@@ -178,6 +179,14 @@ export function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
     y
   );
   y = campo(doc, "Total visitas:", String(datos.totalVisitas), y);
+  y = campo(
+    doc,
+    "Supervisor(a) fijo(a):",
+    datos.supervisoresPermanentes.length === 0
+      ? "Sin asignar"
+      : datos.supervisoresPermanentes.map((s) => `${s.usuarioNombre} (${s.rol})`).join(", "),
+    y
+  );
   y += 4;
 
   doc.setFont("helvetica", "bold");
@@ -251,6 +260,12 @@ export type DatosHistorialPersona = {
   tiendasVisitadas: { fecha: string; tiendaNombre: string; observacion: string }[];
   marcaciones: { fecha: string; horaIngreso: string | null; horaSalida: string | null; tarde: boolean }[];
   puntos: { puntos: number; medallas: Record<"bronce" | "plata" | "oro" | "estrella", number> };
+  tiendasPermanentes: string[];
+  diasDescanso: string[];
+  fechasDescansoEnRango: string[];
+  antiguedad: { anios: number; meses: number } | null;
+  proximoAniversario: { fecha: string; diasFaltantes: number } | null;
+  proximoCumpleanos: { fecha: string; diasFaltantes: number; edadQueCumple: number | null } | null;
 };
 
 export function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
@@ -269,6 +284,57 @@ export function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
     doc,
     "Puntos:",
     `${datos.puntos.puntos} pts — 🥉x${datos.puntos.medallas.bronce} 🥈x${datos.puntos.medallas.plata} 🥇x${datos.puntos.medallas.oro} 🌟x${datos.puntos.medallas.estrella}`,
+    y
+  );
+  y = campo(
+    doc,
+    "Tienda(s) fija(s):",
+    datos.tiendasPermanentes.length === 0 ? "Sin asignar" : datos.tiendasPermanentes.join(", "),
+    y
+  );
+  y = campo(
+    doc,
+    "Descanso semanal:",
+    datos.diasDescanso.length === 0 ? "Sin asignar" : datos.diasDescanso.join(" y "),
+    y
+  );
+  if (datos.diasDescanso.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Descansó estos días en el rango:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const textoFechas =
+      datos.fechasDescansoEnRango.length === 0
+        ? "Ninguno dentro de este rango."
+        : datos.fechasDescansoEnRango.map((f) => formatearFechaLegible(f)).join("  ·  ");
+    const lineasFechas = doc.splitTextToSize(textoFechas, ANCHO_UTIL);
+    doc.text(lineasFechas, 14, y);
+    y += lineasFechas.length * 5 + 4;
+  }
+  y = campo(
+    doc,
+    "Antigüedad:",
+    datos.antiguedad
+      ? `${datos.antiguedad.anios} año(s) y ${datos.antiguedad.meses} mes(es)`
+      : "No registrada",
+    y
+  );
+  y = campo(
+    doc,
+    "Próximo aniversario:",
+    datos.proximoAniversario
+      ? `${formatearFechaLegible(datos.proximoAniversario.fecha)} (en ${datos.proximoAniversario.diasFaltantes} día(s))`
+      : "No registrado",
+    y
+  );
+  y = campo(
+    doc,
+    "Próximo cumpleaños:",
+    datos.proximoCumpleanos
+      ? `${formatearFechaLegible(datos.proximoCumpleanos.fecha)} — cumple ${datos.proximoCumpleanos.edadQueCumple} años (en ${datos.proximoCumpleanos.diasFaltantes} día(s))`
+      : "No registrado",
     y
   );
   y += 4;

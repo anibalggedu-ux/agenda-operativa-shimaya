@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import {
   obtenerAsistenciaGeneral,
   obtenerRankingTiendasCompleto,
-  obtenerHistorialTienda,
+  obtenerVisitasTienda,
   type AsistenciaGeneral,
   type RankingTiendasCompleto,
   type RankingTiendaCompleto,
-  type HistorialTienda,
+  type VisitaTiendaDetalle,
 } from "./actions";
 import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -126,7 +126,7 @@ export default function HistorialMonitoreo() {
 
   const [tiendaId, setTiendaId] = useState<string | null>(null);
   const [tiendaNombreSel, setTiendaNombreSel] = useState<string>("");
-  const [historialTienda, setHistorialTienda] = useState<HistorialTienda | null>(null);
+  const [visitasTienda, setVisitasTienda] = useState<VisitaTiendaDetalle[] | null>(null);
   const [cargandoTienda, setCargandoTienda] = useState(false);
 
   useEffect(() => {
@@ -145,9 +145,9 @@ export default function HistorialMonitoreo() {
     setTiendaId(id);
     setTiendaNombreSel(nombre);
     setCargandoTienda(true);
-    obtenerHistorialTienda(id, desde, hasta)
-      .then(setHistorialTienda)
-      .catch(() => setHistorialTienda(null))
+    obtenerVisitasTienda(id, desde, hasta)
+      .then(setVisitasTienda)
+      .catch(() => setVisitasTienda(null))
       .finally(() => setCargandoTienda(false));
   }
 
@@ -247,20 +247,27 @@ export default function HistorialMonitoreo() {
               </h4>
               {cargandoTienda ? (
                 <p className="text-slate-500 text-sm animate-pulse">Cargando...</p>
-              ) : !historialTienda || historialTienda.observaciones.length === 0 ? (
+              ) : !visitasTienda || visitasTienda.length === 0 ? (
                 <p className="text-slate-500 text-sm italic">
                   Sin visitas registradas en este rango de fechas.
                 </p>
               ) : (
                 <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                  {historialTienda.observaciones.map((o, i) => (
+                  {visitasTienda.map((v, i) => (
                     <div
                       key={i}
                       className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-lg px-3 py-2"
                     >
-                      <span className="text-white text-sm">{o.usuarioNombre}</span>
+                      <span className="text-white text-sm">
+                        {v.usuarioNombre}
+                        {!v.tieneObservacion && (
+                          <span className="text-slate-500 text-[10px] font-normal ml-2">
+                            (sin observación)
+                          </span>
+                        )}
+                      </span>
                       <span className="text-slate-500 text-[11px] capitalize">
-                        {formatearFechaLegible(o.fecha)}
+                        {formatearFechaLegible(v.fecha)}
                       </span>
                     </div>
                   ))}

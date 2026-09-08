@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { hoyPeru, diaSemanaPeru, DIAS_SEMANA } from "@/lib/fechas";
+import { hoyPeru, diaSemanaPeru, sumarDias, DIAS_SEMANA } from "@/lib/fechas";
 import {
   AREAS_RUTA,
   MAX_TIENDAS_PERMANENTES,
@@ -595,11 +595,15 @@ export type ObservacionTienda = {
 
 export type VisitanteTienda = { usuarioNombre: string; rol: string; visitas: number };
 
+export type SupervisorPermanenteTienda = { usuarioNombre: string; rol: string };
+
 export type HistorialTienda = {
   tiendaNombre: string;
   totalVisitas: number;
   observaciones: ObservacionTienda[];
   visitantes: VisitanteTienda[];
+  // Solo se usa para el PDF, no se muestra en la vista previa en pantalla.
+  supervisoresPermanentes: SupervisorPermanenteTienda[];
 };
 
 export async function obtenerHistorialTienda(
@@ -610,7 +614,11 @@ export async function obtenerHistorialTienda(
   await exigirCoordinador();
   const supabase = supabaseServer();
 
-  const [{ data: tienda, error: errorTienda }, { data, error }] = await Promise.all([
+  const [
+    { data: tienda, error: errorTienda },
+    { data, error },
+    { data: permanentes, error: errorPermanentes },
+  ] = await Promise.all([
     supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
     supabase
       .from("rutas_diarias")
@@ -619,9 +627,15 @@ export async function obtenerHistorialTienda(
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
+    supabase
+      .from("tiendas_permanentes")
+      .select("usuarios(nombre, rol)")
+      .eq("tienda_id", tiendaId),
   ]);
 
-  if (errorTienda || error) throw new Error("No se pudo cargar el historial de la tienda.");
+  if (errorTienda || error || errorPermanentes) {
+    throw new Error("No se pudo cargar el historial de la tienda.");
+  }
 
   const filas = data ?? [];
 
@@ -644,6 +658,10 @@ export async function obtenerHistorialTienda(
       actividad: r.actividad,
     })),
     visitantes: Array.from(visitantesMap.values()).sort((a, b) => b.visitas - a.visitas),
+    supervisoresPermanentes: (permanentes ?? []).map((p: any) => ({
+      usuarioNombre: p.usuarios?.nombre ?? "—",
+      rol: p.usuarios?.rol ?? "—",
+    })),
   };
 }
 
@@ -664,6 +682,14 @@ export type HistorialPersona = {
   tiendasVisitadas: TiendaVisitada[];
   marcaciones: MarcacionPersona[];
   puntos: MisPuntos;
+  // Los siguientes campos solo se usan para el PDF, no se muestran en la
+  // vista previa en pantalla.
+  tiendasPermanentes: string[];
+  diasDescanso: string[];
+  fechasDescansoEnRango: string[];
+  antiguedad: { anios: number; meses: number } | null;
+  proximoAniversario: { fecha: string; diasFaltantes: number } | null;
+  proximoCumpleanos: { fecha: string; diasFaltantes: number; edadQueCumple: number | null } | null;
 };
 
 export async function obtenerHistorialPersona(
@@ -678,9 +704,14 @@ export async function obtenerHistorialPersona(
     { data: usuario, error: errorUsuario },
     { data: rutas, error: errorRutas },
     { data: marcaciones, error: errorMarcaciones },
+    { data: permanentes, error: errorPermanentes },
     puntos,
   ] = await Promise.all([
-    supabase.from("usuarios").select("nombre, rol").eq("id", usuarioId).maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento")
+      .eq("id", usuarioId)
+      .maybeSingle(),
     supabase
       .from("rutas_diarias")
       .select("fecha, observacion, tiendas(nombre)")
@@ -695,15 +726,46 @@ export async function obtenerHistorialPersona(
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
+    supabase.from("tiendas_permanentes").select("tiendas(nombre)").eq("usuario_id", usuarioId),
     obtenerPuntosDeUsuario(usuarioId),
   ]);
 
-  if (errorUsuario || errorRutas || errorMarcaciones) {
+  if (errorUsuario || errorRutas || errorMarcaciones || errorPermanentes) {
     throw new Error("No se pudo cargar el historial de la persona.");
   }
 
   const rol = usuario?.rol ?? "";
   const limite = HORA_LIMITE_TARDANZA[rol];
+  const diasDescanso: string[] = usuario?.dias_descanso ?? [];
+
+  const fechasDescansoEnRango: string[] = [];
+  if (diasDescanso.length > 0) {
+    let cursor = desde;
+    while (cursor <= hasta) {
+      if (diasDescanso.includes(diaSemanaPeru(cursor))) fechasDescansoEnRango.push(cursor);
+      cursor = sumarDias(cursor, 1);
+    }
+  }
+
+  const fechaIngreso = usuario?.fecha_ingreso ?? null;
+  const fechaNacimiento = usuario?.fecha_nacimiento ?? null;
+  const hoy = hoyPeru();
+
+  let antiguedad: HistorialPersona["antiguedad"] = null;
+  let proximoAniversario: HistorialPersona["proximoAniversario"] = null;
+  if (fechaIngreso) {
+    antiguedad = calcularAntiguedad(fechaIngreso, hoy);
+    const [, mIng, dIng] = fechaIngreso.split("-").map(Number);
+    proximoAniversario = calcularProximaFechaAnual(mIng, dIng, hoy);
+  }
+
+  let proximoCumpleanos: HistorialPersona["proximoCumpleanos"] = null;
+  if (fechaNacimiento) {
+    const [yNac, mNac, dNac] = fechaNacimiento.split("-").map(Number);
+    const { fecha, diasFaltantes } = calcularProximaFechaAnual(mNac, dNac, hoy);
+    const [yProximo] = fecha.split("-").map(Number);
+    proximoCumpleanos = { fecha, diasFaltantes, edadQueCumple: yProximo - yNac };
+  }
 
   return {
     usuarioNombre: usuario?.nombre ?? "—",
@@ -720,6 +782,12 @@ export async function obtenerHistorialPersona(
       tarde: !!(limite && m.hora_ingreso && m.hora_ingreso > limite),
     })),
     puntos,
+    tiendasPermanentes: (permanentes ?? []).map((p: any) => p.tiendas?.nombre ?? "—"),
+    diasDescanso,
+    fechasDescansoEnRango,
+    antiguedad,
+    proximoAniversario,
+    proximoCumpleanos,
   };
 }
 
@@ -731,6 +799,33 @@ function diasEntreFechas(desdeISO: string, hastaISO: string): number {
   const t1 = Date.UTC(y1, m1 - 1, d1);
   const t2 = Date.UTC(y2, m2 - 1, d2);
   return Math.round((t2 - t1) / 86400000);
+}
+
+function calcularAntiguedad(fechaIngreso: string, hoy: string): { anios: number; meses: number } {
+  const [yIng, mIng, dIng] = fechaIngreso.split("-").map(Number);
+  const [yHoy, mHoy, dHoy] = hoy.split("-").map(Number);
+
+  let anios = yHoy - yIng;
+  let meses = mHoy - mIng;
+  if (dHoy < dIng) meses -= 1;
+  if (meses < 0) {
+    anios -= 1;
+    meses += 12;
+  }
+  return { anios, meses };
+}
+
+function calcularProximaFechaAnual(
+  mes: number,
+  dia: number,
+  hoy: string
+): { fecha: string; diasFaltantes: number } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const [yHoy] = hoy.split("-").map(Number);
+  const esteAnio = `${yHoy}-${pad(mes)}-${pad(dia)}`;
+  const anio = esteAnio < hoy ? yHoy + 1 : yHoy;
+  const fecha = `${anio}-${pad(mes)}-${pad(dia)}`;
+  return { fecha, diasFaltantes: diasEntreFechas(hoy, fecha) };
 }
 
 export type PerfilCoordinador = {
@@ -836,6 +931,82 @@ export async function obtenerAsistenciaGeneral(
   });
 }
 
+// Una "visita" cuenta desde dos fuentes, sin duplicar:
+// 1) rutas_diarias — reportes con observación ya enviados (dato histórico,
+//    incluye los 723 registros migrados de la hoja original).
+// 2) rutas_activas — asignaciones hechas por el Coordinador que todavía no
+//    tienen un reporte para ese mismo usuario+tienda+fecha. Así, a partir de
+//    hoy, una ruta asignada cuenta como visitada aunque el colaborador no
+//    deje observación.
+type VisitaTienda = {
+  fecha: string;
+  tiendaId: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  tieneObservacion: boolean;
+  observacion: string | null;
+};
+
+async function obtenerVisitasEnRango(
+  desde: string,
+  hasta: string,
+  tiendaId?: string
+): Promise<VisitaTienda[]> {
+  const supabase = supabaseServer();
+
+  let consultaReportes = supabase
+    .from("rutas_diarias")
+    .select("fecha, tienda_id, usuario_id, rol, observacion, usuarios(nombre)")
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
+  if (tiendaId) consultaReportes = consultaReportes.eq("tienda_id", tiendaId);
+
+  let consultaAsignaciones = supabase
+    .from("rutas_activas")
+    .select("fecha_planificada, tienda_id, usuario_id, usuarios(nombre, rol)")
+    .gte("fecha_planificada", desde)
+    .lte("fecha_planificada", hasta);
+  if (tiendaId) consultaAsignaciones = consultaAsignaciones.eq("tienda_id", tiendaId);
+
+  const [{ data: reportes, error: errorReportes }, { data: asignaciones, error: errorAsignaciones }] =
+    await Promise.all([consultaReportes, consultaAsignaciones]);
+
+  if (errorReportes || errorAsignaciones) {
+    throw new Error("No se pudo cargar las visitas.");
+  }
+
+  const clavesReportadas = new Set(
+    (reportes ?? []).map((r: any) => `${r.usuario_id}|${r.tienda_id}|${r.fecha}`)
+  );
+
+  const visitas: VisitaTienda[] = (reportes ?? []).map((r: any) => ({
+    fecha: r.fecha,
+    tiendaId: r.tienda_id,
+    usuarioId: r.usuario_id,
+    usuarioNombre: r.usuarios?.nombre ?? "—",
+    rol: r.rol ?? "—",
+    tieneObservacion: true,
+    observacion: r.observacion,
+  }));
+
+  (asignaciones ?? []).forEach((a: any) => {
+    const clave = `${a.usuario_id}|${a.tienda_id}|${a.fecha_planificada}`;
+    if (clavesReportadas.has(clave)) return; // ya contada vía el reporte
+    visitas.push({
+      fecha: a.fecha_planificada,
+      tiendaId: a.tienda_id,
+      usuarioId: a.usuario_id,
+      usuarioNombre: a.usuarios?.nombre ?? "—",
+      rol: a.usuarios?.rol ?? "—",
+      tieneObservacion: false,
+      observacion: null,
+    });
+  });
+
+  return visitas;
+}
+
 export type RankingTiendaCompleto = { tiendaId: string; tiendaNombre: string; visitas: number };
 
 export type RankingTiendasCompleto = {
@@ -851,24 +1022,16 @@ export async function obtenerRankingTiendasCompleto(
   await exigirCoordinador();
   const supabase = supabaseServer();
 
-  const [{ data: tiendas, error: errorTiendas }, { data: visitas, error: errorVisitas }] =
-    await Promise.all([
-      supabase.from("tiendas").select("id, nombre").order("nombre"),
-      supabase
-        .from("rutas_diarias")
-        .select("tienda_id")
-        .gte("fecha", desde)
-        .lte("fecha", hasta),
-    ]);
+  const [{ data: tiendas, error: errorTiendas }, visitas] = await Promise.all([
+    supabase.from("tiendas").select("id, nombre").order("nombre"),
+    obtenerVisitasEnRango(desde, hasta),
+  ]);
 
-  if (errorTiendas || errorVisitas) {
-    throw new Error("No se pudo cargar el ranking de tiendas.");
-  }
+  if (errorTiendas) throw new Error("No se pudo cargar el ranking de tiendas.");
 
   const conteo = new Map<string, number>();
-  (visitas ?? []).forEach((r) => {
-    if (!r.tienda_id) return;
-    conteo.set(r.tienda_id, (conteo.get(r.tienda_id) ?? 0) + 1);
+  visitas.forEach((v) => {
+    conteo.set(v.tiendaId, (conteo.get(v.tiendaId) ?? 0) + 1);
   });
 
   const ranking = (tiendas ?? [])
@@ -883,4 +1046,28 @@ export async function obtenerRankingTiendasCompleto(
     resto: conVisitas.slice(20),
     sinVisitas,
   };
+}
+
+export type VisitaTiendaDetalle = {
+  fecha: string;
+  usuarioNombre: string;
+  rol: string;
+  tieneObservacion: boolean;
+};
+
+export async function obtenerVisitasTienda(
+  tiendaId: string,
+  desde: string,
+  hasta: string
+): Promise<VisitaTiendaDetalle[]> {
+  await exigirCoordinador();
+  const visitas = await obtenerVisitasEnRango(desde, hasta, tiendaId);
+  return visitas
+    .map((v) => ({
+      fecha: v.fecha,
+      usuarioNombre: v.usuarioNombre,
+      rol: v.rol,
+      tieneObservacion: v.tieneObservacion,
+    }))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
