@@ -8,12 +8,15 @@ import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
+import { tieneAccesoRegistro } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
 export default async function PanelSupervisor() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "supervisor") redirect("/login");
+
+  const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
 
   return (
     <main className="min-h-screen bg-[#07080c] text-white p-6 sm:p-8 font-mono">
@@ -22,6 +25,14 @@ export default async function PanelSupervisor() {
           <span className="text-yellow-500">PANEL</span> SUPERVISOR
         </h1>
         <div className="flex gap-2">
+          {accesoRegistro && (
+            <Link
+              href="/panel/registro"
+              className="bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-950/70 transition"
+            >
+              📝 Registro
+            </Link>
+          )}
           <Link
             href="/panel/analitica"
             className="bg-purple-950/40 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-950/70 transition"

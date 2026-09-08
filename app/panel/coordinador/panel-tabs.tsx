@@ -14,8 +14,16 @@ import Anuncios from "./anuncios";
 import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
+import Registro from "../registro/registro";
 
-type Pestana = "rutas" | "mi-ruta" | "reportes" | "personal" | "anuncios" | "historial";
+type Pestana =
+  | "rutas"
+  | "mi-ruta"
+  | "reportes"
+  | "personal"
+  | "anuncios"
+  | "historial"
+  | "registro";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "rutas", etiqueta: "Rutas" },
@@ -24,6 +32,7 @@ const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "personal", etiqueta: "Personal" },
   { id: "anuncios", etiqueta: "Anuncios" },
   { id: "historial", etiqueta: "Historial y Monitoreo" },
+  { id: "registro", etiqueta: "Registro" },
 ];
 
 export default function PanelTabs({ nombre }: { nombre: string }) {
@@ -74,6 +83,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
       {pestana === "anuncios" && <Anuncios />}
 
       {pestana === "historial" && <HistorialMonitoreo />}
+
+      {pestana === "registro" && <Registro esCoordinador={true} />}
     </div>
   );
 }

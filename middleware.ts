@@ -25,9 +25,10 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, SECRET);
 
-    // Central Analítica es compartida por los 4 roles — solo exige sesión
-    // válida, no un rol específico en la URL.
-    if (rolRequerido === "analitica") return NextResponse.next();
+    // Central Analítica y Registro son compartidas entre roles — solo exigen
+    // sesión válida aquí; el control de acceso fino (quién puede registrar
+    // usuarios) se revisa dentro de la página misma.
+    if (rolRequerido === "analitica" || rolRequerido === "registro") return NextResponse.next();
 
     if (payload.rol !== rolRequerido) {
       // Sesión válida, pero de otro rol tratando de entrar a un panel ajeno

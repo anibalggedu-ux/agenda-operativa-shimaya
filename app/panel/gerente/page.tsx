@@ -4,12 +4,15 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
+import { tieneAccesoRegistro } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
 export default async function PanelGerente() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "gerente") redirect("/login");
+
+  const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
 
   return (
     <main className="min-h-screen bg-[#0f0f12] text-white p-6 sm:p-8 font-mono">
@@ -18,6 +21,14 @@ export default async function PanelGerente() {
           <span className="text-red-600">DASHBOARD</span> GERENCIAL
         </h1>
         <div className="flex gap-2">
+          {accesoRegistro && (
+            <Link
+              href="/panel/registro"
+              className="bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-emerald-950/70 transition"
+            >
+              📝 Registro
+            </Link>
+          )}
           <Link
             href="/panel/analitica"
             className="bg-purple-950/40 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-950/70 transition"
