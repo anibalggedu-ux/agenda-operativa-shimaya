@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerMisPuntos, type MisPuntos } from "./puntos-actions";
+import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 
 export default function MisPuntosWidget() {
   const [datos, setDatos] = useState<MisPuntos | null>(null);
@@ -23,36 +24,32 @@ export default function MisPuntosWidget() {
     return <p className="text-red-400 text-sm">{error}</p>;
   }
 
-  const { puntos, medalla, siguiente } = datos;
-  const progreso = siguiente ? Math.min(100, Math.round((puntos / siguiente.puntos) * 100)) : 100;
+  const { puntos, medallas, progresoBronce } = datos;
+  const progreso = Math.round((progresoBronce.actual / (progresoBronce.actual + progresoBronce.faltan)) * 100);
 
   return (
     <div className="bg-[#0f111a] border-2 border-yellow-500/30 rounded-2xl p-5 space-y-3">
       <h3 className="text-xs font-black tracking-widest text-slate-300">🏆 MIS PUNTOS</h3>
 
+      <p className="text-2xl font-black text-white">{puntos} pts</p>
+
       <div className="flex items-center gap-4">
-        <span className="text-4xl leading-none">{medalla ? medalla.emoji : "🎯"}</span>
-        <div>
-          <p className="text-2xl font-black text-white">{puntos} pts</p>
-          <p className="text-slate-400 text-xs">
-            {medalla ? "Medalla " + medalla.etiqueta : "Aún sin medalla"}
-          </p>
-        </div>
+        {UMBRALES_MEDALLAS.map((u) => (
+          <div key={u.id} className="flex items-center gap-1">
+            <span className="text-2xl leading-none">{u.emoji}</span>
+            <span className="text-slate-300 font-black text-sm">×{medallas[u.id]}</span>
+          </div>
+        ))}
       </div>
 
-      {siguiente && (
-        <div>
-          <div className="h-2 bg-[#0d1117] rounded-full overflow-hidden border border-slate-800">
-            <div
-              className="h-full bg-yellow-500 transition-all"
-              style={{ width: progreso + "%" }}
-            />
-          </div>
-          <p className="text-slate-500 text-[11px] mt-1">
-            {siguiente.puntos - puntos} pts para {siguiente.emoji} {siguiente.etiqueta}
-          </p>
+      <div>
+        <div className="h-2 bg-[#0d1117] rounded-full overflow-hidden border border-slate-800">
+          <div className="h-full bg-yellow-500 transition-all" style={{ width: progreso + "%" }} />
         </div>
-      )}
+        <p className="text-slate-500 text-[11px] mt-1">
+          {progresoBronce.faltan} pts para tu próximo 🥉
+        </p>
+      </div>
     </div>
   );
 }

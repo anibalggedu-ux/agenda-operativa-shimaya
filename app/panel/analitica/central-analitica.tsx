@@ -25,6 +25,7 @@ import {
   type RankingTardanza,
 } from "./actions";
 import { obtenerVitrinaTrofeos, type FilaVitrina } from "../puntos-actions";
+import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
 
 const COLOR_EJE = "#64748b";
@@ -105,23 +106,31 @@ export default function CentralAnalitica() {
             {vitrina.map((fila, i) => (
               <div
                 key={fila.usuarioId}
-                className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl p-3"
+                className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl p-3 gap-3"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-600 font-black text-xs w-5 text-right">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-slate-600 font-black text-xs w-5 text-right shrink-0">
                     {i + 1}
                   </span>
-                  <span className="text-2xl leading-none">
-                    {fila.medalla ? fila.medalla.emoji : "🎯"}
-                  </span>
-                  <div>
-                    <p className="text-white font-bold text-sm">{fila.nombre}</p>
+                  <div className="min-w-0">
+                    <p className="text-white font-bold text-sm truncate">{fila.nombre}</p>
                     <p className="text-slate-500 text-[11px] uppercase">{fila.rol}</p>
                   </div>
                 </div>
-                <span className="text-yellow-400 font-black text-sm shrink-0 ml-3">
-                  {fila.puntos} pts
-                </span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    {UMBRALES_MEDALLAS.map((u) =>
+                      fila.medallas[u.id] > 0 ? (
+                        <span key={u.id} className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                          {u.emoji}×{fila.medallas[u.id]}
+                        </span>
+                      ) : null
+                    )}
+                  </div>
+                  <span className="text-yellow-400 font-black text-sm shrink-0">
+                    {fila.puntos} pts
+                  </span>
+                </div>
               </div>
             ))}
           </div>

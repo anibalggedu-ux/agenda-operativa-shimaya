@@ -2,7 +2,11 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { calcularMedalla, siguienteMedalla, type Medalla } from "@/lib/trofeos";
+import {
+  calcularConteoMedallas,
+  progresoProximoBronce,
+  type ConteoMedallas,
+} from "@/lib/trofeos";
 
 // Misma hora límite de puntualidad ya usada en Central Analítica para el
 // ranking de tardanzas — un ingreso antes de esta hora suma puntos, uno
@@ -81,8 +85,8 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
 
 export type MisPuntos = {
   puntos: number;
-  medalla: Medalla | null;
-  siguiente: Medalla | null;
+  medallas: ConteoMedallas;
+  progresoBronce: { actual: number; faltan: number };
 };
 
 export async function obtenerMisPuntos(): Promise<MisPuntos> {
@@ -94,12 +98,12 @@ export async function obtenerMisPuntos(): Promise<MisPuntos> {
 
   return {
     puntos,
-    medalla: calcularMedalla(puntos),
-    siguiente: siguienteMedalla(puntos),
+    medallas: calcularConteoMedallas(puntos),
+    progresoBronce: progresoProximoBronce(puntos),
   };
 }
 
-export type FilaVitrina = PuntosUsuario & { medalla: Medalla | null };
+export type FilaVitrina = PuntosUsuario & { medallas: ConteoMedallas };
 
 export async function obtenerVitrinaTrofeos(): Promise<FilaVitrina[]> {
   const sesion = await obtenerSesion();
@@ -107,6 +111,6 @@ export async function obtenerVitrinaTrofeos(): Promise<FilaVitrina[]> {
 
   const todos = await calcularPuntosDeTodos();
   return todos
-    .map((p) => ({ ...p, medalla: calcularMedalla(p.puntos) }))
+    .map((p) => ({ ...p, medallas: calcularConteoMedallas(p.puntos) }))
     .sort((a, b) => b.puntos - a.puntos);
 }
