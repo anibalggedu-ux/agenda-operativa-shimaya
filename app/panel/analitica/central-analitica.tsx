@@ -1,44 +1,67 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
   obtenerReportesPorDia,
-  obtenerRankingTiendas,
   obtenerDesempenoPorPersona,
-  obtenerTendenciaAsistencia,
   obtenerRankingTardanzas,
+  obtenerRankingPuntualidad,
   type ReportesPorDia,
-  type RankingTienda,
   type DesempenoPersona,
-  type TendenciaAsistencia,
   type RankingTardanza,
+  type RankingPuntualidad,
 } from "./actions";
 import { obtenerVitrinaTrofeos, type FilaVitrina } from "../puntos-actions";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
+import RankingTiendas from "./ranking-tiendas";
+import TiendasTardanzas from "./tiendas-tardanzas";
+import ReporteTienda from "./reporte-tienda";
+import RankingPorRol from "./ranking-por-rol";
 
 const COLOR_EJE = "#64748b";
 const COLOR_GRILLA = "#1e293b";
 
-function horaDecimalATexto(valor: number): string {
-  const h = Math.floor(valor);
-  const m = Math.round((valor - h) * 60);
-  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
-}
-
 function TarjetaVacia({ children }: { children: React.ReactNode }) {
   return <p className="text-slate-500 text-sm italic py-6 text-center">{children}</p>;
+}
+
+function FilaVitrinaPersona({ fila }: { fila: FilaVitrina }) {
+  return (
+    <div className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl p-3 gap-3">
+      <p className="text-white font-bold text-sm truncate min-w-0">{fila.nombre}</p>
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2">
+          {UMBRALES_MEDALLAS.map((u) =>
+            fila.medallas[u.id] > 0 ? (
+              <span key={u.id} className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                {u.emoji}×{fila.medallas[u.id]}
+              </span>
+            ) : null
+          )}
+        </div>
+        <span className="text-yellow-400 font-black text-sm shrink-0">{fila.puntos} pts</span>
+      </div>
+    </div>
+  );
+}
+
+function ColumnaVitrina({ titulo, filas }: { titulo: string; filas: FilaVitrina[] }) {
+  return (
+    <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4">
+      <h4 className="text-xs font-black tracking-widest text-slate-300 mb-3">{titulo}</h4>
+      {filas.length === 0 ? (
+        <p className="text-slate-500 text-sm italic">Todavía no hay puntos acumulados.</p>
+      ) : (
+        <div className="space-y-2">
+          {filas.map((fila) => (
+            <FilaVitrinaPersona key={fila.usuarioId} fila={fila} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CentralAnalitica() {
@@ -48,10 +71,9 @@ export default function CentralAnalitica() {
   const [error, setError] = useState<string | null>(null);
 
   const [reportesPorDia, setReportesPorDia] = useState<ReportesPorDia[]>([]);
-  const [rankingTiendas, setRankingTiendas] = useState<RankingTienda[]>([]);
   const [desempeno, setDesempeno] = useState<DesempenoPersona[]>([]);
-  const [tendenciaAsistencia, setTendenciaAsistencia] = useState<TendenciaAsistencia[]>([]);
   const [rankingTardanzas, setRankingTardanzas] = useState<RankingTardanza[]>([]);
+  const [rankingPuntualidad, setRankingPuntualidad] = useState<RankingPuntualidad[]>([]);
 
   const [vitrina, setVitrina] = useState<FilaVitrina[]>([]);
   const [cargandoVitrina, setCargandoVitrina] = useState(true);
@@ -69,21 +91,36 @@ export default function CentralAnalitica() {
     setError(null);
     Promise.all([
       obtenerReportesPorDia(desde, hasta),
-      obtenerRankingTiendas(desde, hasta),
       obtenerDesempenoPorPersona(desde, hasta),
-      obtenerTendenciaAsistencia(desde, hasta),
       obtenerRankingTardanzas(desde, hasta),
+      obtenerRankingPuntualidad(desde, hasta),
     ])
-      .then(([rpd, rt, dp, ta, rta]) => {
+      .then(([rpd, dp, rta, rp]) => {
         setReportesPorDia(rpd);
-        setRankingTiendas(rt);
         setDesempeno(dp);
-        setTendenciaAsistencia(ta);
         setRankingTardanzas(rta);
+        setRankingPuntualidad(rp);
       })
       .catch((e) => setError(e.message || "Error al cargar la Central Analítica."))
       .finally(() => setCargando(false));
   }, [desde, hasta]);
+
+  const vitrinaSupervisores = vitrina.filter((f) => f.rol === "supervisor");
+  const vitrinaCapacitadores = vitrina.filter((f) => f.rol === "capacitador");
+
+  const desempenoSupervisores = desempeno
+    .filter((d) => d.rol === "supervisor")
+    .map((d) => ({ nombre: d.nombre, valor: d.reportes }));
+  const desempenoCapacitadores = desempeno
+    .filter((d) => d.rol === "capacitador")
+    .map((d) => ({ nombre: d.nombre, valor: d.reportes }));
+
+  const puntualidadSupervisores = rankingPuntualidad
+    .filter((r) => r.rol === "supervisor")
+    .map((r) => ({ nombre: r.nombre, valor: r.cantidad }));
+  const puntualidadCapacitadores = rankingPuntualidad
+    .filter((r) => r.rol === "capacitador")
+    .map((r) => ({ nombre: r.nombre, valor: r.cantidad }));
 
   return (
     <div className="space-y-8">
@@ -99,40 +136,10 @@ export default function CentralAnalitica() {
           <p className="text-slate-500 text-sm animate-pulse">Cargando vitrina...</p>
         ) : errorVitrina ? (
           <p className="text-red-400 text-sm">{errorVitrina}</p>
-        ) : vitrina.length === 0 ? (
-          <TarjetaVacia>Todavía no hay puntos acumulados.</TarjetaVacia>
         ) : (
-          <div className="space-y-2">
-            {vitrina.map((fila, i) => (
-              <div
-                key={fila.usuarioId}
-                className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl p-3 gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-slate-600 font-black text-xs w-5 text-right shrink-0">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-white font-bold text-sm truncate">{fila.nombre}</p>
-                    <p className="text-slate-500 text-[11px] uppercase">{fila.rol}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    {UMBRALES_MEDALLAS.map((u) =>
-                      fila.medallas[u.id] > 0 ? (
-                        <span key={u.id} className="text-xs font-bold text-slate-300 whitespace-nowrap">
-                          {u.emoji}×{fila.medallas[u.id]}
-                        </span>
-                      ) : null
-                    )}
-                  </div>
-                  <span className="text-yellow-400 font-black text-sm shrink-0">
-                    {fila.puntos} pts
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ColumnaVitrina titulo="SUPERVISORES" filas={vitrinaSupervisores} />
+            <ColumnaVitrina titulo="CAPACITADORES" filas={vitrinaCapacitadores} />
           </div>
         )}
       </section>
@@ -172,6 +179,22 @@ export default function CentralAnalitica() {
         <>
           <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
             <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
+              🎯 RANKING DE ASISTENCIA PUNTUAL
+            </h3>
+            <p className="text-slate-500 text-[11px] mb-4">
+              Cantidad de veces que marcó ingreso a tiempo — capacitador antes de las 11:00am,
+              supervisor antes de las 12:00pm.
+            </p>
+            <RankingPorRol
+              supervisores={puntualidadSupervisores}
+              capacitadores={puntualidadCapacitadores}
+              sufijo="puntual(es)"
+              vacio="Sin marcaciones puntuales en este rango."
+            />
+          </section>
+
+          <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
+            <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
               📈 REPORTES POR DÍA
             </h3>
             {reportesPorDia.length === 0 ? (
@@ -201,90 +224,19 @@ export default function CentralAnalitica() {
             <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
               🏬 RANKING DE TIENDAS MÁS VISITADAS
             </h3>
-            {rankingTiendas.length === 0 ? (
-              <TarjetaVacia>No hay visitas registradas en este rango de fechas.</TarjetaVacia>
-            ) : (
-              <ResponsiveContainer width="100%" height={Math.max(240, rankingTiendas.length * 36)}>
-                <BarChart data={rankingTiendas} layout="vertical" margin={{ left: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRILLA} />
-                  <XAxis type="number" stroke={COLOR_EJE} tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="tiendaNombre"
-                    stroke={COLOR_EJE}
-                    tick={{ fontSize: 10 }}
-                    width={120}
-                  />
-                  <Tooltip contentStyle={{ background: "#0d1117", border: "1px solid #1e293b" }} />
-                  <Bar dataKey="visitas" name="Visitas" fill="#a78bfa" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <RankingTiendas desde={desde} hasta={hasta} />
           </section>
 
           <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
             <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
-              👤 DESEMPEÑO POR PERSONA (REPORTES ENVIADOS)
+              👤 REPORTES ENVIADOS
             </h3>
-            {desempeno.length === 0 ? (
-              <TarjetaVacia>No hay reportes en este rango de fechas.</TarjetaVacia>
-            ) : (
-              <ResponsiveContainer width="100%" height={Math.max(240, desempeno.length * 36)}>
-                <BarChart data={desempeno} layout="vertical" margin={{ left: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRILLA} />
-                  <XAxis type="number" stroke={COLOR_EJE} tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="nombre"
-                    stroke={COLOR_EJE}
-                    tick={{ fontSize: 10 }}
-                    width={120}
-                  />
-                  <Tooltip contentStyle={{ background: "#0d1117", border: "1px solid #1e293b" }} />
-                  <Bar dataKey="reportes" name="Reportes" fill="#4ade80" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </section>
-
-          <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
-            <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
-              🕒 TENDENCIA DE HORA DE INGRESO (PROMEDIO DIARIO)
-            </h3>
-            {tendenciaAsistencia.length === 0 ? (
-              <TarjetaVacia>No hay marcas de asistencia en este rango de fechas.</TarjetaVacia>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={tendenciaAsistencia}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRILLA} />
-                  <XAxis
-                    dataKey="fecha"
-                    stroke={COLOR_EJE}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => v.slice(5)}
-                  />
-                  <YAxis
-                    stroke={COLOR_EJE}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => horaDecimalATexto(v)}
-                    domain={["dataMin - 1", "dataMax + 1"]}
-                  />
-                  <Tooltip
-                    contentStyle={{ background: "#0d1117", border: "1px solid #1e293b" }}
-                    labelFormatter={(v) => formatearFechaLegible(String(v))}
-                    formatter={(v) => [horaDecimalATexto(Number(v)), "Hora promedio"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="horaPromedioIngreso"
-                    name="Hora promedio"
-                    stroke="#fbbf24"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+            <RankingPorRol
+              supervisores={desempenoSupervisores}
+              capacitadores={desempenoCapacitadores}
+              sufijo="reporte(s)"
+              vacio="Sin reportes enviados en este rango."
+            />
           </section>
 
           <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
@@ -314,6 +266,23 @@ export default function CentralAnalitica() {
                 ))}
               </div>
             )}
+          </section>
+
+          <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
+            <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+              🏪 TIENDAS POR TARDANZAS
+            </h3>
+            <p className="text-slate-500 text-[11px] mb-4">
+              Toca el número de visitas o de colaboradores tarde para ver el detalle.
+            </p>
+            <TiendasTardanzas desde={desde} hasta={hasta} />
+          </section>
+
+          <section className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
+            <h3 className="text-xs font-black tracking-widest text-slate-300 mb-4">
+              📄 REPORTE DE TIENDA
+            </h3>
+            <ReporteTienda />
           </section>
         </>
       )}
