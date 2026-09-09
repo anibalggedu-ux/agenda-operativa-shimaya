@@ -17,30 +17,30 @@ const ESTILOS_URGENCIA: Record<
 > = {
   HOY: {
     emoji: "🟢",
-    borde: "border-green-500",
-    fondo: "bg-green-950/30",
-    texto: "text-green-400",
+    borde: "border-emerald-500",
+    fondo: "bg-emerald-950/30",
+    texto: "text-emerald-400",
     etiqueta: "HOY",
   },
   MANANA: {
     emoji: "🟡",
-    borde: "border-yellow-500/60",
-    fondo: "bg-yellow-950/20",
-    texto: "text-yellow-400",
+    borde: "border-amber-500/60",
+    fondo: "bg-amber-950/20",
+    texto: "text-amber-400",
     etiqueta: "MAÑANA",
   },
   AYER: {
     emoji: "⚠️",
-    borde: "border-slate-500/60",
-    fondo: "bg-slate-800/30",
-    texto: "text-slate-300",
+    borde: "border-marca-borde",
+    fondo: "bg-marca-superficie2",
+    texto: "text-marca-tenue",
     etiqueta: "AYER",
   },
   ANTES_DE_AYER: {
     emoji: "🚨",
-    borde: "border-red-500",
-    fondo: "bg-red-950/30",
-    texto: "text-red-400",
+    borde: "border-marca-rojo",
+    fondo: "bg-marca-rojo/15",
+    texto: "text-marca-rojoclaro",
     etiqueta: "ANTES DE AYER",
   },
 };
@@ -51,7 +51,7 @@ function BotonEnviar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+      className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
       {pending ? "Enviando..." : "Enviar Reporte"}
     </button>
@@ -125,16 +125,16 @@ export default function SelectorTiendas({
   }, [tiendas]);
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tus tiendas asignadas...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tus tiendas asignadas...</p>;
   }
 
   if (error) {
-    return <p className="text-red-400 text-sm">{error}</p>;
+    return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
   if (!tiendas || tiendas.length === 0) {
     return (
-      <p className="text-slate-500 text-sm italic">
+      <p className="text-marca-tenue text-sm italic">
         No tienes tiendas asignadas pendientes por reportar en este momento.
       </p>
     );
@@ -143,7 +143,7 @@ export default function SelectorTiendas({
   return (
     <div className="space-y-6">
       {mostrarDescansoFijo && diaDescanso && diaDescanso.length > 0 && (
-        <div className="bg-indigo-950/30 border border-indigo-700/40 rounded-xl px-4 py-2 text-indigo-300 text-xs font-bold">
+        <div className="bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] px-4 py-2 text-marca-rojoclaro text-xs font-bold">
           🛌 Tu{diaDescanso.length > 1 ? "s días de descanso fijos" : " día de descanso fijo"}:{" "}
           {diaDescanso.join(" y ")}
         </div>
@@ -168,22 +168,22 @@ export default function SelectorTiendas({
                       setActividad("");
                     }}
                     disabled={tienda.yaReportado}
-                    className={`text-left rounded-xl border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
-                      estaSeleccionada ? "ring-2 ring-white" : ""
+                    className={`text-left rounded-[3px] border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
+                      estaSeleccionada ? "ring-2 ring-marca-rojo" : ""
                     } ${tienda.yaReportado ? "opacity-40 cursor-not-allowed" : "hover:brightness-125"}`}
                   >
-                    <p className="font-black text-white">{tienda.tiendaNombre}</p>
-                    <p className="text-[11px] text-slate-400 capitalize mt-1">
+                    <p className="font-black text-marca-textofuerte">{tienda.tiendaNombre}</p>
+                    <p className="text-[11px] text-marca-tenue capitalize mt-1">
                       {formatearFechaLegible(tienda.fechaPlanificada)}
                     </p>
                     {tienda.area && (
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-marca-tenue mt-1">
                         {tienda.area}
                         {tienda.enfoque ? ` · ${tienda.enfoque}` : ""}
                       </p>
                     )}
                     {tienda.yaReportado && (
-                      <p className="text-[11px] text-green-500 font-bold mt-2">
+                      <p className="text-[11px] text-emerald-400 font-bold mt-2">
                         ✅ Ya reportado
                       </p>
                     )}
@@ -198,17 +198,17 @@ export default function SelectorTiendas({
       {seleccionada && (
         <form
           action={formAction}
-          className="bg-[#0f111a] border-2 border-cyan-500/40 rounded-2xl p-5 space-y-4"
+          className="bg-marca-superficie border border-marca-rojo/40 rounded-[3px] p-5 space-y-4"
         >
           <input type="hidden" name="rutaActivaId" value={seleccionada.rutaActivaId} />
           <input type="hidden" name="tiendaId" value={seleccionada.tiendaId} />
 
-          <p className="text-xs text-slate-400">
-            Reportando: <span className="text-white font-bold">{seleccionada.tiendaNombre}</span>
+          <p className="text-xs text-marca-tenue">
+            Reportando: <span className="text-marca-textofuerte font-bold">{seleccionada.tiendaNombre}</span>
           </p>
 
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Observación
             </label>
             <textarea
@@ -217,20 +217,20 @@ export default function SelectorTiendas({
               rows={3}
               value={observacion}
               onChange={(e) => setObservacion(e.target.value)}
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
               placeholder="¿Qué encontraste en la visita?"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Actividad realizada (opcional)
             </label>
             <input
               name="actividad"
               value={actividad}
               onChange={(e) => setActividad(e.target.value)}
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
               placeholder="Ej: capacitación de caja, revisión de inventario..."
             />
           </div>
@@ -238,7 +238,7 @@ export default function SelectorTiendas({
           <BotonEnviar />
 
           {estadoReporte.mensaje && !estadoReporte.exito && (
-            <p className="text-yellow-400 text-xs font-bold text-center">
+            <p className="text-marca-rojoclaro text-xs font-bold text-center">
               {estadoReporte.mensaje}
             </p>
           )}

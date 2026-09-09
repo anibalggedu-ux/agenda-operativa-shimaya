@@ -26,24 +26,24 @@ function SelectorFechas({
   return (
     <div className="flex flex-col sm:flex-row gap-3">
       <div className="flex-1">
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Desde</label>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
         <input
           type="date"
           value={desde}
           max={hasta}
           onChange={(e) => onDesde(e.target.value)}
-          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+          className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
         />
       </div>
       <div className="flex-1">
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Hasta</label>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
         <input
           type="date"
           value={hasta}
           min={desde}
           max={hoyPeru()}
           onChange={(e) => onHasta(e.target.value)}
-          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+          className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
         />
       </div>
     </div>
@@ -58,7 +58,7 @@ function BotonResponder() {
     <button
       type="submit"
       disabled={pending}
-      className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-black py-2 px-4 rounded-lg text-[11px] tracking-widest uppercase transition"
+      className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
     >
       {pending ? "Enviando..." : "Responder"}
     </button>
@@ -80,25 +80,25 @@ function ObservacionItem({
   }, [estado]);
 
   return (
-    <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4">
-      <p className="text-white font-bold text-sm">
+    <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
+      <p className="text-marca-textofuerte font-bold text-sm">
         {obs.tiendaNombre} — {obs.usuarioNombre}{" "}
-        <span className="text-slate-500 font-normal text-[11px] uppercase">({obs.rol})</span>
+        <span className="text-marca-tenue font-normal text-[11px] uppercase">({obs.rol})</span>
       </p>
-      <p className="text-slate-500 text-[11px] capitalize mt-1">
+      <p className="text-marca-tenue text-[11px] capitalize mt-1">
         {formatearFechaLegible(obs.fecha)}
       </p>
-      <p className="text-slate-300 text-sm mt-2">{obs.observacion}</p>
+      <p className="text-marca-texto text-sm mt-2">{obs.observacion}</p>
       {obs.actividad && (
-        <p className="text-slate-500 text-[12px] italic mt-1">Actividad: {obs.actividad}</p>
+        <p className="text-marca-tenue text-[12px] italic mt-1">Actividad: {obs.actividad}</p>
       )}
 
       {obs.respuesta ? (
-        <div className="mt-3 bg-cyan-950/20 border border-cyan-700/40 rounded-lg p-3">
-          <p className="text-cyan-400 text-[10px] font-black uppercase tracking-widest">
+        <div className="mt-3 bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3">
+          <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
             Respuesta{obs.respuestaPor ? " · " + obs.respuestaPor : ""}
           </p>
-          <p className="text-white text-sm mt-1">{obs.respuesta}</p>
+          <p className="text-marca-textofuerte text-sm mt-1">{obs.respuesta}</p>
         </div>
       ) : (
         <form action={formAction} className="mt-3 space-y-2">
@@ -108,11 +108,11 @@ function ObservacionItem({
             required
             rows={2}
             placeholder="Responde a este colaborador..."
-            className="w-full p-2.5 bg-[#07080c] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+            className="w-full p-2.5 bg-marca-superficie2 border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
           <BotonResponder />
           {estado.mensaje && !estado.exito && (
-            <p className="text-yellow-400 text-xs font-bold">{estado.mensaje}</p>
+            <p className="text-marca-rojoclaro text-xs font-bold">{estado.mensaje}</p>
           )}
         </form>
       )}
@@ -152,21 +152,21 @@ export default function TiendasFijas() {
   }, [desde, hasta]);
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tus tiendas fijas...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tus tiendas fijas...</p>;
   }
 
   if (error) {
-    return <p className="text-red-400 text-sm">{error}</p>;
+    return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-3">
-        <h3 className="text-xs font-black tracking-widest text-slate-300">
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
           🏬 MIS TIENDAS FIJAS
         </h3>
         {tiendas.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">
+          <p className="text-marca-tenue text-sm italic">
             No tienes tiendas asignadas de forma permanente.
           </p>
         ) : (
@@ -174,7 +174,7 @@ export default function TiendasFijas() {
             {tiendas.map((t) => (
               <span
                 key={t.id}
-                className="bg-[#0d1117] border border-slate-800 rounded-full px-3 py-1.5 text-xs text-white font-bold"
+                className="bg-marca-fondo border border-marca-borde rounded-full px-3 py-1.5 text-xs text-marca-textofuerte font-bold"
               >
                 {t.nombre}
               </span>
@@ -183,16 +183,16 @@ export default function TiendasFijas() {
         )}
       </div>
 
-      <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-4">
-        <h3 className="text-xs font-black tracking-widest text-slate-300">
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
           OBSERVACIONES EN TUS TIENDAS FIJAS ({observaciones.length})
         </h3>
         <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
 
         {cargandoObs ? (
-          <p className="text-slate-500 text-sm animate-pulse">Cargando observaciones...</p>
+          <p className="text-marca-tenue text-sm animate-pulse">Cargando observaciones...</p>
         ) : observaciones.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">
+          <p className="text-marca-tenue text-sm italic">
             Nadie más ha dejado observaciones en tus tiendas fijas en este rango de fechas.
           </p>
         ) : (

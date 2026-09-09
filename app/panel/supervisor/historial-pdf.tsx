@@ -29,14 +29,14 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
   }
 
   return (
-    <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-slate-300">
+    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
         📄 HISTORIAL EN PDF
       </h3>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Desde
           </label>
           <input
@@ -44,11 +44,11 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
             value={desde}
             max={hasta}
             onChange={(e) => setDesde(e.target.value)}
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
         </div>
         <div className="flex-1">
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Hasta
           </label>
           <input
@@ -57,7 +57,7 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
             min={desde}
             max={hoy}
             onChange={(e) => setHasta(e.target.value)}
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
         </div>
       </div>
@@ -65,12 +65,12 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
       <button
         onClick={handleGenerar}
         disabled={generando}
-        className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
       >
         {generando ? "Generando..." : "Descargar historial PDF"}
       </button>
 
-      {error && <p className="text-red-400 text-xs font-bold text-center">{error}</p>}
+      {error && <p className="text-marca-rojoclaro text-xs font-bold text-center">{error}</p>}
     </div>
   );
 }

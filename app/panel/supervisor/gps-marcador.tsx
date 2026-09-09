@@ -108,47 +108,47 @@ export default function GpsMarcador() {
   }
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando estado de asistencia...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando estado de asistencia...</p>;
   }
 
   return (
-    <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-slate-300">
+    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
         📍 REGISTRO DE ASISTENCIA
       </h3>
 
       <div className="flex gap-3 text-xs">
-        <div className="flex-1 bg-[#0d1117] rounded-xl p-3 border border-slate-800">
-          <p className="text-slate-500 uppercase font-bold text-[10px]">Ingreso</p>
-          <p className="text-white font-black text-lg mt-1">
+        <div className="flex-1 bg-marca-fondo rounded-[3px] p-3 border border-marca-borde">
+          <p className="text-marca-tenue uppercase font-bold text-[10px]">Ingreso</p>
+          <p className="text-marca-textofuerte font-black text-lg mt-1">
             {horaIngreso ? formatearHora(horaIngreso) : "—"}
           </p>
         </div>
-        <div className="flex-1 bg-[#0d1117] rounded-xl p-3 border border-slate-800">
-          <p className="text-slate-500 uppercase font-bold text-[10px]">Salida</p>
-          <p className="text-white font-black text-lg mt-1">
+        <div className="flex-1 bg-marca-fondo rounded-[3px] p-3 border border-marca-borde">
+          <p className="text-marca-tenue uppercase font-bold text-[10px]">Salida</p>
+          <p className="text-marca-textofuerte font-black text-lg mt-1">
             {horaSalida ? formatearHora(horaSalida) : "—"}
           </p>
         </div>
       </div>
 
       {preguntaFecha ? (
-        <div className="bg-yellow-950/20 border border-yellow-600/50 rounded-xl p-4 space-y-3">
-          <p className="text-yellow-300 text-xs font-bold text-center">
+        <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-4 space-y-3">
+          <p className="text-marca-rojoclaro text-xs font-bold text-center">
             Ya pasó la medianoche — ¿esta salida pertenece al turno de hoy o al de ayer?
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => confirmarSalida(preguntaFecha.hoy)}
               disabled={procesando}
-              className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-black py-2.5 rounded-xl text-[11px] tracking-widest uppercase transition"
+              className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-40 text-marca-textofuerte font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
               Hoy ({formatearFechaLegible(preguntaFecha.hoy)})
             </button>
             <button
               onClick={() => confirmarSalida(preguntaFecha.ayer)}
               disabled={procesando}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white font-black py-2.5 rounded-xl text-[11px] tracking-widest uppercase transition"
+              className="flex-1 bg-marca-superficie2 border border-marca-borde hover:border-marca-rojo/40 disabled:opacity-40 text-marca-texto font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
               Ayer ({formatearFechaLegible(preguntaFecha.ayer)})
             </button>
@@ -159,14 +159,14 @@ export default function GpsMarcador() {
           <button
             onClick={handleIngreso}
             disabled={procesando || !!horaIngreso}
-            className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
           >
             {procesando ? "..." : "Marcar Ingreso"}
           </button>
           <button
             onClick={handleSalida}
             disabled={procesando || !horaIngreso || !!horaSalida}
-            className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+            className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-40 disabled:cursor-not-allowed text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
           >
             {procesando ? "..." : "Marcar Salida"}
           </button>
@@ -174,7 +174,7 @@ export default function GpsMarcador() {
       )}
 
       {mensaje && (
-        <p className="text-yellow-400 text-xs font-bold text-center">{mensaje}</p>
+        <p className="text-marca-rojoclaro text-xs font-bold text-center">{mensaje}</p>
       )}
     </div>
   );

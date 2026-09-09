@@ -36,15 +36,15 @@ export default function MiDescanso() {
   }
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tu descanso...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tu descanso...</p>;
   }
 
   return (
-    <div className="bg-[#0f111a] border-2 border-indigo-700/40 rounded-2xl p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-slate-300">
+    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
         🛌 MI DESCANSO SEMANAL
       </h3>
-      <p className="text-slate-500 text-[11px]">
+      <p className="text-marca-tenue text-[11px]">
         Elige hasta {MAX_DIAS} día(s) de descanso fijo por semana.
       </p>
 
@@ -55,10 +55,10 @@ export default function MiDescanso() {
             <button
               key={dia}
               onClick={() => toggleDia(dia)}
-              className={`px-3 py-2 rounded-lg text-[11px] font-black tracking-widest uppercase transition ${
+              className={`px-3 py-2 rounded-[3px] text-[11px] font-black tracking-widest uppercase transition ${
                 activo
-                  ? "bg-indigo-600 text-white"
-                  : "bg-[#0d1117] border border-slate-800 text-slate-400 hover:border-slate-600"
+                  ? "bg-marca-rojo text-marca-textofuerte"
+                  : "bg-marca-fondo border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
               }`}
             >
               {dia}
@@ -70,12 +70,12 @@ export default function MiDescanso() {
       <button
         onClick={guardar}
         disabled={guardando}
-        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black py-2.5 px-4 rounded-lg text-[11px] tracking-widest uppercase transition"
+        className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
       >
         {guardando ? "Guardando..." : "Guardar descanso"}
       </button>
 
-      {mensaje && <p className="text-yellow-400 text-xs font-bold">{mensaje}</p>}
+      {mensaje && <p className="text-marca-rojoclaro text-xs font-bold">{mensaje}</p>}
     </div>
   );
 }
