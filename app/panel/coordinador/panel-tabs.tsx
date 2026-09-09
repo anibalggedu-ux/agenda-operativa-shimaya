@@ -47,10 +47,10 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
           <button
             key={p.id}
             onClick={() => setPestana(p.id)}
-            className={`px-4 py-2 rounded-lg text-xs font-black tracking-widest uppercase transition shrink-0 ${
+            className={`px-4 py-2 rounded-[3px] text-xs font-black tracking-widest uppercase transition shrink-0 ${
               pestana === p.id
-                ? "bg-red-600 text-white"
-                : "bg-[#181b29] border border-slate-700 text-slate-400 hover:bg-[#22273a]"
+                ? "bg-marca-rojo text-marca-textofuerte"
+                : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
             }`}
           >
             {p.etiqueta}

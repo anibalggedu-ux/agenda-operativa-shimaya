@@ -11,27 +11,27 @@ export default async function PanelCoordinador() {
   if (!sesion || sesion.rol !== "coordinador") redirect("/login");
 
   return (
-    <main className="min-h-screen bg-[#07080c] text-white p-6 sm:p-8 font-mono">
-      <div className="flex justify-between items-center border-b border-red-500/30 pb-4 mb-6">
-        <h1 className="text-xl sm:text-2xl font-black tracking-widest">
-          <span className="text-red-500">CENTRAL</span> COORDINACIÓN
+    <main className="min-h-screen bg-marca-fondo text-marca-texto p-6 sm:p-8 font-body">
+      <div className="flex justify-between items-center border-b border-marca-rojo/25 pb-4 mb-6">
+        <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
+          Central <span className="text-marca-rojoclaro italic">Coordinación</span>
         </h1>
         <div className="flex gap-2">
           <Link
             href="/panel/analitica"
-            className="bg-purple-950/40 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-950/70 transition"
+            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
           >
             📊 Central Analítica
           </Link>
           <form action={cerrarSesionAction}>
-            <button className="bg-[#181b29] border border-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#22273a] transition">
+            <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-4 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
               Cerrar sesión
             </button>
           </form>
         </div>
       </div>
-      <p className="text-slate-400 text-sm mb-6">
-        Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
+      <p className="text-marca-tenue text-sm mb-6">
+        Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
       </p>
 
       <PanelTabs nombre={sesion.nombre} />

@@ -29,37 +29,37 @@ export default function PerfilBanner() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-      <div className="bg-[#0f111a] border border-indigo-700/40 rounded-xl px-4 py-3">
-        <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
+        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
           🛌 Descanso semanal
         </p>
-        <p className="text-white text-sm font-bold mt-1">{textoDescanso}</p>
+        <p className="text-marca-textofuerte text-sm font-bold mt-1">{textoDescanso}</p>
       </div>
 
-      <div className="bg-[#0f111a] border border-yellow-700/40 rounded-xl px-4 py-3">
-        <p className="text-yellow-400 text-[10px] font-black uppercase tracking-widest">
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
+        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
           📅 Antigüedad
         </p>
-        <p className="text-white text-sm font-bold mt-1">{textoAntiguedad}</p>
+        <p className="text-marca-textofuerte text-sm font-bold mt-1">{textoAntiguedad}</p>
       </div>
 
-      <div className="bg-[#0f111a] border border-green-700/40 rounded-xl px-4 py-3">
-        <p className="text-green-400 text-[10px] font-black uppercase tracking-widest">
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
+        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
           🎉 Próximo aniversario
         </p>
         {perfil.proximoAniversario ? (
-          <p className="text-white text-sm font-bold mt-1 capitalize">
+          <p className="text-marca-textofuerte text-sm font-bold mt-1 capitalize">
             {perfil.proximoAniversario.diasFaltantes === 0
               ? "¡Hoy!"
               : `En ${perfil.proximoAniversario.diasFaltantes} día${
                   perfil.proximoAniversario.diasFaltantes !== 1 ? "s" : ""
                 }`}{" "}
-            <span className="text-slate-500 font-normal">
+            <span className="text-marca-tenue font-normal">
               ({formatearFechaLegible(perfil.proximoAniversario.fecha)})
             </span>
           </p>
         ) : (
-          <p className="text-white text-sm font-bold mt-1">—</p>
+          <p className="text-marca-textofuerte text-sm font-bold mt-1">—</p>
         )}
       </div>
     </div>

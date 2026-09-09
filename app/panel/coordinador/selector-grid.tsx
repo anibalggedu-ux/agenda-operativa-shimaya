@@ -26,26 +26,26 @@ export default function SelectorGrid({
             key={o.id}
             type="button"
             onClick={() => onSeleccionar(o.id)}
-            className={`text-left rounded-xl border-2 p-3 transition ${
+            className={`text-left rounded-[3px] border-2 p-3 transition ${
               seleccionado
-                ? "border-red-500 bg-red-950/30 ring-2 ring-red-500"
+                ? "border-marca-rojo bg-marca-rojo/20 ring-2 ring-marca-rojo"
                 : o.destacado
-                  ? "border-green-600/60 bg-green-950/20 hover:brightness-125"
-                  : "border-slate-800 bg-[#0d1117] hover:brightness-125"
+                  ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
+                  : "border-marca-borde bg-marca-fondo hover:brightness-125"
             }`}
           >
             <p
               className={`font-bold text-sm truncate ${
-                seleccionado ? "text-white" : o.destacado ? "text-green-300" : "text-slate-200"
+                seleccionado ? "text-marca-textofuerte" : o.destacado ? "text-emerald-300" : "text-marca-texto"
               }`}
             >
               {o.titulo}
             </p>
             {o.subtitulo && (
-              <p className="text-[10px] text-slate-500 uppercase mt-0.5 truncate">{o.subtitulo}</p>
+              <p className="text-[10px] text-marca-tenue uppercase mt-0.5 truncate">{o.subtitulo}</p>
             )}
             {o.destacado && o.etiquetaDestacado && (
-              <p className="text-[10px] text-green-400 font-bold mt-1">✓ {o.etiquetaDestacado}</p>
+              <p className="text-[10px] text-emerald-400 font-bold mt-1">✓ {o.etiquetaDestacado}</p>
             )}
           </button>
         );

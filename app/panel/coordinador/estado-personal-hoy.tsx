@@ -10,37 +10,37 @@ const ESTILOS: Record<
 > = {
   DESCANSO_SEMANAL: {
     emoji: "🟢",
-    borde: "border-green-600/50",
-    fondo: "bg-green-950/20",
-    texto: "text-green-300",
+    borde: "border-emerald-600/50",
+    fondo: "bg-emerald-950/20",
+    texto: "text-emerald-300",
     etiqueta: "Descansa hoy",
   },
   VACACIONES: {
     emoji: "🔵",
-    borde: "border-cyan-600/50",
-    fondo: "bg-cyan-950/20",
-    texto: "text-cyan-300",
+    borde: "border-sky-600/50",
+    fondo: "bg-sky-950/20",
+    texto: "text-sky-300",
     etiqueta: "Vacaciones",
   },
   PERMISO: {
     emoji: "🟡",
-    borde: "border-yellow-600/50",
-    fondo: "bg-yellow-950/20",
-    texto: "text-yellow-300",
+    borde: "border-amber-600/50",
+    fondo: "bg-amber-950/20",
+    texto: "text-amber-300",
     etiqueta: "Permiso",
   },
   DESCANSO_MEDICO: {
-    emoji: "🔴",
-    borde: "border-red-600/50",
-    fondo: "bg-red-950/20",
-    texto: "text-red-300",
+    emoji: "🟠",
+    borde: "border-orange-600/50",
+    fondo: "bg-orange-950/20",
+    texto: "text-orange-300",
     etiqueta: "Descanso médico",
   },
   MISION_ESPECIAL: {
     emoji: "🟣",
-    borde: "border-purple-600/50",
-    fondo: "bg-purple-950/20",
-    texto: "text-purple-300",
+    borde: "border-violet-600/50",
+    fondo: "bg-violet-950/20",
+    texto: "text-violet-300",
     etiqueta: "Misión especial",
   },
 };
@@ -58,22 +58,22 @@ export default function EstadoPersonalHoy() {
   }, []);
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando estado del personal...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando estado del personal...</p>;
   }
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   const conNovedad = filas.filter((f) => f.estado);
   const disponibles = filas.filter((f) => !f.estado);
 
   return (
     <div>
-      <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
         ESTADO DEL PERSONAL HOY
       </h3>
-      <p className="text-slate-500 text-[11px] capitalize mb-3">{formatearFechaLegible(hoyPeru())}</p>
+      <p className="text-marca-tenue text-[11px] capitalize mb-3">{formatearFechaLegible(hoyPeru())}</p>
 
       {conNovedad.length === 0 ? (
-        <p className="text-slate-500 text-sm italic mb-3">
+        <p className="text-marca-tenue text-sm italic mb-3">
           Todo el personal está disponible hoy — sin descansos ni asignaciones especiales.
         </p>
       ) : (
@@ -83,11 +83,11 @@ export default function EstadoPersonalHoy() {
             return (
               <div
                 key={f.usuarioId}
-                className={`flex items-center justify-between border rounded-xl p-3 ${estilo.borde} ${estilo.fondo}`}
+                className={`flex items-center justify-between border rounded-[3px] p-3 ${estilo.borde} ${estilo.fondo}`}
               >
                 <div className="min-w-0">
-                  <p className="text-white font-bold text-sm truncate">{f.usuarioNombre}</p>
-                  <p className="text-slate-500 text-[10px] uppercase">{f.rol}</p>
+                  <p className="text-marca-textofuerte font-bold text-sm truncate">{f.usuarioNombre}</p>
+                  <p className="text-marca-tenue text-[10px] uppercase">{f.rol}</p>
                 </div>
                 <span className={`text-[11px] font-black shrink-0 ml-2 ${estilo.texto}`}>
                   {estilo.emoji} {estilo.etiqueta}
@@ -98,7 +98,7 @@ export default function EstadoPersonalHoy() {
         </div>
       )}
 
-      <p className="text-slate-600 text-[11px]">
+      <p className="text-marca-tenue text-[11px]">
         {disponibles.length} de {filas.length} disponibles hoy sin novedad.
       </p>
     </div>

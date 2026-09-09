@@ -21,7 +21,7 @@ function BotonRegistrar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+      className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
       {pending ? "Registrando..." : "Registrar usuario"}
     </button>
@@ -40,65 +40,65 @@ function FormularioNuevoUsuario() {
     <form
       ref={formRef}
       action={formAction}
-      className="bg-[#0f111a] border-2 border-emerald-500/30 rounded-2xl p-5 space-y-4"
+      className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
     >
-      <h3 className="text-xs font-black tracking-widest text-slate-300">NUEVO USUARIO</h3>
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">NUEVO USUARIO</h3>
 
       <div>
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
           Nombre y apellido
         </label>
         <input
           name="nombre"
           required
-          className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+          className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           placeholder="Ej. JUAN PÉREZ"
         />
       </div>
 
       <div>
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
           Correo electrónico
         </label>
         <input
           type="email"
           name="email"
-          className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+          className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           placeholder="correo@ejemplo.com"
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Fecha de ingreso a la empresa
           </label>
           <input
             type="date"
             name="fechaIngreso"
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
         </div>
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Fecha de cumpleaños
           </label>
           <input
             type="date"
             name="fechaNacimiento"
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Rol</label>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Rol</label>
           <select
             name="rol"
             required
             defaultValue=""
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           >
             <option value="" disabled>
               Selecciona...
@@ -111,13 +111,13 @@ function FormularioNuevoUsuario() {
           </select>
         </div>
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Día de descanso semanal
           </label>
           <select
             name="diaDescanso"
             defaultValue=""
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           >
             <option value="">Sin asignar</option>
             {DIAS_SEMANA.map((d) => (
@@ -130,14 +130,14 @@ function FormularioNuevoUsuario() {
       </div>
 
       <div>
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
           Credencial (clave de acceso)
         </label>
         <input
           type="password"
           name="credencial"
           required
-          className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-emerald-500"
+          className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           placeholder="Clave para iniciar sesión"
         />
       </div>
@@ -147,7 +147,7 @@ function FormularioNuevoUsuario() {
       {estado.mensaje && (
         <p
           className={`text-xs font-bold text-center ${
-            estado.exito ? "text-green-400" : "text-yellow-400"
+            estado.exito ? "text-emerald-400" : "text-marca-rojoclaro"
           }`}
         >
           {estado.mensaje}
@@ -190,36 +190,36 @@ function GestionAccesos() {
     setGuardandoId(null);
   }
 
-  if (cargando) return <p className="text-slate-500 text-sm animate-pulse">Cargando usuarios...</p>;
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando usuarios...</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   return (
-    <div className="bg-[#0f111a] border border-slate-800 rounded-2xl p-5">
-      <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
         ACCESO A REGISTRO DE USUARIOS
       </h3>
-      <p className="text-slate-500 text-[11px] mb-4">
+      <p className="text-marca-tenue text-[11px] mb-4">
         Además del Coordinador, marca aquí quién más puede registrar nuevos usuarios.
       </p>
       {usuarios.length === 0 ? (
-        <p className="text-slate-500 text-sm italic">No hay otros usuarios registrados.</p>
+        <p className="text-marca-tenue text-sm italic">No hay otros usuarios registrados.</p>
       ) : (
         <div className="space-y-1.5">
           {usuarios.map((u) => (
             <label
               key={u.id}
-              className="flex items-center justify-between bg-[#0d1117] border border-slate-800 rounded-xl px-4 py-3 cursor-pointer"
+              className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-4 py-3 cursor-pointer"
             >
               <span>
-                <span className="text-white font-bold text-sm">{u.nombre}</span>{" "}
-                <span className="text-slate-500 text-[11px] uppercase">({u.rol})</span>
+                <span className="text-marca-textofuerte font-bold text-sm">{u.nombre}</span>{" "}
+                <span className="text-marca-tenue text-[11px] uppercase">({u.rol})</span>
               </span>
               <input
                 type="checkbox"
                 checked={u.puedeRegistrar}
                 disabled={guardandoId === u.id}
                 onChange={() => handleToggle(u)}
-                className="w-4 h-4 accent-emerald-500"
+                className="w-4 h-4 accent-marca-rojo"
               />
             </label>
           ))}

@@ -54,16 +54,16 @@ export default function TiendasPermanentes() {
   }
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tiendas permanentes...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tiendas permanentes...</p>;
   }
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   return (
     <div>
-      <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
         TIENDAS PERMANENTES
       </h3>
-      <p className="text-slate-500 text-[11px] mb-3">
+      <p className="text-marca-tenue text-[11px] mb-3">
         Hasta {MAX_TIENDAS_PERMANENTES} tiendas fijas por supervisor/capacitador.
       </p>
       <div className="space-y-2">
@@ -71,18 +71,18 @@ export default function TiendasPermanentes() {
           const disponibles = tiendas.filter((t) => !f.tiendas.some((ft) => ft.tiendaId === t.id));
           const lleno = f.tiendas.length >= MAX_TIENDAS_PERMANENTES;
           return (
-            <div key={f.usuarioId} className="bg-[#0f111a] border border-slate-800 rounded-xl p-4">
+            <div key={f.usuarioId} className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <p className="text-white font-bold text-sm">{f.usuarioNombre}</p>
-                  <p className="text-slate-500 text-[11px] uppercase">{f.rol}</p>
+                  <p className="text-marca-textofuerte font-bold text-sm">{f.usuarioNombre}</p>
+                  <p className="text-marca-tenue text-[11px] uppercase">{f.rol}</p>
                 </div>
                 {!lleno && (
                   <button
                     onClick={() =>
                       setUsuarioAbierto(usuarioAbierto === f.usuarioId ? null : f.usuarioId)
                     }
-                    className="text-red-400 hover:text-red-300 text-[11px] font-bold uppercase"
+                    className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase"
                   >
                     + Agregar tienda
                   </button>
@@ -91,17 +91,17 @@ export default function TiendasPermanentes() {
 
               <div className="flex flex-wrap gap-2 mt-3">
                 {f.tiendas.length === 0 ? (
-                  <span className="text-slate-600 text-xs italic">Sin tiendas permanentes.</span>
+                  <span className="text-marca-tenue text-xs italic">Sin tiendas permanentes.</span>
                 ) : (
                   f.tiendas.map((t) => (
                     <span
                       key={t.id}
-                      className="bg-green-950/30 border border-green-700/40 text-green-300 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2"
+                      className="bg-emerald-950/30 border border-emerald-700/40 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2"
                     >
                       {t.tiendaNombre}
                       <button
                         onClick={() => handleQuitar(t.id)}
-                        className="text-green-500 hover:text-red-400"
+                        className="text-emerald-500 hover:text-marca-rojoclaro"
                         aria-label={`Quitar ${t.tiendaNombre}`}
                       >
                         ×
@@ -118,7 +118,7 @@ export default function TiendasPermanentes() {
                     onChange={(e) =>
                       setTiendaElegida((prev) => ({ ...prev, [f.usuarioId]: e.target.value }))
                     }
-                    className="flex-1 p-2 bg-[#0d1117] border border-slate-800 rounded-lg text-white text-sm outline-none focus:border-red-500"
+                    className="flex-1 p-2 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
                   >
                     <option value="">Selecciona una tienda...</option>
                     {disponibles.map((t) => (
@@ -129,7 +129,7 @@ export default function TiendasPermanentes() {
                   </select>
                   <button
                     onClick={() => handleAgregar(f.usuarioId)}
-                    className="bg-red-600 hover:bg-red-500 text-white font-black py-2 px-4 rounded-lg text-[11px] tracking-widest uppercase transition"
+                    className="bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
                   >
                     Guardar
                   </button>
@@ -137,7 +137,7 @@ export default function TiendasPermanentes() {
               )}
 
               {mensaje[f.usuarioId] && (
-                <p className="text-yellow-400 text-xs font-bold mt-2">{mensaje[f.usuarioId]}</p>
+                <p className="text-marca-rojoclaro text-xs font-bold mt-2">{mensaje[f.usuarioId]}</p>
               )}
             </div>
           );

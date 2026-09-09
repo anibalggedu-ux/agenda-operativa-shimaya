@@ -66,29 +66,29 @@ export default function DescansosSemanales() {
   }
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando descansos...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando descansos...</p>;
   }
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   return (
     <div>
-      <h3 className="text-xs font-black tracking-widest text-slate-300 mb-1">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
         DESCANSOS SEMANALES
       </h3>
-      <p className="text-slate-500 text-[11px] mb-3">
+      <p className="text-marca-tenue text-[11px] mb-3">
         Hasta {MAX_DIAS_DESCANSO} días fijos de descanso por semana, por persona.
       </p>
       <div className="space-y-2">
         {filas.map((f) => (
           <div
             key={f.usuarioId}
-            className="flex items-center justify-between flex-wrap gap-3 bg-[#0f111a] border border-slate-800 rounded-xl p-3"
+            className="flex items-center justify-between flex-wrap gap-3 bg-marca-superficie border border-marca-borde rounded-[3px] p-3"
           >
             <div className="min-w-0">
-              <p className="text-white font-bold text-sm truncate">{f.usuarioNombre}</p>
-              <p className="text-slate-500 text-[11px] uppercase">{f.rol}</p>
+              <p className="text-marca-textofuerte font-bold text-sm truncate">{f.usuarioNombre}</p>
+              <p className="text-marca-tenue text-[11px] uppercase">{f.rol}</p>
               {mensaje[f.usuarioId] && (
-                <p className="text-yellow-400 text-[11px] font-bold mt-1">{mensaje[f.usuarioId]}</p>
+                <p className="text-marca-rojoclaro text-[11px] font-bold mt-1">{mensaje[f.usuarioId]}</p>
               )}
             </div>
             <div className="flex gap-1.5 shrink-0">
@@ -99,10 +99,10 @@ export default function DescansosSemanales() {
                     key={dia}
                     title={dia}
                     onClick={() => handleToggle(f.usuarioId, dia)}
-                    className={`w-8 h-8 rounded-lg text-xs font-black transition ${
+                    className={`w-8 h-8 rounded-[3px] text-xs font-black transition ${
                       activo
-                        ? "bg-indigo-600 text-white"
-                        : "bg-[#0d1117] border border-slate-800 text-slate-500 hover:border-indigo-500"
+                        ? "bg-marca-rojo text-marca-textofuerte"
+                        : "bg-marca-fondo border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
                     }`}
                   >
                     {ABREVIATURA[dia]}

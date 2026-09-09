@@ -24,7 +24,7 @@ function BotonAsignar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+      className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
       {pending ? "Asignando..." : "Asignar ruta"}
     </button>
@@ -32,14 +32,14 @@ function BotonAsignar() {
 }
 
 function Marcacion({ hora, ubicacion }: { hora: string | null; ubicacion: string | null }) {
-  if (!hora) return <span className="text-slate-600">sin marcar</span>;
-  if (!ubicacion) return <span className="text-slate-300">{formatearHora(hora)}</span>;
+  if (!hora) return <span className="text-marca-tenue">sin marcar</span>;
+  if (!ubicacion) return <span className="text-marca-texto">{formatearHora(hora)}</span>;
   return (
     <a
       href={ubicacion}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-cyan-400 hover:text-cyan-300 underline font-bold"
+      className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
     >
       {formatearHora(hora)}
     </a>
@@ -125,26 +125,26 @@ export default function AsignarRutas() {
   );
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando rutas...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando rutas...</p>;
   }
 
   if (error) {
-    return <p className="text-red-400 text-sm">{error}</p>;
+    return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
   return (
     <div className="space-y-6">
       <form
         action={formAction}
-        className="bg-[#0f111a] border-2 border-red-500/30 rounded-2xl p-5 space-y-4"
+        className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
       >
-        <h3 className="text-xs font-black tracking-widest text-slate-300">NUEVA ASIGNACIÓN</h3>
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">NUEVA ASIGNACIÓN</h3>
 
         <input type="hidden" name="usuarioId" value={usuarioId ?? ""} />
         <input type="hidden" name="tiendaId" value={tiendaId ?? ""} />
 
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Fecha planificada
           </label>
           <input
@@ -153,14 +153,14 @@ export default function AsignarRutas() {
             required
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className="w-full sm:w-56 p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+            className="w-full sm:w-56 p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
         </div>
 
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-2">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
             Usuario{" "}
-            <span className="text-slate-600 normal-case font-normal">
+            <span className="text-marca-tenue/70 normal-case font-normal">
               (verde = ya tiene ruta esta fecha)
             </span>
           </label>
@@ -172,9 +172,9 @@ export default function AsignarRutas() {
         </div>
 
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-2">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
             Tienda{" "}
-            <span className="text-slate-600 normal-case font-normal">
+            <span className="text-marca-tenue/70 normal-case font-normal">
               (verde = ya cubierta esta fecha)
             </span>
           </label>
@@ -187,12 +187,12 @@ export default function AsignarRutas() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Área (opcional)
             </label>
             <select
               name="area"
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             >
               <option value="">Selecciona...</option>
               {AREAS_RUTA.map((a) => (
@@ -204,12 +204,12 @@ export default function AsignarRutas() {
           </div>
 
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Enfoque (opcional)
             </label>
             <input
               name="enfoque"
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
               placeholder="Ej: Capacitación de nuevo protocolo..."
             />
           </div>
@@ -220,7 +220,7 @@ export default function AsignarRutas() {
         {estado.mensaje && (
           <p
             className={`text-xs font-bold text-center ${
-              estado.exito ? "text-green-400" : "text-yellow-400"
+              estado.exito ? "text-emerald-400" : "text-marca-rojoclaro"
             }`}
           >
             {estado.mensaje}
@@ -229,38 +229,38 @@ export default function AsignarRutas() {
       </form>
 
       <div>
-        <h3 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
           RUTAS ACTIVAS ({rutas.length})
         </h3>
         {rutas.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">No hay rutas activas asignadas.</p>
+          <p className="text-marca-tenue text-sm italic">No hay rutas activas asignadas.</p>
         ) : (
           <div className="space-y-2">
             {rutas.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between bg-[#0f111a] border border-slate-800 rounded-xl p-4 gap-3"
+                className="flex items-center justify-between bg-marca-superficie border border-marca-borde rounded-[3px] p-4 gap-3"
               >
                 <div className="min-w-0">
-                  <p className="text-white font-bold text-sm truncate">
+                  <p className="text-marca-textofuerte font-bold text-sm truncate">
                     {r.usuarioNombre} → {r.tiendaNombre}
                   </p>
-                  <p className="text-slate-500 text-[11px] capitalize mt-1">
+                  <p className="text-marca-tenue text-[11px] capitalize mt-1">
                     {formatearFechaLegible(r.fechaPlanificada)}
                     {r.area ? " · " + r.area : ""}
                     {r.enfoque ? " · " + r.enfoque : ""}
                   </p>
                   <p className="text-[11px] mt-1">
-                    <span className="text-slate-500">Ingreso:</span>{" "}
+                    <span className="text-marca-tenue">Ingreso:</span>{" "}
                     <Marcacion hora={r.horaIngreso} ubicacion={r.ubicacionIngreso} />
-                    <span className="text-slate-600 mx-2">·</span>
-                    <span className="text-slate-500">Salida:</span>{" "}
+                    <span className="text-marca-tenue mx-2">·</span>
+                    <span className="text-marca-tenue">Salida:</span>{" "}
                     <Marcacion hora={r.horaSalida} ubicacion={r.ubicacionSalida} />
                   </p>
                 </div>
                 <button
                   onClick={() => handleEliminar(r.id)}
-                  className="text-red-400 hover:text-red-300 text-[11px] font-bold uppercase shrink-0"
+                  className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase shrink-0"
                 >
                   Cancelar
                 </button>

@@ -19,7 +19,7 @@ function BotonPublicar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs tracking-widest uppercase transition"
+      className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
       {pending ? "Publicando..." : "Publicar anuncio"}
     </button>
@@ -35,17 +35,17 @@ function TarjetaAnuncio({
 }) {
   return (
     <div
-      className={`flex items-start justify-between bg-[#0f111a] border rounded-xl p-4 ${
-        c.vigente ? "border-slate-800" : "border-slate-800/50 opacity-60"
+      className={`flex items-start justify-between bg-marca-superficie border rounded-[3px] p-4 ${
+        c.vigente ? "border-marca-borde" : "border-marca-borde/50 opacity-60"
       }`}
     >
       <div className="min-w-0">
-        <p className="text-red-400 text-[10px] font-black uppercase tracking-widest">
+        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
           {c.tipo}
         </p>
-        <p className="text-white text-sm mt-1">{c.mensaje}</p>
+        <p className="text-marca-textofuerte text-sm mt-1">{c.mensaje}</p>
         {c.fechaEvento && (
-          <p className="text-cyan-400 text-[11px] font-bold mt-2">
+          <p className="text-marca-textofuerte text-[11px] font-bold mt-2">
             📅 Evento: {formatearFechaLegible(c.fechaEvento)}
           </p>
         )}
@@ -54,19 +54,19 @@ function TarjetaAnuncio({
             href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-cyan-400 hover:text-cyan-300 underline text-[11px] font-bold mt-1"
+            className="inline-block text-marca-tenue hover:text-marca-textofuerte underline text-[11px] font-bold mt-1"
           >
             📍 {c.ubicacion} — Ver en Maps
           </a>
         )}
-        <p className="text-slate-500 text-[11px] capitalize mt-2">
+        <p className="text-marca-tenue text-[11px] capitalize mt-2">
           {formatearFechaLegible(c.fecha)}
           {c.autor ? " · " + c.autor : ""}
         </p>
       </div>
       <button
         onClick={() => onEliminar(c.id)}
-        className="text-red-400 hover:text-red-300 text-[11px] font-bold uppercase shrink-0 ml-3"
+        className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase shrink-0 ml-3"
       >
         Eliminar
       </button>
@@ -105,11 +105,11 @@ export default function Anuncios() {
   }
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando anuncios...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando anuncios...</p>;
   }
 
   if (error) {
-    return <p className="text-red-400 text-sm">{error}</p>;
+    return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
   const vigentes = comunicados.filter((c) => c.vigente);
@@ -119,63 +119,63 @@ export default function Anuncios() {
     <div className="space-y-6">
       <form
         action={formAction}
-        className="bg-[#0f111a] border-2 border-red-500/30 rounded-2xl p-5 space-y-4"
+        className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
       >
-        <h3 className="text-xs font-black tracking-widest text-slate-300">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
           NUEVO ANUNCIO
         </h3>
 
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Tipo
           </label>
           <input
             name="tipo"
             required
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             placeholder="Ej: Reunión, Aviso general, Cumpleaños..."
           />
         </div>
 
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Mensaje
           </label>
           <textarea
             name="mensaje"
             required
             rows={3}
-            className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             placeholder="Escribe el anuncio..."
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Fecha del evento (opcional)
             </label>
             <input
               type="date"
               name="fechaEvento"
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             />
-            <p className="text-slate-600 text-[10px] mt-1">
+            <p className="text-marca-tenue text-[10px] mt-1">
               Si la pones, el anuncio desaparece automáticamente al día siguiente del evento
               (queda guardado como histórico).
             </p>
           </div>
 
           <div>
-            <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Ubicación exacta (opcional)
             </label>
             <input
               name="ubicacion"
-              className="w-full p-3 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-red-500"
+              className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
               placeholder="Ej: Av 28 de julio 1445, Miraflores"
             />
-            <p className="text-slate-600 text-[10px] mt-1">
+            <p className="text-marca-tenue text-[10px] mt-1">
               Se mostrará como link directo a Google Maps.
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function Anuncios() {
         {estado.mensaje && (
           <p
             className={`text-xs font-bold text-center ${
-              estado.exito ? "text-green-400" : "text-yellow-400"
+              estado.exito ? "text-emerald-400" : "text-marca-rojoclaro"
             }`}
           >
             {estado.mensaje}
@@ -195,11 +195,11 @@ export default function Anuncios() {
       </form>
 
       <div>
-        <h3 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
           ANUNCIOS VIGENTES ({vigentes.length})
         </h3>
         {vigentes.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">No hay anuncios vigentes.</p>
+          <p className="text-marca-tenue text-sm italic">No hay anuncios vigentes.</p>
         ) : (
           <div className="space-y-2">
             {vigentes.map((c) => (
@@ -213,7 +213,7 @@ export default function Anuncios() {
         <div>
           <button
             onClick={() => setVerHistorico((v) => !v)}
-            className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest mb-3"
+            className="text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase tracking-widest mb-3"
           >
             {verHistorico ? "▾" : "▸"} Histórico de eventos vencidos ({historicos.length})
           </button>
