@@ -25,11 +25,17 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, SECRET);
 
-    // Central Analítica, Registro y Documentos son compartidas entre roles —
-    // solo exigen sesión válida aquí; el control de acceso fino (quién puede
-    // registrar usuarios o administrar documentos) se revisa dentro de la
-    // página misma.
-    if (rolRequerido === "analitica" || rolRequerido === "registro" || rolRequerido === "documentos")
+    // Central Analítica, Registro, Documentos y Calendario son compartidas
+    // entre roles — solo exigen sesión válida aquí; el control de acceso fino
+    // (quién puede registrar usuarios, administrar documentos, o ver el
+    // calendario completo vs. solo el propio) se revisa dentro de la página
+    // o la Server Action correspondiente.
+    if (
+      rolRequerido === "analitica" ||
+      rolRequerido === "registro" ||
+      rolRequerido === "documentos" ||
+      rolRequerido === "calendario"
+    )
       return NextResponse.next();
 
     if (payload.rol !== rolRequerido) {

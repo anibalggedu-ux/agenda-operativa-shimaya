@@ -1,6 +1,7 @@
 import { obtenerSesion } from "@/lib/session";
 import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import GpsMarcador from "../supervisor/gps-marcador";
 import HistorialPdf from "../supervisor/historial-pdf";
@@ -25,6 +26,12 @@ export default async function PanelCapacitador() {
           Panel <span className="text-marca-rojoclaro italic">Capacitador</span>
         </h1>
         <div className="flex gap-2">
+          <Link
+            href="/panel/calendario"
+            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
+          >
+            📅 Calendario
+          </Link>
           <form action={cerrarSesionAction}>
             <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-4 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
               Cerrar sesión

@@ -41,6 +41,12 @@ export default async function PanelGerente() {
           >
             📄 Documentos
           </Link>
+          <Link
+            href="/panel/calendario"
+            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
+          >
+            📅 Calendario
+          </Link>
           <form action={cerrarSesionAction}>
             <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-4 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
               Cerrar sesión

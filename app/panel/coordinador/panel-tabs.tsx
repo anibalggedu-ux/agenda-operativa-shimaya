@@ -16,6 +16,8 @@ import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
 import Registro from "../registro/registro";
 import Documentos from "../documentos/documentos";
+import Calendario from "../calendario/calendario";
+import { hoyPeru } from "@/lib/fechas";
 
 type Pestana =
   | "rutas"
@@ -25,7 +27,8 @@ type Pestana =
   | "anuncios"
   | "historial"
   | "registro"
-  | "documentos";
+  | "documentos"
+  | "calendario";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "rutas", etiqueta: "Rutas" },
@@ -36,6 +39,7 @@ const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "historial", etiqueta: "Historial y Monitoreo" },
   { id: "registro", etiqueta: "Registro" },
   { id: "documentos", etiqueta: "Documentos" },
+  { id: "calendario", etiqueta: "Calendario" },
 ];
 
 export default function PanelTabs({ nombre }: { nombre: string }) {
@@ -90,6 +94,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
       {pestana === "registro" && <Registro esCoordinador={true} />}
 
       {pestana === "documentos" && <Documentos esAdmin={true} />}
+
+      {pestana === "calendario" && <Calendario modo="completo" hoy={hoyPeru()} />}
     </div>
   );
 }
