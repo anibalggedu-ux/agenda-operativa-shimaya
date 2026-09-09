@@ -528,7 +528,7 @@ export type SupervisorConTiendas = {
   usuarioId: string;
   usuarioNombre: string;
   rol: string;
-  tiendas: { id: string; tiendaId: string; tiendaNombre: string }[];
+  tiendas: { id: string; tiendaId: string; tiendaNombre: string; desde: string }[];
 };
 
 export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[]> {
@@ -542,7 +542,12 @@ export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[
         .select("id, nombre, rol")
         .in("rol", ROLES_CON_RUTA)
         .order("nombre"),
-      supabase.from("tiendas_permanentes").select("id, usuario_id, tienda_id, tiendas(nombre)"),
+      // Solo las vigentes (fecha_fin nula) — las que ya terminaron quedan en
+      // la tabla como historial, pero no se muestran aquí como "actuales".
+      supabase
+        .from("tiendas_permanentes")
+        .select("id, usuario_id, tienda_id, created_at, tiendas(nombre)")
+        .is("fecha_fin", null),
     ]);
 
   if (errorUsuarios || errorAsignadas) {
@@ -552,7 +557,12 @@ export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[
   const porUsuario = new Map<string, SupervisorConTiendas["tiendas"]>();
   (asignadas ?? []).forEach((a: any) => {
     const lista = porUsuario.get(a.usuario_id) ?? [];
-    lista.push({ id: a.id, tiendaId: a.tienda_id, tiendaNombre: a.tiendas?.nombre ?? "—" });
+    lista.push({
+      id: a.id,
+      tiendaId: a.tienda_id,
+      tiendaNombre: a.tiendas?.nombre ?? "—",
+      desde: a.created_at,
+    });
     porUsuario.set(a.usuario_id, lista);
   });
 
@@ -574,7 +584,8 @@ export async function asignarTiendaPermanente(
   const { data: actuales, error: errorActuales } = await supabase
     .from("tiendas_permanentes")
     .select("id, tienda_id")
-    .eq("usuario_id", usuarioId);
+    .eq("usuario_id", usuarioId)
+    .is("fecha_fin", null);
 
   if (errorActuales) return { exito: false, mensaje: "No se pudo verificar las tiendas actuales." };
 
@@ -616,10 +627,16 @@ export async function asignarTiendaPermanente(
   return { exito: true };
 }
 
+// No borra el registro — le pone fecha de fin. Así, más adelante se puede
+// calcular cuánto tiempo estuvo cada persona a cargo de cada tienda, en vez
+// de perder ese historial apenas se reasigna a alguien.
 export async function eliminarTiendaPermanente(id: string): Promise<ResultadoAccion> {
   await exigirCoordinador();
   const supabase = supabaseServer();
-  const { error } = await supabase.from("tiendas_permanentes").delete().eq("id", id);
+  const { error } = await supabase
+    .from("tiendas_permanentes")
+    .update({ fecha_fin: hoyPeru() })
+    .eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo quitar la tienda permanente." };
   return { exito: true };
 }
@@ -812,7 +829,8 @@ export async function obtenerHistorialTienda(
     supabase
       .from("tiendas_permanentes")
       .select("usuarios(nombre, rol)")
-      .eq("tienda_id", tiendaId),
+      .eq("tienda_id", tiendaId)
+      .is("fecha_fin", null),
   ]);
 
   if (errorTienda || error || errorPermanentes) {
@@ -919,7 +937,11 @@ export async function obtenerHistorialPersona(
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
-    supabase.from("tiendas_permanentes").select("tiendas(nombre)").eq("usuario_id", usuarioId),
+    supabase
+      .from("tiendas_permanentes")
+      .select("tiendas(nombre)")
+      .eq("usuario_id", usuarioId)
+      .is("fecha_fin", null),
     obtenerPuntosDeUsuario(usuarioId),
   ]);
 

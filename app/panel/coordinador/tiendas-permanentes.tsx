@@ -11,6 +11,14 @@ import {
 } from "./actions";
 import { MAX_TIENDAS_PERMANENTES } from "./constantes";
 
+function formatearDesde(fechaISO: string): string {
+  return new Date(fechaISO).toLocaleDateString("es-PE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function TiendasPermanentes() {
   const [filas, setFilas] = useState<SupervisorConTiendas[]>([]);
   const [tiendas, setTiendas] = useState<TiendaBasica[]>([]);
@@ -97,8 +105,12 @@ export default function TiendasPermanentes() {
                     <span
                       key={t.id}
                       className="bg-emerald-950/30 border border-emerald-700/40 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2"
+                      title={`Encargado(a) desde ${formatearDesde(t.desde)}`}
                     >
                       {t.tiendaNombre}
+                      <span className="text-emerald-500/70 font-normal text-[10px]">
+                        desde {formatearDesde(t.desde)}
+                      </span>
                       <button
                         onClick={() => handleQuitar(t.id)}
                         className="text-emerald-500 hover:text-marca-rojoclaro"
