@@ -10,6 +10,25 @@ const transportador = nodemailer.createTransport({
 
 const NOMBRE_REMITENTE = "Agenda Operativa Shimaya";
 
+// Gmail penaliza a las cuentas nuevas que mandan un solo correo con muchos
+// destinatarios en copia oculta (patrón típico de spam). Los comunicados
+// masivos se dividen en lotes pequeños con una pausa entre cada uno para
+// que se vean como envíos normales en vez de una explosión de correo.
+const TAMANO_LOTE_CCO = 10;
+const PAUSA_ENTRE_LOTES_MS = 1200;
+
+function dormir(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function dividirEnLotes<T>(items: T[], tamano: number): T[][] {
+  const lotes: T[][] = [];
+  for (let i = 0; i < items.length; i += tamano) {
+    lotes.push(items.slice(i, i + tamano));
+  }
+  return lotes;
+}
+
 function plantillaCorreo(tituloEmoji: string, titulo: string, cuerpoHtml: string): string {
   return `
   <div style="font-family: -apple-system, 'Segoe UI', Arial, sans-serif; background:#0d0e10; padding:24px 12px;">
@@ -52,18 +71,24 @@ export async function enviarCorreo(opciones: {
   }
 
   try {
-    await transportador.sendMail({
-      from: `"${NOMBRE_REMITENTE}" <${process.env.GMAIL_USER}>`,
-      // Si solo hay copia oculta (envíos masivos tipo comunicado), el "para"
-      // queda como la propia cuenta remitente para no dejar el campo vacío.
-      to: destinatarios.length > 0 ? destinatarios : process.env.GMAIL_USER,
-      bcc: copiaOculta.length > 0 ? copiaOculta : undefined,
-      replyTo: opciones.responderA
-        ? `"${opciones.responderA.nombre}" <${opciones.responderA.email}>`
-        : undefined,
-      subject: opciones.asunto,
-      html: plantillaCorreo(opciones.tituloEmoji ?? "📋", opciones.asunto, opciones.cuerpoHtml),
-    });
+    const lotesCco = dividirEnLotes(copiaOculta, TAMANO_LOTE_CCO);
+    const lotes = lotesCco.length > 0 ? lotesCco : [[]];
+
+    for (let i = 0; i < lotes.length; i++) {
+      await transportador.sendMail({
+        from: `"${NOMBRE_REMITENTE}" <${process.env.GMAIL_USER}>`,
+        // Si solo hay copia oculta (envíos masivos tipo comunicado), el "para"
+        // queda como la propia cuenta remitente para no dejar el campo vacío.
+        to: destinatarios.length > 0 ? destinatarios : process.env.GMAIL_USER,
+        bcc: lotes[i].length > 0 ? lotes[i] : undefined,
+        replyTo: opciones.responderA
+          ? `"${opciones.responderA.nombre}" <${opciones.responderA.email}>`
+          : undefined,
+        subject: opciones.asunto,
+        html: plantillaCorreo(opciones.tituloEmoji ?? "📋", opciones.asunto, opciones.cuerpoHtml),
+      });
+      if (i < lotes.length - 1) await dormir(PAUSA_ENTRE_LOTES_MS);
+    }
   } catch (error) {
     // Un correo que falla nunca debe tumbar la acción principal (asignar una
     // ruta, un descanso, etc.) — solo se registra en los logs del servidor.
