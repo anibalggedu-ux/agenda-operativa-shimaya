@@ -11,6 +11,7 @@ import {
   type UsuarioConAcceso,
 } from "./actions";
 import { DIAS_SEMANA } from "@/lib/fechas";
+import MantenimientoDatos from "./mantenimiento";
 
 const ROLES = ["capacitador", "supervisor", "coordinador", "gerente"] as const;
 
@@ -287,6 +288,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
   return (
     <div className="space-y-6">
       <FormularioNuevoUsuario />
+      <MantenimientoDatos />
       {esCoordinador && <GestionAccesos />}
     </div>
   );

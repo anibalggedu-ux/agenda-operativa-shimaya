@@ -160,3 +160,154 @@ export async function actualizarEstadoUsuario(
   if (error) return { exito: false, mensaje: "No se pudo actualizar el estado del usuario." };
   return { exito: true };
 }
+
+// ---------------------------------------------------------------------
+// Mantenimiento de datos: corregir marcaciones mal registradas y limpiar
+// información de prueba. Disponible para cualquiera con acceso a Registro
+// (no solo Coordinador), igual que el resto de este archivo.
+// ---------------------------------------------------------------------
+
+export type UsuarioBasicoRegistro = { id: string; nombre: string; rol: string };
+
+export async function obtenerUsuariosBasicos(): Promise<UsuarioBasicoRegistro[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol")
+    .order("nombre");
+
+  if (error) throw new Error("No se pudo cargar los usuarios.");
+  return data ?? [];
+}
+
+export type AsistenciaCorregible = {
+  id: string;
+  fecha: string;
+  horaIngreso: string | null;
+  horaSalida: string | null;
+};
+
+export async function obtenerAsistenciaParaCorregir(
+  usuarioId: string,
+  desde: string,
+  hasta: string
+): Promise<AsistenciaCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("asistencia")
+    .select("id, fecha, hora_ingreso, hora_salida")
+    .eq("usuario_id", usuarioId)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar las marcaciones.");
+
+  return (data ?? []).map((a) => ({
+    id: a.id,
+    fecha: a.fecha,
+    horaIngreso: a.hora_ingreso,
+    horaSalida: a.hora_salida,
+  }));
+}
+
+export async function actualizarAsistencia(
+  id: string,
+  horaIngreso: string | null,
+  horaSalida: string | null
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase
+    .from("asistencia")
+    .update({ hora_ingreso: horaIngreso, hora_salida: horaSalida })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar la marcación." };
+  return { exito: true };
+}
+
+export async function eliminarAsistencia(id: string): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("asistencia").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar la marcación." };
+  return { exito: true };
+}
+
+export type AsignacionEspecialCorregible = {
+  id: string;
+  usuarioNombre: string;
+  tipo: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string | null;
+};
+
+export async function obtenerAsignacionesEspecialesParaCorregir(): Promise<
+  AsignacionEspecialCorregible[]
+> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("asignaciones_especiales")
+    .select("id, tipo, fecha_inicio, fecha_fin, motivo, usuarios(nombre)")
+    .order("fecha_inicio", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar las asignaciones especiales.");
+
+  return (data ?? []).map((a: any) => ({
+    id: a.id,
+    usuarioNombre: a.usuarios?.nombre ?? "—",
+    tipo: a.tipo,
+    fechaInicio: a.fecha_inicio,
+    fechaFin: a.fecha_fin,
+    motivo: a.motivo,
+  }));
+}
+
+export async function eliminarAsignacionEspecialRegistro(id: string): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("asignaciones_especiales").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar la asignación especial." };
+  return { exito: true };
+}
+
+export type ComunicadoCorregible = {
+  id: string;
+  tipo: string;
+  mensaje: string;
+  fecha: string;
+  autor: string | null;
+};
+
+export async function obtenerComunicadosParaCorregir(): Promise<ComunicadoCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("comunicados")
+    .select("id, tipo, mensaje, fecha, autor")
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar los comunicados.");
+  return data ?? [];
+}
+
+export async function eliminarComunicado(id: string): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("comunicados").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar el comunicado." };
+  return { exito: true };
+}
