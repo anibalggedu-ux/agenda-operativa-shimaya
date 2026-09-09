@@ -1,11 +1,12 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { obtenerSesion, type SesionUsuario } from "@/lib/session";
 import {
   hoyPeru,
   diaSemanaPeru,
   sumarDias,
+  formatearFechaLegible,
   DIAS_SEMANA,
   calcularAntiguedad,
   calcularProximaFechaAnual,
@@ -17,6 +18,7 @@ import {
   HORA_LIMITE_TARDANZA,
 } from "./constantes";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
+import { enviarCorreo, type ContactoCorreo } from "@/lib/email";
 
 async function exigirCoordinador() {
   const sesion = await obtenerSesion();
@@ -24,6 +26,45 @@ async function exigirCoordinador() {
     throw new Error("No autorizado.");
   }
   return sesion;
+}
+
+// ---------- Notificaciones por correo ----------
+//
+// El correo sale siempre de la cuenta configurada en GMAIL_USER (no se puede
+// enviar "como si fuera" el Gmail personal del coordinador — los proveedores
+// de correo bloquean ese tipo de suplantación). En su lugar, se deja al
+// coordinador como "Responder a": si el destinatario responde el correo, le
+// escribe directo a él. Un fallo al enviar nunca debe romper la acción
+// principal, por eso cada llamado va en su propio try/catch silencioso.
+
+type ContactoUsuario = { nombre: string; email: string | null };
+
+async function obtenerContacto(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string
+): Promise<ContactoUsuario | null> {
+  const { data } = await supabase
+    .from("usuarios")
+    .select("nombre, email")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  return data;
+}
+
+async function obtenerReplyTo(
+  supabase: ReturnType<typeof supabaseServer>,
+  sesion: SesionUsuario
+): Promise<ContactoCorreo | null> {
+  const contacto = await obtenerContacto(supabase, sesion.id);
+  return contacto?.email ? { nombre: sesion.nombre, email: contacto.email } : null;
+}
+
+async function notificarPorCorreo(tarea: () => Promise<void>): Promise<void> {
+  try {
+    await tarea();
+  } catch (error) {
+    console.error("No se pudo enviar la notificación por correo:", error);
+  }
 }
 
 export type UsuarioBasico = { id: string; nombre: string; rol: string };
@@ -126,7 +167,7 @@ export async function asignarRuta(
   _prevState: ResultadoAccion,
   formData: FormData
 ): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
 
   const usuarioId = String(formData.get("usuarioId") || "");
   const tiendaId = String(formData.get("tiendaId") || "");
@@ -152,6 +193,34 @@ export async function asignarRuta(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo asignar la ruta." };
+
+  await notificarPorCorreo(async () => {
+    const [contacto, { data: tienda }, responderA] = await Promise.all([
+      obtenerContacto(supabase, usuarioId),
+      supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    if (!contacto?.email) return;
+
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: "📍",
+      asunto: `Nueva ruta asignada — ${formatearFechaLegible(fechaPlanificada)}`,
+      responderA,
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Se te asignó una nueva ruta:</p>
+        <ul style="padding-left:18px; margin:0 0 16px;">
+          <li><strong>Tienda:</strong> ${tienda?.nombre ?? "—"}</li>
+          <li><strong>Fecha:</strong> ${formatearFechaLegible(fechaPlanificada)}</li>
+          ${area ? `<li><strong>Área:</strong> ${area}</li>` : ""}
+          ${enfoque ? `<li><strong>Enfoque:</strong> ${enfoque}</li>` : ""}
+        </ul>
+        <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
   return { exito: true, mensaje: "Ruta asignada correctamente." };
 }
 
@@ -206,7 +275,7 @@ export async function crearAsignacionEspecial(
   _prevState: ResultadoAccion,
   formData: FormData
 ): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
 
   const usuarioId = String(formData.get("usuarioId") || "");
   const tipo = String(formData.get("tipo") || "");
@@ -232,6 +301,33 @@ export async function crearAsignacionEspecial(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la asignación." };
+
+  await notificarPorCorreo(async () => {
+    const [contacto, responderA] = await Promise.all([
+      obtenerContacto(supabase, usuarioId),
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    if (!contacto?.email) return;
+
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: "🗓️",
+      asunto: `${tipo} registrado(a): ${formatearFechaLegible(fechaInicio)} al ${formatearFechaLegible(fechaFin)}`,
+      responderA,
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Se registró lo siguiente a tu nombre:</p>
+        <ul style="padding-left:18px; margin:0 0 16px;">
+          <li><strong>Tipo:</strong> ${tipo}</li>
+          <li><strong>Desde:</strong> ${formatearFechaLegible(fechaInicio)}</li>
+          <li><strong>Hasta:</strong> ${formatearFechaLegible(fechaFin)}</li>
+          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
+        </ul>
+        <p style="color:#8b8d92; font-size:12px;">Registrado por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
   return { exito: true, mensaje: "Asignación registrada correctamente." };
 }
 
@@ -306,6 +402,39 @@ export async function crearComunicado(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo publicar el anuncio." };
+
+  await notificarPorCorreo(async () => {
+    const [{ data: destinatarios }, responderA] = await Promise.all([
+      supabase
+        .from("usuarios")
+        .select("email")
+        .in("rol", ["supervisor", "capacitador"])
+        .eq("activo", true)
+        .not("email", "is", null),
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    const correos = (destinatarios ?? []).map((u) => u.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: [],
+      cco: correos,
+      tituloEmoji: "📣",
+      asunto: `Nuevo comunicado: ${tipo}`,
+      responderA,
+      cuerpoHtml: `
+        <p>${mensaje}</p>
+        ${fechaEvento ? `<p><strong>Fecha del evento:</strong> ${formatearFechaLegible(fechaEvento)}</p>` : ""}
+        ${
+          ubicacion
+            ? `<p><strong>Ubicación:</strong> <a href="${ubicacion}" style="color:#e23744;">Ver en Google Maps</a></p>`
+            : ""
+        }
+        <p style="color:#8b8d92; font-size:12px;">Publicado por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
   return { exito: true, mensaje: "Anuncio publicado correctamente." };
 }
 
@@ -439,7 +568,7 @@ export async function asignarTiendaPermanente(
   usuarioId: string,
   tiendaId: string
 ): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
   const supabase = supabaseServer();
 
   const { data: actuales, error: errorActuales } = await supabase
@@ -462,6 +591,28 @@ export async function asignarTiendaPermanente(
     .insert({ usuario_id: usuarioId, tienda_id: tiendaId });
 
   if (error) return { exito: false, mensaje: "No se pudo asignar la tienda permanente." };
+
+  await notificarPorCorreo(async () => {
+    const [contacto, { data: tienda }, responderA] = await Promise.all([
+      obtenerContacto(supabase, usuarioId),
+      supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    if (!contacto?.email) return;
+
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: "🏬",
+      asunto: `Tienda permanente asignada: ${tienda?.nombre ?? "—"}`,
+      responderA,
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Se te asignó <strong>${tienda?.nombre ?? "una tienda"}</strong> como tienda permanente.</p>
+        <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
   return { exito: true };
 }
 
@@ -505,7 +656,7 @@ export async function actualizarDiasDescanso(
   usuarioId: string,
   dias: string[]
 ): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
 
   if (dias.length > MAX_DIAS_DESCANSO) {
     return { exito: false, mensaje: `Máximo ${MAX_DIAS_DESCANSO} días de descanso por semana.` };
@@ -521,6 +672,30 @@ export async function actualizarDiasDescanso(
     .eq("id", usuarioId);
 
   if (error) return { exito: false, mensaje: "No se pudo guardar el descanso." };
+
+  await notificarPorCorreo(async () => {
+    const [contacto, responderA] = await Promise.all([
+      obtenerContacto(supabase, usuarioId),
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    if (!contacto?.email) return;
+
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: "🛌",
+      asunto: "Tu día de descanso semanal fue actualizado",
+      responderA,
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Tu día(s) de descanso semanal ahora ${dias.length === 1 ? "es" : "son"}:</p>
+        <p style="font-size:16px; font-weight:700;">${
+          dias.length > 0 ? dias.join(" y ") : "Sin día de descanso asignado"
+        }</p>
+        <p style="color:#8b8d92; font-size:12px;">Actualizado por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
   return { exito: true };
 }
 
