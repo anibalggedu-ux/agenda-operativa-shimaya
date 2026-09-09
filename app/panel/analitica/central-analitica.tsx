@@ -41,7 +41,14 @@ function TarjetaVacia({ children }: { children: React.ReactNode }) {
 function FilaVitrinaPersona({ fila }: { fila: FilaVitrina }) {
   return (
     <div className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] p-3 gap-3">
-      <p className="text-marca-textofuerte font-bold text-sm truncate min-w-0">{fila.nombre}</p>
+      <div className="min-w-0">
+        <p className="text-marca-textofuerte font-bold text-sm truncate">{fila.nombre}</p>
+        {fila.rachaActual > 0 && (
+          <p className="text-orange-400 text-[11px] font-bold">
+            🔥 {fila.rachaActual} día{fila.rachaActual === 1 ? "" : "s"} de racha
+          </p>
+        )}
+      </div>
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2">
           {UMBRALES_MEDALLAS.map((u) =>
