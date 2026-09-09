@@ -24,23 +24,23 @@ function SelectorFechas({
   return (
     <div className="flex flex-col sm:flex-row gap-3">
       <div className="flex-1">
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Desde</label>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
         <input
           type="date"
           value={desde}
           max={hasta}
           onChange={(e) => onDesde(e.target.value)}
-          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-purple-500"
+          className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
         />
       </div>
       <div className="flex-1">
-        <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Hasta</label>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
         <input
           type="date"
           value={hasta}
           min={desde}
           onChange={(e) => onHasta(e.target.value)}
-          className="w-full p-2.5 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-purple-500"
+          className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
         />
       </div>
     </div>
@@ -75,15 +75,15 @@ export default function ReporteTienda() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4 space-y-3">
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-3">
         <div>
-          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Tienda
           </label>
           <select
             value={tiendaId}
             onChange={(e) => setTiendaId(e.target.value)}
-            className="w-full p-2.5 bg-[#07080c] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-purple-500"
+            className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           >
             <option value="">Selecciona una tienda...</option>
             {tiendas.map((t) => (
@@ -96,46 +96,46 @@ export default function ReporteTienda() {
         <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
       </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-      {cargando && <p className="text-slate-500 text-sm animate-pulse">Cargando historial...</p>}
+      {error && <p className="text-marca-rojoclaro text-sm">{error}</p>}
+      {cargando && <p className="text-marca-tenue text-sm animate-pulse">Cargando historial...</p>}
 
       {!cargando && !tiendaId && (
-        <p className="text-slate-500 text-sm italic">Selecciona una tienda para ver su historial.</p>
+        <p className="text-marca-tenue text-sm italic">Selecciona una tienda para ver su historial.</p>
       )}
 
       {!cargando && historial && (
         <div className="space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-white font-black text-lg">{historial.tiendaNombre}</p>
-              <p className="text-slate-500 text-xs">
+              <p className="font-display text-lg text-marca-textofuerte">{historial.tiendaNombre}</p>
+              <p className="text-marca-tenue text-xs">
                 {historial.totalVisitas} visita(s) en el rango seleccionado
               </p>
             </div>
             <button
               onClick={() => generarPdfHistorialTienda({ ...historial, desde, hasta })}
-              className="bg-yellow-600 hover:bg-yellow-500 text-white font-black py-2 px-4 rounded-lg text-[11px] tracking-widest uppercase transition"
+              className="bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
               📄 Descargar PDF
             </button>
           </div>
 
           <div>
-            <h4 className="text-xs font-black tracking-widest text-slate-300 mb-2">
+            <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">
               COLABORADORES QUE VISITARON
             </h4>
             {historial.visitantes.length === 0 ? (
-              <p className="text-slate-500 text-sm italic">Sin visitas registradas.</p>
+              <p className="text-marca-tenue text-sm italic">Sin visitas registradas.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {historial.visitantes.map((v) => (
                   <span
                     key={v.usuarioNombre}
-                    className="bg-[#07080c] border border-slate-800 rounded-full px-3 py-1.5 text-xs"
+                    className="bg-marca-fondo border border-marca-borde rounded-full px-3 py-1.5 text-xs"
                   >
-                    <span className="text-white font-bold">{v.usuarioNombre}</span>{" "}
-                    <span className="text-slate-500">({v.rol})</span>{" "}
-                    <span className="text-yellow-400 font-black">×{v.visitas}</span>
+                    <span className="text-marca-textofuerte font-bold">{v.usuarioNombre}</span>{" "}
+                    <span className="text-marca-tenue">({v.rol})</span>{" "}
+                    <span className="text-marca-rojoclaro font-black">×{v.visitas}</span>
                   </span>
                 ))}
               </div>
@@ -143,24 +143,24 @@ export default function ReporteTienda() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black tracking-widest text-slate-300 mb-2">
+            <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">
               OBSERVACIONES
             </h4>
             {historial.observaciones.length === 0 ? (
-              <p className="text-slate-500 text-sm italic">Sin observaciones en este rango.</p>
+              <p className="text-marca-tenue text-sm italic">Sin observaciones en este rango.</p>
             ) : (
               <div className="space-y-2">
                 {historial.observaciones.map((o, i) => (
-                  <div key={i} className="bg-[#0d1117] border border-slate-800 rounded-xl p-4">
-                    <p className="text-white font-bold text-sm">
-                      {o.usuarioNombre} <span className="text-slate-500 font-normal">({o.rol})</span>
+                  <div key={i} className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
+                    <p className="text-marca-textofuerte font-bold text-sm">
+                      {o.usuarioNombre} <span className="text-marca-tenue font-normal">({o.rol})</span>
                     </p>
-                    <p className="text-slate-500 text-[11px] capitalize mt-1">
+                    <p className="text-marca-tenue text-[11px] capitalize mt-1">
                       {formatearFechaLegible(o.fecha)}
                     </p>
-                    <p className="text-slate-300 text-sm mt-2">{o.observacion}</p>
+                    <p className="text-marca-texto text-sm mt-2">{o.observacion}</p>
                     {o.actividad && (
-                      <p className="text-slate-500 text-[12px] italic mt-1">
+                      <p className="text-marca-tenue text-[12px] italic mt-1">
                         Actividad: {o.actividad}
                       </p>
                     )}

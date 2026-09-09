@@ -10,23 +10,23 @@ import { formatearFechaLegible } from "@/lib/fechas";
 
 function ListaColaboradores({ lista }: { lista: ColaboradorVisitaTienda[] }) {
   if (lista.length === 0) {
-    return <p className="text-slate-500 text-sm italic">Sin registros.</p>;
+    return <p className="text-marca-tenue text-sm italic">Sin registros.</p>;
   }
   return (
     <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
       {lista.map((c, i) => (
         <div
           key={i}
-          className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
-            c.tarde ? "bg-red-950/20 border-red-600/50" : "bg-[#07080c] border-slate-800"
+          className={`flex items-center justify-between rounded-[3px] px-3 py-2 border ${
+            c.tarde ? "bg-marca-rojo/10 border-marca-rojo/40" : "bg-marca-fondo border-marca-borde"
           }`}
         >
-          <span className="text-white text-sm">
+          <span className="text-marca-texto text-sm">
             {c.usuarioNombre}{" "}
-            <span className="text-slate-500 text-[11px] uppercase">({c.rol})</span>
-            {c.tarde && <span className="text-red-400 text-[10px] font-bold ml-2">TARDE</span>}
+            <span className="text-marca-tenue text-[11px] uppercase">({c.rol})</span>
+            {c.tarde && <span className="text-marca-rojoclaro text-[10px] font-bold ml-2">TARDE</span>}
           </span>
-          <span className="text-slate-500 text-[11px] capitalize">
+          <span className="text-marca-tenue text-[11px] capitalize">
             {formatearFechaLegible(c.fecha)}
           </span>
         </div>
@@ -54,12 +54,12 @@ export default function TiendasTardanzas({ desde, hasta }: { desde: string; hast
       .finally(() => setCargando(false));
   }, [desde, hasta]);
 
-  if (cargando) return <p className="text-slate-500 text-sm animate-pulse">Cargando...</p>;
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   if (tiendas.length === 0) {
     return (
-      <p className="text-slate-500 text-sm italic">No hay visitas registradas en este rango.</p>
+      <p className="text-marca-tenue text-sm italic">No hay visitas registradas en este rango.</p>
     );
   }
 
@@ -70,59 +70,59 @@ export default function TiendasTardanzas({ desde, hasta }: { desde: string; hast
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-slate-500 text-[10px] uppercase tracking-widest text-left">
+            <tr className="text-marca-tenue text-[10px] uppercase tracking-widest text-left">
               <th className="py-2 pr-3">Tienda</th>
               <th className="py-2 pr-3">Visitas</th>
               <th className="py-2 pr-3">Colaboradores tarde</th>
             </tr>
           </thead>
           <tbody>
-            {tiendas.map((t) => (
-              <tr key={t.tiendaId} className="border-t border-slate-800">
-                <td className="py-2 pr-3 text-white">{t.tiendaNombre}</td>
-                <td className="py-2 pr-3">
-                  <button
-                    onClick={() => {
-                      setTiendaId(t.tiendaId);
-                      setVista("visitantes");
-                    }}
-                    className={`font-black hover:underline ${
-                      tiendaId === t.tiendaId && vista === "visitantes"
-                        ? "text-purple-400"
-                        : "text-yellow-400"
-                    }`}
-                  >
-                    {t.totalVisitas}
-                  </button>
-                </td>
-                <td className="py-2 pr-3">
-                  {t.cantidadTarde === 0 ? (
-                    <span className="text-slate-600">0</span>
-                  ) : (
+            {tiendas.map((t) => {
+              const visitantesActivo = tiendaId === t.tiendaId && vista === "visitantes";
+              const tardeActivo = tiendaId === t.tiendaId && vista === "tarde";
+              return (
+                <tr key={t.tiendaId} className="border-t border-marca-borde">
+                  <td className="py-2 pr-3 text-marca-texto">{t.tiendaNombre}</td>
+                  <td className="py-2 pr-3">
                     <button
                       onClick={() => {
                         setTiendaId(t.tiendaId);
-                        setVista("tarde");
+                        setVista("visitantes");
                       }}
-                      className={`font-black hover:underline ${
-                        tiendaId === t.tiendaId && vista === "tarde"
-                          ? "text-purple-400"
-                          : "text-red-400"
+                      className={`font-black text-marca-rojoclaro hover:underline ${
+                        visitantesActivo ? "underline" : ""
                       }`}
                     >
-                      {t.cantidadTarde}
+                      {t.totalVisitas}
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {t.cantidadTarde === 0 ? (
+                      <span className="text-marca-tenue">0</span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setTiendaId(t.tiendaId);
+                          setVista("tarde");
+                        }}
+                        className={`font-black text-marca-rojoclaro hover:underline ${
+                          tardeActivo ? "underline" : ""
+                        }`}
+                      >
+                        {t.cantidadTarde}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {tiendaSel && vista && (
-        <div className="bg-[#0d1117] border-2 border-purple-500/30 rounded-xl p-4">
-          <h4 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+        <div className="bg-marca-superficie border-2 border-marca-rojo/30 rounded-[3px] p-4">
+          <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
             {vista === "visitantes"
               ? `COLABORADORES QUE VISITARON ${tiendaSel.tiendaNombre.toUpperCase()}`
               : `COLABORADORES QUE LLEGARON TARDE — ${tiendaSel.tiendaNombre.toUpperCase()}`}

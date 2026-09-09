@@ -14,22 +14,22 @@ function Columna({
   vacio: string;
 }) {
   return (
-    <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4">
-      <h4 className="text-xs font-black tracking-widest text-slate-300 mb-3">{titulo}</h4>
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
+      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">{titulo}</h4>
       {filas.length === 0 ? (
-        <p className="text-slate-500 text-sm italic">{vacio}</p>
+        <p className="text-marca-tenue text-sm italic">{vacio}</p>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
           {filas.map((f, i) => (
             <div
               key={f.nombre}
-              className="flex items-center justify-between bg-[#07080c] border border-slate-800 rounded-lg px-3 py-2"
+              className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
             >
-              <span className="text-sm text-white truncate">
-                <span className="text-slate-600 font-black mr-2">{i + 1}.</span>
+              <span className="text-sm text-marca-texto truncate">
+                <span className="text-marca-tenue font-black mr-2">{i + 1}.</span>
                 {f.nombre}
               </span>
-              <span className="text-yellow-400 font-black text-xs shrink-0 ml-2">
+              <span className="text-marca-rojoclaro font-black text-xs shrink-0 ml-2">
                 {f.valor} {sufijo}
               </span>
             </div>

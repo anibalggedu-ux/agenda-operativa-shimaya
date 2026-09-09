@@ -26,30 +26,30 @@ function CuadroRanking({
   vacio: string;
 }) {
   return (
-    <div className="bg-[#0d1117] border border-slate-800 rounded-xl p-4">
-      <h4 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
+      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
         {titulo} ({filas.length})
       </h4>
       {filas.length === 0 ? (
-        <p className="text-slate-500 text-sm italic">{vacio}</p>
+        <p className="text-marca-tenue text-sm italic">{vacio}</p>
       ) : (
         <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
           {filas.map((f, i) => (
             <button
               key={f.tiendaId}
               onClick={() => onSeleccionar(f.tiendaId, f.tiendaNombre)}
-              className={`w-full flex items-center justify-between text-left rounded-lg px-3 py-2 transition ${
+              className={`w-full flex items-center justify-between text-left rounded-[3px] px-3 py-2 transition ${
                 tiendaSeleccionada === f.tiendaId
-                  ? "bg-purple-950/30 border border-purple-500"
-                  : "bg-[#07080c] border border-slate-800 hover:border-slate-600"
+                  ? "bg-marca-rojo/20 border border-marca-rojo"
+                  : "bg-marca-fondo border border-marca-borde hover:border-marca-rojo/40"
               }`}
             >
-              <span className="text-sm text-white truncate">
-                <span className="text-slate-600 font-black mr-2">{offset + i + 1}.</span>
+              <span className="text-sm text-marca-texto truncate">
+                <span className="text-marca-tenue font-black mr-2">{offset + i + 1}.</span>
                 {f.tiendaNombre}
               </span>
               {f.visitas > 0 && (
-                <span className="text-yellow-400 font-black text-xs shrink-0 ml-2">
+                <span className="text-marca-rojoclaro font-black text-xs shrink-0 ml-2">
                   {f.visitas}
                 </span>
               )}
@@ -92,8 +92,8 @@ export default function RankingTiendas({ desde, hasta }: { desde: string; hasta:
       .finally(() => setCargandoDetalle(false));
   }
 
-  if (cargando) return <p className="text-slate-500 text-sm animate-pulse">Cargando ranking...</p>;
-  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando ranking...</p>;
+  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   if (!ranking) return null;
 
   return (
@@ -126,14 +126,14 @@ export default function RankingTiendas({ desde, hasta }: { desde: string; hasta:
       </div>
 
       {tiendaId && (
-        <div className="bg-[#0d1117] border-2 border-purple-500/30 rounded-xl p-4">
-          <h4 className="text-xs font-black tracking-widest text-slate-300 mb-3">
+        <div className="bg-marca-superficie border-2 border-marca-rojo/30 rounded-[3px] p-4">
+          <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
             VISITAS A {tiendaNombreSel.toUpperCase()}
           </h4>
           {cargandoDetalle ? (
-            <p className="text-slate-500 text-sm animate-pulse">Cargando...</p>
+            <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>
           ) : !visitas || visitas.length === 0 ? (
-            <p className="text-slate-500 text-sm italic">
+            <p className="text-marca-tenue text-sm italic">
               Sin visitas registradas en este rango de fechas.
             </p>
           ) : (
@@ -141,18 +141,18 @@ export default function RankingTiendas({ desde, hasta }: { desde: string; hasta:
               {visitas.map((v, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between bg-[#07080c] border border-slate-800 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
                 >
-                  <span className="text-white text-sm">
+                  <span className="text-marca-texto text-sm">
                     {v.usuarioNombre}{" "}
-                    <span className="text-slate-500 text-[11px] uppercase">({v.rol})</span>
+                    <span className="text-marca-tenue text-[11px] uppercase">({v.rol})</span>
                     {!v.tieneObservacion && (
-                      <span className="text-slate-500 text-[10px] font-normal ml-2">
+                      <span className="text-marca-tenue text-[10px] font-normal ml-2">
                         (sin observación)
                       </span>
                     )}
                   </span>
-                  <span className="text-slate-500 text-[11px] capitalize">
+                  <span className="text-marca-tenue text-[11px] capitalize">
                     {formatearFechaLegible(v.fecha)}
                   </span>
                 </div>
