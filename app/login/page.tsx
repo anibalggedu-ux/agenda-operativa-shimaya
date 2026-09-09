@@ -5,10 +5,15 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-marca-fondo text-marca-texto p-4 font-body">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center text-center mb-8">
-          {/* Marca de logo temporal — se reemplaza por el logo real de la
-              empresa en cuanto lo envíen (PNG/SVG, fondo transparente). */}
-          <div className="w-14 h-14 rounded-full bg-marca-rojo text-marca-textofuerte flex items-center justify-center font-display italic text-lg mb-4">
-            AS
+          {/* El logo ya viene recortado en círculo (JPEG sin transparencia
+              real), así que se enmarca en un círculo del mismo tamaño para
+              que el cuadrado blanco de las esquinas no se muestre. */}
+          <div className="w-20 h-20 rounded-full overflow-hidden mb-4 ring-1 ring-marca-rojo/40">
+            <img
+              src="/logo-shimaya.jpeg"
+              alt="Shimaya Ramen"
+              className="w-full h-full object-cover"
+            />
           </div>
           <h1 className="font-display text-2xl text-marca-textofuerte tracking-wide">
             Agenda Operativa
