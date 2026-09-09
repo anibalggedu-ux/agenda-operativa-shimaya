@@ -87,14 +87,26 @@ export type ReporteHistorialItem = {
   actividad: string | null;
 };
 
+export type MarcacionHistorial = {
+  fecha: string;
+  horaIngreso: string | null;
+  horaSalida: string | null;
+  tarde: boolean;
+};
+
+const ROJO_TARDANZA: [number, number, number] = [220, 38, 38];
+
 export function generarPdfHistorial(
   supervisorNombre: string,
   desde: string,
   hasta: string,
-  reportes: ReporteHistorialItem[]
+  reportes: ReporteHistorialItem[],
+  marcaciones: MarcacionHistorial[] = []
 ) {
   const doc = new jsPDF();
   dibujarEncabezado(doc, "Historial de reportes — Supervisor");
+
+  const ALTO_PAGINA = 280;
 
   let y = 40;
   y = campo(doc, "Supervisor:", supervisorNombre, y);
@@ -106,7 +118,43 @@ export function generarPdfHistorial(
   );
   y += 4;
 
-  const ALTO_PAGINA = 280;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Asistencia y marcaciones:", 14, y);
+  y += 7;
+
+  if (marcaciones.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Sin marcaciones en este rango.", 14, y);
+    y += 8;
+  } else {
+    marcaciones.forEach((m) => {
+      if (y + 6 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      if (m.tarde) doc.setTextColor(...ROJO_TARDANZA);
+      const texto =
+        formatearFechaLegible(m.fecha) +
+        " — Ingreso: " +
+        (m.horaIngreso ? formatearHora(m.horaIngreso) : "—") +
+        (m.tarde ? " (TARDE)" : "") +
+        "  ·  Salida: " +
+        (m.horaSalida ? formatearHora(m.horaSalida) : "—");
+      doc.text(texto, 14, y);
+      doc.setTextColor(0, 0, 0);
+      y += 5.5;
+    });
+    y += 6;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Reportes de visitas:", 14, y);
+  y += 7;
 
   if (reportes.length === 0) {
     doc.setFont("helvetica", "italic");

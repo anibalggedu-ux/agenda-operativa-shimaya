@@ -8,6 +8,10 @@ import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
+import PerfilBanner from "../supervisor/perfil-banner";
+import MiDescanso from "../supervisor/mi-descanso";
+import MisMarcaciones from "../supervisor/mis-marcaciones";
+import RankingCapacitadores from "./ranking-capacitadores";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
@@ -33,12 +37,6 @@ export default async function PanelCapacitador() {
               📝 Registro
             </Link>
           )}
-          <Link
-            href="/panel/analitica"
-            className="bg-purple-950/40 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-950/70 transition"
-          >
-            📊 Central Analítica
-          </Link>
           <form action={cerrarSesionAction}>
             <button className="bg-[#181b29] border border-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#22273a] transition">
               Cerrar sesión
@@ -51,8 +49,18 @@ export default async function PanelCapacitador() {
         Sesión activa: <span className="text-white font-bold">{sesion.nombre}</span>
       </p>
 
+      <PerfilBanner />
+
+      <div className="mb-6">
+        <MiDescanso />
+      </div>
+
       <div className="mb-6">
         <MisPuntosWidget />
+      </div>
+
+      <div className="mb-6">
+        <RankingCapacitadores />
       </div>
 
       <div className="mb-6">
@@ -63,10 +71,14 @@ export default async function PanelCapacitador() {
         <GpsMarcador />
       </div>
 
+      <div className="mb-6">
+        <MisMarcaciones />
+      </div>
+
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">
         BITÁCORA DE CAMPO
       </h2>
-      <SelectorTiendas supervisorNombre={sesion.nombre} />
+      <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
 
       <div className="mt-6">
         <HistorialPdf supervisorNombre={sesion.nombre} />
