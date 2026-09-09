@@ -17,36 +17,36 @@ export default function MisPuntosWidget() {
   }, []);
 
   if (cargando) {
-    return <p className="text-slate-500 text-sm animate-pulse">Cargando tus puntos...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tus puntos...</p>;
   }
 
   if (error || !datos) {
-    return <p className="text-red-400 text-sm">{error}</p>;
+    return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
   const { puntos, medallas, progresoBronce } = datos;
   const progreso = Math.round((progresoBronce.actual / (progresoBronce.actual + progresoBronce.faltan)) * 100);
 
   return (
-    <div className="bg-[#0f111a] border-2 border-yellow-500/30 rounded-2xl p-5 space-y-3">
-      <h3 className="text-xs font-black tracking-widest text-slate-300">🏆 MIS PUNTOS</h3>
+    <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5 space-y-3">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">🏆 MIS PUNTOS</h3>
 
-      <p className="text-2xl font-black text-white">{puntos} pts</p>
+      <p className="font-display text-2xl text-marca-textofuerte">{puntos} pts</p>
 
       <div className="flex items-center gap-4">
         {UMBRALES_MEDALLAS.map((u) => (
           <div key={u.id} className="flex items-center gap-1">
             <span className="text-2xl leading-none">{u.emoji}</span>
-            <span className="text-slate-300 font-black text-sm">×{medallas[u.id]}</span>
+            <span className="text-marca-texto font-black text-sm">×{medallas[u.id]}</span>
           </div>
         ))}
       </div>
 
       <div>
-        <div className="h-2 bg-[#0d1117] rounded-full overflow-hidden border border-slate-800">
-          <div className="h-full bg-yellow-500 transition-all" style={{ width: progreso + "%" }} />
+        <div className="h-2 bg-marca-fondo rounded-full overflow-hidden border border-marca-borde">
+          <div className="h-full bg-marca-rojo transition-all" style={{ width: progreso + "%" }} />
         </div>
-        <p className="text-slate-500 text-[11px] mt-1">
+        <p className="text-marca-tenue text-[11px] mt-1">
           {progresoBronce.faltan} pts para tu próximo 🥉
         </p>
       </div>
