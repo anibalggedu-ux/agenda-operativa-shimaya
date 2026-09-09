@@ -28,6 +28,7 @@ export async function iniciarSesionAction(
     .from("usuarios")
     .select("id, nombre, rol")
     .eq("clave_hash", claveHash)
+    .eq("activo", true)
     .maybeSingle();
 
   if (error || !usuario) {

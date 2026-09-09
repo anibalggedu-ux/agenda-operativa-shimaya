@@ -6,6 +6,7 @@ import {
   crearUsuario,
   obtenerUsuariosConAcceso,
   actualizarAccesoRegistro,
+  actualizarEstadoUsuario,
   type ResultadoRegistro,
   type UsuarioConAcceso,
 } from "./actions";
@@ -162,6 +163,8 @@ function GestionAccesos() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null);
+  const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
   function cargar() {
     setCargando(true);
@@ -190,38 +193,89 @@ function GestionAccesos() {
     setGuardandoId(null);
   }
 
+  async function handleCambiarEstado(usuario: UsuarioConAcceso) {
+    const nuevoValor = !usuario.activo;
+    if (
+      !nuevoValor &&
+      !window.confirm(
+        `¿Dar de baja a ${usuario.nombre}? No podrá iniciar sesión, pero sus reportes, marcaciones y puntos históricos se conservan. Puedes reactivarlo(a) cuando quieras.`
+      )
+    ) {
+      return;
+    }
+    setErrorEstado(null);
+    setCambiandoEstadoId(usuario.id);
+    const resultado = await actualizarEstadoUsuario(usuario.id, nuevoValor);
+    if (resultado.exito) {
+      setUsuarios((prev) =>
+        prev.map((u) => (u.id === usuario.id ? { ...u, activo: nuevoValor } : u))
+      );
+    } else {
+      setErrorEstado(resultado.mensaje || "No se pudo actualizar el estado.");
+    }
+    setCambiandoEstadoId(null);
+  }
+
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando usuarios...</p>;
   if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
       <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        ACCESO A REGISTRO DE USUARIOS
+        PERSONAL Y ACCESO A REGISTRO
       </h3>
       <p className="text-marca-tenue text-[11px] mb-4">
-        Además del Coordinador, marca aquí quién más puede registrar nuevos usuarios.
+        Marca quién más puede registrar nuevos usuarios, o da de baja a quien ya no trabaje en la
+        empresa (no borra su historial, solo le impide iniciar sesión).
       </p>
+      {errorEstado && <p className="text-marca-rojoclaro text-xs font-bold mb-3">{errorEstado}</p>}
       {usuarios.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No hay otros usuarios registrados.</p>
       ) : (
         <div className="space-y-1.5">
           {usuarios.map((u) => (
-            <label
+            <div
               key={u.id}
-              className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-4 py-3 cursor-pointer"
+              className={`flex flex-wrap items-center justify-between gap-3 bg-marca-fondo border rounded-[3px] px-4 py-3 ${
+                u.activo ? "border-marca-borde" : "border-marca-rojo/30 opacity-60"
+              }`}
             >
               <span>
                 <span className="text-marca-textofuerte font-bold text-sm">{u.nombre}</span>{" "}
                 <span className="text-marca-tenue text-[11px] uppercase">({u.rol})</span>
+                {!u.activo && (
+                  <span className="ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+                    De baja
+                  </span>
+                )}
               </span>
-              <input
-                type="checkbox"
-                checked={u.puedeRegistrar}
-                disabled={guardandoId === u.id}
-                onChange={() => handleToggle(u)}
-                className="w-4 h-4 accent-marca-rojo"
-              />
-            </label>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleCambiarEstado(u)}
+                  disabled={cambiandoEstadoId === u.id}
+                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[3px] border transition disabled:opacity-50 ${
+                    u.activo
+                      ? "border-marca-rojo/40 text-marca-rojoclaro hover:bg-marca-rojo/10"
+                      : "border-marca-borde text-marca-tenue hover:text-marca-texto"
+                  }`}
+                >
+                  {u.activo ? "Dar de baja" : "Reactivar"}
+                </button>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-marca-tenue text-[10px] uppercase font-bold">
+                    Puede registrar
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={u.puedeRegistrar}
+                    disabled={guardandoId === u.id}
+                    onChange={() => handleToggle(u)}
+                    className="w-4 h-4 accent-marca-rojo"
+                  />
+                </label>
+              </div>
+            </div>
           ))}
         </div>
       )}

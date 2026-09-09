@@ -95,6 +95,7 @@ export type UsuarioConAcceso = {
   nombre: string;
   rol: string;
   puedeRegistrar: boolean;
+  activo: boolean;
 };
 
 export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
@@ -103,7 +104,7 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
 
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, puede_registrar")
+    .select("id, nombre, rol, puede_registrar, activo")
     .neq("rol", "coordinador")
     .order("nombre");
 
@@ -114,6 +115,7 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
     nombre: u.nombre,
     rol: u.rol,
     puedeRegistrar: !!u.puede_registrar,
+    activo: u.activo !== false,
   }));
 }
 
@@ -130,5 +132,28 @@ export async function actualizarAccesoRegistro(
     .eq("id", usuarioId);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el acceso." };
+  return { exito: true };
+}
+
+// Dar de baja no borra al usuario (sus reportes, marcaciones y puntos
+// históricos quedan intactos) — solo le impide iniciar sesión y lo saca de
+// la lista de acceso a Registro. Se puede reactivar en cualquier momento.
+export async function actualizarEstadoUsuario(
+  usuarioId: string,
+  activo: boolean
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirCoordinador();
+
+  if (!activo && usuarioId === sesion.id) {
+    return { exito: false, mensaje: "No puedes darte de baja a ti mismo(a)." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ activo })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el estado del usuario." };
   return { exito: true };
 }
