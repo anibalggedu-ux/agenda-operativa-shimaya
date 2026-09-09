@@ -102,10 +102,13 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
   await exigirCoordinador();
   const supabase = supabaseServer();
 
+  // Los capacitadores nunca pueden tener acceso a Registro (ver
+  // lib/permisos.ts), así que se excluyen de esta lista para no mostrar un
+  // interruptor que en realidad no tendría ningún efecto.
   const { data, error } = await supabase
     .from("usuarios")
     .select("id, nombre, rol, puede_registrar, activo")
-    .neq("rol", "coordinador")
+    .not("rol", "in", "(coordinador,capacitador)")
     .order("nombre");
 
   if (error) throw new Error("No se pudo cargar los usuarios.");
