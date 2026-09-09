@@ -2,6 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
+import { hoyPeru, calcularAntiguedad, diasEntreFechas } from "@/lib/fechas";
 
 async function exigirSesion() {
   const sesion = await obtenerSesion();
@@ -434,7 +435,8 @@ export async function obtenerHistorialTiendaAnalitica(
     supabase
       .from("tiendas_permanentes")
       .select("usuarios(nombre, rol)")
-      .eq("tienda_id", tiendaId),
+      .eq("tienda_id", tiendaId)
+      .is("fecha_fin", null),
   ]);
 
   if (errorTienda || error || errorPermanentes) {
@@ -478,4 +480,55 @@ export async function obtenerHistorialTiendaAnalitica(
       rol: p.usuarios?.rol ?? "—",
     })),
   };
+}
+
+function formatearDuracion(desdeISO: string, hastaISO: string): string {
+  const dias = diasEntreFechas(desdeISO, hastaISO);
+  if (dias < 30) return `${dias} día${dias === 1 ? "" : "s"}`;
+
+  const { anios, meses } = calcularAntiguedad(desdeISO, hastaISO);
+  const partes: string[] = [];
+  if (anios > 0) partes.push(`${anios} año${anios === 1 ? "" : "s"}`);
+  if (meses > 0) partes.push(`${meses} mes${meses === 1 ? "" : "es"}`);
+  return partes.length > 0 ? partes.join(" y ") : "menos de un mes";
+}
+
+export type EncargadoRotacion = {
+  usuarioNombre: string;
+  rol: string;
+  desde: string;
+  hasta: string | null;
+  duracion: string;
+  actual: boolean;
+};
+
+// Historial completo de quién ha estado a cargo de una tienda como
+// permanente, con cuánto tiempo duró cada tramo — a diferencia de
+// "supervisoresPermanentes" de arriba (que solo muestra los vigentes ahora),
+// esto incluye también a quienes ya terminaron esa asignación.
+export async function obtenerRotacionTienda(tiendaId: string): Promise<EncargadoRotacion[]> {
+  await exigirSesion();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("tiendas_permanentes")
+    .select("created_at, fecha_fin, usuarios(nombre, rol)")
+    .eq("tienda_id", tiendaId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar la rotación de la tienda.");
+
+  const hoy = hoyPeru();
+  return (data ?? []).map((r: any) => {
+    const desde = String(r.created_at).slice(0, 10);
+    const hasta = r.fecha_fin ?? null;
+    return {
+      usuarioNombre: r.usuarios?.nombre ?? "—",
+      rol: r.usuarios?.rol ?? "—",
+      desde,
+      hasta,
+      duracion: formatearDuracion(desde, hasta ?? hoy),
+      actual: hasta === null,
+    };
+  });
 }

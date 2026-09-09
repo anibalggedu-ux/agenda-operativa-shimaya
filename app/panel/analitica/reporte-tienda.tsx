@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import {
   obtenerTiendasBasicas,
   obtenerHistorialTiendaAnalitica,
+  obtenerRotacionTienda,
   type TiendaBasicaAnalitica,
   type HistorialTiendaAnalitica,
+  type EncargadoRotacion,
 } from "./actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
 import { generarPdfHistorialTienda } from "@/lib/generar-pdf";
@@ -53,6 +55,7 @@ export default function ReporteTienda() {
   const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
   const [hasta, setHasta] = useState(hoyPeru());
   const [historial, setHistorial] = useState<HistorialTiendaAnalitica | null>(null);
+  const [rotacion, setRotacion] = useState<EncargadoRotacion[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +66,19 @@ export default function ReporteTienda() {
   useEffect(() => {
     if (!tiendaId) {
       setHistorial(null);
+      setRotacion([]);
       return;
     }
     setCargando(true);
     setError(null);
-    obtenerHistorialTiendaAnalitica(tiendaId, desde, hasta)
-      .then(setHistorial)
+    Promise.all([
+      obtenerHistorialTiendaAnalitica(tiendaId, desde, hasta),
+      obtenerRotacionTienda(tiendaId),
+    ])
+      .then(([h, r]) => {
+        setHistorial(h);
+        setRotacion(r);
+      })
       .catch((e) => setError(e.message || "Error al cargar el historial."))
       .finally(() => setCargando(false));
   }, [tiendaId, desde, hasta]);
@@ -137,6 +147,53 @@ export default function ReporteTienda() {
                     <span className="text-marca-tenue">({v.rol})</span>{" "}
                     <span className="text-marca-rojoclaro font-black">×{v.visitas}</span>
                   </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">
+              🔄 ROTACIÓN DE ENCARGADOS
+            </h4>
+            {rotacion.length === 0 ? (
+              <p className="text-marca-tenue text-sm italic">
+                Nunca ha tenido un supervisor/capacitador permanente asignado.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {rotacion.map((r, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between flex-wrap gap-2 rounded-[3px] p-3 border ${
+                      r.actual
+                        ? "bg-emerald-950/20 border-emerald-700/40"
+                        : "bg-marca-fondo border-marca-borde"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-marca-textofuerte font-bold text-sm">
+                        {r.usuarioNombre}{" "}
+                        <span className="text-marca-tenue font-normal text-[11px] uppercase">
+                          ({r.rol})
+                        </span>
+                      </p>
+                      <p className="text-marca-tenue text-[11px] font-data mt-0.5">
+                        {formatearFechaLegible(r.desde)} →{" "}
+                        {r.hasta ? formatearFechaLegible(r.hasta) : "actualidad"}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs font-black px-2.5 py-1 rounded-full ${
+                        r.actual
+                          ? "bg-emerald-900/40 text-emerald-300"
+                          : "bg-marca-superficie2 text-marca-tenue"
+                      }`}
+                    >
+                      {r.actual ? "Actual · " : ""}
+                      {r.duracion}
+                    </span>
+                  </div>
                 ))}
               </div>
             )}
