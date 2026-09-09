@@ -84,7 +84,7 @@ export default async function PanelSupervisor() {
       <h2 className="text-sm font-black tracking-widest text-slate-300 mb-4">
         BITÁCORA DE CAMPO
       </h2>
-      <SelectorTiendas supervisorNombre={sesion.nombre} />
+      <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
 
       <div className="mt-6">
         <HistorialPdf supervisorNombre={sesion.nombre} />

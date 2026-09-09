@@ -58,7 +58,16 @@ function BotonEnviar() {
   );
 }
 
-export default function SelectorTiendas({ supervisorNombre }: { supervisorNombre: string }) {
+export default function SelectorTiendas({
+  supervisorNombre,
+  mostrarDescansoFijo = true,
+}: {
+  supervisorNombre: string;
+  // El banner de descanso fijo se oculta cuando el panel ya lo muestra en
+  // otro lugar más visible (p. ej. el banner de perfil del Supervisor y del
+  // Coordinador), para no repetir la misma información dos veces.
+  mostrarDescansoFijo?: boolean;
+}) {
   const [tiendas, setTiendas] = useState<TiendaClasificada[] | null>(null);
   const [diaDescanso, setDiaDescanso] = useState<string[] | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -133,7 +142,7 @@ export default function SelectorTiendas({ supervisorNombre }: { supervisorNombre
 
   return (
     <div className="space-y-6">
-      {diaDescanso && diaDescanso.length > 0 && (
+      {mostrarDescansoFijo && diaDescanso && diaDescanso.length > 0 && (
         <div className="bg-indigo-950/30 border border-indigo-700/40 rounded-xl px-4 py-2 text-indigo-300 text-xs font-bold">
           🛌 Tu{diaDescanso.length > 1 ? "s días de descanso fijos" : " día de descanso fijo"}:{" "}
           {diaDescanso.join(" y ")}

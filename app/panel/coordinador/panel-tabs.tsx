@@ -64,7 +64,7 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
         <div className="space-y-6">
           <MisPuntosWidget />
           <GpsMarcador />
-          <SelectorTiendas supervisorNombre={nombre} />
+          <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <HistorialPdf supervisorNombre={nombre} />
         </div>
       )}

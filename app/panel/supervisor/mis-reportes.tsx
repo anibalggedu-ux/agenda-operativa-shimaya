@@ -112,12 +112,16 @@ export default function MisReportes() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [conFiltro, setConFiltro] = useState(false);
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -7));
   const [hasta, setHasta] = useState(hoyPeru());
 
   function cargar() {
     setCargando(true);
-    obtenerMisReportesRecientes(desde, hasta)
+    const promesa = conFiltro
+      ? obtenerMisReportesRecientes(desde, hasta)
+      : obtenerMisReportesRecientes();
+    promesa
       .then(setReportes)
       .catch((e) => setError(e.message || "Error al cargar tus reportes."))
       .finally(() => setCargando(false));
@@ -126,7 +130,7 @@ export default function MisReportes() {
   useEffect(() => {
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [desde, hasta]);
+  }, [conFiltro, desde, hasta]);
 
   return (
     <div className="bg-[#0f111a] border-2 border-slate-700/60 rounded-2xl p-5 space-y-3">
@@ -134,10 +138,28 @@ export default function MisReportes() {
         🗂️ MIS REGISTROS DE OBSERVACIONES
       </h3>
       <p className="text-slate-600 text-[11px]">
-        Puedes corregir un reporte hasta 48 horas después de haberlo enviado.
+        Puedes corregir un reporte hasta 48 horas después de haberlo enviado — pasado ese
+        tiempo queda fijado.
       </p>
 
-      <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+      {conFiltro ? (
+        <div className="space-y-2">
+          <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+          <button
+            onClick={() => setConFiltro(false)}
+            className="text-cyan-400 hover:text-cyan-300 text-[11px] font-bold uppercase"
+          >
+            ← Volver a los últimos 3 registros
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConFiltro(true)}
+          className="text-cyan-400 hover:text-cyan-300 text-[11px] font-bold uppercase"
+        >
+          🔎 Ver más con filtro de fechas
+        </button>
+      )}
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 

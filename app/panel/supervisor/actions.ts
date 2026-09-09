@@ -139,9 +139,14 @@ export type MiReporte = {
   puedeEditar: boolean;
 };
 
+// Sin fechas, se muestran solo los últimos N — evitando una lista larga por
+// defecto. Con fechas, se muestran todos los que caigan en ese rango (el
+// colaborador las usa cuando quiere ver más que los últimos registros).
+const ULTIMOS_REPORTES_SIN_FILTRO = 3;
+
 export async function obtenerMisReportesRecientes(
-  desde: string,
-  hasta: string
+  desde?: string,
+  hasta?: string
 ): Promise<MiReporte[]> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
@@ -149,14 +154,21 @@ export async function obtenerMisReportesRecientes(
   }
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("rutas_diarias")
     .select("id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, tiendas(nombre)")
-    .eq("usuario_id", sesion.id)
-    .gte("fecha", desde)
-    .lte("fecha", hasta)
+    .eq("usuario_id", sesion.id);
+
+  if (desde) consulta = consulta.gte("fecha", desde);
+  if (hasta) consulta = consulta.lte("fecha", hasta);
+
+  consulta = consulta
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (!desde && !hasta) consulta = consulta.limit(ULTIMOS_REPORTES_SIN_FILTRO);
+
+  const { data, error } = await consulta;
 
   if (error) throw new Error("No se pudo cargar tus reportes.");
 
