@@ -75,12 +75,23 @@ async function cargarCalendario(
   const { inicio, fin } = rangoMes(anio, mes);
   const supabase = supabaseServer();
 
-  let consultaRutas = supabase
+  // "rutas_activas" es solo la cola de trabajo pendiente — se vacía apenas
+  // se reporta la visita, así que el historial real de rutas ya visitadas
+  // vive en "rutas_diarias". Se consultan las dos y se unen (la reportada
+  // gana si por algún motivo coinciden) para no perder el pasado.
+  let consultaRutasActivas = supabase
     .from("rutas_activas")
-    .select("fecha_planificada, usuario_id, usuarios(nombre), tiendas(nombre)")
+    .select("fecha_planificada, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)")
     .gte("fecha_planificada", inicio)
     .lte("fecha_planificada", fin);
-  if (usuarioId) consultaRutas = consultaRutas.eq("usuario_id", usuarioId);
+  if (usuarioId) consultaRutasActivas = consultaRutasActivas.eq("usuario_id", usuarioId);
+
+  let consultaRutasDiarias = supabase
+    .from("rutas_diarias")
+    .select("fecha, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)")
+    .gte("fecha", inicio)
+    .lte("fecha", fin);
+  if (usuarioId) consultaRutasDiarias = consultaRutasDiarias.eq("usuario_id", usuarioId);
 
   let consultaEspeciales = supabase
     .from("asignaciones_especiales")
@@ -103,13 +114,28 @@ async function cargarCalendario(
     .order("nombre");
   if (usuarioId) consultaPersonas = consultaPersonas.eq("id", usuarioId);
 
-  const [{ data: rutas }, { data: especiales }, { data: comunicados }, { data: personas }] =
-    await Promise.all([consultaRutas, consultaEspeciales, consultaComunicados, consultaPersonas]);
+  const [
+    { data: rutasActivas },
+    { data: rutasDiarias },
+    { data: especiales },
+    { data: comunicados },
+    { data: personas },
+  ] = await Promise.all([
+    consultaRutasActivas,
+    consultaRutasDiarias,
+    consultaEspeciales,
+    consultaComunicados,
+    consultaPersonas,
+  ]);
 
   const eventos: EventoCalendario[] = [];
 
-  (rutas ?? []).forEach((r: any) => {
-    eventos.push({
+  // Se unen por usuario+tienda+fecha en un mapa: si una ruta asignada ya fue
+  // reportada, la versión de rutas_diarias reemplaza a la de rutas_activas
+  // (mismo día, mismo dato) en vez de mostrar el chip duplicado.
+  const rutasPorClave = new Map<string, EventoCalendario>();
+  (rutasActivas ?? []).forEach((r: any) => {
+    rutasPorClave.set(`${r.usuario_id}|${r.tienda_id}|${r.fecha_planificada}`, {
       fecha: r.fecha_planificada,
       tipo: "ruta",
       personaId: r.usuario_id,
@@ -117,6 +143,16 @@ async function cargarCalendario(
       detalle: r.tiendas?.nombre ?? "Tienda",
     });
   });
+  (rutasDiarias ?? []).forEach((r: any) => {
+    rutasPorClave.set(`${r.usuario_id}|${r.tienda_id}|${r.fecha}`, {
+      fecha: r.fecha,
+      tipo: "ruta",
+      personaId: r.usuario_id,
+      personaNombre: r.usuarios?.nombre ?? "—",
+      detalle: r.tiendas?.nombre ?? "Tienda",
+    });
+  });
+  eventos.push(...rutasPorClave.values());
 
   (especiales ?? []).forEach((a: any) => {
     const tipo = TIPO_ASIGNACION[a.tipo];

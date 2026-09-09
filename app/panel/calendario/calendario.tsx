@@ -230,8 +230,7 @@ export default function Calendario({ modo, hoy }: { modo: "completo" | "propio";
           <div className="grid grid-cols-7">
             {celdas.map((celda) => {
               const visibles = celda.eventos.slice(0, celda.descansoChip ? 2 : 3);
-              const restoOculto =
-                celda.eventos.length - visibles.length + (celda.descansoChip ? 1 : 0);
+              const restoOculto = celda.eventos.length - visibles.length;
               return (
                 <button
                   key={celda.iso}
