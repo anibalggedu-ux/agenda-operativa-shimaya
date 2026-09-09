@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  obtenerRankingTiendasCompleto,
   obtenerVisitasTiendaDetalle,
   type RankingTiendasCompleto,
   type RankingTiendaCompleto,
@@ -61,26 +60,24 @@ function CuadroRanking({
   );
 }
 
-export default function RankingTiendas({ desde, hasta }: { desde: string; hasta: string }) {
-  const [ranking, setRanking] = useState<RankingTiendasCompleto | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+export default function RankingTiendas({
+  ranking,
+  desde,
+  hasta,
+}: {
+  ranking: RankingTiendasCompleto;
+  desde: string;
+  hasta: string;
+}) {
   const [tiendaId, setTiendaId] = useState<string | null>(null);
   const [tiendaNombreSel, setTiendaNombreSel] = useState<string>("");
   const [visitas, setVisitas] = useState<VisitaTiendaDetalle[] | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   useEffect(() => {
-    setCargando(true);
-    setError(null);
     setTiendaId(null);
     setVisitas(null);
-    obtenerRankingTiendasCompleto(desde, hasta)
-      .then(setRanking)
-      .catch((e) => setError(e.message || "Error al cargar el ranking de tiendas."))
-      .finally(() => setCargando(false));
-  }, [desde, hasta]);
+  }, [ranking]);
 
   function handleSeleccionar(id: string, nombre: string) {
     setTiendaId(id);
@@ -91,10 +88,6 @@ export default function RankingTiendas({ desde, hasta }: { desde: string; hasta:
       .catch(() => setVisitas(null))
       .finally(() => setCargandoDetalle(false));
   }
-
-  if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando ranking...</p>;
-  if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
-  if (!ranking) return null;
 
   return (
     <div className="space-y-4">
