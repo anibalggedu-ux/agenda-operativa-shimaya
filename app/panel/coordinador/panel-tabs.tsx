@@ -15,6 +15,7 @@ import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
 import Registro from "../registro/registro";
+import Documentos from "../documentos/documentos";
 
 type Pestana =
   | "rutas"
@@ -23,7 +24,8 @@ type Pestana =
   | "personal"
   | "anuncios"
   | "historial"
-  | "registro";
+  | "registro"
+  | "documentos";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "rutas", etiqueta: "Rutas" },
@@ -33,6 +35,7 @@ const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "anuncios", etiqueta: "Anuncios" },
   { id: "historial", etiqueta: "Historial y Monitoreo" },
   { id: "registro", etiqueta: "Registro" },
+  { id: "documentos", etiqueta: "Documentos" },
 ];
 
 export default function PanelTabs({ nombre }: { nombre: string }) {
@@ -85,6 +88,8 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
       {pestana === "historial" && <HistorialMonitoreo />}
 
       {pestana === "registro" && <Registro esCoordinador={true} />}
+
+      {pestana === "documentos" && <Documentos esAdmin={true} />}
     </div>
   );
 }
