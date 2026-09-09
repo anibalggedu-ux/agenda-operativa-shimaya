@@ -1,27 +1,23 @@
-import { obtenerNombresUsuarios } from "./actions";
 import LoginForm from "./login-form";
 
-// FIX: sin esto, Next.js genera esta página como ESTÁTICA en el momento del
-// build y la sirve siempre desde caché — la lista de usuarios quedaría
-// congelada con los datos que existían cuando se compiló, sin importar
-// cuántos usuarios se agreguen después en Supabase.
-export const dynamic = "force-dynamic";
-
-export default async function LoginPage() {
-  const nombres = await obtenerNombresUsuarios();
-
+export default function LoginPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[#07080c] text-white p-4">
+    <main className="min-h-screen flex items-center justify-center bg-marca-fondo text-marca-texto p-4 font-body">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-black tracking-widest">
-            <span className="text-cyan-400">AGENDA</span> OPERATIVA
+        <div className="flex flex-col items-center text-center mb-8">
+          {/* Marca de logo temporal — se reemplaza por el logo real de la
+              empresa en cuanto lo envíen (PNG/SVG, fondo transparente). */}
+          <div className="w-14 h-14 rounded-full bg-marca-rojo text-marca-textofuerte flex items-center justify-center font-display italic text-lg mb-4">
+            AS
+          </div>
+          <h1 className="font-display text-2xl text-marca-textofuerte tracking-wide">
+            Agenda Operativa
           </h1>
-          <p className="text-[11px] text-slate-500 uppercase tracking-[0.2em] mt-1">
+          <p className="text-[11px] text-marca-rojoclaro uppercase tracking-[0.3em] mt-2 font-data">
             Shimaya
           </p>
         </div>
-        <LoginForm nombres={nombres} />
+        <LoginForm />
       </div>
     </main>
   );

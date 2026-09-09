@@ -61,13 +61,28 @@ export async function crearUsuario(
     return { exito: false, mensaje: "Ya existe un usuario registrado con ese nombre." };
   }
 
+  // El login ahora identifica solo por la credencial (sin elegir nombre), así
+  // que dos personas no pueden compartir la misma clave — si pasara, no
+  // habría forma de saber a cuál de las dos pertenece el inicio de sesión.
+  const claveHash = hashPassword(credencial);
+  const { data: claveEnUso, error: errorClave } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("clave_hash", claveHash)
+    .maybeSingle();
+
+  if (errorClave) return { exito: false, mensaje: "No se pudo verificar la credencial." };
+  if (claveEnUso) {
+    return { exito: false, mensaje: "Esa credencial ya está en uso por otro usuario. Elige una distinta." };
+  }
+
   const { error } = await supabase.from("usuarios").insert({
     nombre,
     email: email || null,
     fecha_ingreso: fechaIngreso || null,
     fecha_nacimiento: fechaNacimiento || null,
     rol,
-    clave_hash: hashPassword(credencial),
+    clave_hash: claveHash,
     dias_descanso: diaDescanso ? [diaDescanso] : null,
   });
 

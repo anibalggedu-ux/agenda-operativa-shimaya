@@ -11,26 +11,26 @@ export async function iniciarSesionAction(
   _prevState: ResultadoLogin,
   formData: FormData
 ): Promise<ResultadoLogin> {
-  const nombre = String(formData.get("nombre") || "").trim();
   const clave = String(formData.get("clave") || "");
 
-  if (!nombre || !clave) {
-    return { exito: false, mensaje: "Completa usuario y clave." };
+  if (!clave) {
+    return { exito: false, mensaje: "Ingresa tu credencial." };
   }
 
   const supabase = supabaseServer();
+  const claveHash = hashPassword(clave);
+
+  // Se identifica solo por la credencial — cada usuario tiene una clave
+  // única (validado al crearla en "Registro"), así que no hace falta pedir
+  // el nombre. maybeSingle() falla si hubiera dos con la misma clave, lo
+  // cual ya no debería poder pasar.
   const { data: usuario, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, clave_hash")
-    .ilike("nombre", nombre)
+    .select("id, nombre, rol")
+    .eq("clave_hash", claveHash)
     .maybeSingle();
 
   if (error || !usuario) {
-    return { exito: false, mensaje: "Credencial incorrecta. Verifique sus datos." };
-  }
-
-  const claveHashIngresada = hashPassword(clave);
-  if (claveHashIngresada !== usuario.clave_hash) {
     return { exito: false, mensaje: "Credencial incorrecta. Verifique sus datos." };
   }
 
@@ -41,13 +41,4 @@ export async function iniciarSesionAction(
   });
 
   redirect(`/panel/${usuario.rol}`);
-}
-
-export async function obtenerNombresUsuarios() {
-  const supabase = supabaseServer();
-  const { data } = await supabase
-    .from("usuarios")
-    .select("nombre")
-    .order("nombre", { ascending: true });
-  return data?.map((u) => u.nombre) ?? [];
 }

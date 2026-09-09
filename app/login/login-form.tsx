@@ -11,52 +11,37 @@ function BotonIngresar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black py-3.5 rounded-xl text-xs tracking-widest uppercase transition"
+      className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-semibold py-3.5 rounded-[3px] text-xs tracking-[0.15em] uppercase transition font-body"
     >
-      {pending ? "Validando..." : "Ingresar al Sistema"}
+      {pending ? "Validando..." : "Ingresar al sistema"}
     </button>
   );
 }
 
-export default function LoginForm({ nombres }: { nombres: string[] }) {
+export default function LoginForm() {
   const [estado, formAction] = useFormState(iniciarSesionAction, estadoInicial);
 
   return (
     <form
       action={formAction}
-      className="bg-[#0f111a] border-2 border-cyan-500/40 rounded-2xl p-6 shadow-[0_0_25px_rgba(0,242,254,0.15)]"
+      className="bg-gradient-to-b from-marca-superficie to-[#131417] border border-marca-rojo/30 rounded-[3px] p-8"
     >
-      <label className="block text-slate-400 text-[10px] uppercase font-bold mb-2 tracking-wider">
-        Usuario
-      </label>
-      <select
-        name="nombre"
-        required
-        className="w-full p-3 mb-4 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
-      >
-        <option value="">Seleccione su nombre</option>
-        {nombres.map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
-
-      <label className="block text-slate-400 text-[10px] uppercase font-bold mb-2 tracking-wider">
-        Credencial / Clave
+      <label className="block text-marca-tenue text-[10px] uppercase font-semibold mb-2 tracking-[0.08em] font-body">
+        Credencial
       </label>
       <input
         type="password"
         name="clave"
         required
-        className="w-full p-3 mb-6 bg-[#0d1117] border border-slate-800 rounded-xl text-white text-sm outline-none focus:border-cyan-500"
-        placeholder="****"
+        autoFocus
+        placeholder="••••••••"
+        className="w-full p-3.5 mb-7 bg-marca-fondo border border-marca-rojo/35 rounded-[3px] text-marca-textofuerte text-sm tracking-[0.15em] outline-none focus:border-marca-rojoclaro font-data"
       />
 
       <BotonIngresar />
 
       {estado.mensaje && (
-        <p className="text-yellow-400 mt-4 text-xs font-bold text-center bg-yellow-950/20 py-2 rounded-lg border border-yellow-900/40">
+        <p className="text-marca-rojoclaro mt-4 text-xs font-semibold text-center bg-marca-rojo/10 py-2.5 rounded-[3px] border border-marca-rojo/30 font-body">
           {estado.mensaje}
         </p>
       )}
