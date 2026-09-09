@@ -311,3 +311,123 @@ export async function eliminarComunicado(id: string): Promise<ResultadoRegistro>
   if (error) return { exito: false, mensaje: "No se pudo eliminar el comunicado." };
   return { exito: true };
 }
+
+// ---------------------------------------------------------------------
+// Auditorías: quién puede llenarlas (activación puntual, sin fecha fija) y
+// la plantilla del checklist (editable por si hay que ampliarla).
+// ---------------------------------------------------------------------
+
+export type SupervisorConAuditoria = { id: string; nombre: string; puedeAuditar: boolean };
+
+export async function obtenerSupervisoresConAuditoria(): Promise<SupervisorConAuditoria[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, puede_auditar")
+    .eq("rol", "supervisor")
+    .eq("activo", true)
+    .order("nombre");
+
+  if (error) throw new Error("No se pudo cargar los supervisores.");
+
+  return (data ?? []).map((u) => ({
+    id: u.id,
+    nombre: u.nombre,
+    puedeAuditar: !!u.puede_auditar,
+  }));
+}
+
+export async function actualizarAccesoAuditoria(
+  usuarioId: string,
+  valor: boolean
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ puede_auditar: valor })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el acceso." };
+  return { exito: true };
+}
+
+export type ItemPlantillaAuditoria = { id: string; categoria: string; item: string; orden: number };
+
+export async function obtenerPlantillaAuditoriaAdmin(): Promise<ItemPlantillaAuditoria[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("plantilla_auditoria_items")
+    .select("id, categoria, item, orden")
+    .order("categoria")
+    .order("orden");
+
+  if (error) throw new Error("No se pudo cargar la plantilla de auditoría.");
+  return data ?? [];
+}
+
+export async function agregarItemPlantilla(
+  categoria: string,
+  item: string
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const categoriaLimpia = categoria.trim();
+  const itemLimpio = item.trim();
+  if (!categoriaLimpia || !itemLimpio) {
+    return { exito: false, mensaje: "Completa la categoría y el ítem." };
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: existentes } = await supabase
+    .from("plantilla_auditoria_items")
+    .select("orden")
+    .eq("categoria", categoriaLimpia)
+    .order("orden", { ascending: false })
+    .limit(1);
+
+  const siguienteOrden = (existentes?.[0]?.orden ?? 0) + 1;
+
+  const { error } = await supabase
+    .from("plantilla_auditoria_items")
+    .insert({ categoria: categoriaLimpia, item: itemLimpio, orden: siguienteOrden });
+
+  if (error) return { exito: false, mensaje: "No se pudo agregar el ítem." };
+  return { exito: true };
+}
+
+export async function actualizarItemPlantilla(
+  id: string,
+  categoria: string,
+  item: string
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const categoriaLimpia = categoria.trim();
+  const itemLimpio = item.trim();
+  if (!categoriaLimpia || !itemLimpio) {
+    return { exito: false, mensaje: "Completa la categoría y el ítem." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("plantilla_auditoria_items")
+    .update({ categoria: categoriaLimpia, item: itemLimpio })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el ítem." };
+  return { exito: true };
+}
+
+export async function eliminarItemPlantilla(id: string): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("plantilla_auditoria_items").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar el ítem." };
+  return { exito: true };
+}

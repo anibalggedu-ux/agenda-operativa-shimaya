@@ -8,7 +8,7 @@ import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
-import { tieneAccesoRegistro } from "@/lib/permisos";
+import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
 import PerfilBanner from "./perfil-banner";
 import TiendasFijas from "./tiendas-fijas";
 import MiDescanso from "./mi-descanso";
@@ -21,6 +21,7 @@ export default async function PanelSupervisor() {
   if (!sesion || sesion.rol !== "supervisor") redirect("/login");
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
+  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id);
 
   return (
     <main className="min-h-screen bg-marca-fondo text-marca-texto p-6 sm:p-8 font-body">
@@ -35,6 +36,14 @@ export default async function PanelSupervisor() {
               className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
             >
               📝 Registro
+            </Link>
+          )}
+          {accesoAuditoria && (
+            <Link
+              href="/panel/auditorias"
+              className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
+            >
+              🔍 Auditoría
             </Link>
           )}
           <Link

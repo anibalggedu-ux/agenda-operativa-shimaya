@@ -34,7 +34,8 @@ export async function middleware(req: NextRequest) {
       rolRequerido === "analitica" ||
       rolRequerido === "registro" ||
       rolRequerido === "documentos" ||
-      rolRequerido === "calendario"
+      rolRequerido === "calendario" ||
+      rolRequerido === "auditorias"
     )
       return NextResponse.next();
 
