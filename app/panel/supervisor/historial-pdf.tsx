@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { obtenerHistorialReportes, obtenerHistorialMarcaciones } from "./pdf-actions";
+import { obtenerHistorialReportes, obtenerHistorialMarcaciones, obtenerPerfilParaPdf } from "./pdf-actions";
 import { generarPdfHistorial } from "@/lib/generar-pdf";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -16,11 +16,21 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
     setGenerando(true);
     setError(null);
     try {
-      const [reportes, marcaciones] = await Promise.all([
+      const [reportes, marcaciones, perfil] = await Promise.all([
         obtenerHistorialReportes(desde, hasta),
         obtenerHistorialMarcaciones(desde, hasta),
+        obtenerPerfilParaPdf(),
       ]);
-      generarPdfHistorial(supervisorNombre, desde, hasta, reportes, marcaciones);
+      await generarPdfHistorial({
+        nombre: supervisorNombre,
+        rol: perfil.rol,
+        desde,
+        hasta,
+        reportes,
+        marcaciones,
+        tiendasPermanentes: perfil.rol === "supervisor" ? perfil.tiendasPermanentes : [],
+        diasDescanso: perfil.diasDescanso,
+      });
     } catch (e: any) {
       setError(e && e.message ? e.message : "No se pudo generar el PDF.");
     } finally {

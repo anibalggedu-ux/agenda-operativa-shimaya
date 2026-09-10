@@ -62,3 +62,30 @@ export async function obtenerHistorialMarcaciones(
     tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
   }));
 }
+
+export type PerfilPdf = {
+  rol: string;
+  tiendasPermanentes: string[];
+  diasDescanso: string[];
+};
+
+export async function obtenerPerfilParaPdf(): Promise<PerfilPdf> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    throw new Error("No autorizado.");
+  }
+
+  const supabase = supabaseServer();
+  const [{ data: usuario }, { data: permanentes }] = await Promise.all([
+    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase.from("tiendas_permanentes").select("tiendas(nombre)").eq("usuario_id", sesion.id),
+  ]);
+
+  return {
+    rol: sesion.rol,
+    tiendasPermanentes: (permanentes ?? [])
+      .map((p: any) => p.tiendas?.nombre as string | undefined)
+      .filter((n): n is string => !!n),
+    diasDescanso: usuario?.dias_descanso ?? [],
+  };
+}

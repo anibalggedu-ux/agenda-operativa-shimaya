@@ -5,9 +5,39 @@ const AMARILLO: [number, number, number] = [234, 179, 8];
 const FONDO_OSCURO: [number, number, number] = [15, 17, 26];
 const ANCHO_UTIL = 180;
 
-function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
+// El logo se descarga una sola vez (es el mismo círculo que aparece en el
+// login) y se reutiliza en cada PDF que se genere durante la sesión.
+let logoBase64Cache: string | null = null;
+
+async function obtenerLogoBase64(): Promise<string | null> {
+  if (logoBase64Cache) return logoBase64Cache;
+  try {
+    const respuesta = await fetch("/logo-shimaya.jpeg");
+    const blob = await respuesta.blob();
+    logoBase64Cache = await new Promise<string>((resolve, reject) => {
+      const lector = new FileReader();
+      lector.onloadend = () => resolve(lector.result as string);
+      lector.onerror = reject;
+      lector.readAsDataURL(blob);
+    });
+    return logoBase64Cache;
+  } catch {
+    return null;
+  }
+}
+
+async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   doc.setFillColor(...FONDO_OSCURO);
   doc.rect(0, 0, 210, 28, "F");
+
+  const logo = await obtenerLogoBase64();
+  if (logo) {
+    try {
+      doc.addImage(logo, "JPEG", 180, 5, 18, 18);
+    } catch {
+      // Si por algún motivo el logo no carga, el PDF se genera igual sin él.
+    }
+  }
 
   doc.setTextColor(...AMARILLO);
   doc.setFont("helvetica", "bold");
@@ -41,9 +71,9 @@ export type DatosReporteIndividual = {
   actividad: string;
 };
 
-export function generarPdfReporteIndividual(datos: DatosReporteIndividual) {
+export async function generarPdfReporteIndividual(datos: DatosReporteIndividual) {
   const doc = new jsPDF();
-  dibujarEncabezado(doc, "Reporte de visita — Supervisor");
+  await dibujarEncabezado(doc, "Reporte de visita — Supervisor");
 
   let y = 40;
   y = campo(doc, "Supervisor:", datos.supervisorNombre, y);
@@ -96,27 +126,76 @@ export type MarcacionHistorial = {
 
 const ROJO_TARDANZA: [number, number, number] = [220, 38, 38];
 
-export function generarPdfHistorial(
-  supervisorNombre: string,
-  desde: string,
-  hasta: string,
-  reportes: ReporteHistorialItem[],
-  marcaciones: MarcacionHistorial[] = []
-) {
+export type DatosHistorialPropio = {
+  nombre: string;
+  rol: string;
+  desde: string;
+  hasta: string;
+  reportes: ReporteHistorialItem[];
+  marcaciones: MarcacionHistorial[];
+  // Se pasa vacío para capacitadores, que no reciben tienda permanente.
+  tiendasPermanentes: string[];
+  diasDescanso: string[];
+};
+
+export async function generarPdfHistorial(datos: DatosHistorialPropio) {
+  const { nombre, rol, desde, hasta, reportes, marcaciones, tiendasPermanentes, diasDescanso } = datos;
   const doc = new jsPDF();
-  dibujarEncabezado(doc, "Historial de reportes — Supervisor");
+  const etiquetaRol = rol === "supervisor" ? "Supervisor" : rol === "capacitador" ? "Capacitador" : rol;
+  await dibujarEncabezado(doc, "Historial de reportes — " + etiquetaRol);
 
   const ALTO_PAGINA = 280;
 
   let y = 40;
-  y = campo(doc, "Supervisor:", supervisorNombre, y);
+  y = campo(doc, etiquetaRol + ":", nombre, y);
   y = campo(
     doc,
     "Rango:",
     formatearFechaLegible(desde) + "  →  " + formatearFechaLegible(hasta),
     y
   );
+  if (rol === "supervisor") {
+    y = campo(
+      doc,
+      "Tienda(s) fija(s):",
+      tiendasPermanentes.length === 0 ? "Sin asignar" : tiendasPermanentes.join(", "),
+      y
+    );
+  }
+  y = campo(
+    doc,
+    "Descanso semanal:",
+    diasDescanso.length === 0 ? "Sin asignar" : diasDescanso.join(" y "),
+    y
+  );
   y += 4;
+
+  // Cuadro resumen de tiendas visitadas en el rango (a partir de los mismos
+  // reportes, sin necesidad de otra consulta).
+  const conteoTiendas = new Map<string, number>();
+  reportes.forEach((r) => conteoTiendas.set(r.tiendaNombre, (conteoTiendas.get(r.tiendaNombre) ?? 0) + 1));
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Tiendas visitadas en el rango:", 14, y);
+  y += 7;
+
+  if (conteoTiendas.size === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Sin visitas registradas en este rango.", 14, y);
+    y += 8;
+  } else {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    Array.from(conteoTiendas.entries())
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([tienda, cantidad]) => {
+        doc.text(`${tienda} — ${cantidad} visita(s)`, 14, y);
+        y += 5.5;
+      });
+    y += 6;
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -214,9 +293,9 @@ export type DatosHistorialTienda = {
   supervisoresPermanentes: { usuarioNombre: string; rol: string }[];
 };
 
-export function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
+export async function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
   const doc = new jsPDF();
-  dibujarEncabezado(doc, "Historial de tienda — Coordinador");
+  await dibujarEncabezado(doc, "Historial de tienda — Coordinador");
 
   let y = 40;
   y = campo(doc, "Tienda:", datos.tiendaNombre, y);
@@ -316,9 +395,9 @@ export type DatosHistorialPersona = {
   proximoCumpleanos: { fecha: string; diasFaltantes: number; edadQueCumple: number | null } | null;
 };
 
-export function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
+export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
   const doc = new jsPDF();
-  dibujarEncabezado(doc, "Historial de colaborador — Coordinador");
+  await dibujarEncabezado(doc, "Historial de colaborador — Coordinador");
 
   let y = 40;
   y = campo(doc, "Nombre:", datos.usuarioNombre + " (" + datos.rol + ")", y);
