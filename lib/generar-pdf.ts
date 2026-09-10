@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { formatearFechaLegible, formatearHora } from "./fechas";
+import { formatearFechaLegible, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
 
 const AMARILLO: [number, number, number] = [234, 179, 8];
 const FONDO_OSCURO: [number, number, number] = [15, 17, 26];
@@ -26,6 +26,17 @@ async function obtenerLogoBase64(): Promise<string | null> {
   }
 }
 
+// El archivo del logo es un cuadrado con esquinas blancas — se recorta a un
+// círculo con una máscara de clip, igual que el CSS "rounded-full" del login.
+function dibujarLogoCircular(doc: jsPDF, logo: string, cx: number, cy: number, radio: number) {
+  doc.saveGraphicsState();
+  doc.circle(cx, cy, radio, "S");
+  doc.clip();
+  (doc as any).discardPath?.();
+  doc.addImage(logo, "JPEG", cx - radio, cy - radio, radio * 2, radio * 2);
+  doc.restoreGraphicsState();
+}
+
 async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   doc.setFillColor(...FONDO_OSCURO);
   doc.rect(0, 0, 210, 28, "F");
@@ -33,7 +44,7 @@ async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   const logo = await obtenerLogoBase64();
   if (logo) {
     try {
-      doc.addImage(logo, "JPEG", 180, 5, 18, 18);
+      dibujarLogoCircular(doc, logo, 189, 14, 9);
     } catch {
       // Si por algún motivo el logo no carga, el PDF se genera igual sin él.
     }
@@ -136,10 +147,23 @@ export type DatosHistorialPropio = {
   // Se pasa vacío para capacitadores, que no reciben tienda permanente.
   tiendasPermanentes: string[];
   diasDescanso: string[];
+  puntos: number;
+  medallas: Record<"bronce" | "plata" | "oro" | "estrella", number>;
 };
 
 export async function generarPdfHistorial(datos: DatosHistorialPropio) {
-  const { nombre, rol, desde, hasta, reportes, marcaciones, tiendasPermanentes, diasDescanso } = datos;
+  const {
+    nombre,
+    rol,
+    desde,
+    hasta,
+    reportes,
+    marcaciones,
+    tiendasPermanentes,
+    diasDescanso,
+    puntos,
+    medallas,
+  } = datos;
   const doc = new jsPDF();
   const etiquetaRol = rol === "supervisor" ? "Supervisor" : rol === "capacitador" ? "Capacitador" : rol;
   await dibujarEncabezado(doc, "Historial de reportes — " + etiquetaRol);
@@ -152,6 +176,12 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     doc,
     "Rango:",
     formatearFechaLegible(desde) + "  →  " + formatearFechaLegible(hasta),
+    y
+  );
+  y = campo(
+    doc,
+    "Vitrina de trofeos:",
+    `${puntos} pts — 🥉x${medallas.bronce} 🥈x${medallas.plata} 🥇x${medallas.oro} 🌟x${medallas.estrella}`,
     y
   );
   if (rol === "supervisor") {
@@ -168,6 +198,29 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     diasDescanso.length === 0 ? "Sin asignar" : diasDescanso.join(" y "),
     y
   );
+
+  if (diasDescanso.length > 0) {
+    const fechasDescanso: string[] = [];
+    let cursor = desde;
+    while (cursor <= hasta) {
+      if (diasDescanso.includes(diaSemanaPeru(cursor))) fechasDescanso.push(cursor);
+      cursor = sumarDias(cursor, 1);
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Descansó estos días en el rango:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const textoFechas =
+      fechasDescanso.length === 0
+        ? "Ninguno dentro de este rango."
+        : fechasDescanso.map((f) => formatearFechaLegible(f)).join("  ·  ");
+    const lineasFechas = doc.splitTextToSize(textoFechas, ANCHO_UTIL);
+    doc.text(lineasFechas, 14, y);
+    y += lineasFechas.length * 5 + 4;
+  }
   y += 4;
 
   // Cuadro resumen de tiendas visitadas en el rango (a partir de los mismos
