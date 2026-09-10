@@ -5,14 +5,90 @@ const AMARILLO: [number, number, number] = [234, 179, 8];
 const FONDO_OSCURO: [number, number, number] = [15, 17, 26];
 const ANCHO_UTIL = 180;
 
-// El logo se descarga una sola vez (es el mismo círculo que aparece en el
-// login) y se reutiliza en cada PDF que se genere durante la sesión.
+// Colores de medalla — los emoji 🥉🥈🥇🌟 no se pueden dibujar con las
+// fuentes estándar de jsPDF (salen como símbolos rotos), así que las
+// medallas se dibujan como formas vectoriales en su color correspondiente.
+const COLOR_BRONCE: [number, number, number] = [176, 118, 68];
+const COLOR_PLATA: [number, number, number] = [176, 180, 186];
+const COLOR_ORO: [number, number, number] = [212, 175, 55];
+const COLOR_ESTRELLA: [number, number, number] = [250, 204, 21];
+
+function dibujarMedallaCircular(doc: jsPDF, cx: number, cy: number, radio: number, color: [number, number, number]) {
+  doc.setFillColor(...color);
+  doc.setDrawColor(60, 60, 60);
+  doc.circle(cx, cy, radio, "FD");
+}
+
+function dibujarMedallaEstrella(doc: jsPDF, cx: number, cy: number, radioExt: number, color: [number, number, number]) {
+  const radioInt = radioExt * 0.42;
+  const puntos: [number, number][] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? radioExt : radioInt;
+    const angulo = (Math.PI / 5) * i - Math.PI / 2;
+    puntos.push([cx + r * Math.cos(angulo), cy + r * Math.sin(angulo)]);
+  }
+  const segmentos = puntos.slice(1).map((p, i) => [p[0] - puntos[i][0], p[1] - puntos[i][1]]);
+  segmentos.push([
+    puntos[0][0] - puntos[puntos.length - 1][0],
+    puntos[0][1] - puntos[puntos.length - 1][1],
+  ]);
+  doc.setFillColor(...color);
+  doc.setDrawColor(60, 60, 60);
+  doc.lines(segmentos, puntos[0][0], puntos[0][1], [1, 1], "FD", true);
+}
+
+// Dibuja "Vitrina de trofeos: N pts" y, debajo, las 4 medallas con su
+// cantidad — devuelve el nuevo cursor Y para seguir dibujando el resto.
+function dibujarVitrinaTrofeos(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  puntos: number,
+  medallas: Record<"bronce" | "plata" | "oro" | "estrella", number>
+): number {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Vitrina de trofeos:", x, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${puntos} pts`, x + 38, y);
+
+  const filaY = y + 8;
+  const radio = 2.6;
+  const items: { color: [number, number, number]; cantidad: number; estrella?: boolean }[] = [
+    { color: COLOR_BRONCE, cantidad: medallas.bronce },
+    { color: COLOR_PLATA, cantidad: medallas.plata },
+    { color: COLOR_ORO, cantidad: medallas.oro },
+    { color: COLOR_ESTRELLA, cantidad: medallas.estrella, estrella: true },
+  ];
+
+  let cx = x + radio;
+  items.forEach((item) => {
+    if (item.estrella) {
+      dibujarMedallaEstrella(doc, cx, filaY - radio * 0.3, radio + 0.5, item.color);
+    } else {
+      dibujarMedallaCircular(doc, cx, filaY - radio * 0.3, radio, item.color);
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`x${item.cantidad}`, cx + radio + 2.5, filaY);
+    cx += 30;
+  });
+
+  return filaY + 7;
+}
+
+// Versión ya recortada en círculo del logo (PNG con transparencia real en
+// las esquinas) — el recorte por software dentro del PDF con doc.clip() no
+// se veía confiable entre visores de PDF, así que se usa un archivo aparte
+// pre-recortado (ver public/logo-shimaya-circulo.png) en vez de la foto
+// cuadrada original.
 let logoBase64Cache: string | null = null;
 
 async function obtenerLogoBase64(): Promise<string | null> {
   if (logoBase64Cache) return logoBase64Cache;
   try {
-    const respuesta = await fetch("/logo-shimaya.jpeg");
+    const respuesta = await fetch("/logo-shimaya-circulo.png");
     const blob = await respuesta.blob();
     logoBase64Cache = await new Promise<string>((resolve, reject) => {
       const lector = new FileReader();
@@ -26,17 +102,6 @@ async function obtenerLogoBase64(): Promise<string | null> {
   }
 }
 
-// El archivo del logo es un cuadrado con esquinas blancas — se recorta a un
-// círculo con una máscara de clip, igual que el CSS "rounded-full" del login.
-function dibujarLogoCircular(doc: jsPDF, logo: string, cx: number, cy: number, radio: number) {
-  doc.saveGraphicsState();
-  doc.circle(cx, cy, radio, "S");
-  doc.clip();
-  (doc as any).discardPath?.();
-  doc.addImage(logo, "JPEG", cx - radio, cy - radio, radio * 2, radio * 2);
-  doc.restoreGraphicsState();
-}
-
 async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   doc.setFillColor(...FONDO_OSCURO);
   doc.rect(0, 0, 210, 28, "F");
@@ -44,7 +109,7 @@ async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   const logo = await obtenerLogoBase64();
   if (logo) {
     try {
-      dibujarLogoCircular(doc, logo, 189, 14, 9);
+      doc.addImage(logo, "PNG", 180, 5, 18, 18);
     } catch {
       // Si por algún motivo el logo no carga, el PDF se genera igual sin él.
     }
@@ -178,12 +243,7 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     formatearFechaLegible(desde) + "  →  " + formatearFechaLegible(hasta),
     y
   );
-  y = campo(
-    doc,
-    "Vitrina de trofeos:",
-    `${puntos} pts — 🥉x${medallas.bronce} 🥈x${medallas.plata} 🥇x${medallas.oro} 🌟x${medallas.estrella}`,
-    y
-  );
+  y = dibujarVitrinaTrofeos(doc, 14, y, puntos, medallas);
   if (rol === "supervisor") {
     y = campo(
       doc,
@@ -460,12 +520,7 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
     formatearFechaLegible(datos.desde) + "  →  " + formatearFechaLegible(datos.hasta),
     y
   );
-  y = campo(
-    doc,
-    "Puntos:",
-    `${datos.puntos.puntos} pts — 🥉x${datos.puntos.medallas.bronce} 🥈x${datos.puntos.medallas.plata} 🥇x${datos.puntos.medallas.oro} 🌟x${datos.puntos.medallas.estrella}`,
-    y
-  );
+  y = dibujarVitrinaTrofeos(doc, 14, y, datos.puntos.puntos, datos.puntos.medallas);
   y = campo(
     doc,
     "Tienda(s) fija(s):",
