@@ -57,12 +57,16 @@ export async function obtenerTiendasClasificadas(): Promise<{
 
   if (error) throw new Error("No se pudo cargar las tiendas asignadas.");
 
+  // Ojo: se compara tienda+fecha, no solo tienda — una tienda fija que ya se
+  // reportó otros días (p. ej. una tienda permanente) no debe bloquear una
+  // asignación nueva para hoy, solo porque ya se reportó esa misma tienda en
+  // el pasado.
   const { data: reportadas } = await supabase
     .from("rutas_diarias")
-    .select("tienda_id")
+    .select("tienda_id, fecha")
     .eq("usuario_id", sesion.id);
 
-  const idsReportados = new Set((reportadas ?? []).map((r) => r.tienda_id));
+  const clavesReportadas = new Set((reportadas ?? []).map((r) => `${r.tienda_id}|${r.fecha}`));
 
   const tiendas: TiendaClasificada[] = (activas ?? []).map((r: any) => {
     let urgencia: Urgencia;
@@ -79,7 +83,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
       area: r.area,
       enfoque: r.enfoque,
       urgencia,
-      yaReportado: idsReportados.has(r.tiendas.id),
+      yaReportado: clavesReportadas.has(`${r.tiendas.id}|${r.fecha_planificada}`),
     };
   });
 
@@ -107,18 +111,52 @@ export async function enviarReporte(
   }
 
   const supabase = supabaseServer();
+  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
 
-  const { error: errorInsert } = await supabase.from("rutas_diarias").insert({
-    fecha: diaLaboralPeru(sesion.rol === "capacitador"),
-    usuario_id: sesion.id,
-    tienda_id: tiendaId,
-    rol: sesion.rol,
-    observacion,
-    actividad,
-  });
+  // El momento de la asignación (no el de envío) es lo que ancla la ventana
+  // de 48 horas para poder editar el reporte después — se guarda tal cual
+  // quedó registrada en rutas_activas antes de borrarla.
+  let asignadoEn: string | null = null;
+  if (rutaActivaId) {
+    const { data: activa } = await supabase
+      .from("rutas_activas")
+      .select("created_at")
+      .eq("id", rutaActivaId)
+      .maybeSingle();
+    asignadoEn = activa?.created_at ?? null;
+  }
 
-  if (errorInsert) {
-    return { exito: false, mensaje: "No se pudo guardar el reporte. Intenta de nuevo." };
+  // Si por algún motivo ya existe un reporte de esta misma tienda y fecha
+  // (p. ej. un reenvío), se sobreescribe en vez de crear un segundo reporte.
+  const { data: existente } = await supabase
+    .from("rutas_diarias")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("tienda_id", tiendaId)
+    .eq("fecha", fecha)
+    .maybeSingle();
+
+  if (existente) {
+    const { error } = await supabase
+      .from("rutas_diarias")
+      .update({ observacion, actividad })
+      .eq("id", existente.id);
+    if (error) {
+      return { exito: false, mensaje: "No se pudo actualizar el reporte. Intenta de nuevo." };
+    }
+  } else {
+    const { error: errorInsert } = await supabase.from("rutas_diarias").insert({
+      fecha,
+      usuario_id: sesion.id,
+      tienda_id: tiendaId,
+      rol: sesion.rol,
+      observacion,
+      actividad,
+      asignado_en: asignadoEn,
+    });
+    if (errorInsert) {
+      return { exito: false, mensaje: "No se pudo guardar el reporte. Intenta de nuevo." };
+    }
   }
 
   if (rutaActivaId) {
@@ -156,7 +194,9 @@ export async function obtenerMisReportesRecientes(
   const supabase = supabaseServer();
   let consulta = supabase
     .from("rutas_diarias")
-    .select("id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, tiendas(nombre)")
+    .select(
+      "id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, asignado_en, tiendas(nombre)"
+    )
     .eq("usuario_id", sesion.id);
 
   if (desde) consulta = consulta.gte("fecha", desde);
@@ -182,7 +222,10 @@ export async function obtenerMisReportesRecientes(
     actividad: r.actividad,
     respuesta: r.respuesta,
     respuestaPor: r.respuesta_por,
-    puedeEditar: new Date(r.created_at).getTime() > limite,
+    // Ancla la ventana a cuando el coordinador asignó la ruta/tienda, no a
+    // cuando se envió el reporte. Si no hay ese dato (reportes viejos), se
+    // usa la fecha de envío como respaldo.
+    puedeEditar: new Date(r.asignado_en ?? r.created_at).getTime() > limite,
   }));
 }
 
@@ -207,7 +250,7 @@ export async function editarReporte(
 
   const { data: reporte, error: errorReporte } = await supabase
     .from("rutas_diarias")
-    .select("usuario_id, created_at")
+    .select("usuario_id, created_at, asignado_en")
     .eq("id", reporteId)
     .maybeSingle();
 
@@ -218,9 +261,16 @@ export async function editarReporte(
     return { exito: false, mensaje: "No puedes editar un reporte que no es tuyo." };
   }
 
+  // La ventana se cuenta desde que el coordinador asignó la ruta/tienda, no
+  // desde que se envió el reporte (si no hay ese dato, se usa el envío como
+  // respaldo — reportes viejos o cargados sin pasar por una asignación).
   const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
-  if (new Date(reporte.created_at).getTime() <= limite) {
-    return { exito: false, mensaje: "Ya pasaron las 48 horas para editar este reporte." };
+  const inicioVentana = reporte.asignado_en ?? reporte.created_at;
+  if (new Date(inicioVentana).getTime() <= limite) {
+    return {
+      exito: false,
+      mensaje: "Ya pasaron las 48 horas desde que se asignó esta ruta — no se puede editar el reporte.",
+    };
   }
 
   const { error } = await supabase

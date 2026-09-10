@@ -138,8 +138,8 @@ export default function MisReportes() {
         🗂️ MIS REGISTROS DE OBSERVACIONES
       </h3>
       <p className="text-marca-tenue text-[11px]">
-        Puedes corregir un reporte hasta 48 horas después de haberlo enviado — pasado ese
-        tiempo queda fijado.
+        Puedes corregir un reporte hasta 48 horas después de que el coordinador te asignó esa
+        ruta o tienda — pasado ese tiempo queda fijado.
       </p>
 
       {conFiltro ? (
