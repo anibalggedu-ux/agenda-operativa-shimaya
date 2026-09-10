@@ -19,15 +19,27 @@ const VENTANA_EDICION_HORAS = 48;
 export type Urgencia = "HOY" | "MANANA" | "AYER" | "ANTES_DE_AYER";
 
 export type TiendaClasificada = {
-  rutaActivaId: string;
+  id: string;
   tiendaId: string;
   tiendaNombre: string;
   fechaPlanificada: string;
   area: string | null;
   enfoque: string | null;
   urgencia: Urgencia;
-  yaReportado: boolean;
+  // Si viene de una asignación sin reportar aún.
+  rutaActivaId: string | null;
+  // Si ya tiene un reporte enviado (editable mientras dure la ventana de 48h).
+  reporteId: string | null;
+  observacionActual: string;
+  actividadActual: string;
 };
+
+function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
+  if (fecha === hoy) return "HOY";
+  if (fecha === manana) return "MANANA";
+  if (fecha === ayer) return "AYER";
+  return "ANTES_DE_AYER";
+}
 
 export async function obtenerTiendasClasificadas(): Promise<{
   tiendas: TiendaClasificada[];
@@ -42,52 +54,67 @@ export async function obtenerTiendasClasificadas(): Promise<{
   const hoy = diaLaboralPeru(sesion.rol === "capacitador");
   const manana = sumarDias(hoy, 1);
   const ayer = sumarDias(hoy, -1);
+  const desdeVentana = sumarDias(hoy, -3); // margen de sobra para cubrir la ventana de 48h
 
-  const { data: usuario } = await supabase
-    .from("usuarios")
-    .select("dias_descanso")
-    .eq("id", sesion.id)
-    .maybeSingle();
+  const [
+    { data: usuario },
+    { data: activas, error: errorActivas },
+    { data: reportes, error: errorReportes },
+  ] = await Promise.all([
+    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("rutas_activas")
+      .select("id, fecha_planificada, area, enfoque, tiendas(id, nombre)")
+      .eq("usuario_id", sesion.id)
+      .order("fecha_planificada", { ascending: false }),
+    supabase
+      .from("rutas_diarias")
+      .select("id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, tiendas(id, nombre)")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha", desdeVentana)
+      .order("fecha", { ascending: false }),
+  ]);
 
-  const { data: activas, error } = await supabase
-    .from("rutas_activas")
-    .select("id, fecha_planificada, area, enfoque, tiendas(id, nombre)")
-    .eq("usuario_id", sesion.id)
-    .order("fecha_planificada", { ascending: false });
+  if (errorActivas) throw new Error("No se pudo cargar las tiendas asignadas.");
+  if (errorReportes) throw new Error("No se pudo cargar tus reportes recientes.");
 
-  if (error) throw new Error("No se pudo cargar las tiendas asignadas.");
+  const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
 
-  // Ojo: se compara tienda+fecha, no solo tienda — una tienda fija que ya se
-  // reportó otros días (p. ej. una tienda permanente) no debe bloquear una
-  // asignación nueva para hoy, solo porque ya se reportó esa misma tienda en
-  // el pasado.
-  const { data: reportadas } = await supabase
-    .from("rutas_diarias")
-    .select("tienda_id, fecha")
-    .eq("usuario_id", sesion.id);
+  // Tarjetas pendientes: asignaciones sin reportar todavía.
+  const pendientes: TiendaClasificada[] = (activas ?? []).map((r: any) => ({
+    id: `pendiente-${r.id}`,
+    tiendaId: r.tiendas.id,
+    tiendaNombre: r.tiendas.nombre,
+    fechaPlanificada: r.fecha_planificada,
+    area: r.area,
+    enfoque: r.enfoque,
+    urgencia: clasificarUrgencia(r.fecha_planificada, hoy, manana, ayer),
+    rutaActivaId: r.id,
+    reporteId: null,
+    observacionActual: "",
+    actividadActual: "",
+  }));
 
-  const clavesReportadas = new Set((reportadas ?? []).map((r) => `${r.tienda_id}|${r.fecha}`));
+  // Tarjetas ya reportadas, pero todavía dentro de las 48h desde la
+  // asignación — se mantienen visibles y editables, cada una por su cuenta
+  // (si te asignan otra tienda, aparece como una tarjeta aparte).
+  const editables: TiendaClasificada[] = (reportes ?? [])
+    .filter((r: any) => new Date(r.asignado_en ?? r.created_at).getTime() > limite)
+    .map((r: any) => ({
+      id: `reporte-${r.id}`,
+      tiendaId: r.tiendas?.id ?? r.tienda_id,
+      tiendaNombre: r.tiendas?.nombre ?? "—",
+      fechaPlanificada: r.fecha,
+      area: null,
+      enfoque: null,
+      urgencia: clasificarUrgencia(r.fecha, hoy, manana, ayer),
+      rutaActivaId: null,
+      reporteId: r.id,
+      observacionActual: r.observacion ?? "",
+      actividadActual: r.actividad ?? "",
+    }));
 
-  const tiendas: TiendaClasificada[] = (activas ?? []).map((r: any) => {
-    let urgencia: Urgencia;
-    if (r.fecha_planificada === hoy) urgencia = "HOY";
-    else if (r.fecha_planificada === manana) urgencia = "MANANA";
-    else if (r.fecha_planificada === ayer) urgencia = "AYER";
-    else urgencia = "ANTES_DE_AYER";
-
-    return {
-      rutaActivaId: r.id,
-      tiendaId: r.tiendas.id,
-      tiendaNombre: r.tiendas.nombre,
-      fechaPlanificada: r.fecha_planificada,
-      area: r.area,
-      enfoque: r.enfoque,
-      urgencia,
-      yaReportado: clavesReportadas.has(`${r.tiendas.id}|${r.fecha_planificada}`),
-    };
-  });
-
-  return { tiendas, diaDescansoFijo: usuario?.dias_descanso ?? null };
+  return { tiendas: [...pendientes, ...editables], diaDescansoFijo: usuario?.dias_descanso ?? null };
 }
 
 export type ResultadoReporte = { exito: boolean; mensaje?: string };

@@ -5,11 +5,11 @@ import { useFormState, useFormStatus } from "react-dom";
 import {
   obtenerTiendasClasificadas,
   enviarReporte,
+  editarReporte,
   type TiendaClasificada,
   type ResultadoReporte,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
-import { generarPdfReporteIndividual } from "@/lib/generar-pdf";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -45,7 +45,8 @@ const ESTILOS_URGENCIA: Record<
   },
 };
 const estadoInicialReporte: ResultadoReporte = { exito: false };
-function BotonEnviar() {
+
+function BotonEnviar({ esEdicion }: { esEdicion: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -53,7 +54,7 @@ function BotonEnviar() {
       disabled={pending}
       className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
-      {pending ? "Enviando..." : "Enviar Reporte"}
+      {pending ? "Guardando..." : esEdicion ? "Guardar cambios" : "Enviar Reporte"}
     </button>
   );
 }
@@ -76,40 +77,37 @@ export default function SelectorTiendas({
   const [observacion, setObservacion] = useState("");
   const [actividad, setActividad] = useState("");
 
-  const [estadoReporte, formAction] = useFormState(enviarReporte, estadoInicialReporte);
+  const [estadoNuevo, formActionNuevo] = useFormState(enviarReporte, estadoInicialReporte);
+  const [estadoEditar, formActionEditar] = useFormState(editarReporte, estadoInicialReporte);
 
-  useEffect(() => {
+  const esEdicion = !!seleccionada?.reporteId;
+  const estadoActivo = esEdicion ? estadoEditar : estadoNuevo;
+
+  function cargar() {
+    setCargando(true);
     obtenerTiendasClasificadas()
       .then(({ tiendas, diaDescansoFijo }) => {
         setTiendas(tiendas);
         setDiaDescanso(diaDescansoFijo);
-        const deHoy = tiendas.filter((t) => t.urgencia === "HOY" && !t.yaReportado);
-        if (deHoy.length === 1) setSeleccionada(deHoy[0]);
       })
       .catch((e) => setError(e.message || "Error al cargar tiendas."))
       .finally(() => setCargando(false));
+  }
+
+  useEffect(() => {
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (estadoReporte.exito && seleccionada) {
-      generarPdfReporteIndividual({
-        supervisorNombre,
-        tiendaNombre: seleccionada.tiendaNombre,
-        fecha: seleccionada.fechaPlanificada,
-        area: seleccionada.area,
-        enfoque: seleccionada.enfoque,
-        observacion,
-        actividad,
-      });
-      setTiendas((prev) =>
-        (prev ?? []).filter((t) => t.rutaActivaId !== seleccionada.rutaActivaId)
-      );
+    if (estadoNuevo.exito || estadoEditar.exito) {
       setSeleccionada(null);
       setObservacion("");
       setActividad("");
+      cargar();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoReporte.exito]);
+  }, [estadoNuevo.exito, estadoEditar.exito]);
 
   const grupos = useMemo(() => {
     if (!tiendas) return [];
@@ -135,7 +133,7 @@ export default function SelectorTiendas({
   if (!tiendas || tiendas.length === 0) {
     return (
       <p className="text-marca-tenue text-sm italic">
-        No tienes tiendas asignadas pendientes por reportar en este momento.
+        No tienes tiendas asignadas ni reportes editables en este momento.
       </p>
     );
   }
@@ -158,19 +156,18 @@ export default function SelectorTiendas({
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {grupo.items.map((tienda) => {
-                const estaSeleccionada = seleccionada?.rutaActivaId === tienda.rutaActivaId;
+                const estaSeleccionada = seleccionada?.id === tienda.id;
                 return (
                   <button
-                    key={tienda.rutaActivaId}
+                    key={tienda.id}
                     onClick={() => {
                       setSeleccionada(tienda);
-                      setObservacion("");
-                      setActividad("");
+                      setObservacion(tienda.observacionActual);
+                      setActividad(tienda.actividadActual);
                     }}
-                    disabled={tienda.yaReportado}
-                    className={`text-left rounded-[3px] border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
+                    className={`text-left rounded-[3px] border-2 p-4 transition hover:brightness-125 ${estilo.borde} ${estilo.fondo} ${
                       estaSeleccionada ? "ring-2 ring-marca-rojo" : ""
-                    } ${tienda.yaReportado ? "opacity-40 cursor-not-allowed" : "hover:brightness-125"}`}
+                    }`}
                   >
                     <p className="font-black text-marca-textofuerte">{tienda.tiendaNombre}</p>
                     <p className="text-[11px] text-marca-tenue capitalize mt-1">
@@ -182,9 +179,9 @@ export default function SelectorTiendas({
                         {tienda.enfoque ? ` · ${tienda.enfoque}` : ""}
                       </p>
                     )}
-                    {tienda.yaReportado && (
+                    {tienda.reporteId && (
                       <p className="text-[11px] text-emerald-400 font-bold mt-2">
-                        ✅ Ya reportado
+                        ✅ Reportado — toca para editar
                       </p>
                     )}
                   </button>
@@ -197,14 +194,21 @@ export default function SelectorTiendas({
 
       {seleccionada && (
         <form
-          action={formAction}
+          action={esEdicion ? formActionEditar : formActionNuevo}
           className="bg-marca-superficie border border-marca-rojo/40 rounded-[3px] p-5 space-y-4"
         >
-          <input type="hidden" name="rutaActivaId" value={seleccionada.rutaActivaId} />
-          <input type="hidden" name="tiendaId" value={seleccionada.tiendaId} />
+          {esEdicion ? (
+            <input type="hidden" name="reporteId" value={seleccionada.reporteId ?? ""} />
+          ) : (
+            <>
+              <input type="hidden" name="rutaActivaId" value={seleccionada.rutaActivaId ?? ""} />
+              <input type="hidden" name="tiendaId" value={seleccionada.tiendaId} />
+            </>
+          )}
 
           <p className="text-xs text-marca-tenue">
-            Reportando: <span className="text-marca-textofuerte font-bold">{seleccionada.tiendaNombre}</span>
+            {esEdicion ? "Editando reporte de" : "Reportando"}:{" "}
+            <span className="text-marca-textofuerte font-bold">{seleccionada.tiendaNombre}</span>
           </p>
 
           <div>
@@ -235,11 +239,22 @@ export default function SelectorTiendas({
             />
           </div>
 
-          <BotonEnviar />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSeleccionada(null)}
+              className="flex-1 bg-marca-superficie2 border border-marca-borde text-marca-tenue py-3 rounded-[3px] text-xs font-bold uppercase hover:text-marca-texto transition"
+            >
+              Cancelar
+            </button>
+            <div className="flex-1">
+              <BotonEnviar esEdicion={esEdicion} />
+            </div>
+          </div>
 
-          {estadoReporte.mensaje && !estadoReporte.exito && (
+          {estadoActivo.mensaje && !estadoActivo.exito && (
             <p className="text-marca-rojoclaro text-xs font-bold text-center">
-              {estadoReporte.mensaje}
+              {estadoActivo.mensaje}
             </p>
           )}
         </form>

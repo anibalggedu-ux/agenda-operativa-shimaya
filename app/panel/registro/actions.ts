@@ -312,6 +312,70 @@ export async function eliminarComunicado(id: string): Promise<ResultadoRegistro>
   return { exito: true };
 }
 
+export type ReporteCorregible = {
+  id: string;
+  fecha: string;
+  tiendaNombre: string;
+  observacion: string;
+  actividad: string | null;
+};
+
+export async function obtenerReportesParaCorregir(
+  usuarioId: string,
+  desde: string,
+  hasta: string
+): Promise<ReporteCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("rutas_diarias")
+    .select("id, fecha, observacion, actividad, tiendas(nombre)")
+    .eq("usuario_id", usuarioId)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar los reportes.");
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    fecha: r.fecha,
+    tiendaNombre: r.tiendas?.nombre ?? "—",
+    observacion: r.observacion,
+    actividad: r.actividad,
+  }));
+}
+
+export async function actualizarReporteRegistro(
+  id: string,
+  observacion: string,
+  actividad: string
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  if (!observacion.trim()) {
+    return { exito: false, mensaje: "La observación no puede quedar vacía." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("rutas_diarias")
+    .update({ observacion: observacion.trim(), actividad: actividad.trim() || null })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el reporte." };
+  return { exito: true };
+}
+
+export async function eliminarReporteRegistro(id: string): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("rutas_diarias").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar el reporte." };
+  return { exito: true };
+}
+
 // ---------------------------------------------------------------------
 // Auditorías: quién puede llenarlas (activación puntual, sin fecha fija) y
 // la plantilla del checklist (editable por si hay que ampliarla).

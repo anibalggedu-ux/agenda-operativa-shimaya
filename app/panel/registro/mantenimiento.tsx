@@ -6,12 +6,16 @@ import {
   obtenerAsistenciaParaCorregir,
   actualizarAsistencia,
   eliminarAsistencia,
+  obtenerReportesParaCorregir,
+  actualizarReporteRegistro,
+  eliminarReporteRegistro,
   obtenerAsignacionesEspecialesParaCorregir,
   eliminarAsignacionEspecialRegistro,
   obtenerComunicadosParaCorregir,
   eliminarComunicado,
   type UsuarioBasicoRegistro,
   type AsistenciaCorregible,
+  type ReporteCorregible,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
 } from "./actions";
@@ -229,6 +233,183 @@ function SeccionAsistencia() {
   );
 }
 
+function SeccionReportes() {
+  const [usuarios, setUsuarios] = useState<UsuarioBasicoRegistro[]>([]);
+  const [usuarioId, setUsuarioId] = useState("");
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -7));
+  const [hasta, setHasta] = useState(hoyPeru());
+  const [reportes, setReportes] = useState<ReporteCorregible[]>([]);
+  const [ediciones, setEdiciones] = useState<Record<string, { observacion: string; actividad: string }>>(
+    {}
+  );
+  const [cargando, setCargando] = useState(false);
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerUsuariosBasicos().then(setUsuarios).catch(() => {});
+  }, []);
+
+  function cargar() {
+    if (!usuarioId) {
+      setReportes([]);
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    obtenerReportesParaCorregir(usuarioId, desde, hasta)
+      .then((filas) => {
+        setReportes(filas);
+        const iniciales: Record<string, { observacion: string; actividad: string }> = {};
+        filas.forEach((r) => {
+          iniciales[r.id] = { observacion: r.observacion, actividad: r.actividad ?? "" };
+        });
+        setEdiciones(iniciales);
+      })
+      .catch((e) => setError(e.message || "Error al cargar los reportes."))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, [usuarioId, desde, hasta]);
+
+  async function handleGuardar(id: string) {
+    setGuardandoId(id);
+    setError(null);
+    const edicion = ediciones[id];
+    const resultado = await actualizarReporteRegistro(
+      id,
+      edicion?.observacion ?? "",
+      edicion?.actividad ?? ""
+    );
+    setGuardandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo guardar.");
+  }
+
+  async function handleEliminar(id: string, tienda: string, fecha: string) {
+    if (
+      !window.confirm(
+        `¿Eliminar el reporte de ${tienda} del ${formatearFechaLegible(fecha)}? No se puede deshacer.`
+      )
+    )
+      return;
+    setEliminandoId(id);
+    setError(null);
+    const resultado = await eliminarReporteRegistro(id);
+    setEliminandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo eliminar.");
+  }
+
+  return (
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+        REPORTES DE BITÁCORA
+      </h4>
+      <p className="text-marca-tenue text-[11px] mb-3">
+        Corrige la observación/actividad de un reporte, o elimínalo si fue una prueba.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+            Persona
+          </label>
+          <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className={clasesInput}>
+            <option value="">Selecciona...</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre} ({u.rol})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
+          <input
+            type="date"
+            value={desde}
+            max={hasta}
+            onChange={(e) => setDesde(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
+          <input
+            type="date"
+            value={hasta}
+            min={desde}
+            max={hoyPeru()}
+            onChange={(e) => setHasta(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {cargando && <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>}
+
+      {!cargando && usuarioId && reportes.length === 0 && (
+        <p className="text-marca-tenue text-sm italic">Sin reportes en ese rango.</p>
+      )}
+      {!usuarioId && <p className="text-marca-tenue text-sm italic">Selecciona una persona.</p>}
+
+      {!cargando && reportes.length > 0 && (
+        <div className="space-y-3">
+          {reportes.map((r) => (
+            <div key={r.id} className="bg-marca-fondo border border-marca-borde rounded-[3px] p-3 space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-marca-textofuerte text-xs font-bold capitalize">
+                  {r.tiendaNombre} · {formatearFechaLegible(r.fecha)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleGuardar(r.id)}
+                    disabled={guardandoId === r.id}
+                    className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-1.5 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+                  >
+                    {guardandoId === r.id ? "..." : "Guardar"}
+                  </button>
+                  <BotonEliminar
+                    onClick={() => handleEliminar(r.id, r.tiendaNombre, r.fecha)}
+                    cargando={eliminandoId === r.id}
+                  />
+                </div>
+              </div>
+              <textarea
+                value={ediciones[r.id]?.observacion ?? ""}
+                onChange={(e) =>
+                  setEdiciones((prev) => ({
+                    ...prev,
+                    [r.id]: { ...prev[r.id], observacion: e.target.value },
+                  }))
+                }
+                rows={2}
+                className={clasesInput}
+                placeholder="Observación"
+              />
+              <input
+                value={ediciones[r.id]?.actividad ?? ""}
+                onChange={(e) =>
+                  setEdiciones((prev) => ({
+                    ...prev,
+                    [r.id]: { ...prev[r.id], actividad: e.target.value },
+                  }))
+                }
+                className={clasesInput}
+                placeholder="Actividad (opcional)"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SeccionAsignacionesEspeciales() {
   const [filas, setFilas] = useState<AsignacionEspecialCorregible[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -373,6 +554,7 @@ export default function MantenimientoDatos() {
         </p>
       </div>
       <SeccionAsistencia />
+      <SeccionReportes />
       <SeccionAsignacionesEspeciales />
       <SeccionComunicados />
     </div>
