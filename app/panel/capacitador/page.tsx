@@ -12,6 +12,7 @@ import PerfilBanner from "../supervisor/perfil-banner";
 import MiDescanso from "../supervisor/mi-descanso";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import RankingCapacitadores from "./ranking-capacitadores";
+import ResumenDelDia from "../resumen-del-dia";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,8 @@ export default async function PanelCapacitador() {
       <p className="text-marca-tenue text-sm mb-6">
         Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
       </p>
+
+      <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
 
       <PerfilBanner />
 

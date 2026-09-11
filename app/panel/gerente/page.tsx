@@ -5,6 +5,7 @@ import Link from "next/link";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
+import ResumenDelDia from "../resumen-del-dia";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export default async function PanelGerente() {
       <p className="text-marca-tenue text-sm mb-6">
         Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
       </p>
+
+      <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
 
       <div className="mb-6">
         <AnunciosWidget />

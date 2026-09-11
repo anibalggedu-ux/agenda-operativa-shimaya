@@ -13,6 +13,7 @@ import PerfilBanner from "./perfil-banner";
 import TiendasFijas from "./tiendas-fijas";
 import MiDescanso from "./mi-descanso";
 import MisMarcaciones from "./mis-marcaciones";
+import ResumenDelDia from "../resumen-del-dia";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,8 @@ export default async function PanelSupervisor() {
       <p className="text-marca-tenue text-sm mb-6">
         Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
       </p>
+
+      <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
 
       <PerfilBanner />
 
