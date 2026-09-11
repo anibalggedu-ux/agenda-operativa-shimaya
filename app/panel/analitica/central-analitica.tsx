@@ -21,6 +21,7 @@ import RankingTiendas from "./ranking-tiendas";
 import TiendasTardanzas from "./tiendas-tardanzas";
 import ReporteTienda from "./reporte-tienda";
 import RankingPorRol from "./ranking-por-rol";
+import DashboardTiendasVista from "./dashboard-tiendas";
 
 const COLOR_EJE = "#8b8d92";
 const COLOR_GRILLA = "#2a2c31";
@@ -393,6 +394,13 @@ export default function CentralAnalitica() {
 
           {pestana === "tiendas" && (
             <div className="space-y-6">
+              <div>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
+                  📊 DASHBOARD GENERAL DE TIENDAS
+                </h3>
+                <DashboardTiendasVista desde={desde} hasta={hasta} />
+              </div>
+
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
                 <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
                   🏬 RANKING DE TIENDAS MÁS VISITADAS

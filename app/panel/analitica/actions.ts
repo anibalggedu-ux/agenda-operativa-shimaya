@@ -532,3 +532,109 @@ export async function obtenerRotacionTienda(tiendaId: string): Promise<Encargado
     };
   });
 }
+
+export type ResumenTiendaDashboard = {
+  tiendaId: string;
+  tiendaNombre: string;
+  encargados: string[];
+  visitas: number;
+  ultimaAuditoriaFecha: string | null;
+  ultimaAuditoriaPorcentaje: number | null;
+  clasificacion: string | null;
+  alertasCriticas: number;
+};
+
+export type PromedioCategoriaDashboard = { categoria: string; promedio: number };
+
+export type DashboardTiendas = {
+  resumenTiendas: ResumenTiendaDashboard[];
+  promediosPorCategoria: PromedioCategoriaDashboard[];
+};
+
+export async function obtenerDashboardTiendas(desde: string, hasta: string): Promise<DashboardTiendas> {
+  await exigirSesion();
+  const supabase = supabaseServer();
+
+  const [
+    { data: tiendas },
+    { data: visitas },
+    { data: permanentes },
+    { data: auditoriasRango },
+    { data: todasAuditorias },
+  ] = await Promise.all([
+    supabase.from("tiendas").select("id, nombre").order("nombre"),
+    supabase.from("rutas_diarias").select("tienda_id").gte("fecha", desde).lte("fecha", hasta),
+    supabase.from("tiendas_permanentes").select("tienda_id, usuarios(nombre)"),
+    supabase.from("auditorias").select("tienda_id, items").gte("fecha", desde).lte("fecha", hasta),
+    supabase
+      .from("auditorias")
+      .select("tienda_id, fecha, porcentaje, clasificacion, alertas")
+      .order("fecha", { ascending: false })
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const visitasPorTienda = new Map<string, number>();
+  (visitas ?? []).forEach((v: any) => {
+    if (!v.tienda_id) return;
+    visitasPorTienda.set(v.tienda_id, (visitasPorTienda.get(v.tienda_id) ?? 0) + 1);
+  });
+
+  const encargadosPorTienda = new Map<string, string[]>();
+  (permanentes ?? []).forEach((p: any) => {
+    const nombre = p.usuarios?.nombre as string | undefined;
+    if (!nombre || !p.tienda_id) return;
+    const lista = encargadosPorTienda.get(p.tienda_id) ?? [];
+    lista.push(nombre);
+    encargadosPorTienda.set(p.tienda_id, lista);
+  });
+
+  // La primera auditoría de cada tienda en este orden (fecha desc) ya es la
+  // más reciente — no se filtra por rango porque "última auditoría" importa
+  // aunque haya sido hace más de 30 días.
+  const ultimaPorTienda = new Map<
+    string,
+    { fecha: string; porcentaje: number; clasificacion: string; alertas: string[] }
+  >();
+  (todasAuditorias ?? []).forEach((a: any) => {
+    if (!a.tienda_id || ultimaPorTienda.has(a.tienda_id)) return;
+    ultimaPorTienda.set(a.tienda_id, {
+      fecha: a.fecha,
+      porcentaje: a.porcentaje,
+      clasificacion: a.clasificacion,
+      alertas: a.alertas ?? [],
+    });
+  });
+
+  const resumenTiendas: ResumenTiendaDashboard[] = (tiendas ?? []).map((t: any) => {
+    const ultima = ultimaPorTienda.get(t.id);
+    return {
+      tiendaId: t.id,
+      tiendaNombre: t.nombre,
+      encargados: encargadosPorTienda.get(t.id) ?? [],
+      visitas: visitasPorTienda.get(t.id) ?? 0,
+      ultimaAuditoriaFecha: ultima?.fecha ?? null,
+      ultimaAuditoriaPorcentaje: ultima?.porcentaje ?? null,
+      clasificacion: ultima?.clasificacion ?? null,
+      alertasCriticas: ultima?.alertas.length ?? 0,
+    };
+  });
+
+  const sumaPorCategoria = new Map<string, { suma: number; maximo: number }>();
+  (auditoriasRango ?? []).forEach((a: any) => {
+    (a.items ?? []).forEach((it: any) => {
+      const actual = sumaPorCategoria.get(it.categoria) ?? { suma: 0, maximo: 0 };
+      actual.suma += it.puntaje;
+      actual.maximo += 2;
+      sumaPorCategoria.set(it.categoria, actual);
+    });
+  });
+
+  const promediosPorCategoria: PromedioCategoriaDashboard[] = Array.from(sumaPorCategoria.entries()).map(
+    ([categoria, v]) => ({
+      categoria,
+      promedio: v.maximo > 0 ? Math.round((v.suma / v.maximo) * 100) : 0,
+    })
+  );
+
+  return { resumenTiendas, promediosPorCategoria };
+}
