@@ -144,6 +144,33 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
 
         {!esOperativo && personal && (
           <>
+            {personal.climaActual && (
+              <div
+                className={`rounded-[3px] p-4 border ${
+                  personal.climaActual.riesgo
+                    ? "bg-amber-950/20 border-amber-500/40"
+                    : "bg-marca-superficie border-marca-borde"
+                }`}
+              >
+                <p className="text-lg mb-2 leading-none">{personal.climaActual.icono}</p>
+                <p className="text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Clima {personal.climaActual.tempActual !== null ? "ahora" : "hoy"} ·{" "}
+                  {personal.climaActual.zonaNombre}
+                </p>
+                <p
+                  className={`font-display text-xl font-semibold ${
+                    personal.climaActual.riesgo ? "text-amber-400" : "text-marca-textofuerte"
+                  }`}
+                >
+                  {personal.climaActual.tempActual !== null
+                    ? `${personal.climaActual.tempActual}°C`
+                    : `${personal.climaActual.tempMax}° / ${personal.climaActual.tempMin}°`}
+                </p>
+                <p className="text-marca-tenue text-[11px] mt-1">
+                  {personal.climaActual.avisoTexto ?? personal.climaActual.descripcion}
+                </p>
+              </div>
+            )}
             <div
               className={`rounded-[3px] p-4 border ${
                 personal.rutaHoyEstado === "pendiente"

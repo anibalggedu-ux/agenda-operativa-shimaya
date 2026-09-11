@@ -11,6 +11,7 @@ import {
   calcularProximaFechaAnual,
 } from "@/lib/fechas";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
+import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -32,6 +33,7 @@ export type TiendaClasificada = {
   reporteId: string | null;
   observacionActual: string;
   actividadActual: string;
+  clima: ResumenClimaDia | null;
 };
 
 function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
@@ -64,12 +66,14 @@ export async function obtenerTiendasClasificadas(): Promise<{
     supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("rutas_activas")
-      .select("id, fecha_planificada, area, enfoque, tiendas(id, nombre)")
+      .select("id, fecha_planificada, area, enfoque, tiendas(id, nombre, lat, lon)")
       .eq("usuario_id", sesion.id)
       .order("fecha_planificada", { ascending: false }),
     supabase
       .from("rutas_diarias")
-      .select("id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, tiendas(id, nombre)")
+      .select(
+        "id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, tiendas(id, nombre, lat, lon)"
+      )
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeVentana)
       .order("fecha", { ascending: false }),
@@ -81,7 +85,9 @@ export async function obtenerTiendasClasificadas(): Promise<{
   const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
 
   // Tarjetas pendientes: asignaciones sin reportar todavía.
-  const pendientes: TiendaClasificada[] = (activas ?? []).map((r: any) => ({
+  const pendientes: (TiendaClasificada & { _lat: number | null; _lon: number | null })[] = (
+    activas ?? []
+  ).map((r: any) => ({
     id: `pendiente-${r.id}`,
     tiendaId: r.tiendas.id,
     tiendaNombre: r.tiendas.nombre,
@@ -93,12 +99,17 @@ export async function obtenerTiendasClasificadas(): Promise<{
     reporteId: null,
     observacionActual: "",
     actividadActual: "",
+    clima: null,
+    _lat: r.tiendas.lat === null ? null : Number(r.tiendas.lat),
+    _lon: r.tiendas.lon === null ? null : Number(r.tiendas.lon),
   }));
 
   // Tarjetas ya reportadas, pero todavía dentro de las 48h desde la
   // asignación — se mantienen visibles y editables, cada una por su cuenta
   // (si te asignan otra tienda, aparece como una tarjeta aparte).
-  const editables: TiendaClasificada[] = (reportes ?? [])
+  const editables: (TiendaClasificada & { _lat: number | null; _lon: number | null })[] = (
+    reportes ?? []
+  )
     .filter((r: any) => new Date(r.asignado_en ?? r.created_at).getTime() > limite)
     .map((r: any) => ({
       id: `reporte-${r.id}`,
@@ -112,9 +123,39 @@ export async function obtenerTiendasClasificadas(): Promise<{
       reporteId: r.id,
       observacionActual: r.observacion ?? "",
       actividadActual: r.actividad ?? "",
+      clima: null,
+      _lat: r.tiendas?.lat === null || r.tiendas?.lat === undefined ? null : Number(r.tiendas.lat),
+      _lon: r.tiendas?.lon === null || r.tiendas?.lon === undefined ? null : Number(r.tiendas.lon),
     }));
 
-  return { tiendas: [...pendientes, ...editables], diaDescansoFijo: usuario?.dias_descanso ?? null };
+  const todas = [...pendientes, ...editables];
+
+  // Se pide el pronóstico una sola vez por ubicación única (varias tarjetas
+  // pueden compartir tienda) y se reparte a cada tarjeta según su fecha.
+  const ubicacionesUnicas = new Map<string, { lat: number; lon: number }>();
+  todas.forEach((t) => {
+    if (t._lat !== null && t._lon !== null) {
+      ubicacionesUnicas.set(`${t._lat},${t._lon}`, { lat: t._lat, lon: t._lon });
+    }
+  });
+
+  const climaPorUbicacion = new Map<string, Map<string, ReturnType<typeof resumirClimaDia>> | null>();
+  await Promise.all(
+    Array.from(ubicacionesUnicas.entries()).map(async ([clave, { lat, lon }]) => {
+      const diario = await obtenerClimaDiario(lat, lon);
+      const resumen = new Map<string, ReturnType<typeof resumirClimaDia>>();
+      diario.forEach((dia, fecha) => resumen.set(fecha, resumirClimaDia(dia)));
+      climaPorUbicacion.set(clave, resumen);
+    })
+  );
+
+  const tiendasFinal: TiendaClasificada[] = todas.map(({ _lat, _lon, ...t }) => {
+    if (_lat === null || _lon === null) return t;
+    const resumen = climaPorUbicacion.get(`${_lat},${_lon}`);
+    return { ...t, clima: resumen?.get(t.fechaPlanificada) ?? null };
+  });
+
+  return { tiendas: tiendasFinal, diaDescansoFijo: usuario?.dias_descanso ?? null };
 }
 
 export type ResultadoReporte = { exito: boolean; mensaje?: string };

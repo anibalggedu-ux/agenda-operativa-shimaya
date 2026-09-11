@@ -239,7 +239,11 @@ export default function AsignarRutas() {
             {rutas.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between bg-marca-superficie border border-marca-borde rounded-[3px] p-4 gap-3"
+                className={`flex items-center justify-between border rounded-[3px] p-4 gap-3 ${
+                  r.clima?.riesgo
+                    ? "bg-amber-950/15 border-amber-500/40"
+                    : "bg-marca-superficie border-marca-borde"
+                }`}
               >
                 <div className="min-w-0">
                   <p className="text-marca-textofuerte font-bold text-sm truncate">
@@ -257,6 +261,16 @@ export default function AsignarRutas() {
                     <span className="text-marca-tenue">Salida:</span>{" "}
                     <Marcacion hora={r.horaSalida} ubicacion={r.ubicacionSalida} />
                   </p>
+                  {r.clima && (
+                    <p
+                      className={`text-[11px] mt-1.5 font-bold ${
+                        r.clima.riesgo ? "text-amber-400" : "text-marca-tenue"
+                      }`}
+                    >
+                      {r.clima.icono} {r.clima.descripcion} · {r.clima.tempMax}°/{r.clima.tempMin}°
+                      {r.clima.avisoTexto ? ` — ⚠️ ${r.clima.avisoTexto}` : ""}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => handleEliminar(r.id)}

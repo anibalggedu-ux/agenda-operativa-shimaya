@@ -19,6 +19,7 @@ import {
 } from "./constantes";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { enviarCorreo, type ContactoCorreo } from "@/lib/email";
+import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 
 async function exigirCoordinador() {
   const sesion = await obtenerSesion();
@@ -105,6 +106,7 @@ export type RutaActiva = {
   ubicacionIngreso: string | null;
   horaSalida: string | null;
   ubicacionSalida: string | null;
+  clima: ResumenClimaDia | null;
 };
 
 export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
@@ -116,7 +118,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   const { data, error } = await supabase
     .from("rutas_activas")
     .select(
-      "id, fecha_planificada, area, enfoque, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)"
+      "id, fecha_planificada, area, enfoque, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre, lat, lon)"
     )
     .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
@@ -142,8 +144,36 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
     mapaMarcaciones.set(m.usuario_id + "|" + m.fecha, m);
   });
 
+  // Clima de cada ruta ya asignada, para que el coordinador pueda reconsiderar
+  // una asignación si el pronóstico lo amerita — una sola llamada por
+  // ubicación única, sin importar cuántas rutas compartan esa tienda.
+  const ubicacionesUnicas = new Map<string, { lat: number; lon: number }>();
+  filas.forEach((r: any) => {
+    const lat = r.tiendas?.lat;
+    const lon = r.tiendas?.lon;
+    if (lat !== null && lat !== undefined && lon !== null && lon !== undefined) {
+      ubicacionesUnicas.set(`${lat},${lon}`, { lat: Number(lat), lon: Number(lon) });
+    }
+  });
+
+  const climaPorUbicacion = new Map<string, Map<string, ReturnType<typeof resumirClimaDia>>>();
+  await Promise.all(
+    Array.from(ubicacionesUnicas.entries()).map(async ([clave, { lat, lon }]) => {
+      const diario = await obtenerClimaDiario(lat, lon);
+      const resumen = new Map<string, ReturnType<typeof resumirClimaDia>>();
+      diario.forEach((dia, fecha) => resumen.set(fecha, resumirClimaDia(dia)));
+      climaPorUbicacion.set(clave, resumen);
+    })
+  );
+
   return filas.map((r: any) => {
     const marcacion = mapaMarcaciones.get(r.usuario_id + "|" + r.fecha_planificada);
+    const lat = r.tiendas?.lat;
+    const lon = r.tiendas?.lon;
+    const climaMapa =
+      lat !== null && lat !== undefined && lon !== null && lon !== undefined
+        ? climaPorUbicacion.get(`${lat},${lon}`)
+        : undefined;
     return {
       id: r.id,
       fechaPlanificada: r.fecha_planificada,
@@ -157,6 +187,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
       ubicacionIngreso: marcacion?.ubicacion_ingreso ?? null,
       horaSalida: marcacion?.hora_salida ?? null,
       ubicacionSalida: marcacion?.ubicacion_salida ?? null,
+      clima: climaMapa?.get(r.fecha_planificada) ?? null,
     };
   });
 }

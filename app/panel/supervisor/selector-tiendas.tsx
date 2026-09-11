@@ -179,6 +179,29 @@ export default function SelectorTiendas({
                         {tienda.enfoque ? ` · ${tienda.enfoque}` : ""}
                       </p>
                     )}
+                    {tienda.clima && (
+                      <div
+                        className={`flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border ${
+                          tienda.clima.riesgo
+                            ? "bg-amber-950/25 border-amber-500/40"
+                            : "bg-marca-fondo/60 border-marca-borde"
+                        }`}
+                      >
+                        <span className="text-base leading-none">{tienda.clima.icono}</span>
+                        <div className="min-w-0">
+                          <p
+                            className={`text-[10.5px] font-bold truncate ${
+                              tienda.clima.riesgo ? "text-amber-400" : "text-marca-texto"
+                            }`}
+                          >
+                            {tienda.clima.descripcion} · {tienda.clima.tempMax}°/{tienda.clima.tempMin}°
+                          </p>
+                          {tienda.clima.avisoTexto && (
+                            <p className="text-[10px] text-amber-400/90">{tienda.clima.avisoTexto}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {tienda.reporteId && (
                       <p className="text-[11px] text-emerald-400 font-bold mt-2">
                         ✅ Reportado — toca para editar

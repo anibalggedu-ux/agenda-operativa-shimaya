@@ -495,3 +495,49 @@ export async function eliminarItemPlantilla(id: string): Promise<ResultadoRegist
   if (error) return { exito: false, mensaje: "No se pudo eliminar el ítem." };
   return { exito: true };
 }
+
+// ---------------------------------------------------------------------
+// Ubicación de tiendas (para el clima): lat/lon opcional por tienda,
+// necesario solo una vez para que aparezca el pronóstico en Bitácora,
+// Resumen del Día y el portal del Coordinador.
+// ---------------------------------------------------------------------
+
+export type TiendaUbicacion = { id: string; nombre: string; lat: number | null; lon: number | null };
+
+export async function obtenerTiendasConUbicacion(): Promise<TiendaUbicacion[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase.from("tiendas").select("id, nombre, lat, lon").order("nombre");
+  if (error) throw new Error("No se pudo cargar las tiendas.");
+
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    nombre: t.nombre,
+    lat: t.lat === null ? null : Number(t.lat),
+    lon: t.lon === null ? null : Number(t.lon),
+  }));
+}
+
+export async function actualizarUbicacionTienda(
+  id: string,
+  lat: number | null,
+  lon: number | null
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+
+  if ((lat === null) !== (lon === null)) {
+    return { exito: false, mensaje: "Ingresa latitud y longitud, o deja ambas vacías." };
+  }
+  if (lat !== null && (lat < -90 || lat > 90)) {
+    return { exito: false, mensaje: "Latitud fuera de rango." };
+  }
+  if (lon !== null && (lon < -180 || lon > 180)) {
+    return { exito: false, mensaje: "Longitud fuera de rango." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("tiendas").update({ lat, lon }).eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo guardar la ubicación." };
+  return { exito: true };
+}

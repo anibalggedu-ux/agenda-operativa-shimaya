@@ -6,6 +6,18 @@ import { hoyPeru, sumarDias, diaSemanaPeru } from "@/lib/fechas";
 import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
 import { obtenerDashboardTiendas } from "./analitica/actions";
+import { obtenerClimaActual, resumirClimaActual } from "@/lib/clima";
+
+export type ClimaResumenPersonal = {
+  zonaNombre: string;
+  icono: string;
+  descripcion: string;
+  tempActual: number | null;
+  tempMax: number | null;
+  tempMin: number | null;
+  riesgo: boolean;
+  avisoTexto: string | null;
+};
 
 export type ResumenPersonal = {
   rutaHoyNombre: string | null;
@@ -16,6 +28,7 @@ export type ResumenPersonal = {
   comunicadosRecientes: number;
   ultimoComunicadoTipo: string | null;
   proximoEvento: { etiqueta: string; fecha: string } | null;
+  climaActual: ClimaResumenPersonal | null;
 };
 
 export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
@@ -56,6 +69,48 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   }
 
   const reportesEditables = tiendas.filter((t) => t.reporteId).length;
+
+  // Clima: si hay ruta para hoy, se usa el pronóstico de esa tienda (ya
+  // calculado en obtenerTiendasClasificadas); si no, se cae a la primera
+  // tienda fija (solo aplica a Supervisor) con el clima "ahora" en vivo.
+  let climaActual: ClimaResumenPersonal | null = null;
+  const cardConClima = cardsHoy.find((t) => t.clima);
+  if (cardConClima?.clima) {
+    climaActual = {
+      zonaNombre: cardConClima.tiendaNombre,
+      icono: cardConClima.clima.icono,
+      descripcion: cardConClima.clima.descripcion,
+      tempActual: null,
+      tempMax: cardConClima.clima.tempMax,
+      tempMin: cardConClima.clima.tempMin,
+      riesgo: cardConClima.clima.riesgo,
+      avisoTexto: cardConClima.clima.avisoTexto,
+    };
+  } else {
+    const { data: fija } = await supabase
+      .from("tiendas_permanentes")
+      .select("tiendas(nombre, lat, lon)")
+      .eq("usuario_id", sesion.id)
+      .limit(1)
+      .maybeSingle();
+    const tiendaFija: any = fija?.tiendas;
+    if (tiendaFija?.lat !== null && tiendaFija?.lat !== undefined && tiendaFija?.lon !== null) {
+      const actual = await obtenerClimaActual(Number(tiendaFija.lat), Number(tiendaFija.lon));
+      if (actual) {
+        const r = resumirClimaActual(actual);
+        climaActual = {
+          zonaNombre: tiendaFija.nombre,
+          icono: r.icono,
+          descripcion: r.descripcion,
+          tempActual: r.temp,
+          tempMax: null,
+          tempMin: null,
+          riesgo: false,
+          avisoTexto: null,
+        };
+      }
+    }
+  }
 
   // Próximo evento relevante: primero un comunicado con fecha de evento
   // próxima, si no hay, la siguiente asignación especial propia, si tampoco
@@ -119,6 +174,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     comunicadosRecientes: comunicados?.length ?? 0,
     ultimoComunicadoTipo: comunicados?.[0]?.tipo ?? null,
     proximoEvento,
+    climaActual,
   };
 }
 
