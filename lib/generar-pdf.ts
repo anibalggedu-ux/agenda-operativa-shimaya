@@ -7,19 +7,62 @@ const ANCHO_UTIL = 180;
 
 // Colores de medalla — los emoji 🥉🥈🥇🌟 no se pueden dibujar con las
 // fuentes estándar de jsPDF (salen como símbolos rotos), así que las
-// medallas se dibujan como formas vectoriales en su color correspondiente.
-const COLOR_BRONCE: [number, number, number] = [176, 118, 68];
-const COLOR_PLATA: [number, number, number] = [176, 180, 186];
-const COLOR_ORO: [number, number, number] = [212, 175, 55];
-const COLOR_ESTRELLA: [number, number, number] = [250, 204, 21];
+// medallas se dibujan como formas vectoriales tipo medalla olímpica: cinta
+// arriba + disco con borde, relieve de dos tonos y un brillo sutil.
+const COLOR_CINTA: [number, number, number] = [178, 30, 46];
+const COLOR_CINTA_SOMBRA: [number, number, number] = [120, 18, 30];
 
-function dibujarMedallaCircular(doc: jsPDF, cx: number, cy: number, radio: number, color: [number, number, number]) {
-  doc.setFillColor(...color);
-  doc.setDrawColor(60, 60, 60);
-  doc.circle(cx, cy, radio, "FD");
+const MEDALLA_BRONCE = { claro: [205, 139, 82] as [number, number, number], oscuro: [130, 82, 40] as [number, number, number] };
+const MEDALLA_PLATA = { claro: [205, 210, 217] as [number, number, number], oscuro: [140, 145, 153] as [number, number, number] };
+const MEDALLA_ORO = { claro: [235, 195, 80] as [number, number, number], oscuro: [175, 132, 32] as [number, number, number] };
+const COLOR_ESTRELLA: [number, number, number] = [250, 204, 21];
+const COLOR_ESTRELLA_BORDE: [number, number, number] = [180, 130, 10];
+
+function dibujarCintaMedalla(doc: jsPDF, cx: number, cy: number, radio: number) {
+  const mitadBase = radio * 0.62;
+  const alto = radio * 1.3;
+  const puntaY = cy - radio * 0.15;
+
+  doc.setDrawColor(...COLOR_CINTA_SOMBRA);
+  doc.setFillColor(...COLOR_CINTA);
+  doc.triangle(cx - mitadBase, cy - radio - alto, cx - mitadBase * 0.25, cy - radio - alto, cx, puntaY, "FD");
+  doc.triangle(cx + mitadBase, cy - radio - alto, cx + mitadBase * 0.25, cy - radio - alto, cx, puntaY, "FD");
 }
 
-function dibujarMedallaEstrella(doc: jsPDF, cx: number, cy: number, radioExt: number, color: [number, number, number]) {
+function dibujarDiscoMedalla(
+  doc: jsPDF,
+  cx: number,
+  cy: number,
+  radio: number,
+  colores: { claro: [number, number, number]; oscuro: [number, number, number] }
+) {
+  // Aro exterior (borde) en el tono oscuro, disco interior en el tono claro
+  // — da la sensación de relieve metálico en vez de un círculo plano.
+  doc.setDrawColor(...colores.oscuro);
+  doc.setFillColor(...colores.oscuro);
+  doc.circle(cx, cy, radio, "FD");
+  doc.setFillColor(...colores.claro);
+  doc.circle(cx, cy, radio * 0.74, "F");
+
+  const brillo = (doc as any).GState ? new (doc as any).GState({ opacity: 0.6 }) : null;
+  if (brillo) doc.setGState(brillo);
+  doc.setFillColor(255, 255, 255);
+  doc.ellipse(cx - radio * 0.3, cy - radio * 0.35, radio * 0.3, radio * 0.16, "F");
+  if (brillo) doc.setGState(new (doc as any).GState({ opacity: 1 }));
+}
+
+function dibujarMedalla(
+  doc: jsPDF,
+  cx: number,
+  cy: number,
+  radio: number,
+  colores: { claro: [number, number, number]; oscuro: [number, number, number] }
+) {
+  dibujarCintaMedalla(doc, cx, cy, radio);
+  dibujarDiscoMedalla(doc, cx, cy, radio, colores);
+}
+
+function dibujarEstrella(doc: jsPDF, cx: number, cy: number, radioExt: number) {
   const radioInt = radioExt * 0.42;
   const puntos: [number, number][] = [];
   for (let i = 0; i < 10; i++) {
@@ -32,13 +75,13 @@ function dibujarMedallaEstrella(doc: jsPDF, cx: number, cy: number, radioExt: nu
     puntos[0][0] - puntos[puntos.length - 1][0],
     puntos[0][1] - puntos[puntos.length - 1][1],
   ]);
-  doc.setFillColor(...color);
-  doc.setDrawColor(60, 60, 60);
+  doc.setFillColor(...COLOR_ESTRELLA);
+  doc.setDrawColor(...COLOR_ESTRELLA_BORDE);
   doc.lines(segmentos, puntos[0][0], puntos[0][1], [1, 1], "FD", true);
 }
 
-// Dibuja "Vitrina de trofeos: N pts" y, debajo, las 4 medallas con su
-// cantidad — devuelve el nuevo cursor Y para seguir dibujando el resto.
+// Dibuja "Vitrina de trofeos: N pts" y, debajo, las medallas (bronce, plata,
+// oro + la estrella) con su cantidad — devuelve el nuevo cursor Y.
 function dibujarVitrinaTrofeos(
   doc: jsPDF,
   x: number,
@@ -52,30 +95,30 @@ function dibujarVitrinaTrofeos(
   doc.setFont("helvetica", "normal");
   doc.text(`${puntos} pts`, x + 38, y);
 
-  const filaY = y + 8;
-  const radio = 2.6;
-  const items: { color: [number, number, number]; cantidad: number; estrella?: boolean }[] = [
-    { color: COLOR_BRONCE, cantidad: medallas.bronce },
-    { color: COLOR_PLATA, cantidad: medallas.plata },
-    { color: COLOR_ORO, cantidad: medallas.oro },
-    { color: COLOR_ESTRELLA, cantidad: medallas.estrella, estrella: true },
+  const radio = 3.1;
+  const centroY = y + 14;
+  const items: { tipo: "medalla" | "estrella"; colores?: typeof MEDALLA_ORO; cantidad: number }[] = [
+    { tipo: "medalla", colores: MEDALLA_BRONCE, cantidad: medallas.bronce },
+    { tipo: "medalla", colores: MEDALLA_PLATA, cantidad: medallas.plata },
+    { tipo: "medalla", colores: MEDALLA_ORO, cantidad: medallas.oro },
+    { tipo: "estrella", cantidad: medallas.estrella },
   ];
 
-  let cx = x + radio;
+  let cx = x + radio + 1;
   items.forEach((item) => {
-    if (item.estrella) {
-      dibujarMedallaEstrella(doc, cx, filaY - radio * 0.3, radio + 0.5, item.color);
-    } else {
-      dibujarMedallaCircular(doc, cx, filaY - radio * 0.3, radio, item.color);
+    if (item.tipo === "estrella") {
+      dibujarEstrella(doc, cx, centroY, radio + 0.6);
+    } else if (item.colores) {
+      dibujarMedalla(doc, cx, centroY, radio, item.colores);
     }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     doc.setTextColor(0, 0, 0);
-    doc.text(`x${item.cantidad}`, cx + radio + 2.5, filaY);
-    cx += 30;
+    doc.text(`x${item.cantidad}`, cx + radio + 3, centroY + 1);
+    cx += 34;
   });
 
-  return filaY + 7;
+  return centroY + radio + 6;
 }
 
 // Versión ya recortada en círculo del logo (PNG con transparencia real en
