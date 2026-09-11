@@ -15,12 +15,16 @@ import {
   eliminarComunicado,
   obtenerTiendasConUbicacion,
   actualizarUbicacionTienda,
+  geocodificarUbicacionTienda,
+  obtenerColaboradoresConDireccion,
+  geocodificarDireccionColaborador,
   type UsuarioBasicoRegistro,
   type AsistenciaCorregible,
   type ReporteCorregible,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
   type TiendaUbicacion,
+  type ColaboradorDireccion,
 } from "./actions";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
 
@@ -546,40 +550,62 @@ function SeccionComunicados() {
 
 function SeccionUbicacionTiendas() {
   const [tiendas, setTiendas] = useState<TiendaUbicacion[]>([]);
-  const [ediciones, setEdiciones] = useState<Record<string, { lat: string; lon: string }>>({});
+  const [direcciones, setDirecciones] = useState<Record<string, string>>({});
+  const [manuales, setManuales] = useState<Record<string, { lat: string; lon: string }>>({});
   const [cargando, setCargando] = useState(true);
+  const [buscandoId, setBuscandoId] = useState<string | null>(null);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [mensajes, setMensajes] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [errores, setErrores] = useState<Record<string, string>>({});
 
   function cargar() {
     setCargando(true);
     obtenerTiendasConUbicacion()
       .then((filas) => {
         setTiendas(filas);
-        const iniciales: Record<string, { lat: string; lon: string }> = {};
+        const dir: Record<string, string> = {};
+        const man: Record<string, { lat: string; lon: string }> = {};
         filas.forEach((t) => {
-          iniciales[t.id] = { lat: t.lat?.toString() ?? "", lon: t.lon?.toString() ?? "" };
+          dir[t.id] = t.direccion ?? "";
+          man[t.id] = { lat: t.lat?.toString() ?? "", lon: t.lon?.toString() ?? "" };
         });
-        setEdiciones(iniciales);
+        setDirecciones(dir);
+        setManuales(man);
       })
-      .catch((e) => setError(e.message || "Error al cargar las tiendas."))
+      .catch((e) => setErrores({ _global: e.message || "Error al cargar las tiendas." }))
       .finally(() => setCargando(false));
   }
 
   useEffect(cargar, []);
 
-  async function handleGuardar(id: string) {
-    setGuardandoId(id);
-    setError(null);
+  async function handleBuscar(id: string) {
+    setBuscandoId(id);
+    setErrores((prev) => ({ ...prev, [id]: "" }));
     setMensajes((prev) => ({ ...prev, [id]: "" }));
-    const edicion = ediciones[id];
+    const resultado = await geocodificarUbicacionTienda(id, direcciones[id] ?? "");
+    setBuscandoId(null);
+    if (resultado.exito) {
+      setMensajes((prev) => ({ ...prev, [id]: `Encontrada: ${resultado.direccionEncontrada}` }));
+      setManuales((prev) => ({
+        ...prev,
+        [id]: { lat: resultado.lat?.toString() ?? "", lon: resultado.lon?.toString() ?? "" },
+      }));
+    } else {
+      setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo buscar." }));
+    }
+  }
+
+  async function handleGuardarManual(id: string) {
+    setGuardandoId(id);
+    setErrores((prev) => ({ ...prev, [id]: "" }));
+    setMensajes((prev) => ({ ...prev, [id]: "" }));
+    const edicion = manuales[id];
     const lat = edicion?.lat.trim() ? Number(edicion.lat) : null;
     const lon = edicion?.lon.trim() ? Number(edicion.lon) : null;
     const resultado = await actualizarUbicacionTienda(id, lat, lon);
     setGuardandoId(null);
     if (resultado.exito) setMensajes((prev) => ({ ...prev, [id]: "Guardado." }));
-    else setError(resultado.mensaje || "No se pudo guardar.");
+    else setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo guardar." }));
   }
 
   if (cargando) {
@@ -595,12 +621,11 @@ function SeccionUbicacionTiendas() {
         ⛅ UBICACIÓN DE TIENDAS (CLIMA)
       </h4>
       <p className="text-marca-tenue text-[11px] mb-3">
-        Guarda la latitud/longitud de cada tienda para que aparezca el pronóstico del clima en la
-        Bitácora, el Resumen del Día y las rutas asignadas. Búscalas en Google Maps: clic derecho
-        sobre el punto exacto → copiar las coordenadas. Mientras una tienda no tenga ubicación, no
-        se muestra clima para ella — no afecta nada más.
+        Escribe la dirección exacta y toca "Buscar" para ubicarla automáticamente. Si no la
+        encuentra, puedes ingresar la latitud/longitud manualmente (búscalas en Google Maps: clic
+        derecho sobre el punto → copiar coordenadas). Mientras una tienda no tenga ubicación, no se
+        muestra clima para ella — no afecta nada más.
       </p>
-      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
 
       {sinUbicacion.length > 0 && (
         <p className="text-[11px] text-marca-tenue mb-3">
@@ -613,50 +638,167 @@ function SeccionUbicacionTiendas() {
 
       <div className="space-y-2">
         {[...conUbicacion, ...sinUbicacion].map((t) => (
-          <div
-            key={t.id}
-            className="flex flex-wrap items-end gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
-          >
-            <div className="text-marca-textofuerte text-xs font-bold min-w-[130px]">{t.nombre}</div>
-            <div>
-              <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
-                Latitud
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={ediciones[t.id]?.lat ?? ""}
-                onChange={(e) =>
-                  setEdiciones((prev) => ({ ...prev, [t.id]: { ...prev[t.id], lat: e.target.value } }))
-                }
-                placeholder="-12.1080"
-                className={`${clasesInputChico} w-32`}
-              />
+          <div key={t.id} className="bg-marca-fondo border border-marca-borde rounded-[3px] p-3 space-y-2">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="text-marca-textofuerte text-xs font-bold min-w-[130px]">{t.nombre}</div>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Dirección exacta
+                </label>
+                <input
+                  type="text"
+                  value={direcciones[t.id] ?? ""}
+                  onChange={(e) => setDirecciones((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                  placeholder="Ej. Av. Aviación 2405, San Borja"
+                  className={clasesInputChico + " w-full"}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleBuscar(t.id)}
+                disabled={buscandoId === t.id}
+                className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+              >
+                {buscandoId === t.id ? "Buscando..." : "Buscar"}
+              </button>
             </div>
-            <div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Latitud (manual)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={manuales[t.id]?.lat ?? ""}
+                  onChange={(e) =>
+                    setManuales((prev) => ({ ...prev, [t.id]: { ...prev[t.id], lat: e.target.value } }))
+                  }
+                  placeholder="-12.1080"
+                  className={`${clasesInputChico} w-32`}
+                />
+              </div>
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Longitud (manual)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={manuales[t.id]?.lon ?? ""}
+                  onChange={(e) =>
+                    setManuales((prev) => ({ ...prev, [t.id]: { ...prev[t.id], lon: e.target.value } }))
+                  }
+                  placeholder="-77.0000"
+                  className={`${clasesInputChico} w-32`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleGuardarManual(t.id)}
+                disabled={guardandoId === t.id}
+                className="border border-marca-borde text-marca-tenue hover:text-marca-texto disabled:opacity-50 font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+              >
+                {guardandoId === t.id ? "..." : "Guardar manual"}
+              </button>
+              {mensajes[t.id] && <span className="text-emerald-400 text-[11px] font-bold">{mensajes[t.id]}</span>}
+              {errores[t.id] && <span className="text-marca-rojoclaro text-[11px] font-bold">{errores[t.id]}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SeccionDireccionColaboradores() {
+  const [filas, setFilas] = useState<ColaboradorDireccion[]>([]);
+  const [direcciones, setDirecciones] = useState<Record<string, string>>({});
+  const [cargando, setCargando] = useState(true);
+  const [buscandoId, setBuscandoId] = useState<string | null>(null);
+  const [mensajes, setMensajes] = useState<Record<string, string>>({});
+  const [errores, setErrores] = useState<Record<string, string>>({});
+
+  function cargar() {
+    setCargando(true);
+    obtenerColaboradoresConDireccion()
+      .then((datos) => {
+        setFilas(datos);
+        const dir: Record<string, string> = {};
+        datos.forEach((c) => (dir[c.id] = c.direccion ?? ""));
+        setDirecciones(dir);
+      })
+      .catch((e) => setErrores({ _global: e.message || "Error al cargar los colaboradores." }))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, []);
+
+  async function handleBuscar(id: string) {
+    setBuscandoId(id);
+    setErrores((prev) => ({ ...prev, [id]: "" }));
+    setMensajes((prev) => ({ ...prev, [id]: "" }));
+    const resultado = await geocodificarDireccionColaborador(id, direcciones[id] ?? "");
+    setBuscandoId(null);
+    if (resultado.exito) {
+      setMensajes((prev) => ({ ...prev, [id]: `Guardada: ${resultado.direccionEncontrada}` }));
+      setFilas((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, lat: resultado.lat ?? null, lon: resultado.lon ?? null } : c))
+      );
+    } else {
+      setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo buscar." }));
+    }
+  }
+
+  if (cargando) {
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando colaboradores...</p>;
+  }
+
+  return (
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+        🏠 DIRECCIÓN DE COLABORADORES
+      </h4>
+      <p className="text-marca-tenue text-[11px] mb-3">
+        Guarda la dirección de vivienda de cada colaborador. Por ahora solo se almacena (para
+        usarla a futuro en un contador de kilómetros entre su domicilio y la tienda asignada); no
+        afecta ningún cálculo todavía.
+      </p>
+      {errores._global && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{errores._global}</p>}
+
+      <div className="space-y-2">
+        {filas.map((c) => (
+          <div key={c.id} className="flex flex-wrap items-end gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-3">
+            <div className="min-w-[150px]">
+              <p className="text-marca-textofuerte text-xs font-bold">{c.nombre}</p>
+              <p className="text-marca-tenue text-[10px] uppercase">{c.rol}</p>
+            </div>
+            <div className="flex-1 min-w-[220px]">
               <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
-                Longitud
+                Dirección de vivienda
               </label>
               <input
                 type="text"
-                inputMode="decimal"
-                value={ediciones[t.id]?.lon ?? ""}
-                onChange={(e) =>
-                  setEdiciones((prev) => ({ ...prev, [t.id]: { ...prev[t.id], lon: e.target.value } }))
-                }
-                placeholder="-77.0000"
-                className={`${clasesInputChico} w-32`}
+                value={direcciones[c.id] ?? ""}
+                onChange={(e) => setDirecciones((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                placeholder="Ej. Jr. Las Camelias 320, Los Olivos"
+                className={clasesInputChico + " w-full"}
               />
             </div>
             <button
               type="button"
-              onClick={() => handleGuardar(t.id)}
-              disabled={guardandoId === t.id}
+              onClick={() => handleBuscar(c.id)}
+              disabled={buscandoId === c.id}
               className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
             >
-              {guardandoId === t.id ? "..." : "Guardar"}
+              {buscandoId === c.id ? "Buscando..." : "Buscar y guardar"}
             </button>
-            {mensajes[t.id] && <span className="text-emerald-400 text-[11px] font-bold">{mensajes[t.id]}</span>}
+            {c.lat !== null && !mensajes[c.id] && (
+              <span className="text-marca-tenue text-[11px]">Ya tiene ubicación guardada</span>
+            )}
+            {mensajes[c.id] && <span className="text-emerald-400 text-[11px] font-bold">{mensajes[c.id]}</span>}
+            {errores[c.id] && <span className="text-marca-rojoclaro text-[11px] font-bold">{errores[c.id]}</span>}
           </div>
         ))}
       </div>
@@ -677,6 +819,7 @@ export default function MantenimientoDatos() {
         </p>
       </div>
       <SeccionUbicacionTiendas />
+      <SeccionDireccionColaboradores />
       <SeccionAsistencia />
       <SeccionReportes />
       <SeccionAsignacionesEspeciales />

@@ -5,6 +5,7 @@ import { obtenerSesion } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA } from "@/lib/fechas";
+import { geocodificarDireccion } from "@/lib/geocodificar";
 
 async function exigirAccesoRegistro() {
   const sesion = await obtenerSesion();
@@ -502,18 +503,28 @@ export async function eliminarItemPlantilla(id: string): Promise<ResultadoRegist
 // Resumen del Día y el portal del Coordinador.
 // ---------------------------------------------------------------------
 
-export type TiendaUbicacion = { id: string; nombre: string; lat: number | null; lon: number | null };
+export type TiendaUbicacion = {
+  id: string;
+  nombre: string;
+  direccion: string | null;
+  lat: number | null;
+  lon: number | null;
+};
 
 export async function obtenerTiendasConUbicacion(): Promise<TiendaUbicacion[]> {
   await exigirAccesoRegistro();
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from("tiendas").select("id, nombre, lat, lon").order("nombre");
+  const { data, error } = await supabase
+    .from("tiendas")
+    .select("id, nombre, direccion, lat, lon")
+    .order("nombre");
   if (error) throw new Error("No se pudo cargar las tiendas.");
 
   return (data ?? []).map((t) => ({
     id: t.id,
     nombre: t.nombre,
+    direccion: t.direccion,
     lat: t.lat === null ? null : Number(t.lat),
     lon: t.lon === null ? null : Number(t.lon),
   }));
@@ -540,4 +551,111 @@ export async function actualizarUbicacionTienda(
   const { error } = await supabase.from("tiendas").update({ lat, lon }).eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo guardar la ubicación." };
   return { exito: true };
+}
+
+// Busca la dirección escrita con Nominatim (OpenStreetMap) y guarda las
+// coordenadas encontradas — evita que el administrador tenga que buscar
+// manualmente en Google Maps y copiar lat/lon.
+export async function geocodificarUbicacionTienda(
+  id: string,
+  direccion: string
+): Promise<ResultadoRegistro & { lat?: number; lon?: number; direccionEncontrada?: string }> {
+  await exigirAccesoRegistro();
+
+  if (!direccion.trim()) {
+    return { exito: false, mensaje: "Escribe una dirección." };
+  }
+
+  const resultado = await geocodificarDireccion(direccion.trim());
+  if (!resultado) {
+    return {
+      exito: false,
+      mensaje: "No se encontró esa dirección. Prueba siendo más específico, o ingresa las coordenadas manualmente.",
+    };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("tiendas")
+    .update({ direccion: direccion.trim(), lat: resultado.lat, lon: resultado.lon })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la ubicación." };
+  return {
+    exito: true,
+    mensaje: "Ubicación encontrada y guardada.",
+    lat: resultado.lat,
+    lon: resultado.lon,
+    direccionEncontrada: resultado.direccionEncontrada,
+  };
+}
+
+// ---------------------------------------------------------------------
+// Dirección de vivienda de los colaboradores — para usarla a futuro como
+// base de un contador de kilómetros (distancia entre su domicilio y la
+// tienda asignada). Por ahora solo se captura y geocodifica; no se usa en
+// ningún cálculo todavía.
+// ---------------------------------------------------------------------
+
+export type ColaboradorDireccion = {
+  id: string;
+  nombre: string;
+  rol: string;
+  direccion: string | null;
+  lat: number | null;
+  lon: number | null;
+};
+
+export async function obtenerColaboradoresConDireccion(): Promise<ColaboradorDireccion[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol, direccion, lat, lon")
+    .order("nombre");
+  if (error) throw new Error("No se pudo cargar los colaboradores.");
+
+  return (data ?? []).map((u) => ({
+    id: u.id,
+    nombre: u.nombre,
+    rol: u.rol,
+    direccion: u.direccion,
+    lat: u.lat === null ? null : Number(u.lat),
+    lon: u.lon === null ? null : Number(u.lon),
+  }));
+}
+
+export async function geocodificarDireccionColaborador(
+  id: string,
+  direccion: string
+): Promise<ResultadoRegistro & { lat?: number; lon?: number; direccionEncontrada?: string }> {
+  await exigirAccesoRegistro();
+
+  if (!direccion.trim()) {
+    return { exito: false, mensaje: "Escribe una dirección." };
+  }
+
+  const resultado = await geocodificarDireccion(direccion.trim());
+  if (!resultado) {
+    return {
+      exito: false,
+      mensaje: "No se encontró esa dirección. Prueba siendo más específico (calle, número, distrito).",
+    };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ direccion: direccion.trim(), lat: resultado.lat, lon: resultado.lon })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la dirección." };
+  return {
+    exito: true,
+    mensaje: "Dirección encontrada y guardada.",
+    lat: resultado.lat,
+    lon: resultado.lon,
+    direccionEncontrada: resultado.direccionEncontrada,
+  };
 }
