@@ -13,6 +13,7 @@ import {
   eliminarAsignacionEspecialRegistro,
   obtenerComunicadosParaCorregir,
   eliminarComunicado,
+  crearTienda,
   obtenerTiendasConUbicacion,
   actualizarUbicacionTienda,
   geocodificarUbicacionTienda,
@@ -548,6 +549,73 @@ function SeccionComunicados() {
   );
 }
 
+function NuevaTienda({ onCreada }: { onCreada: () => void }) {
+  const [nombre, setNombre] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [creando, setCreando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+
+  async function handleCrear() {
+    if (!nombre.trim()) {
+      setMensaje({ texto: "Escribe el nombre de la tienda.", exito: false });
+      return;
+    }
+    setCreando(true);
+    setMensaje(null);
+    const resultado = await crearTienda(nombre, direccion);
+    setCreando(false);
+    setMensaje({ texto: resultado.mensaje || "", exito: resultado.exito });
+    if (resultado.exito) {
+      setNombre("");
+      setDireccion("");
+      onCreada();
+    }
+  }
+
+  return (
+    <div className="bg-marca-fondo border border-marca-rojo/30 rounded-[3px] p-3 mb-3">
+      <p className="text-marca-tenue text-[10px] uppercase font-bold mb-2">+ Nueva tienda</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[160px]">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Nombre</label>
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej. CENTRO DE DISTRIBUCION"
+            className={clasesInputChico + " w-full"}
+          />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+            Dirección (opcional)
+          </label>
+          <input
+            type="text"
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
+            placeholder="Ej. Gamma 219, Callao"
+            className={clasesInputChico + " w-full"}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleCrear}
+          disabled={creando}
+          className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+        >
+          {creando ? "Creando..." : "Crear tienda"}
+        </button>
+      </div>
+      {mensaje && (
+        <p className={`text-[11px] font-bold mt-2 ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+          {mensaje.texto}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SeccionUbicacionTiendas() {
   const [tiendas, setTiendas] = useState<TiendaUbicacion[]>([]);
   const [direcciones, setDirecciones] = useState<Record<string, string>>({});
@@ -626,6 +694,8 @@ function SeccionUbicacionTiendas() {
         derecho sobre el punto → copiar coordenadas). Mientras una tienda no tenga ubicación, no se
         muestra clima para ella — no afecta nada más.
       </p>
+
+      <NuevaTienda onCreada={cargar} />
 
       {sinUbicacion.length > 0 && (
         <p className="text-[11px] text-marca-tenue mb-3">

@@ -498,6 +498,60 @@ export async function eliminarItemPlantilla(id: string): Promise<ResultadoRegist
 }
 
 // ---------------------------------------------------------------------
+// Nueva tienda: se crea con su dirección de una vez (geocodificada
+// automáticamente igual que en "Ubicación de tiendas"), para no tener que
+// cargarla por SQL cada vez que se abre un local nuevo.
+// ---------------------------------------------------------------------
+
+export async function crearTienda(
+  nombre: string,
+  direccion: string
+): Promise<ResultadoRegistro> {
+  await exigirAccesoRegistro();
+
+  const nombreLimpio = nombre.trim().toUpperCase();
+  if (!nombreLimpio) {
+    return { exito: false, mensaje: "El nombre de la tienda es obligatorio." };
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: existente } = await supabase
+    .from("tiendas")
+    .select("id")
+    .ilike("nombre", nombreLimpio)
+    .maybeSingle();
+  if (existente) {
+    return { exito: false, mensaje: "Ya existe una tienda con ese nombre." };
+  }
+
+  let ubicacion: { direccion: string; lat: number; lon: number } | null = null;
+  if (direccion.trim()) {
+    const resultado = await geocodificarDireccion(direccion.trim());
+    if (resultado) {
+      ubicacion = { direccion: direccion.trim(), lat: resultado.lat, lon: resultado.lon };
+    }
+  }
+
+  const { error } = await supabase.from("tiendas").insert({
+    nombre: nombreLimpio,
+    direccion: ubicacion?.direccion ?? (direccion.trim() || null),
+    lat: ubicacion?.lat ?? null,
+    lon: ubicacion?.lon ?? null,
+  });
+
+  if (error) return { exito: false, mensaje: "No se pudo crear la tienda." };
+
+  if (direccion.trim() && !ubicacion) {
+    return {
+      exito: true,
+      mensaje: "Tienda creada, pero no se encontró la dirección — complétala en Ubicación de tiendas.",
+    };
+  }
+  return { exito: true, mensaje: "Tienda creada correctamente." };
+}
+
+// ---------------------------------------------------------------------
 // Ubicación de tiendas (para el clima): lat/lon opcional por tienda,
 // necesario solo una vez para que aparezca el pronóstico en Bitácora,
 // Resumen del Día y el portal del Coordinador.
