@@ -14,6 +14,7 @@ import { DIAS_SEMANA } from "@/lib/fechas";
 import MantenimientoDatos from "./mantenimiento";
 import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
+import HistorialCambios from "./historial-cambios";
 
 const ROLES = ["capacitador", "supervisor", "coordinador", "gerente"] as const;
 
@@ -307,6 +308,14 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
           <GestionAccesos />
         </SeccionColapsable>
       )}
+
+      <SeccionColapsable
+        titulo="Historial de cambios (auditoría)"
+        icono="🕵️"
+        descripcion="Quién corrigió o eliminó qué desde Registro, y cuándo — por transparencia."
+      >
+        <HistorialCambios />
+      </SeccionColapsable>
     </div>
   );
 }

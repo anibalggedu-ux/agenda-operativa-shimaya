@@ -21,6 +21,31 @@ async function exigirCoordinador() {
   return sesion;
 }
 
+// ---------------------------------------------------------------------
+// Bitácora de auditoría: deja constancia de quién hizo qué corrección o
+// eliminación manual desde Registro y cuándo — por transparencia, para que
+// nadie tenga que "confiar" en que los datos no se alteraron sin motivo.
+// Nunca debe romper la acción principal si el registro falla.
+// ---------------------------------------------------------------------
+
+async function registrarCambio(
+  sesion: { id: string; nombre: string },
+  accion: string,
+  detalle?: string
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    await supabase.from("auditoria_cambios").insert({
+      usuario_id: sesion.id,
+      usuario_nombre: sesion.nombre,
+      accion,
+      detalle: detalle ?? null,
+    });
+  } catch (error) {
+    console.error("No se pudo registrar el cambio en la bitácora de auditoría:", error);
+  }
+}
+
 const ROLES_VALIDOS = ["capacitador", "supervisor", "coordinador", "gerente"];
 
 export type ResultadoRegistro = { exito: boolean; mensaje?: string };
@@ -29,7 +54,7 @@ export async function crearUsuario(
   _prevState: ResultadoRegistro,
   formData: FormData
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
 
   const nombre = String(formData.get("nombre") || "").trim();
   const email = String(formData.get("email") || "").trim();
@@ -88,6 +113,9 @@ export async function crearUsuario(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo registrar el usuario." };
+
+  await registrarCambio(sesion, "Registró un nuevo usuario", `${nombre} — rol ${rol}`);
+
   return { exito: true, mensaje: `${nombre} fue registrado(a) correctamente como ${rol}.` };
 }
 
@@ -127,8 +155,10 @@ export async function actualizarAccesoRegistro(
   usuarioId: string,
   valor: boolean
 ): Promise<ResultadoRegistro> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
   const supabase = supabaseServer();
+
+  const { data: usuario } = await supabase.from("usuarios").select("nombre").eq("id", usuarioId).maybeSingle();
 
   const { error } = await supabase
     .from("usuarios")
@@ -136,6 +166,13 @@ export async function actualizarAccesoRegistro(
     .eq("id", usuarioId);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el acceso." };
+
+  await registrarCambio(
+    sesion,
+    valor ? "Activó acceso a Registro" : "Desactivó acceso a Registro",
+    usuario?.nombre ?? usuarioId
+  );
+
   return { exito: true };
 }
 
@@ -153,12 +190,21 @@ export async function actualizarEstadoUsuario(
   }
 
   const supabase = supabaseServer();
+  const { data: usuario } = await supabase.from("usuarios").select("nombre").eq("id", usuarioId).maybeSingle();
+
   const { error } = await supabase
     .from("usuarios")
     .update({ activo })
     .eq("id", usuarioId);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el estado del usuario." };
+
+  await registrarCambio(
+    sesion,
+    activo ? "Reactivó a un usuario" : "Dio de baja a un usuario",
+    usuario?.nombre ?? usuarioId
+  );
+
   return { exito: true };
 }
 
@@ -221,8 +267,14 @@ export async function actualizarAsistencia(
   horaIngreso: string | null,
   horaSalida: string | null
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("asistencia")
+    .select("fecha, hora_ingreso, hora_salida, usuarios(nombre)")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase
     .from("asistencia")
@@ -230,15 +282,37 @@ export async function actualizarAsistencia(
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar la marcación." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Corrigió una marcación de asistencia",
+    `${nombre} — ${antes?.fecha ?? "?"}: ingreso ${antes?.hora_ingreso ?? "—"} → ${horaIngreso ?? "—"}, salida ${antes?.hora_salida ?? "—"} → ${horaSalida ?? "—"}`
+  );
+
   return { exito: true };
 }
 
 export async function eliminarAsistencia(id: string): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("asistencia")
+    .select("fecha, hora_ingreso, hora_salida, usuarios(nombre)")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("asistencia").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar la marcación." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó una marcación de asistencia",
+    `${nombre} — ${antes?.fecha ?? "?"} (ingreso ${antes?.hora_ingreso ?? "—"}, salida ${antes?.hora_salida ?? "—"})`
+  );
+
   return { exito: true };
 }
 
@@ -275,11 +349,25 @@ export async function obtenerAsignacionesEspecialesParaCorregir(): Promise<
 }
 
 export async function eliminarAsignacionEspecialRegistro(id: string): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("asignaciones_especiales")
+    .select("tipo, fecha_inicio, fecha_fin, usuarios(nombre)")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("asignaciones_especiales").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar la asignación especial." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó una asignación especial",
+    `${antes?.tipo ?? "?"} de ${nombre} (${antes?.fecha_inicio ?? "?"} → ${antes?.fecha_fin ?? "?"})`
+  );
+
   return { exito: true };
 }
 
@@ -305,11 +393,24 @@ export async function obtenerComunicadosParaCorregir(): Promise<ComunicadoCorreg
 }
 
 export async function eliminarComunicado(id: string): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("comunicados")
+    .select("tipo, mensaje, fecha")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("comunicados").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar el comunicado." };
+
+  await registrarCambio(
+    sesion,
+    "Eliminó un comunicado",
+    `${antes?.tipo ?? "?"} (${antes?.fecha ?? "?"}): ${(antes?.mensaje ?? "").slice(0, 80)}`
+  );
+
   return { exito: true };
 }
 
@@ -353,27 +454,58 @@ export async function actualizarReporteRegistro(
   observacion: string,
   actividad: string
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   if (!observacion.trim()) {
     return { exito: false, mensaje: "La observación no puede quedar vacía." };
   }
 
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("rutas_diarias")
+    .select("fecha, usuarios(nombre), tiendas(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("rutas_diarias")
     .update({ observacion: observacion.trim(), actividad: actividad.trim() || null })
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el reporte." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  const tienda = (antes as any)?.tiendas?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Corrigió un reporte de bitácora",
+    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`
+  );
+
   return { exito: true };
 }
 
 export async function eliminarReporteRegistro(id: string): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("rutas_diarias")
+    .select("fecha, usuarios(nombre), tiendas(nombre)")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("rutas_diarias").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar el reporte." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  const tienda = (antes as any)?.tiendas?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó un reporte de bitácora",
+    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`
+  );
+
   return { exito: true };
 }
 
@@ -408,8 +540,10 @@ export async function actualizarAccesoAuditoria(
   usuarioId: string,
   valor: boolean
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: usuario } = await supabase.from("usuarios").select("nombre").eq("id", usuarioId).maybeSingle();
 
   const { error } = await supabase
     .from("usuarios")
@@ -417,6 +551,13 @@ export async function actualizarAccesoAuditoria(
     .eq("id", usuarioId);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el acceso." };
+
+  await registrarCambio(
+    sesion,
+    valor ? "Activó auditoría para un supervisor" : "Desactivó auditoría para un supervisor",
+    usuario?.nombre ?? usuarioId
+  );
+
   return { exito: true };
 }
 
@@ -440,7 +581,7 @@ export async function agregarItemPlantilla(
   categoria: string,
   item: string
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const categoriaLimpia = categoria.trim();
   const itemLimpio = item.trim();
   if (!categoriaLimpia || !itemLimpio) {
@@ -463,6 +604,9 @@ export async function agregarItemPlantilla(
     .insert({ categoria: categoriaLimpia, item: itemLimpio, orden: siguienteOrden });
 
   if (error) return { exito: false, mensaje: "No se pudo agregar el ítem." };
+
+  await registrarCambio(sesion, "Agregó un ítem a la plantilla de auditoría", `${categoriaLimpia}: ${itemLimpio}`);
+
   return { exito: true };
 }
 
@@ -471,7 +615,7 @@ export async function actualizarItemPlantilla(
   categoria: string,
   item: string
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const categoriaLimpia = categoria.trim();
   const itemLimpio = item.trim();
   if (!categoriaLimpia || !itemLimpio) {
@@ -479,21 +623,48 @@ export async function actualizarItemPlantilla(
   }
 
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("plantilla_auditoria_items")
+    .select("categoria, item")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("plantilla_auditoria_items")
     .update({ categoria: categoriaLimpia, item: itemLimpio })
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo actualizar el ítem." };
+
+  await registrarCambio(
+    sesion,
+    "Editó un ítem de la plantilla de auditoría",
+    `"${antes?.item ?? "?"}" → "${itemLimpio}"`
+  );
+
   return { exito: true };
 }
 
 export async function eliminarItemPlantilla(id: string): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("plantilla_auditoria_items")
+    .select("categoria, item")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("plantilla_auditoria_items").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar el ítem." };
+
+  await registrarCambio(
+    sesion,
+    "Eliminó un ítem de la plantilla de auditoría",
+    `${antes?.categoria ?? "?"}: ${antes?.item ?? "?"}`
+  );
+
   return { exito: true };
 }
 
@@ -507,7 +678,7 @@ export async function crearTienda(
   nombre: string,
   direccion: string
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
 
   const nombreLimpio = nombre.trim().toUpperCase();
   if (!nombreLimpio) {
@@ -541,6 +712,8 @@ export async function crearTienda(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo crear la tienda." };
+
+  await registrarCambio(sesion, "Creó una nueva tienda", nombreLimpio);
 
   if (direccion.trim() && !ubicacion) {
     return {
@@ -589,7 +762,7 @@ export async function actualizarUbicacionTienda(
   lat: number | null,
   lon: number | null
 ): Promise<ResultadoRegistro> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
 
   if ((lat === null) !== (lon === null)) {
     return { exito: false, mensaje: "Ingresa latitud y longitud, o deja ambas vacías." };
@@ -602,8 +775,13 @@ export async function actualizarUbicacionTienda(
   }
 
   const supabase = supabaseServer();
+  const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("tiendas").update({ lat, lon }).eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo guardar la ubicación." };
+
+  await registrarCambio(sesion, "Actualizó la ubicación manual de una tienda", tienda?.nombre ?? id);
+
   return { exito: true };
 }
 
@@ -614,7 +792,7 @@ export async function geocodificarUbicacionTienda(
   id: string,
   direccion: string
 ): Promise<ResultadoRegistro & { lat?: number; lon?: number; direccionEncontrada?: string }> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
 
   if (!direccion.trim()) {
     return { exito: false, mensaje: "Escribe una dirección." };
@@ -629,12 +807,21 @@ export async function geocodificarUbicacionTienda(
   }
 
   const supabase = supabaseServer();
+  const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("tiendas")
     .update({ direccion: direccion.trim(), lat: resultado.lat, lon: resultado.lon })
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la ubicación." };
+
+  await registrarCambio(
+    sesion,
+    "Actualizó la dirección de una tienda",
+    `${tienda?.nombre ?? id}: ${direccion.trim()}`
+  );
+
   return {
     exito: true,
     mensaje: "Ubicación encontrada y guardada.",
@@ -684,7 +871,7 @@ export async function geocodificarDireccionColaborador(
   id: string,
   direccion: string
 ): Promise<ResultadoRegistro & { lat?: number; lon?: number; direccionEncontrada?: string }> {
-  await exigirAccesoRegistro();
+  const sesion = await exigirAccesoRegistro();
 
   if (!direccion.trim()) {
     return { exito: false, mensaje: "Escribe una dirección." };
@@ -699,12 +886,21 @@ export async function geocodificarDireccionColaborador(
   }
 
   const supabase = supabaseServer();
+  const { data: colaborador } = await supabase.from("usuarios").select("nombre").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("usuarios")
     .update({ direccion: direccion.trim(), lat: resultado.lat, lon: resultado.lon })
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la dirección." };
+
+  await registrarCambio(
+    sesion,
+    "Actualizó la dirección de un colaborador",
+    `${colaborador?.nombre ?? id}: ${direccion.trim()}`
+  );
+
   return {
     exito: true,
     mensaje: "Dirección encontrada y guardada.",
@@ -712,4 +908,41 @@ export async function geocodificarDireccionColaborador(
     lon: resultado.lon,
     direccionEncontrada: resultado.direccionEncontrada,
   };
+}
+
+// ---------------------------------------------------------------------
+// Bitácora de auditoría: consulta de solo lectura de todo lo registrado
+// arriba, para transparencia — cualquiera con acceso a Registro puede ver
+// quién corrigió o eliminó qué y cuándo.
+// ---------------------------------------------------------------------
+
+export type CambioAuditoria = {
+  id: string;
+  usuarioNombre: string;
+  accion: string;
+  detalle: string | null;
+  fecha: string;
+};
+
+export async function obtenerHistorialCambios(desde: string, hasta: string): Promise<CambioAuditoria[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("auditoria_cambios")
+    .select("id, usuario_nombre, accion, detalle, created_at")
+    .gte("created_at", desde + "T00:00:00")
+    .lte("created_at", hasta + "T23:59:59")
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (error) throw new Error("No se pudo cargar el historial de cambios.");
+
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    usuarioNombre: c.usuario_nombre,
+    accion: c.accion,
+    detalle: c.detalle,
+    fecha: c.created_at,
+  }));
 }
