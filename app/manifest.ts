@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Agenda Operativa Shimaya",
     short_name: "Shimaya",
     description: "Sistema de gestión operativa Shimaya",
-    start_url: "/panel",
+    start_url: "/",
     display: "standalone",
     background_color: "#0d0e10",
     theme_color: "#d31e2b",
