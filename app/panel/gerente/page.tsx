@@ -1,11 +1,18 @@
 import { obtenerSesion } from "@/lib/session";
-import { cerrarSesionAction } from "../logout-action";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import ResumenDelDia from "../resumen-del-dia";
+import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import {
+  LazyCentralAnalitica as CentralAnalitica,
+  LazyDocumentos as Documentos,
+  LazyCalendario as Calendario,
+  LazyRegistro as Registro,
+  LazyHistorialAuditorias as HistorialAuditorias,
+} from "../panel-lazy";
+import { hoyPeru } from "@/lib/fechas";
 
 export const dynamic = "force-dynamic";
 
@@ -15,63 +22,62 @@ export default async function PanelGerente() {
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
 
-  return (
-    <main className="min-h-screen bg-marca-fondo text-marca-texto p-6 sm:p-8 font-body">
-      <div className="flex justify-between items-center border-b border-marca-rojo/25 pb-4 mb-6">
-        <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
-          Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
-        </h1>
-        <div className="flex gap-2">
-          {accesoRegistro && (
-            <Link
-              href="/panel/registro"
-              className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
-            >
-              📝 Registro
-            </Link>
-          )}
-          <Link
-            href="/panel/analitica"
-            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
-          >
-            📊 Central Analítica
-          </Link>
-          <Link
-            href="/panel/documentos"
-            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
-          >
-            📄 Documentos
-          </Link>
-          <Link
-            href="/panel/calendario"
-            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
-          >
-            📅 Calendario
-          </Link>
-          <Link
-            href="/panel/auditorias"
-            className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
-          >
-            🔍 Auditorías
-          </Link>
-          <form action={cerrarSesionAction}>
-            <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-4 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
-              Cerrar sesión
-            </button>
-          </form>
+  const items: ItemMenuPanel[] = [
+    {
+      id: "inicio",
+      etiqueta: "Inicio",
+      icono: "🏠",
+      contenido: (
+        <div className="space-y-6">
+          <Dashboard />
+          <AnunciosWidget />
         </div>
-      </div>
-      <p className="text-marca-tenue text-sm mb-6">
-        Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
-      </p>
+      ),
+    },
+    {
+      id: "analitica",
+      etiqueta: "Central Analítica",
+      icono: "📊",
+      contenido: <CentralAnalitica />,
+    },
+    {
+      id: "documentos",
+      etiqueta: "Documentos",
+      icono: "📄",
+      contenido: <Documentos esAdmin={accesoRegistro} />,
+    },
+    {
+      id: "calendario",
+      etiqueta: "Calendario",
+      icono: "📅",
+      contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
+    },
+    {
+      id: "auditorias",
+      etiqueta: "Auditorías",
+      icono: "🔍",
+      contenido: <HistorialAuditorias modo="todas" />,
+    },
+  ];
+
+  if (accesoRegistro) {
+    items.push({
+      id: "registro",
+      etiqueta: "Registro",
+      icono: "📝",
+      contenido: <Registro esCoordinador={false} />,
+    });
+  }
+
+  return (
+    <main className="min-h-screen bg-marca-fondo text-marca-texto p-4 sm:p-6 font-body">
+      <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+        Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
+      </h1>
 
       <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
 
-      <div className="mb-6">
-        <AnunciosWidget />
-      </div>
-
-      <Dashboard />
+      <PanelShell nombre={sesion.nombre} tituloPortal="Gerente" items={items} defaultId="inicio" />
     </main>
   );
 }

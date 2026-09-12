@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import GpsMarcador from "../supervisor/gps-marcador";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
@@ -14,93 +13,71 @@ import Anuncios from "./anuncios";
 import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
-import Registro from "../registro/registro";
-import Documentos from "../documentos/documentos";
-import Calendario from "../calendario/calendario";
-import HistorialAuditorias from "../auditorias/historial-auditorias";
+import {
+  LazyRegistro as Registro,
+  LazyDocumentos as Documentos,
+  LazyCalendario as Calendario,
+  LazyHistorialAuditorias as HistorialAuditorias,
+  LazyCentralAnalitica as CentralAnalitica,
+} from "../panel-lazy";
+import CampanitaDescansos from "./campanita-descansos";
+import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import { hoyPeru } from "@/lib/fechas";
 
-type Pestana =
-  | "rutas"
-  | "mi-ruta"
-  | "reportes"
-  | "personal"
-  | "anuncios"
-  | "historial"
-  | "registro"
-  | "documentos"
-  | "calendario"
-  | "auditorias";
-
-const PESTANAS: { id: Pestana; etiqueta: string }[] = [
-  { id: "rutas", etiqueta: "Rutas" },
-  { id: "mi-ruta", etiqueta: "Mi Ruta" },
-  { id: "reportes", etiqueta: "Reportes" },
-  { id: "personal", etiqueta: "Personal" },
-  { id: "anuncios", etiqueta: "Anuncios" },
-  { id: "historial", etiqueta: "Historial y Monitoreo" },
-  { id: "registro", etiqueta: "Registro" },
-  { id: "documentos", etiqueta: "Documentos" },
-  { id: "calendario", etiqueta: "Calendario" },
-  { id: "auditorias", etiqueta: "Auditorías" },
-];
-
 export default function PanelTabs({ nombre }: { nombre: string }) {
-  const [pestana, setPestana] = useState<Pestana>("rutas");
-
-  return (
-    <div>
-      <PerfilBanner />
-
-      <div className="flex gap-2 mb-6 overflow-x-auto">
-        {PESTANAS.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => setPestana(p.id)}
-            className={`px-4 py-2 rounded-[3px] text-xs font-black tracking-widest uppercase transition shrink-0 ${
-              pestana === p.id
-                ? "bg-marca-rojo text-marca-textofuerte"
-                : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
-            }`}
-          >
-            {p.etiqueta}
-          </button>
-        ))}
-      </div>
-
-      {pestana === "rutas" && <AsignarRutas />}
-
-      {pestana === "mi-ruta" && (
+  const items: ItemMenuPanel[] = [
+    { id: "rutas", etiqueta: "Rutas", icono: "🚚", contenido: <AsignarRutas /> },
+    {
+      id: "mi-ruta",
+      etiqueta: "Mi Ruta",
+      icono: "📍",
+      contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
           <GpsMarcador />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <HistorialPdf supervisorNombre={nombre} />
         </div>
-      )}
-
-      {pestana === "reportes" && <Reportes />}
-
-      {pestana === "personal" && (
+      ),
+    },
+    { id: "reportes", etiqueta: "Reportes", icono: "📝", contenido: <Reportes /> },
+    {
+      id: "personal",
+      etiqueta: "Personal",
+      icono: "👥",
+      contenido: (
         <div className="space-y-8">
           <EstadoPersonalHoy />
           <AsignacionesEspeciales />
           <TiendasPermanentes />
           <DescansosSemanales />
         </div>
-      )}
+      ),
+    },
+    { id: "anuncios", etiqueta: "Anuncios", icono: "📣", contenido: <Anuncios /> },
+    { id: "historial", etiqueta: "Historial y Monitoreo", icono: "🗂", contenido: <HistorialMonitoreo /> },
+    { id: "analitica", etiqueta: "Central Analítica", icono: "📊", contenido: <CentralAnalitica /> },
+    { id: "registro", etiqueta: "Registro", icono: "📝", contenido: <Registro esCoordinador={true} /> },
+    { id: "documentos", etiqueta: "Documentos", icono: "📄", contenido: <Documentos esAdmin={true} /> },
+    {
+      id: "calendario",
+      etiqueta: "Calendario",
+      icono: "📅",
+      contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
+    },
+    { id: "auditorias", etiqueta: "Auditorías", icono: "🔍", contenido: <HistorialAuditorias modo="todas" /> },
+  ];
 
-      {pestana === "anuncios" && <Anuncios />}
-
-      {pestana === "historial" && <HistorialMonitoreo />}
-
-      {pestana === "registro" && <Registro esCoordinador={true} />}
-
-      {pestana === "documentos" && <Documentos esAdmin={true} />}
-
-      {pestana === "calendario" && <Calendario modo="completo" hoy={hoyPeru()} />}
-
-      {pestana === "auditorias" && <HistorialAuditorias modo="todas" />}
+  return (
+    <div className="space-y-4">
+      <PerfilBanner />
+      <PanelShell
+        nombre={nombre}
+        tituloPortal="Coordinador"
+        items={items}
+        defaultId="rutas"
+        accionesExtra={<CampanitaDescansos />}
+      />
     </div>
   );
 }
