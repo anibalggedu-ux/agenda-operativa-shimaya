@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 
@@ -53,7 +54,13 @@ export default function PanelShell({
   // barra superior fija.
   encabezado?: ReactNode;
 }) {
-  const [activo, setActivo] = useState(defaultId ?? items[0]?.id);
+  // Permite enlaces directos a una sección (ej. desde el correo de "Nueva
+  // ruta asignada" hacia la Bitácora de Campo): /panel/supervisor?seccion=bitacora
+  const parametros = useSearchParams();
+  const seccionUrl = parametros.get("seccion");
+  const idInicial = seccionUrl && items.some((i) => i.id === seccionUrl) ? seccionUrl : defaultId ?? items[0]?.id;
+
+  const [activo, setActivo] = useState(idInicial);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
 
   const seccionActiva = items.find((i) => i.id === activo) ?? items[0];

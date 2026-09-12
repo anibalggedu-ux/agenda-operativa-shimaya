@@ -18,7 +18,7 @@ import {
   HORA_LIMITE_TARDANZA,
 } from "./constantes";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
-import { enviarCorreo, type ContactoCorreo } from "@/lib/email";
+import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { calcularRutaAuto, formatearMinutos } from "@/lib/distancia";
 import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
@@ -269,7 +269,7 @@ export async function asignarRuta(
     const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
       obtenerContacto(supabase, usuarioId),
       supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
-      supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
+      supabase.from("usuarios").select("lat, lon, rol").eq("id", usuarioId).maybeSingle(),
       obtenerReplyTo(supabase, sesion),
     ]);
     if (!contacto?.email) return;
@@ -305,6 +305,8 @@ export async function asignarRuta(
       ? `<li><strong>Dirección:</strong> ${tienda.direccion}</li>`
       : "";
 
+    const enlaceBitacora = `${URL_APP}/panel/${colaborador?.rol ?? "supervisor"}?seccion=bitacora`;
+
     await enviarCorreo({
       para: contacto.email,
       tituloEmoji: "📍",
@@ -322,6 +324,9 @@ export async function asignarRuta(
           ${climaHtml}
           ${distanciaHtml}
         </ul>
+        <p style="margin:0 0 16px;">
+          <a href="${enlaceBitacora}" style="color:#e23744; font-weight:700;">Ir a la Bitácora de Campo →</a>
+        </p>
         <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
       `,
     });

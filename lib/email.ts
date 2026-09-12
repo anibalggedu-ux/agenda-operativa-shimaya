@@ -10,6 +10,11 @@ const transportador = nodemailer.createTransport({
 
 const NOMBRE_REMITENTE = "Agenda Operativa Shimaya";
 
+// URL pública de la app, para enlaces directos dentro de los correos (ej.
+// "ir a la Bitácora de Campo"). Se puede sobreescribir con una variable de
+// entorno si el dominio cambia.
+export const URL_APP = process.env.NEXT_PUBLIC_URL_APP || "https://agenda-operativa-shimaya.vercel.app";
+
 // Gmail penaliza a las cuentas nuevas que mandan un solo correo con muchos
 // destinatarios en copia oculta (patrón típico de spam). Los comunicados
 // masivos se dividen en lotes pequeños con una pausa entre cada uno para
