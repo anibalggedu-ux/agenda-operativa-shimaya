@@ -399,11 +399,67 @@ export async function enviarReporte(
 
 // ---------- Marcación de llegada/salida a cada tienda del día ----------
 //
-// Distinta de la marcación general de asistencia (GpsMarcador): esta es por
-// cada tienda asignada ese día, para cuando a alguien le tocan 2 o 3 rutas
-// — se marca al llegar y al irse de CADA una, con foto y ubicación. Vive en
-// rutas_activas mientras no se reporta la visita, y se traslada a
-// rutas_diarias al enviar el reporte (ver enviarReporte).
+// Se marca al llegar y al irse de CADA tienda asignada ese día, con foto y
+// ubicación. Vive en rutas_activas mientras no se reporta la visita, y se
+// traslada a rutas_diarias al enviar el reporte (ver enviarReporte).
+//
+// De esta marcación por tienda se deriva también la asistencia general del
+// día (antes era un botón aparte): la llegada a la PRIMERA tienda del día
+// cuenta como el ingreso general (no se pisa si ya había uno), y cada
+// salida de tienda va actualizando la salida general — así la última
+// salida del día queda como la salida definitiva, sin tener que adivinar
+// de antemano cuál será.
+
+async function sincronizarAsistenciaDesdeTienda(
+  supabase: ReturnType<typeof supabaseServer>,
+  sesion: { id: string; rol: string },
+  tipo: "llegada" | "salida",
+  hora: string,
+  ubicacion: string,
+  fotoBlob: string
+): Promise<void> {
+  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+
+  const { data: existente } = await supabase
+    .from("asistencia")
+    .select("id, hora_ingreso")
+    .eq("usuario_id", sesion.id)
+    .eq("fecha", fecha)
+    .maybeSingle();
+
+  if (tipo === "llegada") {
+    if (existente) {
+      if (existente.hora_ingreso) return; // ya hay ingreso del día — no se pisa
+      await supabase
+        .from("asistencia")
+        .update({ hora_ingreso: hora, ubicacion_ingreso: ubicacion, foto_ingreso_blob: fotoBlob })
+        .eq("id", existente.id);
+    } else {
+      await supabase.from("asistencia").insert({
+        usuario_id: sesion.id,
+        fecha,
+        hora_ingreso: hora,
+        ubicacion_ingreso: ubicacion,
+        foto_ingreso_blob: fotoBlob,
+      });
+    }
+  } else {
+    if (existente) {
+      await supabase
+        .from("asistencia")
+        .update({ hora_salida: hora, ubicacion_salida: ubicacion, foto_salida_blob: fotoBlob })
+        .eq("id", existente.id);
+    } else {
+      await supabase.from("asistencia").insert({
+        usuario_id: sesion.id,
+        fecha,
+        hora_salida: hora,
+        ubicacion_salida: ubicacion,
+        foto_salida_blob: fotoBlob,
+      });
+    }
+  }
+}
 
 type ContextoTienda = { tabla: "rutas_activas" | "rutas_diarias"; id: string; tiendaId: string };
 
@@ -466,6 +522,9 @@ export async function marcarLlegadaTienda(
     .eq("id", contexto.id);
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la llegada." };
+
+  await sincronizarAsistenciaDesdeTienda(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
+
   return { exito: true, mensaje: "Llegada registrada con foto." };
 }
 
@@ -501,6 +560,9 @@ export async function marcarSalidaTienda(
     .eq("id", contexto.id);
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la salida." };
+
+  await sincronizarAsistenciaDesdeTienda(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
+
   return { exito: true, mensaje: "Salida registrada con foto." };
 }
 

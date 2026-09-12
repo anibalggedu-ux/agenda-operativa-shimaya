@@ -1,7 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
 import SelectorTiendas from "../supervisor/selector-tiendas";
-import GpsMarcador from "../supervisor/gps-marcador";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
@@ -40,12 +39,7 @@ export default async function PanelCapacitador() {
       id: "asistencia",
       etiqueta: "Asistencia",
       icono: "⏱",
-      contenido: (
-        <div className="space-y-6">
-          <GpsMarcador />
-          <MisMarcaciones />
-        </div>
-      ),
+      contenido: <MisMarcaciones />,
     },
     {
       id: "bitacora",

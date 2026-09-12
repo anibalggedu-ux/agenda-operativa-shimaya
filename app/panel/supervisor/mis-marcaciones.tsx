@@ -59,7 +59,9 @@ export default function MisMarcaciones() {
         📍 MIS MARCACIONES GPS
       </h3>
       <p className="text-marca-tenue text-[11px]">
-        Toca una hora para verificar la ubicación exacta en Google Maps.
+        Se calcula solo con las marcaciones que haces en la Bitácora de Campo: el ingreso es tu
+        llegada a la primera tienda del día, y la salida se actualiza con cada tienda hasta quedar
+        con la última. Toca una hora para verificar la ubicación exacta en Google Maps.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3">

@@ -1,8 +1,8 @@
 "use client";
 
-import GpsMarcador from "../supervisor/gps-marcador";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
+import MisMarcaciones from "../supervisor/mis-marcaciones";
 import PerfilBanner from "./perfil-banner";
 import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
@@ -35,8 +35,8 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
       contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
-          <GpsMarcador />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
+          <MisMarcaciones />
           <HistorialPdf supervisorNombre={nombre} />
         </div>
       ),
