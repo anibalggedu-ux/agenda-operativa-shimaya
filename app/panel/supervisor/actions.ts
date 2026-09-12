@@ -6,6 +6,7 @@ import {
   sumarDias,
   diaLaboralPeru,
   hoyPeru,
+  horaPeru,
   DIAS_SEMANA,
   calcularAntiguedad,
   calcularProximaFechaAnual,
@@ -14,7 +15,7 @@ import {
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo } from "@/lib/email";
-import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/azure-storage";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -38,6 +39,14 @@ export type TiendaClasificada = {
   actividadActual: string;
   clima: ResumenClimaDia | null;
   autoasignada: boolean;
+  // Marcación de llegada/salida a esta tienda en particular (distinta de la
+  // marcación general de asistencia del día) — con foto y ubicación.
+  horaLlegada: string | null;
+  ubicacionLlegada: string | null;
+  fotoLlegadaUrl: string | null;
+  horaSalidaTienda: string | null;
+  ubicacionSalidaTienda: string | null;
+  fotoSalidaTiendaUrl: string | null;
 };
 
 function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
@@ -70,13 +79,15 @@ export async function obtenerTiendasClasificadas(): Promise<{
     supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("rutas_activas")
-      .select("id, fecha_planificada, area, enfoque, autoasignada, tiendas(id, nombre, lat, lon)")
+      .select(
+        "id, fecha_planificada, area, enfoque, autoasignada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas(id, nombre, lat, lon)"
+      )
       .eq("usuario_id", sesion.id)
       .order("fecha_planificada", { ascending: false }),
     supabase
       .from("rutas_diarias")
       .select(
-        "id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, tiendas(id, nombre, lat, lon)"
+        "id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas(id, nombre, lat, lon)"
       )
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeVentana)
@@ -88,10 +99,15 @@ export async function obtenerTiendasClasificadas(): Promise<{
 
   const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
 
+  type TiendaInterna = TiendaClasificada & {
+    _lat: number | null;
+    _lon: number | null;
+    _fotoLlegadaBlob: string | null;
+    _fotoSalidaBlob: string | null;
+  };
+
   // Tarjetas pendientes: asignaciones sin reportar todavía.
-  const pendientes: (TiendaClasificada & { _lat: number | null; _lon: number | null })[] = (
-    activas ?? []
-  ).map((r: any) => ({
+  const pendientes: TiendaInterna[] = (activas ?? []).map((r: any) => ({
     id: `pendiente-${r.id}`,
     tiendaId: r.tiendas.id,
     tiendaNombre: r.tiendas.nombre,
@@ -105,6 +121,14 @@ export async function obtenerTiendasClasificadas(): Promise<{
     actividadActual: "",
     clima: null,
     autoasignada: !!r.autoasignada,
+    horaLlegada: r.hora_llegada ?? null,
+    ubicacionLlegada: r.ubicacion_llegada ?? null,
+    fotoLlegadaUrl: null,
+    horaSalidaTienda: r.hora_salida ?? null,
+    ubicacionSalidaTienda: r.ubicacion_salida ?? null,
+    fotoSalidaTiendaUrl: null,
+    _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
+    _fotoSalidaBlob: r.foto_salida_blob ?? null,
     _lat: r.tiendas.lat === null ? null : Number(r.tiendas.lat),
     _lon: r.tiendas.lon === null ? null : Number(r.tiendas.lon),
   }));
@@ -112,9 +136,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
   // Tarjetas ya reportadas, pero todavía dentro de las 48h desde la
   // asignación — se mantienen visibles y editables, cada una por su cuenta
   // (si te asignan otra tienda, aparece como una tarjeta aparte).
-  const editables: (TiendaClasificada & { _lat: number | null; _lon: number | null })[] = (
-    reportes ?? []
-  )
+  const editables: TiendaInterna[] = (reportes ?? [])
     .filter((r: any) => new Date(r.asignado_en ?? r.created_at).getTime() > limite)
     .map((r: any) => ({
       id: `reporte-${r.id}`,
@@ -130,6 +152,14 @@ export async function obtenerTiendasClasificadas(): Promise<{
       actividadActual: r.actividad ?? "",
       clima: null,
       autoasignada: false,
+      horaLlegada: r.hora_llegada ?? null,
+      ubicacionLlegada: r.ubicacion_llegada ?? null,
+      fotoLlegadaUrl: null,
+      horaSalidaTienda: r.hora_salida ?? null,
+      ubicacionSalidaTienda: r.ubicacion_salida ?? null,
+      fotoSalidaTiendaUrl: null,
+      _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
+      _fotoSalidaBlob: r.foto_salida_blob ?? null,
       _lat: r.tiendas?.lat === null || r.tiendas?.lat === undefined ? null : Number(r.tiendas.lat),
       _lon: r.tiendas?.lon === null || r.tiendas?.lon === undefined ? null : Number(r.tiendas.lon),
     }));
@@ -155,11 +185,21 @@ export async function obtenerTiendasClasificadas(): Promise<{
     })
   );
 
-  const tiendasFinal: TiendaClasificada[] = todas.map(({ _lat, _lon, ...t }) => {
-    if (_lat === null || _lon === null) return t;
-    const resumen = climaPorUbicacion.get(`${_lat},${_lon}`);
-    return { ...t, clima: resumen?.get(t.fechaPlanificada) ?? null };
-  });
+  const tiendasFinal: TiendaClasificada[] = await Promise.all(
+    todas.map(async ({ _lat, _lon, _fotoLlegadaBlob, _fotoSalidaBlob, ...t }) => {
+      const resumen = _lat !== null && _lon !== null ? climaPorUbicacion.get(`${_lat},${_lon}`) : undefined;
+      const [fotoLlegadaUrl, fotoSalidaTiendaUrl] = await Promise.all([
+        obtenerUrlTemporalFoto(_fotoLlegadaBlob),
+        obtenerUrlTemporalFoto(_fotoSalidaBlob),
+      ]);
+      return {
+        ...t,
+        clima: resumen?.get(t.fechaPlanificada) ?? null,
+        fotoLlegadaUrl,
+        fotoSalidaTiendaUrl,
+      };
+    })
+  );
 
   return { tiendas: tiendasFinal, diaDescansoFijo: usuario?.dias_descanso ?? null };
 }
@@ -276,15 +316,44 @@ export async function enviarReporte(
 
   // El momento de la asignación (no el de envío) es lo que ancla la ventana
   // de 48 horas para poder editar el reporte después — se guarda tal cual
-  // quedó registrada en rutas_activas antes de borrarla.
+  // quedó registrada en rutas_activas antes de borrarla. La marcación de
+  // llegada/salida a la tienda (si ya se hizo) también se arrastra, para no
+  // perderla al pasar de "pendiente" a "reportado".
   let asignadoEn: string | null = null;
+  let marcacionTienda: {
+    hora_llegada: string | null;
+    ubicacion_llegada: string | null;
+    foto_llegada_blob: string | null;
+    hora_salida: string | null;
+    ubicacion_salida: string | null;
+    foto_salida_blob: string | null;
+  } = {
+    hora_llegada: null,
+    ubicacion_llegada: null,
+    foto_llegada_blob: null,
+    hora_salida: null,
+    ubicacion_salida: null,
+    foto_salida_blob: null,
+  };
   if (rutaActivaId) {
     const { data: activa } = await supabase
       .from("rutas_activas")
-      .select("created_at")
+      .select(
+        "created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob"
+      )
       .eq("id", rutaActivaId)
       .maybeSingle();
     asignadoEn = activa?.created_at ?? null;
+    if (activa) {
+      marcacionTienda = {
+        hora_llegada: activa.hora_llegada,
+        ubicacion_llegada: activa.ubicacion_llegada,
+        foto_llegada_blob: activa.foto_llegada_blob,
+        hora_salida: activa.hora_salida,
+        ubicacion_salida: activa.ubicacion_salida,
+        foto_salida_blob: activa.foto_salida_blob,
+      };
+    }
   }
 
   // Si por algún motivo ya existe un reporte de esta misma tienda y fecha
@@ -300,7 +369,7 @@ export async function enviarReporte(
   if (existente) {
     const { error } = await supabase
       .from("rutas_diarias")
-      .update({ observacion, actividad })
+      .update({ observacion, actividad, ...marcacionTienda })
       .eq("id", existente.id);
     if (error) {
       return { exito: false, mensaje: "No se pudo actualizar el reporte. Intenta de nuevo." };
@@ -314,6 +383,7 @@ export async function enviarReporte(
       observacion,
       actividad,
       asignado_en: asignadoEn,
+      ...marcacionTienda,
     });
     if (errorInsert) {
       return { exito: false, mensaje: "No se pudo guardar el reporte. Intenta de nuevo." };
@@ -325,6 +395,113 @@ export async function enviarReporte(
   }
 
   return { exito: true, mensaje: "Reporte enviado correctamente." };
+}
+
+// ---------- Marcación de llegada/salida a cada tienda del día ----------
+//
+// Distinta de la marcación general de asistencia (GpsMarcador): esta es por
+// cada tienda asignada ese día, para cuando a alguien le tocan 2 o 3 rutas
+// — se marca al llegar y al irse de CADA una, con foto y ubicación. Vive en
+// rutas_activas mientras no se reporta la visita, y se traslada a
+// rutas_diarias al enviar el reporte (ver enviarReporte).
+
+type ContextoTienda = { tabla: "rutas_activas" | "rutas_diarias"; id: string; tiendaId: string };
+
+async function obtenerContextoTienda(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string,
+  rutaActivaId: string | null,
+  reporteId: string | null
+): Promise<ContextoTienda | null> {
+  if (rutaActivaId) {
+    const { data } = await supabase
+      .from("rutas_activas")
+      .select("id, tienda_id, usuario_id")
+      .eq("id", rutaActivaId)
+      .maybeSingle();
+    if (!data || data.usuario_id !== usuarioId) return null;
+    return { tabla: "rutas_activas", id: data.id, tiendaId: data.tienda_id };
+  }
+  if (reporteId) {
+    const { data } = await supabase
+      .from("rutas_diarias")
+      .select("id, tienda_id, usuario_id")
+      .eq("id", reporteId)
+      .maybeSingle();
+    if (!data || data.usuario_id !== usuarioId) return null;
+    return { tabla: "rutas_diarias", id: data.id, tiendaId: data.tienda_id };
+  }
+  return null;
+}
+
+export async function marcarLlegadaTienda(
+  rutaActivaId: string | null,
+  reporteId: string | null,
+  lat: number,
+  lng: number,
+  fotoBase64: string
+): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
+  if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar la llegada." };
+
+  const supabase = supabaseServer();
+  const contexto = await obtenerContextoTienda(supabase, sesion.id, rutaActivaId, reporteId);
+  if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
+
+  const hora = horaPeru();
+  const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
+  const fotoBlob = `${sesion.id}/${contexto.tiendaId}-llegada-${Date.now()}.jpg`;
+
+  try {
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de llegada:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
+
+  const { error } = await supabase
+    .from(contexto.tabla)
+    .update({ hora_llegada: hora, ubicacion_llegada: ubicacion, foto_llegada_blob: fotoBlob })
+    .eq("id", contexto.id);
+
+  if (error) return { exito: false, mensaje: "No se pudo registrar la llegada." };
+  return { exito: true, mensaje: "Llegada registrada con foto." };
+}
+
+export async function marcarSalidaTienda(
+  rutaActivaId: string | null,
+  reporteId: string | null,
+  lat: number,
+  lng: number,
+  fotoBase64: string
+): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
+  if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar la salida." };
+
+  const supabase = supabaseServer();
+  const contexto = await obtenerContextoTienda(supabase, sesion.id, rutaActivaId, reporteId);
+  if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
+
+  const hora = horaPeru();
+  const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
+  const fotoBlob = `${sesion.id}/${contexto.tiendaId}-salida-${Date.now()}.jpg`;
+
+  try {
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de salida:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
+
+  const { error } = await supabase
+    .from(contexto.tabla)
+    .update({ hora_salida: hora, ubicacion_salida: ubicacion, foto_salida_blob: fotoBlob })
+    .eq("id", contexto.id);
+
+  if (error) return { exito: false, mensaje: "No se pudo registrar la salida." };
+  return { exito: true, mensaje: "Salida registrada con foto." };
 }
 
 export type MiReporte = {

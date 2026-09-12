@@ -294,6 +294,23 @@ export default function AsignarRutas() {
                       {r.clima.avisoTexto ? ` — ⚠️ ${r.clima.avisoTexto}` : ""}
                     </p>
                   )}
+                  {(r.horaLlegadaTienda || r.horaSalidaTienda) && (
+                    <p className="text-[11px] mt-1">
+                      <span className="text-marca-tenue">En la tienda — Llegada:</span>{" "}
+                      <Marcacion
+                        hora={r.horaLlegadaTienda}
+                        ubicacion={r.ubicacionLlegadaTienda}
+                        fotoUrl={r.fotoLlegadaTiendaUrl}
+                      />
+                      <span className="text-marca-tenue mx-2">·</span>
+                      <span className="text-marca-tenue">Salida:</span>{" "}
+                      <Marcacion
+                        hora={r.horaSalidaTienda}
+                        ubicacion={r.ubicacionSalidaTienda}
+                        fotoUrl={r.fotoSalidaTiendaUrl}
+                      />
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => handleEliminar(r.id)}

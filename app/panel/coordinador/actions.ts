@@ -111,6 +111,14 @@ export type RutaActiva = {
   fotoSalidaUrl: string | null;
   clima: ResumenClimaDia | null;
   autoasignada: boolean;
+  // Marcación de llegada/salida a ESTA tienda en particular (distinta de la
+  // asistencia general del día, arriba).
+  horaLlegadaTienda: string | null;
+  ubicacionLlegadaTienda: string | null;
+  fotoLlegadaTiendaUrl: string | null;
+  horaSalidaTienda: string | null;
+  ubicacionSalidaTienda: string | null;
+  fotoSalidaTiendaUrl: string | null;
 };
 
 export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
@@ -122,7 +130,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   const { data, error } = await supabase
     .from("rutas_activas")
     .select(
-      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre, lat, lon)"
+      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, usuarios(nombre), tiendas(nombre, lat, lon)"
     )
     .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
@@ -182,33 +190,45 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
     })
   );
 
-  return filas.map((r: any) => {
-    const marcacion = mapaMarcaciones.get(r.usuario_id + "|" + r.fecha_planificada);
-    const lat = r.tiendas?.lat;
-    const lon = r.tiendas?.lon;
-    const climaMapa =
-      lat !== null && lat !== undefined && lon !== null && lon !== undefined
-        ? climaPorUbicacion.get(`${lat},${lon}`)
-        : undefined;
-    return {
-      id: r.id,
-      fechaPlanificada: r.fecha_planificada,
-      area: r.area,
-      enfoque: r.enfoque,
-      usuarioId: r.usuario_id,
-      usuarioNombre: r.usuarios?.nombre ?? "—",
-      tiendaId: r.tienda_id,
-      tiendaNombre: r.tiendas?.nombre ?? "—",
-      horaIngreso: marcacion?.hora_ingreso ?? null,
-      ubicacionIngreso: marcacion?.ubicacion_ingreso ?? null,
-      horaSalida: marcacion?.hora_salida ?? null,
-      ubicacionSalida: marcacion?.ubicacion_salida ?? null,
-      fotoIngresoUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.ingreso ?? null,
-      fotoSalidaUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.salida ?? null,
-      clima: climaMapa?.get(r.fecha_planificada) ?? null,
-      autoasignada: !!r.autoasignada,
-    };
-  });
+  return Promise.all(
+    filas.map(async (r: any) => {
+      const marcacion = mapaMarcaciones.get(r.usuario_id + "|" + r.fecha_planificada);
+      const lat = r.tiendas?.lat;
+      const lon = r.tiendas?.lon;
+      const climaMapa =
+        lat !== null && lat !== undefined && lon !== null && lon !== undefined
+          ? climaPorUbicacion.get(`${lat},${lon}`)
+          : undefined;
+      const [fotoLlegadaTiendaUrl, fotoSalidaTiendaUrl] = await Promise.all([
+        obtenerUrlTemporalFoto(r.foto_llegada_blob),
+        obtenerUrlTemporalFoto(r.foto_salida_blob),
+      ]);
+      return {
+        id: r.id,
+        fechaPlanificada: r.fecha_planificada,
+        area: r.area,
+        enfoque: r.enfoque,
+        usuarioId: r.usuario_id,
+        usuarioNombre: r.usuarios?.nombre ?? "—",
+        tiendaId: r.tienda_id,
+        tiendaNombre: r.tiendas?.nombre ?? "—",
+        horaIngreso: marcacion?.hora_ingreso ?? null,
+        ubicacionIngreso: marcacion?.ubicacion_ingreso ?? null,
+        horaSalida: marcacion?.hora_salida ?? null,
+        ubicacionSalida: marcacion?.ubicacion_salida ?? null,
+        fotoIngresoUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.ingreso ?? null,
+        fotoSalidaUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.salida ?? null,
+        clima: climaMapa?.get(r.fecha_planificada) ?? null,
+        autoasignada: !!r.autoasignada,
+        horaLlegadaTienda: r.hora_llegada ?? null,
+        ubicacionLlegadaTienda: r.ubicacion_llegada ?? null,
+        fotoLlegadaTiendaUrl,
+        horaSalidaTienda: r.hora_salida ?? null,
+        ubicacionSalidaTienda: r.ubicacion_salida ?? null,
+        fotoSalidaTiendaUrl,
+      };
+    })
+  );
 }
 
 export type ResultadoAccion = { exito: boolean; mensaje?: string };

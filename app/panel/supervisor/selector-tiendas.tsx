@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import {
   obtenerTiendasClasificadas,
@@ -8,11 +8,13 @@ import {
   editarReporte,
   obtenerTodasLasTiendas,
   autoasignarTienda,
+  marcarLlegadaTienda,
+  marcarSalidaTienda,
   type TiendaClasificada,
   type ResultadoReporte,
   type TiendaBasicaBitacora,
 } from "./actions";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -150,6 +152,157 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
   );
 }
 
+function leerFotoComoBase64(archivo: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(lector.result as string);
+    lector.onerror = () => reject(new Error("No se pudo leer la foto tomada."));
+    lector.readAsDataURL(archivo);
+  });
+}
+
+function obtenerUbicacionActual(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Tu navegador no soporta ubicación."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (posicion) => resolve({ lat: posicion.coords.latitude, lng: posicion.coords.longitude }),
+      () => reject(new Error("No se pudo obtener tu ubicación. Revisa los permisos del navegador.")),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
+
+// Marcación de llegada/salida a UNA tienda en particular (con foto y
+// ubicación) — para cuando el día tiene varias rutas asignadas y hace falta
+// dejar constancia de cada visita por separado, no solo el ingreso/salida
+// general del día.
+function MarcadoVisitaTienda({
+  tienda,
+  onMarcado,
+}: {
+  tienda: TiendaClasificada;
+  onMarcado: () => void;
+}) {
+  const [procesando, setProcesando] = useState(false);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  const inputLlegada = useRef<HTMLInputElement>(null);
+  const inputSalida = useRef<HTMLInputElement>(null);
+
+  async function handleFotoLlegada(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    setProcesando(true);
+    setMensaje(null);
+    try {
+      const [foto, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacionActual()]);
+      const resultado = await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
+      if (resultado.exito) onMarcado();
+      else setMensaje(resultado.mensaje || "No se pudo registrar la llegada.");
+    } catch (err: any) {
+      setMensaje(err?.message || "Ocurrió un error.");
+    } finally {
+      setProcesando(false);
+    }
+  }
+
+  async function handleFotoSalida(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    setProcesando(true);
+    setMensaje(null);
+    try {
+      const [foto, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacionActual()]);
+      const resultado = await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
+      if (resultado.exito) onMarcado();
+      else setMensaje(resultado.mensaje || "No se pudo registrar la salida.");
+    } catch (err: any) {
+      setMensaje(err?.message || "Ocurrió un error.");
+    } finally {
+      setProcesando(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 pt-2 border-t border-marca-borde/60 space-y-1">
+      <input ref={inputLlegada} type="file" accept="image/*" capture="user" className="hidden" onChange={handleFotoLlegada} />
+      <input ref={inputSalida} type="file" accept="image/*" capture="user" className="hidden" onChange={handleFotoSalida} />
+
+      {tienda.horaLlegada ? (
+        <p className="text-[10.5px] text-marca-tenue">
+          📍 Llegada:{" "}
+          {tienda.ubicacionLlegada ? (
+            <a
+              href={tienda.ubicacionLlegada}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-marca-texto font-bold underline"
+            >
+              {formatearHora(tienda.horaLlegada)}
+            </a>
+          ) : (
+            <span className="text-marca-texto font-bold">{formatearHora(tienda.horaLlegada)}</span>
+          )}
+          {tienda.fotoLlegadaUrl && (
+            <a href={tienda.fotoLlegadaUrl} target="_blank" rel="noopener noreferrer" className="ml-1">
+              📷
+            </a>
+          )}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputLlegada.current?.click()}
+          disabled={procesando}
+          className="text-marca-rojoclaro text-[10.5px] font-black uppercase tracking-wide hover:text-marca-rojo disabled:opacity-50 transition"
+        >
+          {procesando ? "..." : "📷 Marcar llegada a esta tienda"}
+        </button>
+      )}
+
+      {tienda.horaLlegada && !tienda.horaSalidaTienda && (
+        <button
+          type="button"
+          onClick={() => inputSalida.current?.click()}
+          disabled={procesando}
+          className="block text-marca-rojoclaro text-[10.5px] font-black uppercase tracking-wide hover:text-marca-rojo disabled:opacity-50 transition"
+        >
+          {procesando ? "..." : "📷 Marcar salida de la tienda"}
+        </button>
+      )}
+
+      {tienda.horaSalidaTienda && (
+        <p className="text-[10.5px] text-marca-tenue">
+          🚪 Salida:{" "}
+          {tienda.ubicacionSalidaTienda ? (
+            <a
+              href={tienda.ubicacionSalidaTienda}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-marca-texto font-bold underline"
+            >
+              {formatearHora(tienda.horaSalidaTienda)}
+            </a>
+          ) : (
+            <span className="text-marca-texto font-bold">{formatearHora(tienda.horaSalidaTienda)}</span>
+          )}
+          {tienda.fotoSalidaTiendaUrl && (
+            <a href={tienda.fotoSalidaTiendaUrl} target="_blank" rel="noopener noreferrer" className="ml-1">
+              📷
+            </a>
+          )}
+        </p>
+      )}
+
+      {mensaje && <p className="text-marca-rojoclaro text-[10px] font-bold">{mensaje}</p>}
+    </div>
+  );
+}
+
 export default function SelectorTiendas({
   supervisorNombre,
   mostrarDescansoFijo = true,
@@ -254,59 +407,66 @@ export default function SelectorTiendas({
               {grupo.items.map((tienda) => {
                 const estaSeleccionada = seleccionada?.id === tienda.id;
                 return (
-                  <button
+                  <div
                     key={tienda.id}
-                    onClick={() => {
-                      setSeleccionada(tienda);
-                      setObservacion(tienda.observacionActual);
-                      setActividad(tienda.actividadActual);
-                    }}
-                    className={`text-left rounded-[3px] border-2 p-4 transition hover:brightness-125 ${estilo.borde} ${estilo.fondo} ${
+                    className={`rounded-[3px] border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
                       estaSeleccionada ? "ring-2 ring-marca-rojo" : ""
                     }`}
                   >
-                    <p className="font-black text-marca-textofuerte">{tienda.tiendaNombre}</p>
-                    <p className="text-[11px] text-marca-tenue capitalize mt-1">
-                      {formatearFechaLegible(tienda.fechaPlanificada)}
-                    </p>
-                    {tienda.autoasignada && (
-                      <p className="text-[10.5px] text-marca-rojoclaro font-bold mt-1">⚡ Auto-asignada</p>
-                    )}
-                    {tienda.area && (
-                      <p className="text-[11px] text-marca-tenue mt-1">
-                        {tienda.area}
-                        {tienda.enfoque ? ` · ${tienda.enfoque}` : ""}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSeleccionada(tienda);
+                        setObservacion(tienda.observacionActual);
+                        setActividad(tienda.actividadActual);
+                      }}
+                      className="w-full text-left hover:brightness-125 transition"
+                    >
+                      <p className="font-black text-marca-textofuerte">{tienda.tiendaNombre}</p>
+                      <p className="text-[11px] text-marca-tenue capitalize mt-1">
+                        {formatearFechaLegible(tienda.fechaPlanificada)}
                       </p>
-                    )}
-                    {tienda.clima && (
-                      <div
-                        className={`flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border ${
-                          tienda.clima.riesgo
-                            ? "bg-amber-950/25 border-amber-500/40"
-                            : "bg-marca-fondo/60 border-marca-borde"
-                        }`}
-                      >
-                        <span className="text-base leading-none">{tienda.clima.icono}</span>
-                        <div className="min-w-0">
-                          <p
-                            className={`text-[10.5px] font-bold truncate ${
-                              tienda.clima.riesgo ? "text-amber-400" : "text-marca-texto"
-                            }`}
-                          >
-                            {tienda.clima.descripcion} · {tienda.clima.tempMax}°/{tienda.clima.tempMin}°
-                          </p>
-                          {tienda.clima.avisoTexto && (
-                            <p className="text-[10px] text-amber-400/90">{tienda.clima.avisoTexto}</p>
-                          )}
+                      {tienda.autoasignada && (
+                        <p className="text-[10.5px] text-marca-rojoclaro font-bold mt-1">⚡ Auto-asignada</p>
+                      )}
+                      {tienda.area && (
+                        <p className="text-[11px] text-marca-tenue mt-1">
+                          {tienda.area}
+                          {tienda.enfoque ? ` · ${tienda.enfoque}` : ""}
+                        </p>
+                      )}
+                      {tienda.clima && (
+                        <div
+                          className={`flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border ${
+                            tienda.clima.riesgo
+                              ? "bg-amber-950/25 border-amber-500/40"
+                              : "bg-marca-fondo/60 border-marca-borde"
+                          }`}
+                        >
+                          <span className="text-base leading-none">{tienda.clima.icono}</span>
+                          <div className="min-w-0">
+                            <p
+                              className={`text-[10.5px] font-bold truncate ${
+                                tienda.clima.riesgo ? "text-amber-400" : "text-marca-texto"
+                              }`}
+                            >
+                              {tienda.clima.descripcion} · {tienda.clima.tempMax}°/{tienda.clima.tempMin}°
+                            </p>
+                            {tienda.clima.avisoTexto && (
+                              <p className="text-[10px] text-amber-400/90">{tienda.clima.avisoTexto}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {tienda.reporteId && (
-                      <p className="text-[11px] text-emerald-400 font-bold mt-2">
-                        ✅ Reportado — toca para editar
-                      </p>
-                    )}
-                  </button>
+                      )}
+                      {tienda.reporteId && (
+                        <p className="text-[11px] text-emerald-400 font-bold mt-2">
+                          ✅ Reportado — toca para editar
+                        </p>
+                      )}
+                    </button>
+
+                    <MarcadoVisitaTienda tienda={tienda} onMarcado={cargar} />
+                  </div>
                 );
               })}
             </div>
