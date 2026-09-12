@@ -22,9 +22,10 @@ import {
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import ResumenDelDia from "../resumen-del-dia";
 import { hoyPeru } from "@/lib/fechas";
 
-export default function PanelTabs({ nombre }: { nombre: string }) {
+export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string }) {
   const items: ItemMenuPanel[] = [
     { id: "rutas", etiqueta: "Rutas", icono: "🚚", contenido: <AsignarRutas /> },
     {
@@ -69,15 +70,21 @@ export default function PanelTabs({ nombre }: { nombre: string }) {
   ];
 
   return (
-    <div className="space-y-4">
-      <PerfilBanner />
-      <PanelShell
-        nombre={nombre}
-        tituloPortal="Coordinador"
-        items={items}
-        defaultId="rutas"
-        accionesExtra={<CampanitaDescansos />}
-      />
-    </div>
+    <PanelShell
+      nombre={nombre}
+      tituloPortal="Coordinador"
+      items={items}
+      defaultId="rutas"
+      accionesExtra={<CampanitaDescansos />}
+      encabezado={
+        <div className="space-y-4 mb-4">
+          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
+            Central <span className="text-marca-rojoclaro italic">Coordinación</span>
+          </h1>
+          <ResumenDelDia nombre={nombre} rol={rol} />
+          <PerfilBanner />
+        </div>
+      }
+    />
   );
 }

@@ -118,14 +118,19 @@ export default async function PanelSupervisor() {
   }
 
   return (
-    <main className="min-h-screen bg-marca-fondo text-marca-texto p-4 sm:p-6 font-body">
-      <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
-        Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
-      </h1>
-
-      <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
-
-      <PanelShell nombre={sesion.nombre} tituloPortal="Supervisor" items={items} defaultId="inicio" />
-    </main>
+    <PanelShell
+      nombre={sesion.nombre}
+      tituloPortal="Supervisor"
+      items={items}
+      defaultId="inicio"
+      encabezado={
+        <>
+          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+            Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
+          </h1>
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
+        </>
+      }
+    />
   );
 }

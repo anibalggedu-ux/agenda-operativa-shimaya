@@ -70,14 +70,19 @@ export default async function PanelGerente() {
   }
 
   return (
-    <main className="min-h-screen bg-marca-fondo text-marca-texto p-4 sm:p-6 font-body">
-      <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
-        Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
-      </h1>
-
-      <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
-
-      <PanelShell nombre={sesion.nombre} tituloPortal="Gerente" items={items} defaultId="inicio" />
-    </main>
+    <PanelShell
+      nombre={sesion.nombre}
+      tituloPortal="Gerente"
+      items={items}
+      defaultId="inicio"
+      encabezado={
+        <>
+          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+            Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
+          </h1>
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
+        </>
+      }
+    />
   );
 }
