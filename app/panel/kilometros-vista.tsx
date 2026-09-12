@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerResumenKilometros, type ResumenKilometros } from "./kilometros-actions";
-
-function formatearMinutos(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m} min`;
-  return `${h}h ${m}min`;
-}
+import { formatearMinutos } from "@/lib/distancia";
 
 export default function KilometrosVista({
   desde,

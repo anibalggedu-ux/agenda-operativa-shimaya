@@ -20,6 +20,7 @@ import {
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { enviarCorreo, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
+import { calcularRutaAuto, formatearMinutos } from "@/lib/distancia";
 import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 async function exigirCoordinador() {
@@ -265,12 +266,44 @@ export async function asignarRuta(
   if (error) return { exito: false, mensaje: "No se pudo asignar la ruta." };
 
   await notificarPorCorreo(async () => {
-    const [contacto, { data: tienda }, responderA] = await Promise.all([
+    const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
       obtenerContacto(supabase, usuarioId),
-      supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
+      supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
+      supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
       obtenerReplyTo(supabase, sesion),
     ]);
     if (!contacto?.email) return;
+
+    const tiendaLat = tienda?.lat === null || tienda?.lat === undefined ? null : Number(tienda.lat);
+    const tiendaLon = tienda?.lon === null || tienda?.lon === undefined ? null : Number(tienda.lon);
+
+    let climaHtml = "";
+    if (tiendaLat !== null && tiendaLon !== null) {
+      const diario = await obtenerClimaDiario(tiendaLat, tiendaLon);
+      const dia = diario.get(fechaPlanificada);
+      if (dia) {
+        const resumen = resumirClimaDia(dia);
+        climaHtml = `<li><strong>Clima previsto:</strong> ${resumen.icono} ${resumen.descripcion} · ${resumen.tempMax}°/${resumen.tempMin}°${
+          resumen.avisoTexto ? ` — ⚠️ ${resumen.avisoTexto}` : ""
+        }</li>`;
+      }
+    }
+
+    let distanciaHtml = "";
+    const colabLat = colaborador?.lat === null || colaborador?.lat === undefined ? null : Number(colaborador.lat);
+    const colabLon = colaborador?.lon === null || colaborador?.lon === undefined ? null : Number(colaborador.lon);
+    if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
+      const ruta = await calcularRutaAuto(colabLat, colabLon, tiendaLat, tiendaLon);
+      if (ruta) {
+        distanciaHtml = `<li><strong>Distancia desde tu domicilio:</strong> ${ruta.km} km (~${formatearMinutos(
+          ruta.minutos
+        )} en auto)</li>`;
+      }
+    }
+
+    const direccionHtml = tienda?.direccion
+      ? `<li><strong>Dirección:</strong> ${tienda.direccion}</li>`
+      : "";
 
     await enviarCorreo({
       para: contacto.email,
@@ -285,6 +318,9 @@ export async function asignarRuta(
           <li><strong>Fecha:</strong> ${formatearFechaLegible(fechaPlanificada)}</li>
           ${area ? `<li><strong>Área:</strong> ${area}</li>` : ""}
           ${enfoque ? `<li><strong>Enfoque:</strong> ${enfoque}</li>` : ""}
+          ${direccionHtml}
+          ${climaHtml}
+          ${distanciaHtml}
         </ul>
         <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
       `,

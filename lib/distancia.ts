@@ -28,6 +28,13 @@ export async function calcularRutaAuto(
   }
 }
 
+export function formatearMinutos(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m} min`;
+  return `${h}h ${m}min`;
+}
+
 // Ejecuta las llamadas en lotes pequeños en vez de todas a la vez, por
 // consideración con el servidor público gratuito de OSRM.
 export async function calcularRutasEnLotes<T>(
