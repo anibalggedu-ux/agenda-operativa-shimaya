@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
-import { hoyPeru, calcularAntiguedad, diasEntreFechas } from "@/lib/fechas";
+import { hoyPeru, calcularAntiguedad, diasEntreFechas, sumarDias, formatearFechaCorta } from "@/lib/fechas";
 
 async function exigirSesion() {
   const sesion = await obtenerSesion();
@@ -480,6 +480,154 @@ export async function obtenerHistorialTiendaAnalitica(
       rol: p.usuarios?.rol ?? "—",
     })),
   };
+}
+
+// ---------- Tendencias por tienda (heatmap + detalle semanal) ----------
+
+export type SemanaTendencia = { inicio: string; etiqueta: string };
+
+export type PuntoSemanalTienda = {
+  visitas: number;
+  puntualidadPct: number | null; // null = sin asistencia registrada esa semana
+  reportadoPct: number | null; // null = sin visitas esa semana
+  tardanzas: number;
+};
+
+export type TendenciaTienda = {
+  tiendaId: string;
+  tiendaNombre: string;
+  totalVisitas: number;
+  porSemana: PuntoSemanalTienda[];
+};
+
+export type TendenciasTiendas = {
+  semanas: SemanaTendencia[];
+  tiendas: TendenciaTienda[];
+};
+
+const MAX_SEMANAS_TENDENCIA = 12;
+const MAX_TIENDAS_TENDENCIA = 15;
+
+function lunesDe(fechaISO: string): string {
+  const partes = fechaISO.split("-").map(Number);
+  const fecha = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2]));
+  const diaSemana = fecha.getUTCDay(); // 0 = domingo ... 6 = sabado
+  const offset = diaSemana === 0 ? -6 : 1 - diaSemana;
+  fecha.setUTCDate(fecha.getUTCDate() + offset);
+  return fecha.toISOString().slice(0, 10);
+}
+
+export async function obtenerTendenciasTiendas(
+  desde: string,
+  hasta: string
+): Promise<TendenciasTiendas> {
+  await exigirSesion();
+  const supabase = supabaseServer();
+
+  let cursores: string[] = [];
+  let cursor = lunesDe(desde);
+  const ultimoLunes = lunesDe(hasta);
+  while (cursor <= ultimoLunes) {
+    cursores.push(cursor);
+    cursor = sumarDias(cursor, 7);
+  }
+  if (cursores.length === 0) cursores = [lunesDe(hasta)];
+  if (cursores.length > MAX_SEMANAS_TENDENCIA) {
+    cursores = cursores.slice(cursores.length - MAX_SEMANAS_TENDENCIA);
+  }
+
+  const semanas: SemanaTendencia[] = cursores.map((inicio) => ({
+    inicio,
+    etiqueta: formatearFechaCorta(inicio),
+  }));
+
+  const desdeReal = semanas[0].inicio;
+  const hastaReal = sumarDias(semanas[semanas.length - 1].inicio, 6);
+
+  const [{ data: tiendas, error: errorTiendas }, visitas, { data: asistencia, error: errorAsistencia }] =
+    await Promise.all([
+      supabase.from("tiendas").select("id, nombre").order("nombre"),
+      obtenerVisitasEnRangoAnalitica(desdeReal, hastaReal),
+      supabase
+        .from("asistencia")
+        .select("usuario_id, fecha, hora_ingreso")
+        .gte("fecha", desdeReal)
+        .lte("fecha", hastaReal),
+    ]);
+
+  if (errorTiendas || errorAsistencia) {
+    throw new Error("No se pudo cargar las tendencias por tienda.");
+  }
+
+  const horaIngresoPorClave = new Map<string, string | null>();
+  (asistencia ?? []).forEach((a: any) => {
+    horaIngresoPorClave.set(`${a.usuario_id}|${a.fecha}`, a.hora_ingreso);
+  });
+
+  function esTarde(usuarioId: string, fecha: string, rol: string): boolean | null {
+    const limite = HORA_LIMITE_POR_ROL[rol];
+    if (!limite) return null;
+    const horaIngreso = horaIngresoPorClave.get(`${usuarioId}|${fecha}`);
+    if (!horaIngreso) return null;
+    return horaIngreso > limite;
+  }
+
+  function semanaIndexPara(fecha: string): number {
+    const lunes = lunesDe(fecha);
+    return semanas.findIndex((s) => s.inicio === lunes);
+  }
+
+  type Acumulado = { visitas: number; conAsistencia: number; puntuales: number; reportadas: number; tarde: number };
+  const acumPorTiendaSemana = new Map<string, Acumulado[]>();
+  const totalVisitasPorTienda = new Map<string, number>();
+
+  (tiendas ?? []).forEach((t: any) => {
+    acumPorTiendaSemana.set(
+      t.id,
+      semanas.map(() => ({ visitas: 0, conAsistencia: 0, puntuales: 0, reportadas: 0, tarde: 0 }))
+    );
+    totalVisitasPorTienda.set(t.id, 0);
+  });
+
+  visitas.forEach((v) => {
+    const idx = semanaIndexPara(v.fecha);
+    if (idx < 0) return;
+    const acumSemanas = acumPorTiendaSemana.get(v.tiendaId);
+    if (!acumSemanas) return;
+    const acc = acumSemanas[idx];
+    acc.visitas += 1;
+    if (v.tieneObservacion) acc.reportadas += 1;
+    const tarde = esTarde(v.usuarioId, v.fecha, v.rol);
+    if (tarde !== null) {
+      acc.conAsistencia += 1;
+      if (tarde) acc.tarde += 1;
+      else acc.puntuales += 1;
+    }
+    totalVisitasPorTienda.set(v.tiendaId, (totalVisitasPorTienda.get(v.tiendaId) ?? 0) + 1);
+  });
+
+  const tiendasOrdenadas = (tiendas ?? [])
+    .map((t: any) => ({ id: t.id as string, nombre: t.nombre as string, total: totalVisitasPorTienda.get(t.id) ?? 0 }))
+    .filter((t) => t.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, MAX_TIENDAS_TENDENCIA);
+
+  const tiendasResultado: TendenciaTienda[] = tiendasOrdenadas.map((t) => {
+    const acumSemanas = acumPorTiendaSemana.get(t.id)!;
+    return {
+      tiendaId: t.id,
+      tiendaNombre: t.nombre,
+      totalVisitas: t.total,
+      porSemana: acumSemanas.map((acc) => ({
+        visitas: acc.visitas,
+        puntualidadPct: acc.conAsistencia > 0 ? Math.round((acc.puntuales / acc.conAsistencia) * 100) : null,
+        reportadoPct: acc.visitas > 0 ? Math.round((acc.reportadas / acc.visitas) * 100) : null,
+        tardanzas: acc.tarde,
+      })),
+    };
+  });
+
+  return { semanas, tiendas: tiendasResultado };
 }
 
 function formatearDuracion(desdeISO: string, hastaISO: string): string {

@@ -23,6 +23,7 @@ import ReporteTienda from "./reporte-tienda";
 import RankingPorRol from "./ranking-por-rol";
 import DashboardTiendasVista from "./dashboard-tiendas";
 import KilometrosVista from "../kilometros-vista";
+import TendenciasTiendas from "./tendencias-tiendas";
 
 const COLOR_EJE = "#8b8d92";
 const COLOR_GRILLA = "#2a2c31";
@@ -401,6 +402,17 @@ export default function CentralAnalitica() {
                 </h3>
                 <DashboardTiendasVista desde={desde} hasta={hasta} />
               </div>
+
+              <section className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+                  📈 TENDENCIAS POR TIENDA
+                </h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Panorama semana a semana en vez de solo el estado de hoy — detecta patrones antes
+                  de que se conviertan en un problema.
+                </p>
+                <TendenciasTiendas desde={desde} hasta={hasta} />
+              </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
                 <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">

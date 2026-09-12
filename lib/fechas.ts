@@ -24,6 +24,15 @@ export function sumarDias(fechaISO: string, dias: number): string {
   return fecha.toISOString().slice(0, 10);
 }
 
+// Etiqueta corta para ejes de gráfico ("20 Jul") — distinto de
+// formatearFechaLegible (que da la fecha completa en prosa).
+export function formatearFechaCorta(fechaISO: string): string {
+  const partes = fechaISO.split("-").map(Number);
+  const fecha = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2]));
+  const texto = fecha.toLocaleDateString("es-PE", { day: "numeric", month: "short", timeZone: "UTC" });
+  return texto.replace(".", "").replace(/^(\d+) (\w)/, (_m, d, l) => `${d} ${l.toUpperCase()}`);
+}
+
 export function formatearFechaLegible(fechaISO: string): string {
   const partes = fechaISO.split("-").map(Number);
   const y = partes[0];
