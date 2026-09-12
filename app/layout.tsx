@@ -37,6 +37,14 @@ export default function RootLayout({
       lang="es"
       className={`${fuenteDisplay.variable} ${fuenteBody.variable} ${fuenteData.variable}`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('shimaya-tema');if(t==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();",
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cerrarSesionAction } from "./logout-action";
+import ThemeToggle from "./theme-toggle";
 
 export type ItemMenuPanel = {
   id: string;
@@ -115,6 +116,7 @@ export default function PanelShell({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {accionesExtra}
+            <ThemeToggle />
             <form action={cerrarSesionAction}>
               <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-3 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
                 Cerrar sesión

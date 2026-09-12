@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Rojo de marca — igual en ambos temas, es la identidad "negro/blanco/rojo". */
+  --marca-rojo: 211 30 43;
+  --marca-rojoclaro: 226 55 68;
+  --marca-rojooscuro: 166 18 29;
+
+  /* Tema oscuro (el que ya existía) — por defecto. */
+  --marca-fondo: 13 14 16;
+  --marca-superficie: 24 25 29;
+  --marca-superficie2: 31 32 37;
+  --marca-borde: 42 44 49;
+  --marca-texto: 241 238 230;
+  --marca-textofuerte: 247 245 242;
+  --marca-tenue: 139 141 146;
+}
+
+:root[data-theme="light"] {
+  --marca-fondo: 245 243 239;
+  --marca-superficie: 255 255 255;
+  --marca-superficie2: 238 236 231;
+  --marca-borde: 217 214 207;
+  --marca-texto: 36 34 31;
+  --marca-textofuerte: 20 18 15;
+  --marca-tenue: 107 104 98;
+}
+
 body {
-  background-color: #07080c;
+  background-color: rgb(var(--marca-fondo));
 }

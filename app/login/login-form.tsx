@@ -24,7 +24,7 @@ export default function LoginForm() {
   return (
     <form
       action={formAction}
-      className="bg-gradient-to-b from-marca-superficie to-[#131417] border border-marca-rojo/30 rounded-[3px] p-8"
+      className="bg-gradient-to-b from-marca-superficie to-marca-fondo border border-marca-rojo/30 rounded-[3px] p-8"
     >
       <label className="block text-marca-tenue text-[10px] uppercase font-semibold mb-2 tracking-[0.08em] font-body">
         Credencial
