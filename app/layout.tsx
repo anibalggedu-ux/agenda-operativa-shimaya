@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Newsreader, Source_Sans_3, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -25,6 +25,15 @@ const fuenteData = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Agenda Operativa - Shimaya",
   description: "Sistema de gestión operativa Shimaya",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Shimaya",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#d31e2b",
 };
 
 export default function RootLayout({
