@@ -29,6 +29,7 @@ import {
 } from "./actions";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
 import SeccionColapsable from "../seccion-colapsable";
+import KilometrosVista from "../kilometros-vista";
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
@@ -840,6 +841,40 @@ function SeccionDireccionColaboradores() {
   );
 }
 
+function SeccionKilometros() {
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [hasta, setHasta] = useState(hoyPeru());
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
+          <input
+            type="date"
+            value={desde}
+            max={hasta}
+            onChange={(e) => setDesde(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
+          <input
+            type="date"
+            value={hasta}
+            min={desde}
+            max={hoyPeru()}
+            onChange={(e) => setHasta(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+      </div>
+      <KilometrosVista desde={desde} hasta={hasta} mostrarDetalle />
+    </div>
+  );
+}
+
 export default function MantenimientoDatos() {
   return (
     <div className="space-y-3">
@@ -890,6 +925,14 @@ export default function MantenimientoDatos() {
 
       <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
         <SeccionComunicados />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Kilómetros recorridos"
+        icono="🚗"
+        descripcion="Distancia y tiempo real por calles entre cada colaborador y las tiendas que visitó, por trayecto — útil para reembolsos de movilidad."
+      >
+        <SeccionKilometros />
       </SeccionColapsable>
     </div>
   );

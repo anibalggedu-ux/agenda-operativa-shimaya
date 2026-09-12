@@ -22,6 +22,7 @@ import TiendasTardanzas from "./tiendas-tardanzas";
 import ReporteTienda from "./reporte-tienda";
 import RankingPorRol from "./ranking-por-rol";
 import DashboardTiendasVista from "./dashboard-tiendas";
+import KilometrosVista from "../kilometros-vista";
 
 const COLOR_EJE = "#8b8d92";
 const COLOR_GRILLA = "#2a2c31";
@@ -451,6 +452,17 @@ export default function CentralAnalitica() {
                   sufijo="reporte(s)"
                   vacio="Sin reportes enviados en este rango."
                 />
+              </section>
+
+              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+                  🚗 KILÓMETROS RECORRIDOS
+                </h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Distancia real por calles (como en auto) entre la dirección de cada colaborador y
+                  las tiendas que visitó en el rango, según sus reportes enviados.
+                </p>
+                <KilometrosVista desde={desde} hasta={hasta} />
               </section>
             </div>
           )}
