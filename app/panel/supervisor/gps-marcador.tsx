@@ -8,17 +8,9 @@ import {
   marcarSalida,
 } from "./gps-actions";
 import { formatearHora, formatearFechaLegible } from "@/lib/fechas";
+import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
 type Coordenadas = { lat: number; lng: number };
-
-function leerFotoComoBase64(archivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const lector = new FileReader();
-    lector.onload = () => resolve(lector.result as string);
-    lector.onerror = () => reject(new Error("No se pudo leer la foto tomada."));
-    lector.readAsDataURL(archivo);
-  });
-}
 
 export default function GpsMarcador() {
   const [horaIngreso, setHoraIngreso] = useState<string | null>(null);
@@ -75,7 +67,7 @@ export default function GpsMarcador() {
     setProcesando(true);
     setMensaje(null);
     try {
-      const [fotoBase64, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacion()]);
+      const [fotoBase64, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacion()]);
       const resultado = await marcarIngreso(coords.lat, coords.lng, fotoBase64);
       if (resultado.exito) {
         setHoraIngreso(resultado.hora || null);
@@ -121,7 +113,7 @@ export default function GpsMarcador() {
     setProcesando(true);
     setMensaje(null);
     try {
-      const [fotoBase64, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacion()]);
+      const [fotoBase64, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacion()]);
       const resultado = await marcarSalida(coords.lat, coords.lng, fechaSalidaElegida, fotoBase64);
       if (resultado.exito) {
         setHoraSalida(resultado.hora || null);

@@ -15,6 +15,7 @@ import {
   type TiendaBasicaBitacora,
 } from "./actions";
 import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
+import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -152,15 +153,6 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
   );
 }
 
-function leerFotoComoBase64(archivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const lector = new FileReader();
-    lector.onload = () => resolve(lector.result as string);
-    lector.onerror = () => reject(new Error("No se pudo leer la foto tomada."));
-    lector.readAsDataURL(archivo);
-  });
-}
-
 function obtenerUbicacionActual(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -198,7 +190,7 @@ function MarcadoVisitaTienda({
     setProcesando(true);
     setMensaje(null);
     try {
-      const [foto, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacionActual()]);
+      const [foto, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacionActual()]);
       const resultado = await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
       if (resultado.exito) onMarcado();
       else setMensaje(resultado.mensaje || "No se pudo registrar la llegada.");
@@ -216,7 +208,7 @@ function MarcadoVisitaTienda({
     setProcesando(true);
     setMensaje(null);
     try {
-      const [foto, coords] = await Promise.all([leerFotoComoBase64(archivo), obtenerUbicacionActual()]);
+      const [foto, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacionActual()]);
       const resultado = await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
       if (resultado.exito) onMarcado();
       else setMensaje(resultado.mensaje || "No se pudo registrar la salida.");
