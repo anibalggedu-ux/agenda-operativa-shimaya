@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
+import { obtenerVisitasEnRangoAnalitica } from "./analitica/actions";
 
 async function exigirSesion() {
   const sesion = await obtenerSesion();
@@ -38,46 +39,40 @@ export async function obtenerResumenKilometros(desde: string, hasta: string): Pr
   await exigirSesion();
   const supabase = supabaseServer();
 
-  const [{ data: usuarios, error: errorUsuarios }, { data: visitas, error: errorVisitas }] = await Promise.all([
+  const [{ data: usuarios, error: errorUsuarios }, visitas, { data: tiendas, error: errorTiendas }] = await Promise.all([
     supabase.from("usuarios").select("id, nombre, rol, lat, lon").eq("activo", true),
-    supabase
-      .from("rutas_diarias")
-      .select("usuario_id, tienda_id, tiendas(nombre, lat, lon)")
-      .gte("fecha", desde)
-      .lte("fecha", hasta),
+    obtenerVisitasEnRangoAnalitica(desde, hasta),
+    supabase.from("tiendas").select("id, nombre, lat, lon"),
   ]);
 
-  if (errorUsuarios || errorVisitas) throw new Error("No se pudo cargar los datos de kilómetros.");
+  if (errorUsuarios || errorTiendas) throw new Error("No se pudo cargar los datos de kilómetros.");
 
   const mapaUsuarios = new Map((usuarios ?? []).map((u) => [u.id, u]));
+  const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
 
-  // Agrupa las visitas por usuario+tienda (la ruta entre esas dos
-  // direcciones es siempre la misma, solo cambia cuántas veces se repitió).
-  const conteos = new Map<string, { usuarioId: string; tiendaId: string; tiendaNombre: string; veces: number }>();
-  (visitas ?? []).forEach((v: any) => {
-    const clave = `${v.usuario_id}|${v.tienda_id}`;
+  // Cada visita ya viene deduplicada por usuario+tienda+fecha (mismo criterio
+  // que el resto del sistema: cuenta cada asignación, tenga o no observación
+  // escrita, y sin importar si fue asignada por el coordinador o
+  // auto-asignada). Se agrupan por usuario+tienda porque la ruta entre esas
+  // dos direcciones es siempre la misma — solo cambia cuántas veces se repitió.
+  const conteos = new Map<string, { usuarioId: string; tiendaId: string; veces: number }>();
+  visitas.forEach((v) => {
+    const clave = `${v.usuarioId}|${v.tiendaId}`;
     const actual = conteos.get(clave);
-    if (actual) {
-      actual.veces += 1;
-    } else {
-      conteos.set(clave, {
-        usuarioId: v.usuario_id,
-        tiendaId: v.tienda_id,
-        tiendaNombre: v.tiendas?.nombre ?? "—",
-        veces: 1,
-      });
-    }
+    if (actual) actual.veces += 1;
+    else conteos.set(clave, { usuarioId: v.usuarioId, tiendaId: v.tiendaId, veces: 1 });
   });
 
-  const pares = Array.from(conteos.values());
+  const pares = Array.from(conteos.values()).map((p) => ({
+    ...p,
+    tiendaNombre: mapaTiendas.get(p.tiendaId)?.nombre ?? "—",
+  }));
+
   const rutasPorClave = new Map<string, { km: number; minutos: number } | null>();
 
   await calcularRutasEnLotes(pares, async (par) => {
     const usuario = mapaUsuarios.get(par.usuarioId);
-    const visitaEjemplo = (visitas ?? []).find(
-      (v: any) => v.usuario_id === par.usuarioId && v.tienda_id === par.tiendaId
-    ) as any;
-    const tienda = visitaEjemplo?.tiendas;
+    const tienda = mapaTiendas.get(par.tiendaId);
 
     const clave = `${par.usuarioId}|${par.tiendaId}`;
     if (!usuario?.lat || !usuario?.lon || !tienda?.lat || !tienda?.lon) {

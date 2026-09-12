@@ -156,7 +156,7 @@ export async function obtenerRankingPuntualidad(
 // rutas_diarias, y asignaciones en rutas_activas que todavía no tienen un
 // reporte para ese mismo usuario+tienda+fecha.
 
-type VisitaAnalitica = {
+export type VisitaAnalitica = {
   fecha: string;
   tiendaId: string;
   usuarioId: string;
@@ -165,7 +165,7 @@ type VisitaAnalitica = {
   tieneObservacion: boolean;
 };
 
-async function obtenerVisitasEnRangoAnalitica(
+export async function obtenerVisitasEnRangoAnalitica(
   desde: string,
   hasta: string,
   tiendaId?: string
