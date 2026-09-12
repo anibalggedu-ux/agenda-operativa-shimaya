@@ -12,7 +12,8 @@ import {
 } from "./actions";
 import { DIAS_SEMANA } from "@/lib/fechas";
 import MantenimientoDatos from "./mantenimiento";
-import AuditoriaAdmin from "./auditoria-admin";
+import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
+import SeccionColapsable from "../seccion-colapsable";
 
 const ROLES = ["capacitador", "supervisor", "coordinador", "gerente"] as const;
 
@@ -40,13 +41,7 @@ function FormularioNuevoUsuario() {
   }, [estado]);
 
   return (
-    <form
-      ref={formRef}
-      action={formAction}
-      className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
-    >
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">NUEVO USUARIO</h3>
-
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div>
         <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
           Nombre y apellido
@@ -222,14 +217,7 @@ function GestionAccesos() {
   if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        PERSONAL Y ACCESO A REGISTRO
-      </h3>
-      <p className="text-marca-tenue text-[11px] mb-4">
-        Marca quién más puede registrar nuevos usuarios, o da de baja a quien ya no trabaje en la
-        empresa (no borra su historial, solo le impide iniciar sesión).
-      </p>
+    <>
       {errorEstado && <p className="text-marca-rojoclaro text-xs font-bold mb-3">{errorEstado}</p>}
       {usuarios.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No hay otros usuarios registrados.</p>
@@ -281,17 +269,44 @@ function GestionAccesos() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
 export default function Registro({ esCoordinador }: { esCoordinador: boolean }) {
   return (
-    <div className="space-y-6">
-      <FormularioNuevoUsuario />
-      <AuditoriaAdmin />
+    <div className="space-y-3">
+      <SeccionColapsable titulo="Nuevo usuario" icono="👤" descripcion="Registra un nuevo colaborador.">
+        <FormularioNuevoUsuario />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Acceso a auditorías"
+        icono="🔍"
+        descripcion="Activa o desactiva quién puede llenar una auditoría."
+      >
+        <AccesoAuditoria />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Plantilla del checklist de auditoría"
+        icono="🧾"
+        descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
+      >
+        <PlantillaAuditoria />
+      </SeccionColapsable>
+
       <MantenimientoDatos />
-      {esCoordinador && <GestionAccesos />}
+
+      {esCoordinador && (
+        <SeccionColapsable
+          titulo="Personal y acceso a Registro"
+          icono="👥"
+          descripcion="Quién más puede registrar usuarios, o dar de baja a alguien."
+        >
+          <GestionAccesos />
+        </SeccionColapsable>
+      )}
     </div>
   );
 }

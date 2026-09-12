@@ -28,6 +28,7 @@ import {
   type ColaboradorDireccion,
 } from "./actions";
 import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
+import SeccionColapsable from "../seccion-colapsable";
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
@@ -125,15 +126,7 @@ function SeccionAsistencia() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        ASISTENCIA (MARCACIONES GPS)
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-3">
-        Corrige la hora de ingreso/salida mal marcada, o elimina el registro completo si fue una
-        prueba.
-      </p>
-
+    <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
@@ -237,7 +230,7 @@ function SeccionAsistencia() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -311,14 +304,7 @@ function SeccionReportes() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        REPORTES DE BITÁCORA
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-3">
-        Corrige la observación/actividad de un reporte, o elimínalo si fue una prueba.
-      </p>
-
+    <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
@@ -414,7 +400,7 @@ function SeccionReportes() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -451,10 +437,7 @@ function SeccionAsignacionesEspeciales() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
-        ASIGNACIONES ESPECIALES
-      </h4>
+    <>
       {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
       {filas.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No hay asignaciones especiales registradas.</p>
@@ -482,7 +465,7 @@ function SeccionAsignacionesEspeciales() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -517,8 +500,7 @@ function SeccionComunicados() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">COMUNICADOS</h4>
+    <>
       {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
       {filas.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No hay comunicados publicados.</p>
@@ -545,7 +527,7 @@ function SeccionComunicados() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -684,17 +666,7 @@ function SeccionUbicacionTiendas() {
   const conUbicacion = tiendas.filter((t) => t.lat !== null);
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        ⛅ UBICACIÓN DE TIENDAS (CLIMA)
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-3">
-        Escribe la dirección exacta y toca "Buscar" para ubicarla automáticamente. Si no la
-        encuentra, puedes ingresar la latitud/longitud manualmente (búscalas en Google Maps: clic
-        derecho sobre el punto → copiar coordenadas). Mientras una tienda no tenga ubicación, no se
-        muestra clima para ella — no afecta nada más.
-      </p>
-
+    <>
       <NuevaTienda onCreada={cargar} />
 
       {sinUbicacion.length > 0 && (
@@ -778,7 +750,7 @@ function SeccionUbicacionTiendas() {
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -826,15 +798,7 @@ function SeccionDireccionColaboradores() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        🏠 DIRECCIÓN DE COLABORADORES
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-3">
-        Guarda la dirección de vivienda de cada colaborador. Por ahora solo se almacena (para
-        usarla a futuro en un contador de kilómetros entre su domicilio y la tienda asignada); no
-        afecta ningún cálculo todavía.
-      </p>
+    <>
       {errores._global && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{errores._global}</p>}
 
       <div className="space-y-2">
@@ -872,28 +836,61 @@ function SeccionDireccionColaboradores() {
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 }
 
 export default function MantenimientoDatos() {
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-          🛠 MANTENIMIENTO DE DATOS
-        </h3>
-        <p className="text-marca-tenue text-[11px]">
-          Corrige marcaciones mal registradas o elimina información cargada de prueba. Estas
-          acciones no se pueden deshacer.
-        </p>
-      </div>
-      <SeccionUbicacionTiendas />
-      <SeccionDireccionColaboradores />
-      <SeccionAsistencia />
-      <SeccionReportes />
-      <SeccionAsignacionesEspeciales />
-      <SeccionComunicados />
+    <div className="space-y-3">
+      <p className="text-marca-tenue text-[11px]">
+        🛠 Mantenimiento de datos — corrige información mal registrada o elimina lo que fue de
+        prueba. Toca una sección para abrirla.
+      </p>
+
+      <SeccionColapsable
+        titulo="Ubicación de tiendas (clima)"
+        icono="⛅"
+        descripcion="Dirección/coordenadas por tienda para que aparezca el pronóstico del clima."
+      >
+        <SeccionUbicacionTiendas />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Dirección de colaboradores"
+        icono="🏠"
+        descripcion="Dirección de vivienda de cada colaborador, para el futuro contador de kilómetros."
+      >
+        <SeccionDireccionColaboradores />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Asistencia (marcaciones GPS)"
+        icono="⏱"
+        descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
+      >
+        <SeccionAsistencia />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Reportes de bitácora"
+        icono="📝"
+        descripcion="Corrige la observación/actividad de un reporte, o elimínalo."
+      >
+        <SeccionReportes />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Asignaciones especiales"
+        icono="🌴"
+        descripcion="Elimina asignaciones especiales cargadas de prueba."
+      >
+        <SeccionAsignacionesEspeciales />
+      </SeccionColapsable>
+
+      <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
+        <SeccionComunicados />
+      </SeccionColapsable>
     </div>
   );
 }

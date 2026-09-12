@@ -26,25 +26,27 @@ function Tarjeta({
 }) {
   return (
     <div
-      className={`rounded-[3px] p-4 border ${
+      className={`rounded-[3px] p-2.5 border ${
         destacada ? "bg-marca-rojo/10 border-marca-rojo/40" : "bg-marca-superficie border-marca-borde"
       }`}
     >
-      <p className="text-lg mb-2 leading-none">{icono}</p>
-      <p className="text-marca-tenue text-[10px] uppercase font-bold mb-1">{etiqueta}</p>
-      <p className={`font-display text-xl font-semibold ${valorClase ?? "text-marca-textofuerte"}`}>{valor}</p>
-      {extra && <p className="text-marca-tenue text-[11px] mt-1">{extra}</p>}
+      <p className="text-sm mb-1 leading-none">{icono}</p>
+      <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">{etiqueta}</p>
+      <p className={`font-display text-base font-semibold leading-tight ${valorClase ?? "text-marca-textofuerte"}`}>
+        {valor}
+      </p>
+      {extra && <p className="text-marca-tenue text-[9.5px] mt-0.5 leading-snug">{extra}</p>}
     </div>
   );
 }
 
 function TarjetaAncha({ icono, etiqueta, valor }: { icono: string; etiqueta: string; valor: string }) {
   return (
-    <div className="sm:col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-borde rounded-[3px] p-4 flex items-center justify-between flex-wrap gap-2">
-      <span className="text-marca-tenue text-[11px] uppercase font-bold flex items-center gap-2">
+    <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between flex-wrap gap-2">
+      <span className="text-marca-tenue text-[10px] uppercase font-bold flex items-center gap-2">
         {icono} {etiqueta}
       </span>
-      <span className="text-marca-textofuerte font-bold text-sm capitalize">{valor}</span>
+      <span className="text-marca-textofuerte font-bold text-xs sm:text-sm capitalize">{valor}</span>
     </div>
   );
 }
@@ -78,19 +80,19 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
   }, []);
 
   if (cargando) {
-    return <div className="mb-6 h-28 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
+    return <div className="mb-6 h-20 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
   }
 
   return (
     <div className="mb-6">
       <div className="mb-3">
-        <h2 className="font-display text-2xl font-semibold text-marca-textofuerte">
+        <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
           {saludo}, <span className="text-marca-rojoclaro italic">{primerNombre}</span> 👋
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {esOperativo && operativo && (
           <>
             <Tarjeta
@@ -146,19 +148,19 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
           <>
             {personal.climaActual && (
               <div
-                className={`rounded-[3px] p-4 border ${
+                className={`rounded-[3px] p-2.5 border ${
                   personal.climaActual.riesgo
                     ? "bg-amber-950/20 border-amber-500/40"
                     : "bg-marca-superficie border-marca-borde"
                 }`}
               >
-                <p className="text-lg mb-2 leading-none">{personal.climaActual.icono}</p>
-                <p className="text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                <p className="text-sm mb-1 leading-none">{personal.climaActual.icono}</p>
+                <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">
                   Clima {personal.climaActual.tempActual !== null ? "ahora" : "hoy"} ·{" "}
                   {personal.climaActual.zonaNombre}
                 </p>
                 <p
-                  className={`font-display text-xl font-semibold ${
+                  className={`font-display text-base font-semibold leading-tight ${
                     personal.climaActual.riesgo ? "text-amber-400" : "text-marca-textofuerte"
                   }`}
                 >
@@ -166,54 +168,54 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
                     ? `${personal.climaActual.tempActual}°C`
                     : `${personal.climaActual.tempMax}° / ${personal.climaActual.tempMin}°`}
                 </p>
-                <p className="text-marca-tenue text-[11px] mt-1">
+                <p className="text-marca-tenue text-[9.5px] mt-0.5 leading-snug">
                   {personal.climaActual.avisoTexto ?? personal.climaActual.descripcion}
                 </p>
               </div>
             )}
             <div
-              className={`rounded-[3px] p-4 border ${
+              className={`rounded-[3px] p-2.5 border ${
                 personal.rutaHoyEstado === "pendiente"
                   ? "bg-marca-rojo/10 border-marca-rojo/40"
                   : "bg-marca-superficie border-marca-borde"
               }`}
             >
-              <p className="text-lg mb-2 leading-none">📍</p>
-              <p className="text-marca-tenue text-[10px] uppercase font-bold mb-1">Tu ruta de hoy</p>
+              <p className="text-sm mb-1 leading-none">📍</p>
+              <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">Tu ruta de hoy</p>
               {personal.rutaHoyNombre ? (
                 <>
-                  <p className="font-display text-lg font-semibold text-marca-textofuerte">
+                  <p className="font-display text-sm font-semibold leading-tight text-marca-textofuerte">
                     {personal.rutaHoyNombre}
                   </p>
                   {personal.rutaHoyExtra > 0 && (
-                    <p className="text-marca-tenue text-[11px]">+{personal.rutaHoyExtra} más</p>
+                    <p className="text-marca-tenue text-[9.5px]">+{personal.rutaHoyExtra} más</p>
                   )}
                   <span
-                    className={`inline-block mt-2 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                    className={`inline-block mt-1.5 text-[9.5px] font-bold px-2 py-0.5 rounded-full ${
                       personal.rutaHoyEstado === "pendiente"
                         ? "bg-amber-950/30 text-amber-400"
                         : "bg-emerald-950/30 text-emerald-400"
                     }`}
                   >
-                    {personal.rutaHoyEstado === "pendiente" ? "⏳ Pendiente de reportar" : "✅ Reportado"}
+                    {personal.rutaHoyEstado === "pendiente" ? "⏳ Pendiente" : "✅ Reportado"}
                   </span>
                 </>
               ) : (
-                <p className="text-marca-tenue text-sm italic">Sin asignación para hoy</p>
+                <p className="text-marca-tenue text-xs italic">Sin asignación</p>
               )}
             </div>
             <Tarjeta
               icono="✏️"
               etiqueta="Reportes editables"
               valor={String(personal.reportesEditables)}
-              extra="dentro de las 48h de asignación"
+              extra="dentro de las 48h"
             />
             <Tarjeta
               icono="🔥"
               etiqueta="Racha de puntualidad"
               valor={personal.rachaActual > 0 ? `${personal.rachaActual} día${personal.rachaActual === 1 ? "" : "s"}` : "—"}
               valorClase={personal.rachaActual > 0 ? "text-emerald-400" : undefined}
-              extra={personal.rachaActual > 0 ? "sigue así" : "marca a tiempo para empezar"}
+              extra={personal.rachaActual > 0 ? "sigue así" : "marca a tiempo"}
             />
             <Tarjeta
               icono="📣"

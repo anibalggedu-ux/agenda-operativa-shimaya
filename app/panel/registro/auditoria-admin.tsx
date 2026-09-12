@@ -15,7 +15,7 @@ import {
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
 
-function AccesoAuditoria() {
+export function AccesoAuditoria() {
   const [supervisores, setSupervisores] = useState<SupervisorConAuditoria[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
@@ -50,14 +50,7 @@ function AccesoAuditoria() {
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando supervisores...</p>;
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        ACCESO A AUDITORÍAS
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-3">
-        Las auditorías no tienen fecha fija — activa el botón "🔍 Auditoría" en el panel del
-        supervisor solo cuando le toque auditar. Se puede desactivar cuando termine.
-      </p>
+    <>
       {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
       {supervisores.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No hay supervisores activos registrados.</p>
@@ -85,7 +78,7 @@ function AccesoAuditoria() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -249,7 +242,41 @@ function FormularioNuevoItem({
   );
 }
 
-function PlantillaAuditoria() {
+function GrupoCategoria({
+  categoria,
+  items,
+  onCambio,
+}: {
+  categoria: string;
+  items: ItemPlantillaAuditoria[];
+  onCambio: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <div className="bg-marca-fondo border border-marca-borde rounded-[3px] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-marca-superficie2 transition"
+      >
+        <span className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-wide">
+          {categoria} ({items.length} ítems)
+        </span>
+        <span className={`text-marca-tenue text-[10px] transition-transform ${abierto ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {abierto && (
+        <div className="px-3 pb-2 border-t border-marca-borde">
+          {items.map((it) => (
+            <FilaItem key={it.id} item={it} onCambio={onCambio} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PlantillaAuditoria() {
   const [items, setItems] = useState<ItemPlantillaAuditoria[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -277,42 +304,16 @@ function PlantillaAuditoria() {
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando plantilla...</p>;
 
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-        PLANTILLA DEL CHECKLIST DE AUDITORÍA
-      </h4>
-      <p className="text-marca-tenue text-[11px] mb-4">
-        Ítems que verá el supervisor al llenar una auditoría. Editar o eliminar un ítem no afecta
-        auditorías ya enviadas — quedan guardadas tal como se llenaron.
-      </p>
-
-      <div className="space-y-5">
+    <>
+      <div className="space-y-2">
         {categorias.map((cat) => (
-          <div key={cat}>
-            <p className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-wide mb-1">
-              {cat} ({porCategoria.get(cat)!.length} ítems)
-            </p>
-            <div className="bg-marca-fondo border border-marca-borde rounded-[3px] px-3">
-              {porCategoria.get(cat)!.map((it) => (
-                <FilaItem key={it.id} item={it} onCambio={cargar} />
-              ))}
-            </div>
-          </div>
+          <GrupoCategoria key={cat} categoria={cat} items={porCategoria.get(cat)!} onCambio={cargar} />
         ))}
       </div>
 
       <div className="mt-4">
         <FormularioNuevoItem categorias={categorias} onAgregado={cargar} />
       </div>
-    </div>
-  );
-}
-
-export default function AuditoriaAdmin() {
-  return (
-    <div className="space-y-4">
-      <AccesoAuditoria />
-      <PlantillaAuditoria />
-    </div>
+    </>
   );
 }
