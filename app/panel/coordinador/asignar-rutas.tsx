@@ -31,18 +31,36 @@ function BotonAsignar() {
   );
 }
 
-function Marcacion({ hora, ubicacion }: { hora: string | null; ubicacion: string | null }) {
+function Marcacion({
+  hora,
+  ubicacion,
+  fotoUrl,
+}: {
+  hora: string | null;
+  ubicacion: string | null;
+  fotoUrl?: string | null;
+}) {
   if (!hora) return <span className="text-marca-tenue">sin marcar</span>;
-  if (!ubicacion) return <span className="text-marca-texto">{formatearHora(hora)}</span>;
   return (
-    <a
-      href={ubicacion}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
-    >
-      {formatearHora(hora)}
-    </a>
+    <>
+      {ubicacion ? (
+        <a
+          href={ubicacion}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
+        >
+          {formatearHora(hora)}
+        </a>
+      ) : (
+        <span className="text-marca-texto">{formatearHora(hora)}</span>
+      )}
+      {fotoUrl && (
+        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1" title="Ver foto">
+          📷
+        </a>
+      )}
+    </>
   );
 }
 
@@ -261,10 +279,10 @@ export default function AsignarRutas() {
                   </p>
                   <p className="text-[11px] mt-1">
                     <span className="text-marca-tenue">Ingreso:</span>{" "}
-                    <Marcacion hora={r.horaIngreso} ubicacion={r.ubicacionIngreso} />
+                    <Marcacion hora={r.horaIngreso} ubicacion={r.ubicacionIngreso} fotoUrl={r.fotoIngresoUrl} />
                     <span className="text-marca-tenue mx-2">·</span>
                     <span className="text-marca-tenue">Salida:</span>{" "}
-                    <Marcacion hora={r.horaSalida} ubicacion={r.ubicacionSalida} />
+                    <Marcacion hora={r.horaSalida} ubicacion={r.ubicacionSalida} fotoUrl={r.fotoSalidaUrl} />
                   </p>
                   {r.clima && (
                     <p

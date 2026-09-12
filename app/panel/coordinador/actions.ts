@@ -20,6 +20,7 @@ import {
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { enviarCorreo, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
+import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 async function exigirCoordinador() {
   const sesion = await obtenerSesion();
@@ -106,6 +107,8 @@ export type RutaActiva = {
   ubicacionIngreso: string | null;
   horaSalida: string | null;
   ubicacionSalida: string | null;
+  fotoIngresoUrl: string | null;
+  fotoSalidaUrl: string | null;
   clima: ResumenClimaDia | null;
   autoasignada: boolean;
 };
@@ -134,7 +137,9 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
 
   const { data: marcaciones, error: errorMarcaciones } = await supabase
     .from("asistencia")
-    .select("usuario_id, fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida")
+    .select(
+      "usuario_id, fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, foto_ingreso_blob, foto_salida_blob"
+    )
     .in("usuario_id", usuarioIds)
     .in("fecha", fechas);
 
@@ -144,6 +149,16 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   (marcaciones ?? []).forEach((m) => {
     mapaMarcaciones.set(m.usuario_id + "|" + m.fecha, m);
   });
+
+  const mapaFotos = new Map<string, { ingreso: string | null; salida: string | null }>();
+  await Promise.all(
+    (marcaciones ?? []).map(async (m) => {
+      mapaFotos.set(m.usuario_id + "|" + m.fecha, {
+        ingreso: await obtenerUrlTemporalFoto(m.foto_ingreso_blob),
+        salida: await obtenerUrlTemporalFoto(m.foto_salida_blob),
+      });
+    })
+  );
 
   // Clima de cada ruta ya asignada, para que el coordinador pueda reconsiderar
   // una asignación si el pronóstico lo amerita — una sola llamada por
@@ -188,6 +203,8 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
       ubicacionIngreso: marcacion?.ubicacion_ingreso ?? null,
       horaSalida: marcacion?.hora_salida ?? null,
       ubicacionSalida: marcacion?.ubicacion_salida ?? null,
+      fotoIngresoUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.ingreso ?? null,
+      fotoSalidaUrl: mapaFotos.get(r.usuario_id + "|" + r.fecha_planificada)?.salida ?? null,
       clima: climaMapa?.get(r.fecha_planificada) ?? null,
       autoasignada: !!r.autoasignada,
     };

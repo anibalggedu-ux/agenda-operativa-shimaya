@@ -4,18 +4,36 @@ import { useEffect, useState } from "react";
 import { obtenerMisMarcaciones, type MiMarcacion } from "./actions";
 import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
 
-function Marcacion({ hora, ubicacion }: { hora: string | null; ubicacion: string | null }) {
+function Marcacion({
+  hora,
+  ubicacion,
+  fotoUrl,
+}: {
+  hora: string | null;
+  ubicacion: string | null;
+  fotoUrl?: string | null;
+}) {
   if (!hora) return <span className="text-marca-tenue">—</span>;
-  if (!ubicacion) return <span>{formatearHora(hora)}</span>;
   return (
-    <a
-      href={ubicacion}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
-    >
-      {formatearHora(hora)}
-    </a>
+    <>
+      {ubicacion ? (
+        <a
+          href={ubicacion}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
+        >
+          {formatearHora(hora)}
+        </a>
+      ) : (
+        <span>{formatearHora(hora)}</span>
+      )}
+      {fotoUrl && (
+        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1" title="Ver foto">
+          📷
+        </a>
+      )}
+    </>
   );
 }
 
@@ -88,8 +106,10 @@ export default function MisMarcaciones() {
                 {formatearFechaLegible(m.fecha)}
               </p>
               <p className="text-xs font-bold text-marca-texto">
-                Ingreso: <Marcacion hora={m.horaIngreso} ubicacion={m.ubicacionIngreso} /> · Salida:{" "}
-                <Marcacion hora={m.horaSalida} ubicacion={m.ubicacionSalida} />
+                Ingreso:{" "}
+                <Marcacion hora={m.horaIngreso} ubicacion={m.ubicacionIngreso} fotoUrl={m.fotoIngresoUrl} />{" "}
+                · Salida:{" "}
+                <Marcacion hora={m.horaSalida} ubicacion={m.ubicacionSalida} fotoUrl={m.fotoSalidaUrl} />
               </p>
             </div>
           ))}

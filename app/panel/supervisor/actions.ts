@@ -14,6 +14,7 @@ import {
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo } from "@/lib/email";
+import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -705,6 +706,8 @@ export type MiMarcacion = {
   ubicacionIngreso: string | null;
   horaSalida: string | null;
   ubicacionSalida: string | null;
+  fotoIngresoUrl: string | null;
+  fotoSalidaUrl: string | null;
 };
 
 export async function obtenerMisMarcaciones(desde: string, hasta: string): Promise<MiMarcacion[]> {
@@ -714,7 +717,9 @@ export async function obtenerMisMarcaciones(desde: string, hasta: string): Promi
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("asistencia")
-    .select("fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida")
+    .select(
+      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, foto_ingreso_blob, foto_salida_blob"
+    )
     .eq("usuario_id", sesion.id)
     .gte("fecha", desde)
     .lte("fecha", hasta)
@@ -722,11 +727,15 @@ export async function obtenerMisMarcaciones(desde: string, hasta: string): Promi
 
   if (error) throw new Error("No se pudo cargar tus marcaciones.");
 
-  return (data ?? []).map((a) => ({
-    fecha: a.fecha,
-    horaIngreso: a.hora_ingreso,
-    ubicacionIngreso: a.ubicacion_ingreso,
-    horaSalida: a.hora_salida,
-    ubicacionSalida: a.ubicacion_salida,
-  }));
+  return Promise.all(
+    (data ?? []).map(async (a) => ({
+      fecha: a.fecha,
+      horaIngreso: a.hora_ingreso,
+      ubicacionIngreso: a.ubicacion_ingreso,
+      horaSalida: a.hora_salida,
+      ubicacionSalida: a.ubicacion_salida,
+      fotoIngresoUrl: await obtenerUrlTemporalFoto(a.foto_ingreso_blob),
+      fotoSalidaUrl: await obtenerUrlTemporalFoto(a.foto_salida_blob),
+    }))
+  );
 }

@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { horaPeru, diaLaboralPeru, hoyPeru, sumarDias } from "@/lib/fechas";
+import { subirFotoMarcacion } from "@/lib/azure-storage";
 
 // Antes de esta hora, marcar la salida es ambiguo (¿pertenece a hoy o al
 // turno que empezó ayer?) — se le pregunta al colaborador en vez de asumir.
@@ -46,20 +47,36 @@ export async function obtenerAmbiguedadSalida(): Promise<AmbiguedadSalida> {
 
 export type ResultadoMarcado = { exito: boolean; mensaje?: string; hora?: string };
 
-export async function marcarIngreso(lat: number, lng: number): Promise<ResultadoMarcado> {
+export async function marcarIngreso(
+  lat: number,
+  lng: number,
+  fotoBase64?: string
+): Promise<ResultadoMarcado> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
+  if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar el ingreso." };
 
   const supabase = supabaseServer();
   const hora = horaPeru();
+  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
+
+  let fotoBlob: string | null = null;
+  try {
+    fotoBlob = `${sesion.id}/${fecha}-ingreso-${Date.now()}.jpg`;
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de ingreso:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
 
   const { error } = await supabase.from("asistencia").upsert(
     {
-      fecha: diaLaboralPeru(sesion.rol === "capacitador"),
+      fecha,
       usuario_id: sesion.id,
       hora_ingreso: hora,
       ubicacion_ingreso: ubicacion,
+      foto_ingreso_blob: fotoBlob,
     },
     { onConflict: "fecha,usuario_id" }
   );
@@ -71,7 +88,8 @@ export async function marcarIngreso(lat: number, lng: number): Promise<Resultado
 export async function marcarSalida(
   lat: number,
   lng: number,
-  fechaElegida?: string
+  fechaElegida?: string,
+  fotoBase64?: string
 ): Promise<ResultadoMarcado> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
@@ -98,13 +116,25 @@ export async function marcarSalida(
   if (!existente) {
     return { exito: false, mensaje: "Debes marcar tu ingreso antes de marcar la salida." };
   }
+  if (!fotoBase64) {
+    return { exito: false, mensaje: "Toma una foto para marcar la salida." };
+  }
 
   const hora = horaPeru();
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
 
+  let fotoBlob: string | null = null;
+  try {
+    fotoBlob = `${sesion.id}/${fecha}-salida-${Date.now()}.jpg`;
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de salida:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
+
   const { error } = await supabase
     .from("asistencia")
-    .update({ hora_salida: hora, ubicacion_salida: ubicacion })
+    .update({ hora_salida: hora, ubicacion_salida: ubicacion, foto_salida_blob: fotoBlob })
     .eq("usuario_id", sesion.id)
     .eq("fecha", fecha);
 
