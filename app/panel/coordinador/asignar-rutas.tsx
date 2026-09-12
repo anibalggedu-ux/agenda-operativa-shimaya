@@ -248,6 +248,11 @@ export default function AsignarRutas() {
                 <div className="min-w-0">
                   <p className="text-marca-textofuerte font-bold text-sm truncate">
                     {r.usuarioNombre} → {r.tiendaNombre}
+                    {r.autoasignada && (
+                      <span className="ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+                        ⚡ Auto-asignada
+                      </span>
+                    )}
                   </p>
                   <p className="text-marca-tenue text-[11px] capitalize mt-1">
                     {formatearFechaLegible(r.fechaPlanificada)}

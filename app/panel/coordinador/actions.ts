@@ -107,6 +107,7 @@ export type RutaActiva = {
   horaSalida: string | null;
   ubicacionSalida: string | null;
   clima: ResumenClimaDia | null;
+  autoasignada: boolean;
 };
 
 export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
@@ -118,7 +119,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   const { data, error } = await supabase
     .from("rutas_activas")
     .select(
-      "id, fecha_planificada, area, enfoque, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre, lat, lon)"
+      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre, lat, lon)"
     )
     .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
@@ -188,6 +189,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
       horaSalida: marcacion?.hora_salida ?? null,
       ubicacionSalida: marcacion?.ubicacion_salida ?? null,
       clima: climaMapa?.get(r.fecha_planificada) ?? null,
+      autoasignada: !!r.autoasignada,
     };
   });
 }

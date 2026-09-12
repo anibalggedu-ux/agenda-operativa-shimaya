@@ -6,8 +6,11 @@ import {
   obtenerTiendasClasificadas,
   enviarReporte,
   editarReporte,
+  obtenerTodasLasTiendas,
+  autoasignarTienda,
   type TiendaClasificada,
   type ResultadoReporte,
+  type TiendaBasicaBitacora,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
@@ -56,6 +59,94 @@ function BotonEnviar({ esEdicion }: { esEdicion: boolean }) {
     >
       {pending ? "Guardando..." : esEdicion ? "Guardar cambios" : "Enviar Reporte"}
     </button>
+  );
+}
+
+function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
+  const [tiendaId, setTiendaId] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+
+  useEffect(() => {
+    if (abierto && tiendas.length === 0) {
+      obtenerTodasLasTiendas()
+        .then(setTiendas)
+        .catch(() => {});
+    }
+  }, [abierto, tiendas.length]);
+
+  async function handleAsignar() {
+    if (!tiendaId) {
+      setMensaje({ texto: "Selecciona una tienda.", exito: false });
+      return;
+    }
+    setEnviando(true);
+    setMensaje(null);
+    const resultado = await autoasignarTienda(tiendaId);
+    setEnviando(false);
+    setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
+    if (resultado.exito) {
+      setTiendaId("");
+      onAsignado();
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest hover:text-marca-rojo transition"
+      >
+        ⚡ ¿Te cambiaron la ruta de último momento? Asígnate una tienda
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-4 space-y-3">
+      <p className="text-marca-tenue text-[11px]">
+        Úsalo cuando el coordinador te cambió la ruta a último momento y aún no lo actualizó en el
+        sistema. Se asigna para hoy y le llega un aviso automático — no necesitas esperar
+        aprobación para reportar.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={tiendaId}
+          onChange={(e) => setTiendaId(e.target.value)}
+          className="flex-1 min-w-[180px] p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+        >
+          <option value="">Selecciona una tienda...</option>
+          {tiendas.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.nombre}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={handleAsignar}
+          disabled={enviando}
+          className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+        >
+          {enviando ? "Asignando..." : "Asignarme"}
+        </button>
+        <button
+          onClick={() => {
+            setAbierto(false);
+            setMensaje(null);
+          }}
+          className="text-marca-tenue text-[11px] font-bold uppercase"
+        >
+          Cancelar
+        </button>
+      </div>
+      {mensaje && (
+        <p className={`text-xs font-bold ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+          {mensaje.texto}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -132,9 +223,12 @@ export default function SelectorTiendas({
 
   if (!tiendas || tiendas.length === 0) {
     return (
-      <p className="text-marca-tenue text-sm italic">
-        No tienes tiendas asignadas ni reportes editables en este momento.
-      </p>
+      <div className="space-y-4">
+        <p className="text-marca-tenue text-sm italic">
+          No tienes tiendas asignadas ni reportes editables en este momento.
+        </p>
+        <AsignarmeTienda onAsignado={cargar} />
+      </div>
     );
   }
 
@@ -146,6 +240,8 @@ export default function SelectorTiendas({
           {diaDescanso.join(" y ")}
         </div>
       )}
+
+      <AsignarmeTienda onAsignado={cargar} />
 
       {grupos.map((grupo) => {
         const estilo = ESTILOS_URGENCIA[grupo.urgencia];
@@ -173,6 +269,9 @@ export default function SelectorTiendas({
                     <p className="text-[11px] text-marca-tenue capitalize mt-1">
                       {formatearFechaLegible(tienda.fechaPlanificada)}
                     </p>
+                    {tienda.autoasignada && (
+                      <p className="text-[10.5px] text-marca-rojoclaro font-bold mt-1">⚡ Auto-asignada</p>
+                    )}
                     {tienda.area && (
                       <p className="text-[11px] text-marca-tenue mt-1">
                         {tienda.area}

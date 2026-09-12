@@ -9,9 +9,11 @@ import {
   DIAS_SEMANA,
   calcularAntiguedad,
   calcularProximaFechaAnual,
+  formatearFechaLegible,
 } from "@/lib/fechas";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
+import { enviarCorreo } from "@/lib/email";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -34,6 +36,7 @@ export type TiendaClasificada = {
   observacionActual: string;
   actividadActual: string;
   clima: ResumenClimaDia | null;
+  autoasignada: boolean;
 };
 
 function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
@@ -66,7 +69,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("rutas_activas")
-      .select("id, fecha_planificada, area, enfoque, tiendas(id, nombre, lat, lon)")
+      .select("id, fecha_planificada, area, enfoque, autoasignada, tiendas(id, nombre, lat, lon)")
       .eq("usuario_id", sesion.id)
       .order("fecha_planificada", { ascending: false }),
     supabase
@@ -100,6 +103,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     observacionActual: "",
     actividadActual: "",
     clima: null,
+    autoasignada: !!r.autoasignada,
     _lat: r.tiendas.lat === null ? null : Number(r.tiendas.lat),
     _lon: r.tiendas.lon === null ? null : Number(r.tiendas.lon),
   }));
@@ -124,6 +128,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
       observacionActual: r.observacion ?? "",
       actividadActual: r.actividad ?? "",
       clima: null,
+      autoasignada: false,
       _lat: r.tiendas?.lat === null || r.tiendas?.lat === undefined ? null : Number(r.tiendas.lat),
       _lon: r.tiendas?.lon === null || r.tiendas?.lon === undefined ? null : Number(r.tiendas.lon),
     }));
@@ -159,6 +164,93 @@ export async function obtenerTiendasClasificadas(): Promise<{
 }
 
 export type ResultadoReporte = { exito: boolean; mensaje?: string };
+
+// ---------- Auto-asignación (cuando el coordinador cambió la ruta a último
+// momento y aún no lo actualizó en el sistema) ----------
+
+export type TiendaBasicaBitacora = { id: string; nombre: string };
+
+export async function obtenerTodasLasTiendas(): Promise<TiendaBasicaBitacora[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase.from("tiendas").select("id, nombre").order("nombre");
+  if (error) throw new Error("No se pudo cargar las tiendas.");
+  return data ?? [];
+}
+
+async function notificarCoordinadoresAutoasignacion(
+  nombreUsuario: string,
+  tiendaNombre: string,
+  fecha: string
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: coordinadores } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("rol", "coordinador")
+      .eq("activo", true);
+
+    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "⚡",
+      asunto: `${nombreUsuario} se auto-asignó una tienda`,
+      cuerpoHtml: `
+        <p><strong>${nombreUsuario}</strong> se asignó la tienda <strong>${tiendaNombre}</strong> para
+        ${formatearFechaLegible(fecha)} directamente desde su panel — no fue una asignación tuya.</p>
+        <p style="color:#8b8d92; font-size:12px;">Úsalo solo como aviso; ya puede reportar la visita con normalidad.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la auto-asignación:", error);
+  }
+}
+
+export async function autoasignarTienda(tiendaId: string): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+  if (!tiendaId) {
+    return { exito: false, mensaje: "Selecciona una tienda." };
+  }
+
+  const supabase = supabaseServer();
+  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+
+  const { data: existente } = await supabase
+    .from("rutas_activas")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("tienda_id", tiendaId)
+    .eq("fecha_planificada", fecha)
+    .maybeSingle();
+  if (existente) {
+    return { exito: false, mensaje: "Ya te habías asignado esa tienda hoy." };
+  }
+
+  const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle();
+  if (!tienda) {
+    return { exito: false, mensaje: "Tienda no encontrada." };
+  }
+
+  const { error } = await supabase.from("rutas_activas").insert({
+    usuario_id: sesion.id,
+    tienda_id: tiendaId,
+    fecha_planificada: fecha,
+    autoasignada: true,
+  });
+  if (error) return { exito: false, mensaje: "No se pudo asignar la tienda." };
+
+  await notificarCoordinadoresAutoasignacion(sesion.nombre, tienda.nombre, fecha);
+
+  return { exito: true, mensaje: `Te asignaste ${tienda.nombre} para hoy. Ya puedes reportar la visita.` };
+}
 
 export async function enviarReporte(
   _prevState: ResultadoReporte,
