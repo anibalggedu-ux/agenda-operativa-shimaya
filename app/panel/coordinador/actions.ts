@@ -747,6 +747,113 @@ export async function actualizarDiasDescanso(
   return { exito: true };
 }
 
+// ---------- Solicitudes de cambio de descanso (campanita) ----------
+
+export type SolicitudDescansoPendiente = {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  diasActuales: string[];
+  diasSolicitados: string[];
+  createdAt: string;
+};
+
+export async function contarSolicitudesDescansoPendientes(): Promise<number> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { count, error } = await supabase
+    .from("solicitudes_descanso")
+    .select("id", { count: "exact", head: true })
+    .eq("estado", "pendiente");
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function obtenerSolicitudesDescansoPendientes(): Promise<SolicitudDescansoPendiente[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("solicitudes_descanso")
+    .select("id, usuario_id, dias_actuales, dias_solicitados, created_at, usuarios(nombre)")
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error("No se pudo cargar las solicitudes de descanso.");
+
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    usuarioId: s.usuario_id,
+    usuarioNombre: s.usuarios?.nombre ?? "—",
+    diasActuales: s.dias_actuales ?? [],
+    diasSolicitados: s.dias_solicitados ?? [],
+    createdAt: s.created_at,
+  }));
+}
+
+export async function responderSolicitudDescanso(
+  id: string,
+  aprobar: boolean
+): Promise<ResultadoAccion> {
+  const sesion = await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: solicitud, error: errorSolicitud } = await supabase
+    .from("solicitudes_descanso")
+    .select("usuario_id, dias_solicitados, estado")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (errorSolicitud || !solicitud) {
+    return { exito: false, mensaje: "No se encontró la solicitud." };
+  }
+  if (solicitud.estado !== "pendiente") {
+    return { exito: false, mensaje: "Esta solicitud ya fue respondida." };
+  }
+
+  if (aprobar) {
+    const dias: string[] = solicitud.dias_solicitados ?? [];
+    const { error: errorUpdate } = await supabase
+      .from("usuarios")
+      .update({ dias_descanso: dias.length > 0 ? dias : null })
+      .eq("id", solicitud.usuario_id);
+    if (errorUpdate) return { exito: false, mensaje: "No se pudo aplicar el nuevo descanso." };
+  }
+
+  const { error } = await supabase
+    .from("solicitudes_descanso")
+    .update({
+      estado: aprobar ? "aprobado" : "rechazado",
+      respondido_en: new Date().toISOString(),
+      respondido_por: sesion.nombre,
+    })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
+
+  await notificarPorCorreo(async () => {
+    const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
+    if (!contacto?.email) return;
+
+    const dias: string[] = solicitud.dias_solicitados ?? [];
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: aprobar ? "✅" : "❌",
+      asunto: aprobar ? "Tu solicitud de descanso fue aprobada" : "Tu solicitud de descanso fue rechazada",
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Tu solicitud de descanso (${dias.join(" y ") || "sin día"}) fue <strong>${
+        aprobar ? "aprobada" : "rechazada"
+      }</strong> por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
+  return { exito: true };
+}
+
 // ---------- Estado del personal hoy ----------
 
 export type EstadoPersonalHoy = {

@@ -1,22 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obtenerMiPerfil, actualizarMiDescanso } from "./actions";
+import {
+  obtenerMiPerfil,
+  obtenerMiSolicitudDescansoPendiente,
+  solicitarCambioDescanso,
+  type SolicitudDescansoPropia,
+} from "./actions";
 import { DIAS_SEMANA } from "@/lib/fechas";
 
 const MAX_DIAS = 2;
 
 export default function MiDescanso() {
+  const [diasActuales, setDiasActuales] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([]);
+  const [pendiente, setPendiente] = useState<SolicitudDescansoPropia | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
-  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
 
-  useEffect(() => {
-    obtenerMiPerfil()
-      .then((perfil) => setDias(perfil.diasDescanso))
+  function cargar() {
+    setCargando(true);
+    Promise.all([obtenerMiPerfil(), obtenerMiSolicitudDescansoPendiente()])
+      .then(([perfil, solicitud]) => {
+        setDiasActuales(perfil.diasDescanso);
+        setDias(perfil.diasDescanso);
+        setPendiente(solicitud);
+      })
       .finally(() => setCargando(false));
-  }, []);
+  }
+
+  useEffect(cargar, []);
 
   function toggleDia(dia: string) {
     setMensaje(null);
@@ -27,12 +41,13 @@ export default function MiDescanso() {
     });
   }
 
-  async function guardar() {
-    setGuardando(true);
+  async function enviar() {
+    setEnviando(true);
     setMensaje(null);
-    const resultado = await actualizarMiDescanso(dias);
-    setMensaje(resultado.mensaje || (resultado.exito ? "Guardado." : "No se pudo guardar."));
-    setGuardando(false);
+    const resultado = await solicitarCambioDescanso(dias);
+    setEnviando(false);
+    setMensaje({ texto: resultado.mensaje || (resultado.exito ? "Enviado." : "No se pudo enviar."), exito: resultado.exito });
+    if (resultado.exito) cargar();
   }
 
   if (cargando) {
@@ -45,8 +60,21 @@ export default function MiDescanso() {
         🛌 MI DESCANSO SEMANAL
       </h3>
       <p className="text-marca-tenue text-[11px]">
-        Elige hasta {MAX_DIAS} día(s) de descanso fijo por semana.
+        {diasActuales.length > 0
+          ? `Tu descanso actual: ${diasActuales.join(" y ")}.`
+          : "Aún no tienes un día de descanso fijo asignado."}{" "}
+        Elige hasta {MAX_DIAS} día(s) y envía la solicitud — el coordinador debe aprobarla antes de
+        que quede activa.
       </p>
+
+      {pendiente && (
+        <div className="bg-amber-950/20 border border-amber-500/40 rounded-[3px] px-3 py-2">
+          <p className="text-amber-400 text-[11px] font-bold">
+            ⏳ Solicitud pendiente: {pendiente.diasSolicitados.join(" y ") || "sin días"} — esperando
+            aprobación del coordinador.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {DIAS_SEMANA.map((dia) => {
@@ -68,14 +96,18 @@ export default function MiDescanso() {
       </div>
 
       <button
-        onClick={guardar}
-        disabled={guardando}
+        onClick={enviar}
+        disabled={enviando}
         className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
       >
-        {guardando ? "Guardando..." : "Guardar descanso"}
+        {enviando ? "Enviando..." : "Solicitar cambio de descanso"}
       </button>
 
-      {mensaje && <p className="text-marca-rojoclaro text-xs font-bold">{mensaje}</p>}
+      {mensaje && (
+        <p className={`text-xs font-bold ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+          {mensaje.texto}
+        </p>
+      )}
     </div>
   );
 }

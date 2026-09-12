@@ -393,7 +393,35 @@ export async function obtenerMiPerfil(): Promise<PerfilPersonal> {
   };
 }
 
-export async function actualizarMiDescanso(dias: string[]): Promise<ResultadoReporte> {
+// El colaborador ya no cambia su descanso directo: queda como solicitud
+// pendiente hasta que el coordinador la apruebe (ve la campanita de
+// notificaciones en su panel).
+
+export type SolicitudDescansoPropia = {
+  id: string;
+  diasSolicitados: string[];
+  createdAt: string;
+};
+
+export async function obtenerMiSolicitudDescansoPendiente(): Promise<SolicitudDescansoPropia | null> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("solicitudes_descanso")
+    .select("id, dias_solicitados, created_at")
+    .eq("usuario_id", sesion.id)
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+  return { id: data.id, diasSolicitados: data.dias_solicitados ?? [], createdAt: data.created_at };
+}
+
+export async function solicitarCambioDescanso(dias: string[]): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
 
@@ -405,13 +433,43 @@ export async function actualizarMiDescanso(dias: string[]): Promise<ResultadoRep
   }
 
   const supabase = supabaseServer();
-  const { error } = await supabase
-    .from("usuarios")
-    .update({ dias_descanso: dias.length > 0 ? dias : null })
-    .eq("id", sesion.id);
 
-  if (error) return { exito: false, mensaje: "No se pudo guardar tu descanso." };
-  return { exito: true, mensaje: "Descanso actualizado correctamente." };
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("dias_descanso")
+    .eq("id", sesion.id)
+    .maybeSingle();
+  const actuales: string[] = usuario?.dias_descanso ?? [];
+
+  const sinCambios = actuales.length === dias.length && actuales.every((d) => dias.includes(d));
+  if (sinCambios) {
+    return { exito: false, mensaje: "Ya tienes ese día de descanso." };
+  }
+
+  // Si ya hay una solicitud pendiente, se actualiza en vez de crear otra.
+  const { data: pendiente } = await supabase
+    .from("solicitudes_descanso")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("estado", "pendiente")
+    .maybeSingle();
+
+  if (pendiente) {
+    const { error } = await supabase
+      .from("solicitudes_descanso")
+      .update({ dias_actuales: actuales, dias_solicitados: dias, created_at: new Date().toISOString() })
+      .eq("id", pendiente.id);
+    if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
+    return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
+  }
+
+  const { error } = await supabase.from("solicitudes_descanso").insert({
+    usuario_id: sesion.id,
+    dias_actuales: actuales,
+    dias_solicitados: dias,
+  });
+  if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
+  return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
 }
 
 // ---------- Tiendas fijas y sus observaciones ----------

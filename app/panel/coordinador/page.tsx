@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import PanelTabs from "./panel-tabs";
 import ResumenDelDia from "../resumen-del-dia";
+import CampanitaDescansos from "./campanita-descansos";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function PanelCoordinador() {
           Central <span className="text-marca-rojoclaro italic">Coordinación</span>
         </h1>
         <div className="flex gap-2">
+          <CampanitaDescansos />
           <Link
             href="/panel/analitica"
             className="border border-marca-rojo/40 text-marca-rojoclaro px-4 py-2 rounded-[3px] text-xs font-semibold hover:bg-marca-rojo/10 transition"
