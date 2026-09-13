@@ -232,7 +232,10 @@ export async function crearAuditoria(
     const accion = String(formData.get(`compromiso_accion_${i}`) || "").trim();
     const responsable = String(formData.get(`compromiso_responsable_${i}`) || "").trim();
     const fechaCompromiso = String(formData.get(`compromiso_fecha_${i}`) || "").trim();
-    if (accion || responsable || fechaCompromiso) {
+    // Se exige la acción: una fila con solo fecha o solo responsable no es un
+    // compromiso, y antes se guardaba igual en la base y salía en el correo
+    // como "— responsable: —".
+    if (accion) {
       compromisos.push({ accion, responsable, fecha: fechaCompromiso });
     }
   }

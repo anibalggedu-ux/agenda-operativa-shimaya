@@ -67,6 +67,7 @@ export async function obtenerProximosCumpleanos(): Promise<ProximoCumpleanos[]> 
   const { data, error } = await supabase
     .from("usuarios")
     .select("nombre, rol, fecha_nacimiento")
+    .eq("activo", true)
     .not("fecha_nacimiento", "is", null);
 
   if (error) throw new Error("No se pudo cargar los cumpleaños.");

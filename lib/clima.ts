@@ -65,7 +65,7 @@ function describirCodigo(codigo: number) {
 export async function obtenerClimaActual(lat: number, lon: number): Promise<ClimaActual | null> {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weathercode&timezone=auto`;
-    const res = await fetch(url, { next: { revalidate: 900 } });
+    const res = await fetch(url, { next: { revalidate: 900 }, signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     const json = await res.json();
     const c = json.current;
@@ -87,7 +87,7 @@ export async function obtenerClimaDiario(lat: number, lon: number): Promise<Map<
   const mapa = new Map<string, ClimaDia>();
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&timezone=auto&past_days=3&forecast_days=16`;
-    const res = await fetch(url, { next: { revalidate: 1800 } });
+    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(8000) });
     if (!res.ok) return mapa;
     const json = await res.json();
     const d = json.daily;

@@ -109,16 +109,22 @@ export function calcularAntiguedad(
   return { anios, meses };
 }
 
+// Date.UTC normaliza el 29 de febrero de un año no bisiesto al 1 de marzo,
+// que es donde se celebra. Antes se armaba el string a mano: un cumpleaños
+// el 29/02 generaba una fecha inexistente ("2027-02-29"), y como el conteo
+// de días sí la normalizaba, la tarjeta decía "29 de febrero" mientras el
+// resto del sistema la trataba como 1 de marzo.
 export function calcularProximaFechaAnual(
   mes: number,
   dia: number,
   hoy: string
 ): { fecha: string; diasFaltantes: number } {
-  const pad = (n: number) => String(n).padStart(2, "0");
   const [yHoy] = hoy.split("-").map(Number);
-  const esteAnio = `${yHoy}-${pad(mes)}-${pad(dia)}`;
-  const anio = esteAnio < hoy ? yHoy + 1 : yHoy;
-  const fecha = `${anio}-${pad(mes)}-${pad(dia)}`;
+  const esteAnio = new Date(Date.UTC(yHoy, mes - 1, dia)).toISOString().slice(0, 10);
+  const fecha =
+    esteAnio < hoy
+      ? new Date(Date.UTC(yHoy + 1, mes - 1, dia)).toISOString().slice(0, 10)
+      : esteAnio;
   return { fecha, diasFaltantes: diasEntreFechas(hoy, fecha) };
 }
 

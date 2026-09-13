@@ -14,7 +14,14 @@ export async function calcularRutaAuto(
 ): Promise<RutaAuto | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
-    const res = await fetch(url, { next: { revalidate: 60 * 60 * 24 * 30 } });
+    // Sin tiempo máximo de espera, un OSRM lento o colgado bloqueaba el
+    // render hasta que expiraba la función de Vercel y se caía la página
+    // entera. Preferimos quedarnos sin el dato de distancia (la vista lo
+    // maneja como "sin calcular") antes que tumbar la pantalla.
+    const res = await fetch(url, {
+      next: { revalidate: 60 * 60 * 24 * 30 },
+      signal: AbortSignal.timeout(8000),
+    });
     if (!res.ok) return null;
     const json = await res.json();
     const ruta = json?.routes?.[0];

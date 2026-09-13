@@ -200,10 +200,14 @@ export async function eliminarDocumento(documentoId: string): Promise<ResultadoA
 
   if (!doc) return { exito: false, mensaje: "El documento ya no existe." };
 
-  await supabase.storage.from(BUCKET).remove([doc.ruta_storage]);
+  // Primero la fila, después el archivo: si se hace al revés y falla el
+  // borrado del registro, queda un documento visible en la lista cuya
+  // descarga siempre da error. Al hacerlo en este orden, el peor caso es un
+  // archivo suelto en el almacenamiento, invisible para el usuario.
   const { error } = await supabase.from("documentos").delete().eq("id", documentoId);
-
   if (error) return { exito: false, mensaje: "No se pudo eliminar el documento." };
+
+  await supabase.storage.from(BUCKET).remove([doc.ruta_storage]);
 
   revalidatePath("/panel/documentos");
   return { exito: true };

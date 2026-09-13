@@ -926,8 +926,11 @@ export async function obtenerHistorialCambios(desde: string, hasta: string): Pro
   const { data, error } = await supabase
     .from("auditoria_cambios")
     .select("id, usuario_nombre, accion, detalle, created_at")
-    .gte("created_at", desde + "T00:00:00")
-    .lte("created_at", hasta + "T23:59:59")
+    // created_at es timestamptz: sin la zona explícita, Postgres interpretaba
+    // estos límites como UTC y se perdían los cambios hechos entre las 19:00
+    // y la medianoche hora Perú del último día del rango.
+    .gte("created_at", desde + "T00:00:00-05:00")
+    .lte("created_at", hasta + "T23:59:59-05:00")
     .order("created_at", { ascending: false })
     .limit(300);
 
