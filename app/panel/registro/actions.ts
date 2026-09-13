@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { obtenerSesion, exigirCoordinador } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA } from "@/lib/fechas";
@@ -15,11 +15,6 @@ async function exigirAccesoRegistro() {
   return sesion;
 }
 
-async function exigirCoordinador() {
-  const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "coordinador") throw new Error("No autorizado.");
-  return sesion;
-}
 
 // ---------------------------------------------------------------------
 // Bitácora de auditoría: deja constancia de quién hizo qué corrección o

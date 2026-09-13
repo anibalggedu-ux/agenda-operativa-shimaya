@@ -2,18 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirSesion } from "@/lib/session";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 
 const BUCKET = "documentos";
 const CATEGORIAS_VALIDAS = ["checklists", "formatos", "manuales"] as const;
 type Categoria = (typeof CATEGORIAS_VALIDAS)[number];
-
-async function exigirSesion() {
-  const sesion = await obtenerSesion();
-  if (!sesion) throw new Error("No autorizado.");
-  return sesion;
-}
 
 async function exigirAccesoDocumentos() {
   const sesion = await exigirSesion();

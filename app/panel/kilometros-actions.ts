@@ -1,15 +1,9 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirSesion } from "@/lib/session";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 import { obtenerVisitasEnRangoAnalitica } from "./analitica/actions";
-
-async function exigirSesion() {
-  const sesion = await obtenerSesion();
-  if (!sesion) throw new Error("No autorizado.");
-  return sesion;
-}
 
 export type FilaKilometros = {
   usuarioId: string;

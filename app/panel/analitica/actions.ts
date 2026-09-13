@@ -1,14 +1,8 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirSesion } from "@/lib/session";
 import { hoyPeru, calcularAntiguedad, diasEntreFechas, sumarDias, formatearFechaCorta } from "@/lib/fechas";
-
-async function exigirSesion() {
-  const sesion = await obtenerSesion();
-  if (!sesion) throw new Error("No autorizado.");
-  return sesion;
-}
 
 // Umbral de tardanza al marcar ingreso: cada rol tiene su propia hora límite.
 const HORA_LIMITE_POR_ROL: Record<string, string> = {

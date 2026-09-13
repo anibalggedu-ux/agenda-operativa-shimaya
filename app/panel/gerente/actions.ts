@@ -1,17 +1,9 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirGerente } from "@/lib/session";
 import { hoyPeru, diaSemanaPeru } from "@/lib/fechas";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
-
-async function exigirGerente() {
-  const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "gerente") {
-    throw new Error("No autorizado.");
-  }
-  return sesion;
-}
 
 function diasEntre(desdeISO: string, hastaISO: string): number {
   const [y1, m1, d1] = desdeISO.split("-").map(Number);

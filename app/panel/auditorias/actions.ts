@@ -1,14 +1,8 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirSesion } from "@/lib/session";
 import { tieneAccesoAuditoria } from "@/lib/permisos";
-
-async function exigirSesion() {
-  const sesion = await obtenerSesion();
-  if (!sesion) throw new Error("No autorizado.");
-  return sesion;
-}
 
 async function exigirPuedeAuditar() {
   const sesion = await exigirSesion();

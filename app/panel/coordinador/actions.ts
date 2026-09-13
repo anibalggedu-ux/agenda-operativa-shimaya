@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion, type SesionUsuario } from "@/lib/session";
+import { exigirCoordinador, type SesionUsuario } from "@/lib/session";
 import {
   hoyPeru,
   diaSemanaPeru,
@@ -24,13 +24,6 @@ import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
-async function exigirCoordinador() {
-  const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "coordinador") {
-    throw new Error("No autorizado.");
-  }
-  return sesion;
-}
 
 // ---------- Notificaciones por correo ----------
 //

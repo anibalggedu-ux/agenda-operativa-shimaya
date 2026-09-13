@@ -55,3 +55,28 @@ export async function cerrarSesion() {
 export function tieneBitacora(rol: SesionUsuario["rol"]): boolean {
   return rol === "supervisor" || rol === "coordinador" || rol === "capacitador";
 }
+
+// Guards de autorización compartidos — antes cada actions.ts definía su
+// propia copia local idéntica de estas tres funciones (8 archivos distintos
+// con el mismo cuerpo). Centralizarlas acá evita que diverjan sin querer.
+export async function exigirSesion(): Promise<SesionUsuario> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+  return sesion;
+}
+
+export async function exigirCoordinador(): Promise<SesionUsuario> {
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.rol !== "coordinador") {
+    throw new Error("No autorizado.");
+  }
+  return sesion;
+}
+
+export async function exigirGerente(): Promise<SesionUsuario> {
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.rol !== "gerente") {
+    throw new Error("No autorizado.");
+  }
+  return sesion;
+}

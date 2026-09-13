@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
+import { exigirSesion } from "@/lib/session";
 
 export type TipoEventoCalendario =
   | "ruta"
@@ -61,11 +61,6 @@ function expandirRango(fechaInicio: string, fechaFin: string, inicioMes: string,
   return fechas;
 }
 
-async function exigirSesion() {
-  const sesion = await obtenerSesion();
-  if (!sesion) throw new Error("No autorizado.");
-  return sesion;
-}
 
 async function cargarCalendario(
   anio: number,
