@@ -192,8 +192,15 @@ function obtenerUbicacionActual(): Promise<{ lat: number; lng: number }> {
     }
     navigator.geolocation.getCurrentPosition(
       (posicion) => resolve({ lat: posicion.coords.latitude, lng: posicion.coords.longitude }),
-      () => reject(new Error("No se pudo obtener tu ubicación. Revisa los permisos del navegador.")),
-      { enableHighAccuracy: true, timeout: 10000 }
+      () =>
+        reject(
+          new Error(
+            "No se pudo obtener tu ubicación. Revisa los permisos del navegador o muévete a un lugar con mejor señal."
+          )
+        ),
+      // 20s en vez de 10: dentro de una tienda el GPS suele tardar más, y al
+      // vencerse se perdía la foto que el supervisor ya había tomado.
+      { enableHighAccuracy: true, timeout: 20000 }
     );
   });
 }
@@ -209,51 +216,89 @@ function MarcadoVisitaTienda({
   tienda: TiendaClasificada;
   onMarcado: () => void;
 }) {
-  const [procesando, setProcesando] = useState(false);
+  type Paso = "comprimiendo" | "ubicando" | "subiendo";
+  const [paso, setPaso] = useState<Paso | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  // La foto ya comprimida queda guardada acá hasta que el envío salga bien.
+  // Antes la foto y el GPS se pedían juntos con Promise.all: si el GPS
+  // fallaba, se descartaba la foto recién tomada y había que volver a abrir
+  // la cámara. Ahora se puede reintentar solo la ubicación y el envío.
+  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string } | null>(null);
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
 
-  async function handleFotoLlegada(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
-    e.target.value = "";
-    if (!archivo) return;
-    setProcesando(true);
-    setMensaje(null);
+  const ETIQUETA_PASO: Record<Paso, string> = {
+    comprimiendo: "Preparando la foto...",
+    ubicando: "Obteniendo tu ubicación...",
+    subiendo: "Enviando (no cierres la app)...",
+  };
+
+  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string) {
     try {
-      const [foto, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacionActual()]);
-      const resultado = await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
-      if (resultado.exito) onMarcado();
-      else setMensaje(resultado.mensaje || "No se pudo registrar la llegada.");
+      setPaso("ubicando");
+      const coords = await obtenerUbicacionActual();
+
+      setPaso("subiendo");
+      const resultado =
+        tipo === "llegada"
+          ? await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto)
+          : await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
+
+      if (resultado.exito) {
+        setPendiente(null);
+        onMarcado();
+      } else {
+        setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
+      }
     } catch (err: any) {
       setMensaje(err?.message || "Ocurrió un error.");
     } finally {
-      setProcesando(false);
+      setPaso(null);
     }
   }
 
-  async function handleFotoSalida(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>, tipo: "llegada" | "salida") {
     const archivo = e.target.files?.[0];
     e.target.value = "";
     if (!archivo) return;
-    setProcesando(true);
     setMensaje(null);
     try {
-      const [foto, coords] = await Promise.all([comprimirFotoComoBase64(archivo), obtenerUbicacionActual()]);
-      const resultado = await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
-      if (resultado.exito) onMarcado();
-      else setMensaje(resultado.mensaje || "No se pudo registrar la salida.");
+      setPaso("comprimiendo");
+      const foto = await comprimirFotoComoBase64(archivo);
+      setPendiente({ tipo, foto });
+      await enviarMarcacion(tipo, foto);
     } catch (err: any) {
-      setMensaje(err?.message || "Ocurrió un error.");
-    } finally {
-      setProcesando(false);
+      setMensaje(err?.message || "No se pudo procesar la foto.");
+      setPaso(null);
     }
   }
+
+  async function reintentar() {
+    if (!pendiente) return;
+    setMensaje(null);
+    await enviarMarcacion(pendiente.tipo, pendiente.foto);
+  }
+
+  const ocupado = paso !== null;
 
   return (
     <div className="mt-2 pt-2 border-t border-marca-borde/60 space-y-1">
-      <input ref={inputLlegada} type="file" accept="image/*" capture="user" className="hidden" onChange={handleFotoLlegada} />
-      <input ref={inputSalida} type="file" accept="image/*" capture="user" className="hidden" onChange={handleFotoSalida} />
+      <input
+        ref={inputLlegada}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={(e) => handleFoto(e, "llegada")}
+      />
+      <input
+        ref={inputSalida}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={(e) => handleFoto(e, "salida")}
+      />
 
       {tienda.horaLlegada ? (
         <p className="text-[10.5px] text-marca-tenue">
@@ -280,10 +325,10 @@ function MarcadoVisitaTienda({
         <button
           type="button"
           onClick={() => inputLlegada.current?.click()}
-          disabled={procesando}
-          className="text-marca-rojoclaro text-[10.5px] font-black uppercase tracking-wide hover:text-marca-rojo disabled:opacity-50 transition"
+          disabled={ocupado}
+          className="w-full min-h-[48px] flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] px-4 transition"
         >
-          {procesando ? "..." : "📷 Marcar llegada a esta tienda"}
+          {paso ? ETIQUETA_PASO[paso] : "📷 Marcar llegada a esta tienda"}
         </button>
       )}
 
@@ -291,10 +336,10 @@ function MarcadoVisitaTienda({
         <button
           type="button"
           onClick={() => inputSalida.current?.click()}
-          disabled={procesando}
-          className="block text-marca-rojoclaro text-[10.5px] font-black uppercase tracking-wide hover:text-marca-rojo disabled:opacity-50 transition"
+          disabled={ocupado}
+          className="w-full min-h-[48px] flex items-center justify-center gap-2 border border-marca-rojo/50 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-60 font-black text-sm rounded-[3px] px-4 transition"
         >
-          {procesando ? "..." : "📷 Marcar salida de la tienda"}
+          {paso ? ETIQUETA_PASO[paso] : "📷 Marcar salida de la tienda"}
         </button>
       )}
 
@@ -321,7 +366,25 @@ function MarcadoVisitaTienda({
         </p>
       )}
 
-      {mensaje && <p className="text-marca-rojoclaro text-[10px] font-bold">{mensaje}</p>}
+      {mensaje && (
+        <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3 space-y-2">
+          <p className="text-marca-rojoclaro text-xs font-bold">⚠️ {mensaje}</p>
+          {pendiente && !ocupado && (
+            <>
+              <p className="text-marca-tenue text-[11px]">
+                Tu foto quedó guardada — no hace falta tomarla de nuevo.
+              </p>
+              <button
+                type="button"
+                onClick={reintentar}
+                className="w-full min-h-[44px] bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black text-xs uppercase tracking-widest rounded-[3px] transition"
+              >
+                Reintentar envío
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
