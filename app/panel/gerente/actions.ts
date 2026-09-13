@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { hoyPeru, diaSemanaPeru } from "@/lib/fechas";
+import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
 
 async function exigirGerente() {
   const sesion = await obtenerSesion();
@@ -113,5 +114,69 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
       fechaInicio: a.fecha_inicio,
       fechaFin: a.fecha_fin,
     })),
+  };
+}
+
+// ---------- Mapa operativo del día ----------
+//
+// Dónde está cada colaborador hoy, según sus asignaciones del día (mismo
+// criterio de "visita" que el resto del sistema: reportada o pendiente de
+// reportar, sin duplicar) cruzado con la ubicación real de cada tienda.
+
+export type PersonaEnMapa = { usuarioId: string; usuarioNombre: string; rol: string };
+
+export type TiendaEnMapa = {
+  tiendaId: string;
+  tiendaNombre: string;
+  lat: number;
+  lon: number;
+  personas: PersonaEnMapa[];
+};
+
+export type MapaOperativoHoy = {
+  fecha: string;
+  tiendas: TiendaEnMapa[];
+  totalPersonas: number;
+};
+
+export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
+  await exigirGerente();
+  const supabase = supabaseServer();
+  const hoy = hoyPeru();
+
+  const [visitas, { data: tiendas, error: errorTiendas }] = await Promise.all([
+    obtenerVisitasEnRangoAnalitica(hoy, hoy),
+    supabase.from("tiendas").select("id, nombre, lat, lon"),
+  ]);
+
+  if (errorTiendas) throw new Error("No se pudo cargar el mapa operativo.");
+
+  const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
+  const porTienda = new Map<string, TiendaEnMapa>();
+  const usuariosUnicos = new Set<string>();
+
+  visitas.forEach((v) => {
+    const tienda = mapaTiendas.get(v.tiendaId);
+    if (!tienda?.lat || !tienda?.lon) return; // sin ubicación cargada — no se puede ubicar en el mapa
+
+    usuariosUnicos.add(v.usuarioId);
+
+    const entrada: TiendaEnMapa = porTienda.get(v.tiendaId) ?? {
+      tiendaId: v.tiendaId,
+      tiendaNombre: tienda.nombre,
+      lat: Number(tienda.lat),
+      lon: Number(tienda.lon),
+      personas: [],
+    };
+    if (!entrada.personas.some((p) => p.usuarioId === v.usuarioId)) {
+      entrada.personas.push({ usuarioId: v.usuarioId, usuarioNombre: v.usuarioNombre, rol: v.rol });
+    }
+    porTienda.set(v.tiendaId, entrada);
+  });
+
+  return {
+    fecha: hoy,
+    tiendas: Array.from(porTienda.values()),
+    totalPersonas: usuariosUnicos.size,
   };
 }

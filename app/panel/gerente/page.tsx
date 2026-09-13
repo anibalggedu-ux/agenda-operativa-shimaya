@@ -11,6 +11,7 @@ import {
   LazyCalendario as Calendario,
   LazyRegistro as Registro,
   LazyHistorialAuditorias as HistorialAuditorias,
+  LazyMapaOperativo as MapaOperativo,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -33,6 +34,12 @@ export default async function PanelGerente() {
           <AnunciosWidget />
         </div>
       ),
+    },
+    {
+      id: "mapa",
+      etiqueta: "Mapa",
+      icono: "🗺️",
+      contenido: <MapaOperativo />,
     },
     {
       id: "analitica",

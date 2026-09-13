@@ -40,3 +40,8 @@ export const LazyAuditoriasPanel = dynamic(() => import("./auditorias/auditorias
   ssr: false,
   loading: cargando,
 });
+
+export const LazyMapaOperativo = dynamic(() => import("./gerente/mapa-operativo"), {
+  ssr: false,
+  loading: cargando,
+});
