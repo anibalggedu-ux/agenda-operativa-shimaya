@@ -217,14 +217,20 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   const { data, error } = await supabase
     .from("rutas_activas")
     .select(
-      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, usuarios(nombre), tiendas!tienda_id(nombre, lat, lon)"
+      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, usuarios(nombre, activo), tiendas!tienda_id(nombre, lat, lon)"
     )
     .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
 
   if (error) throw new Error("No se pudo cargar las rutas activas.");
 
-  const filas = data ?? [];
+  // Al dar de baja a alguien, sus rutas pendientes quedaban para siempre en
+  // esta cola aunque ya no pueda entrar a reportarlas. No se borran (si se
+  // reactiva, vuelven a aparecer solas), solo dejan de ensuciar el trabajo
+  // del día. Se filtra acá y no en la consulta para no estrenar un join
+  // "!inner" —sintaxis que no se usa en ninguna otra parte del proyecto—
+  // justo en la pantalla principal del coordinador.
+  const filas = (data ?? []).filter((r: any) => r.usuarios?.activo !== false);
   if (filas.length === 0) return [];
 
   const usuarioIds = Array.from(new Set(filas.map((r: any) => r.usuario_id)));

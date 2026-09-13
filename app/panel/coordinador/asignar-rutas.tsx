@@ -173,8 +173,15 @@ export default function AsignarRutas() {
   }, [estado]);
 
   async function handleEliminar(id: string) {
-    await eliminarRutaActiva(id);
-    setRutas((prev) => prev.filter((r) => r.id !== id));
+    const ruta = rutas.find((r) => r.id === id);
+    const etiqueta = ruta
+      ? `la ruta de ${ruta.usuarioNombre} a ${ruta.tiendaNombre} del ${formatearFechaLegible(ruta.fechaPlanificada)}`
+      : "esta ruta";
+    if (!window.confirm(`¿Cancelar ${etiqueta}? No se puede deshacer.`)) return;
+
+    const resultado = await eliminarRutaActiva(id);
+    if (resultado.exito) setRutas((prev) => prev.filter((r) => r.id !== id));
+    else window.alert(resultado.mensaje || "No se pudo cancelar la ruta.");
   }
 
   const asignadosEnFecha = useMemo(() => {

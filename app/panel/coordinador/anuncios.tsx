@@ -100,8 +100,14 @@ export default function Anuncios() {
   }, [estado]);
 
   async function handleEliminar(id: string) {
-    await eliminarComunicado(id);
-    setComunicados((prev) => prev.filter((c) => c.id !== id));
+    const anuncio = comunicados.find((c) => c.id === id);
+    if (!window.confirm(`¿Eliminar el anuncio "${anuncio?.tipo ?? ""}"? No se puede deshacer.`)) return;
+
+    const resultado = await eliminarComunicado(id);
+    // Solo se saca de la lista si el servidor confirmó — antes se quitaba de
+    // la pantalla aunque el borrado hubiera fallado.
+    if (resultado.exito) setComunicados((prev) => prev.filter((c) => c.id !== id));
+    else window.alert(resultado.mensaje || "No se pudo eliminar el anuncio.");
   }
 
   if (cargando) {

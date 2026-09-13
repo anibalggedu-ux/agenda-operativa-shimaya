@@ -72,8 +72,15 @@ export default function AsignacionesEspeciales() {
   }, [estado]);
 
   async function handleEliminar(id: string) {
-    await eliminarAsignacionEspecial(id);
-    setAsignaciones((prev) => prev.filter((a) => a.id !== id));
+    const asignacion = asignaciones.find((a) => a.id === id);
+    const etiqueta = asignacion
+      ? `${asignacion.tipo} de ${asignacion.usuarioNombre}`
+      : "esta asignación especial";
+    if (!window.confirm(`¿Eliminar ${etiqueta}? No se puede deshacer.`)) return;
+
+    const resultado = await eliminarAsignacionEspecial(id);
+    if (resultado.exito) setAsignaciones((prev) => prev.filter((a) => a.id !== id));
+    else window.alert(resultado.mensaje || "No se pudo eliminar la asignación.");
   }
 
   if (cargando) {
