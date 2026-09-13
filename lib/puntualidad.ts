@@ -10,6 +10,7 @@ import { diaSemanaPeru, sumarDias, formatearHora, formatearFechaLegible } from "
 export const HORA_LIMITE_PUNTUALIDAD: Record<string, string> = {
   capacitador: "11:00:00",
   supervisor: "12:00:00",
+  coordinador: "12:00:00",
 };
 
 // No hace falta mirar más atrás que esto: si el problema viene de antes,
@@ -52,10 +53,14 @@ export function calcularEstadoPuntualidad(
   asistenciaPorFecha: Map<string, RegistroAsistencia>,
   hoy: string,
   horaActual: string,
-  diasExentos: Set<string> = new Set()
+  diasExentos: Set<string> = new Set(),
+  fechaIngreso: string | null = null
 ): AlertaPuntualidad {
   const limite = HORA_LIMITE_PUNTUALIDAD[rol];
-  const limiteFecha = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
+  // No se evalúa puntualidad antes de que la persona existiera como
+  // colaborador — evita marcar "tardanza" en días previos a su ingreso.
+  const topeLookback = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
+  const limiteFecha = fechaIngreso && fechaIngreso > topeLookback ? fechaIngreso : topeLookback;
 
   function esDiaExento(fecha: string): boolean {
     return diasDescanso.includes(diaSemanaPeru(fecha)) || diasExentos.has(fecha);
@@ -158,6 +163,9 @@ export type AlertaPuntualidadItem = {
   rol: string;
   tipo: TipoAlertaPuntualidad;
   mensaje: string;
+  // Racha del tipo correspondiente — para poder ordenar los casos más graves
+  // primero dentro de un mismo tipo (una racha de 10 antes que una de 2).
+  severidad: number;
 };
 
 // Última fecha con evidencia de tardanza: hoy mismo si hoy está tarde o
@@ -165,7 +173,9 @@ export type AlertaPuntualidadItem = {
 // viene arrastrando una racha sin que hoy sea (todavía) un problema.
 function fechaProblemaTardanza(a: AlertaPuntualidad, hoy: string): string | null {
   if (a.estadoHoy === "tarde" || a.estadoHoy === "pendiente_tarde") return hoy;
-  if (a.rachaTardanzas > 0) return sumarDias(hoy, -1);
+  // rachaTardanzas === 1 no genera aviso propio (mensajeTardanza no tiene
+  // texto para ese caso) — evita una alerta con mensaje vacío en la lista.
+  if (a.rachaTardanzas >= 2) return sumarDias(hoy, -1);
   return null;
 }
 
@@ -207,6 +217,7 @@ export function construirItemsAlerta(
       rol: a.rol,
       tipo: "tardanza",
       mensaje: mensajeTardanza(a),
+      severidad: a.rachaTardanzas,
     });
   }
 
@@ -217,6 +228,7 @@ export function construirItemsAlerta(
       rol: a.rol,
       tipo: "salida",
       mensaje: mensajeSalida(a),
+      severidad: a.rachaSinSalida,
     });
   }
 

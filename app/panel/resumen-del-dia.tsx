@@ -80,6 +80,7 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
   const [personal, setPersonal] = useState<ResumenPersonal | null>(null);
   const [operativo, setOperativo] = useState<ResumenOperativo | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [errorAtender, setErrorAtender] = useState<string | null>(null);
 
   useEffect(() => {
     setCargando(true);
@@ -91,13 +92,36 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esOperativo]);
 
-  function handleAtenderAlerta(usuarioId: string, tipo: "tardanza" | "salida") {
+  function ordenarAlertas(alertas: ResumenOperativo["alertasPuntualidad"]) {
+    return [...alertas].sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === "tardanza" ? -1 : 1;
+      return b.severidad - a.severidad;
+    });
+  }
+
+  async function handleAtenderAlerta(usuarioId: string, tipo: "tardanza" | "salida") {
+    const alertaRemovida = operativo?.alertasPuntualidad.find((a) => a.usuarioId === usuarioId && a.tipo === tipo) ?? null;
+
+    setErrorAtender(null);
     setOperativo((prev) =>
       prev
         ? { ...prev, alertasPuntualidad: prev.alertasPuntualidad.filter((a) => !(a.usuarioId === usuarioId && a.tipo === tipo)) }
         : prev
     );
-    marcarAlertaAtendida(usuarioId, tipo).catch(() => {});
+
+    const resultado = await marcarAlertaAtendida(usuarioId, tipo).catch(() => ({
+      exito: false as const,
+      mensaje: "No se pudo conectar con el servidor.",
+    }));
+
+    // Si falló, se restaura la alerta — sin esto, la UI queda mostrando que
+    // se atendió aunque el servidor nunca lo haya guardado.
+    if (!resultado.exito && alertaRemovida) {
+      setOperativo((prev) =>
+        prev ? { ...prev, alertasPuntualidad: ordenarAlertas([...prev.alertasPuntualidad, alertaRemovida]) } : prev
+      );
+      setErrorAtender(`No se pudo marcar como atendida la alerta de ${alertaRemovida.usuarioNombre}. Intenta de nuevo.`);
+    }
   }
 
   const primerNombre = nombre.split(" ")[0];
@@ -141,6 +165,18 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
             </div>
           );
         })()}
+
+      {esOperativo && errorAtender && (
+        <div className="mb-3 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 flex items-center justify-between gap-2">
+          <p className="text-amber-400 text-xs font-semibold">⚠️ {errorAtender}</p>
+          <button
+            onClick={() => setErrorAtender(null)}
+            className="shrink-0 text-[10px] font-bold text-amber-400/70 hover:text-amber-300"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {esOperativo && operativo && operativo.alertasPuntualidad.length > 0 && (
         <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">

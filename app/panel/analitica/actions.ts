@@ -14,6 +14,7 @@ async function exigirSesion() {
 const HORA_LIMITE_POR_ROL: Record<string, string> = {
   capacitador: "11:00:00",
   supervisor: "12:00:00",
+  coordinador: "12:00:00",
 };
 
 export type ReportesPorDia = { fecha: string; cantidad: number };
@@ -178,9 +179,10 @@ export async function obtenerVisitasEnRangoAnalitica(
 
   let consultaReportes = supabase
     .from("rutas_diarias")
-    .select("fecha, tienda_id, usuario_id, rol, origen_tienda_id, usuarios(nombre)")
+    .select("fecha, tienda_id, usuario_id, rol, origen_tienda_id, created_at, usuarios(nombre)")
     .gte("fecha", desde)
-    .lte("fecha", hasta);
+    .lte("fecha", hasta)
+    .order("created_at", { ascending: false });
   if (tiendaId) consultaReportes = consultaReportes.eq("tienda_id", tiendaId);
 
   let consultaAsignaciones = supabase
@@ -197,6 +199,9 @@ export async function obtenerVisitasEnRangoAnalitica(
     throw new Error("No se pudo cargar las visitas.");
   }
 
+  // Ya vienen ordenados por created_at descendente, así que si un usuario
+  // cargó dos reportes distintos el mismo día para la misma tienda, se queda
+  // el más reciente (más confiable que dejarlo al azar del orden de la BD).
   const reportesUnicos = new Map<string, any>();
   (reportes ?? []).forEach((r: any) => {
     const clave = `${r.usuario_id}|${r.tienda_id}|${r.fecha}`;
@@ -215,9 +220,14 @@ export async function obtenerVisitasEnRangoAnalitica(
     origenTiendaId: r.origen_tienda_id ?? null,
   }));
 
+  const asignacionesUnicas = new Map<string, any>();
   (asignaciones ?? []).forEach((a: any) => {
     const clave = `${a.usuario_id}|${a.tienda_id}|${a.fecha_planificada}`;
     if (clavesReportadas.has(clave)) return; // ya contada vía el reporte
+    if (!asignacionesUnicas.has(clave)) asignacionesUnicas.set(clave, a);
+  });
+
+  Array.from(asignacionesUnicas.values()).forEach((a: any) => {
     visitas.push({
       fecha: a.fecha_planificada,
       tiendaId: a.tienda_id,

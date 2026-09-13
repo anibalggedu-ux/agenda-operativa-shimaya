@@ -15,6 +15,7 @@ import { hoyPeru, sumarDias, diaSemanaPeru, diasEntreFechas } from "@/lib/fechas
 const HORA_LIMITE_PUNTUALIDAD: Record<string, string> = {
   capacitador: "11:00:00",
   supervisor: "12:00:00",
+  coordinador: "12:00:00",
 };
 
 const ROLES_CON_PUNTOS = ["supervisor", "capacitador", "coordinador"];

@@ -150,16 +150,14 @@ function dibujarKilometros(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     porTienda.forEach((t) => {
-      if (y + 5 > ALTO_PAGINA) {
+      const texto = `${t.tiendaNombre} — ${t.km} km · ${formatearMinutos(t.minutos)} · ${t.visitas} visita(s)`;
+      const lineas = doc.splitTextToSize(texto, ANCHO_UTIL - 8);
+      if (y + lineas.length * 5 > ALTO_PAGINA) {
         doc.addPage();
         y = 20;
       }
-      doc.text(
-        `${t.tiendaNombre} — ${t.km} km · ${formatearMinutos(t.minutos)} · ${t.visitas} visita(s)`,
-        18,
-        y
-      );
-      y += 5;
+      doc.text(lineas, 18, y);
+      y += lineas.length * 5;
     });
     y += 3;
   }
@@ -223,6 +221,10 @@ function dibujarResumenDesempeno(
         `${a.tipo}: ${formatearFechaLegible(a.fechaInicio)} - ${formatearFechaLegible(a.fechaFin)}` +
         (a.motivo ? " — " + a.motivo : "");
       const lineas = doc.splitTextToSize(texto, ANCHO_UTIL - 4);
+      if (y + lineas.length * 5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
       doc.text(lineas, 14, y);
       y += lineas.length * 5;
     });
@@ -282,10 +284,16 @@ async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   doc.setTextColor(0, 0, 0);
 }
 
-function campo(doc: jsPDF, etiqueta: string, valor: string, y: number, valorX = 48): number {
+// La columna de valor se alinea a 48mm por defecto (se ve prolijo con
+// labels cortos), pero si el label es más ancho que eso el texto se corre
+// para no pisarlo — antes era un número fijo ajustado caso por caso, lo que
+// dejaba pasar labels largos nuevos sin el ajuste.
+function campo(doc: jsPDF, etiqueta: string, valor: string, y: number, valorXManual?: number): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text(etiqueta, 14, y);
+  const anchoEtiqueta = doc.getTextWidth(etiqueta);
+  const valorX = valorXManual ?? Math.max(48, 14 + anchoEtiqueta + 4);
   doc.setFont("helvetica", "normal");
   doc.text(valor, valorX, y);
   return y + 7;
@@ -476,8 +484,13 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     Array.from(conteoTiendas.entries())
       .sort((a, b) => b[1] - a[1])
       .forEach(([tienda, cantidad]) => {
-        doc.text(`${tienda} — ${cantidad} visita(s)`, 14, y);
-        y += 5.5;
+        const lineas = doc.splitTextToSize(`${tienda} — ${cantidad} visita(s)`, ANCHO_UTIL);
+        if (y + lineas.length * 5.5 > ALTO_PAGINA) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(lineas, 14, y);
+        y += lineas.length * 5.5;
       });
     y += 6;
   }
@@ -612,8 +625,13 @@ export async function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
     y += 6;
   } else {
     datos.visitantes.forEach((v) => {
-      doc.text(`${v.usuarioNombre} (${v.rol}) — ${v.visitas} visita(s)`, 14, y);
-      y += 5.5;
+      const lineas = doc.splitTextToSize(`${v.usuarioNombre} (${v.rol}) — ${v.visitas} visita(s)`, ANCHO_UTIL);
+      if (y + lineas.length * 5.5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lineas, 14, y);
+      y += lineas.length * 5.5;
     });
   }
   y += 6;

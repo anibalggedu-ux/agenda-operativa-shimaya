@@ -46,8 +46,12 @@ export async function obtenerResumenKilometros(
   await exigirSesion();
   const supabase = supabaseServer();
 
+  // No se filtra por activo=true: un colaborador desactivado después del
+  // rango consultado igual debe aparecer en su kilometraje histórico (las
+  // filas solo se generan a partir de visitas reales, así que esto no agrega
+  // usuarios inactivos "vacíos" a ningún reporte del período actual).
   let consultaUsuarios = supabase.from("usuarios").select("id, nombre, rol, lat, lon");
-  consultaUsuarios = soloUsuarioId ? consultaUsuarios.eq("id", soloUsuarioId) : consultaUsuarios.eq("activo", true);
+  if (soloUsuarioId) consultaUsuarios = consultaUsuarios.eq("id", soloUsuarioId);
 
   const [{ data: usuarios, error: errorUsuarios }, visitasCompletas, { data: tiendas, error: errorTiendas }] =
     await Promise.all([

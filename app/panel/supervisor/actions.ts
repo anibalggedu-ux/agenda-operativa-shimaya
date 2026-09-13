@@ -292,9 +292,13 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
     .from("rutas_activas")
     .select("tienda_id, hora_llegada, hora_salida, autoasignada")
     .eq("usuario_id", sesion.id)
-    .eq("fecha_planificada", fecha);
+    .eq("fecha_planificada", fecha)
+    .order("hora_llegada", { ascending: false, nullsFirst: false });
 
   const listaOtrasHoy = otrasHoy ?? [];
+  // Ya viene ordenada por hora_llegada más reciente primero, así que si hay
+  // más de una tienda marcada como "actual" (no debería pasar, pero por las
+  // dudas) se elige la de llegada más reciente, no la que devuelva Postgres.
   const dondeEstaAhora = listaOtrasHoy.find((r) => r.hora_llegada && !r.hora_salida);
   const cualquierOtra = [...listaOtrasHoy].sort((a, b) => Number(a.autoasignada) - Number(b.autoasignada))[0];
   const origenTiendaId = dondeEstaAhora?.tienda_id ?? cualquierOtra?.tienda_id ?? null;

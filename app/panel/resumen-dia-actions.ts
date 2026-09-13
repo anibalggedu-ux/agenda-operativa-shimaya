@@ -67,7 +67,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .select("tipo, created_at")
       .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
       .order("created_at", { ascending: false }),
-    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase.from("usuarios").select("dias_descanso, fecha_ingreso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("asistencia")
       .select("fecha, hora_ingreso, hora_salida")
@@ -100,7 +100,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     asistenciaPorFecha,
     hoy,
     horaActual,
-    diasExentosPropios
+    diasExentosPropios,
+    usuarioPropio?.fecha_ingreso ?? null
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -275,7 +276,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso")
+      .select("id, nombre, rol, dias_descanso, fecha_ingreso")
       .eq("activo", true)
       .in("rol", ROLES_CON_ASISTENCIA),
     supabase
@@ -326,13 +327,17 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       asistenciaPorUsuario.get(u.id) ?? new Map(),
       hoy,
       horaActual,
-      diasExentosPorUsuario.get(u.id) ?? new Set()
+      diasExentosPorUsuario.get(u.id) ?? new Set(),
+      u.fecha_ingreso ?? null
     )
   );
 
   const alertasPuntualidad: AlertaPuntualidadItem[] = estadosEquipo
     .flatMap((e) => construirItemsAlerta(e, hoy, atendidoPorUsuario.get(e.usuarioId)))
-    .sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === "tardanza" ? -1 : 1));
+    .sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === "tardanza" ? -1 : 1;
+      return b.severidad - a.severidad; // racha más grave primero
+    });
 
   const totalTiendas = tiendas?.length ?? 0;
   const visitasHoy = new Set((visitasHoyRows ?? []).map((r: any) => r.tienda_id)).size;
