@@ -10,6 +10,7 @@ import { obtenerClimaActual, resumirClimaActual } from "@/lib/clima";
 import {
   calcularEstadoPuntualidad,
   tieneAlertaActiva,
+  expandirRangoFechas,
   type AlertaPuntualidad,
   type RegistroAsistencia,
 } from "@/lib/puntualidad";
@@ -49,27 +50,45 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   const horaActual = horaPeru();
   const desdeAlerta = sumarDias(hoy, -45);
 
-  const [{ tiendas }, misPuntos, { data: comunicados }, { data: usuarioPropio }, { data: asistenciaPropia }] =
-    await Promise.all([
-      obtenerTiendasClasificadas(),
-      obtenerMisPuntos(),
-      supabase
-        .from("comunicados")
-        .select("tipo, created_at")
-        .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
-        .order("created_at", { ascending: false }),
-      supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
-      supabase
-        .from("asistencia")
-        .select("fecha, hora_ingreso, hora_salida")
-        .eq("usuario_id", sesion.id)
-        .gte("fecha", desdeAlerta)
-        .lte("fecha", hoy),
-    ]);
+  const [
+    { tiendas },
+    misPuntos,
+    { data: comunicados },
+    { data: usuarioPropio },
+    { data: asistenciaPropia },
+    { data: especialesPropias },
+  ] = await Promise.all([
+    obtenerTiendasClasificadas(),
+    obtenerMisPuntos(),
+    supabase
+      .from("comunicados")
+      .select("tipo, created_at")
+      .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
+      .order("created_at", { ascending: false }),
+    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("asistencia")
+      .select("fecha, hora_ingreso, hora_salida")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha", desdeAlerta)
+      .lte("fecha", hoy),
+    // Vacaciones, permisos, descanso médico o misión especial — esos días no
+    // deben contar como tardanza ni salida faltante (ver lib/puntualidad.ts).
+    supabase
+      .from("asignaciones_especiales")
+      .select("fecha_inicio, fecha_fin")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha_fin", desdeAlerta)
+      .lte("fecha_inicio", hoy),
+  ]);
 
   const asistenciaPorFecha = new Map<string, RegistroAsistencia>();
   (asistenciaPropia ?? []).forEach((a) => {
     asistenciaPorFecha.set(a.fecha, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
+  });
+  const diasExentosPropios = new Set<string>();
+  (especialesPropias ?? []).forEach((e) => {
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => diasExentosPropios.add(f));
   });
   const alertaPuntualidad = calcularEstadoPuntualidad(
     sesion.id,
@@ -78,7 +97,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     usuarioPropio?.dias_descanso ?? [],
     asistenciaPorFecha,
     hoy,
-    horaActual
+    horaActual,
+    diasExentosPropios
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -238,6 +258,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     dashboard,
     { data: colaboradores },
     { data: asistenciaEquipo },
+    { data: especialesEquipo },
   ] = await Promise.all([
     supabase.from("tiendas").select("id"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
@@ -259,6 +280,15 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .select("usuario_id, fecha, hora_ingreso, hora_salida")
       .gte("fecha", desdeAlerta)
       .lte("fecha", hoy),
+    // Vacaciones, permisos, descanso médico o misión especial de todo el
+    // equipo en la ventana — esos días no cuentan como tardanza ni salida
+    // faltante (ver lib/puntualidad.ts). Aparte de "especialesHoy" de arriba,
+    // que solo cubre hoy y no trae usuario_id.
+    supabase
+      .from("asignaciones_especiales")
+      .select("usuario_id, fecha_inicio, fecha_fin")
+      .gte("fecha_fin", desdeAlerta)
+      .lte("fecha_inicio", hoy),
   ]);
 
   const asistenciaPorUsuario = new Map<string, Map<string, RegistroAsistencia>>();
@@ -266,6 +296,13 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     const mapa = asistenciaPorUsuario.get(a.usuario_id) ?? new Map<string, RegistroAsistencia>();
     mapa.set(a.fecha, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
     asistenciaPorUsuario.set(a.usuario_id, mapa);
+  });
+
+  const diasExentosPorUsuario = new Map<string, Set<string>>();
+  (especialesEquipo ?? []).forEach((e) => {
+    const set = diasExentosPorUsuario.get(e.usuario_id) ?? new Set<string>();
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => set.add(f));
+    diasExentosPorUsuario.set(e.usuario_id, set);
   });
 
   const alertasPuntualidad = (colaboradores ?? [])
@@ -277,7 +314,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
         u.dias_descanso ?? [],
         asistenciaPorUsuario.get(u.id) ?? new Map(),
         hoy,
-        horaActual
+        horaActual,
+        diasExentosPorUsuario.get(u.id) ?? new Set()
       )
     )
     .filter(tieneAlertaActiva)

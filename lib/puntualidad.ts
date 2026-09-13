@@ -31,6 +31,19 @@ export type AlertaPuntualidad = {
   rachaSinSalida: number;
 };
 
+// Convierte un rango de asignación especial (vacaciones, permiso, descanso
+// médico, misión especial) en el conjunto de fechas individuales que cubre,
+// para poder consultarlas con .has(fecha) en O(1) dentro del cálculo.
+export function expandirRangoFechas(fechaInicio: string, fechaFin: string): string[] {
+  const fechas: string[] = [];
+  let cursor = fechaInicio;
+  while (cursor <= fechaFin) {
+    fechas.push(cursor);
+    cursor = sumarDias(cursor, 1);
+  }
+  return fechas;
+}
+
 export function calcularEstadoPuntualidad(
   usuarioId: string,
   usuarioNombre: string,
@@ -38,17 +51,22 @@ export function calcularEstadoPuntualidad(
   diasDescanso: string[],
   asistenciaPorFecha: Map<string, RegistroAsistencia>,
   hoy: string,
-  horaActual: string
+  horaActual: string,
+  diasExentos: Set<string> = new Set()
 ): AlertaPuntualidad {
   const limite = HORA_LIMITE_PUNTUALIDAD[rol];
   const limiteFecha = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
+
+  function esDiaExento(fecha: string): boolean {
+    return diasDescanso.includes(diaSemanaPeru(fecha)) || diasExentos.has(fecha);
+  }
 
   let estadoHoy: EstadoHoy;
   const registroHoy = asistenciaPorFecha.get(hoy);
 
   if (!limite) {
     estadoHoy = "sin_limite";
-  } else if (diasDescanso.includes(diaSemanaPeru(hoy))) {
+  } else if (esDiaExento(hoy)) {
     estadoHoy = "descanso";
   } else if (registroHoy?.horaIngreso) {
     estadoHoy = registroHoy.horaIngreso > limite ? "tarde" : "a_tiempo";
@@ -60,11 +78,13 @@ export function calcularEstadoPuntualidad(
 
   // Racha de tardanzas: días laborales consecutivos ANTES de hoy (hoy aún
   // no termina, así que no cuenta todavía) donde llegó tarde o no marcó.
+  // Un día de descanso o cubierto por vacaciones/permiso/misión especial no
+  // cuenta ni corta la racha — simplemente se salta.
   let rachaTardanzas = 0;
   if (limite) {
     let cursor = sumarDias(hoy, -1);
     while (cursor >= limiteFecha) {
-      if (diasDescanso.includes(diaSemanaPeru(cursor))) {
+      if (esDiaExento(cursor)) {
         cursor = sumarDias(cursor, -1);
         continue;
       }
@@ -82,7 +102,7 @@ export function calcularEstadoPuntualidad(
   let rachaSinSalida = 0;
   let cursorSalida = sumarDias(hoy, -1);
   while (cursorSalida >= limiteFecha) {
-    if (diasDescanso.includes(diaSemanaPeru(cursorSalida))) {
+    if (esDiaExento(cursorSalida)) {
       cursorSalida = sumarDias(cursorSalida, -1);
       continue;
     }
