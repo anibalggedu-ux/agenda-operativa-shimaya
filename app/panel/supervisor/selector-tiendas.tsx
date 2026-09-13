@@ -312,7 +312,7 @@ function MarcadoVisitaTienda({
         ref={inputLlegada}
         type="file"
         accept="image/*"
-        capture="user"
+        capture="environment"
         className="hidden"
         onChange={(e) => handleFoto(e, "llegada")}
       />
@@ -320,7 +320,7 @@ function MarcadoVisitaTienda({
         ref={inputSalida}
         type="file"
         accept="image/*"
-        capture="user"
+        capture="environment"
         className="hidden"
         onChange={(e) => handleFoto(e, "salida")}
       />
