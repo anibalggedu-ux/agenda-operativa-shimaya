@@ -200,7 +200,7 @@ export async function obtenerRutasActivas(): Promise<RutaActiva[]> {
   const { data, error } = await supabase
     .from("rutas_activas")
     .select(
-      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, usuarios(nombre), tiendas(nombre, lat, lon)"
+      "id, fecha_planificada, area, enfoque, autoasignada, usuario_id, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, usuarios(nombre), tiendas!tienda_id(nombre, lat, lon)"
     )
     .gte("fecha_planificada", hoyPeru())
     .order("fecha_planificada", { ascending: true });
@@ -650,7 +650,7 @@ export async function obtenerReportesRecientes(
   const { data, error } = await supabase
     .from("rutas_diarias")
     .select(
-      "id, fecha, rol, observacion, actividad, respuesta, respuesta_por, usuarios(nombre), tiendas(nombre)"
+      "id, fecha, rol, observacion, actividad, respuesta, respuesta_por, usuarios(nombre), tiendas!tienda_id(nombre)"
     )
     .gte("fecha", desde)
     .lte("fecha", hasta)
@@ -1212,7 +1212,7 @@ export async function obtenerHistorialPersona(
       .maybeSingle(),
     supabase
       .from("rutas_diarias")
-      .select("fecha, observacion, tiendas(nombre)")
+      .select("fecha, observacion, tiendas!tienda_id(nombre)")
       .eq("usuario_id", usuarioId)
       .gte("fecha", desde)
       .lte("fecha", hasta)

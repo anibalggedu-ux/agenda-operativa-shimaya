@@ -80,14 +80,14 @@ export async function obtenerTiendasClasificadas(): Promise<{
     supabase
       .from("rutas_activas")
       .select(
-        "id, fecha_planificada, area, enfoque, autoasignada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas(id, nombre, lat, lon)"
+        "id, fecha_planificada, area, enfoque, autoasignada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas!tienda_id(id, nombre, lat, lon)"
       )
       .eq("usuario_id", sesion.id)
       .order("fecha_planificada", { ascending: false }),
     supabase
       .from("rutas_diarias")
       .select(
-        "id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas(id, nombre, lat, lon)"
+        "id, fecha, observacion, actividad, asignado_en, created_at, tienda_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas!tienda_id(id, nombre, lat, lon)"
       )
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeVentana)
@@ -618,7 +618,7 @@ export async function obtenerMisReportesRecientes(
   let consulta = supabase
     .from("rutas_diarias")
     .select(
-      "id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, asignado_en, tiendas(nombre)"
+      "id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, asignado_en, tiendas!tienda_id(nombre)"
     )
     .eq("usuario_id", sesion.id);
 
@@ -883,7 +883,7 @@ export async function obtenerObservacionesTiendasFijas(
   const { data, error } = await supabase
     .from("rutas_diarias")
     .select(
-      "id, fecha, observacion, actividad, respuesta, respuesta_por, rol, usuarios(nombre), tiendas(nombre)"
+      "id, fecha, observacion, actividad, respuesta, respuesta_por, rol, usuarios(nombre), tiendas!tienda_id(nombre)"
     )
     .in("tienda_id", tiendaIds)
     .neq("usuario_id", sesion.id)

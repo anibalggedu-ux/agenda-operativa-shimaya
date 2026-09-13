@@ -81,14 +81,14 @@ async function cargarCalendario(
   // gana si por algún motivo coinciden) para no perder el pasado.
   let consultaRutasActivas = supabase
     .from("rutas_activas")
-    .select("fecha_planificada, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)")
+    .select("fecha_planificada, usuario_id, tienda_id, usuarios(nombre), tiendas!tienda_id(nombre)")
     .gte("fecha_planificada", inicio)
     .lte("fecha_planificada", fin);
   if (usuarioId) consultaRutasActivas = consultaRutasActivas.eq("usuario_id", usuarioId);
 
   let consultaRutasDiarias = supabase
     .from("rutas_diarias")
-    .select("fecha, usuario_id, tienda_id, usuarios(nombre), tiendas(nombre)")
+    .select("fecha, usuario_id, tienda_id, usuarios(nombre), tiendas!tienda_id(nombre)")
     .gte("fecha", inicio)
     .lte("fecha", fin);
   if (usuarioId) consultaRutasDiarias = consultaRutasDiarias.eq("usuario_id", usuarioId);

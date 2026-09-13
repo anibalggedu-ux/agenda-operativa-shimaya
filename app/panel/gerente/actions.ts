@@ -65,7 +65,7 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
     supabase.from("rutas_diarias").select("id", { count: "exact", head: true }).eq("fecha", hoy),
     supabase
       .from("rutas_activas")
-      .select("id, fecha_planificada, usuarios(nombre), tiendas(nombre)")
+      .select("id, fecha_planificada, usuarios(nombre), tiendas!tienda_id(nombre)")
       .order("fecha_planificada", { ascending: true }),
     supabase.from("usuarios").select("nombre, rol").contains("dias_descanso", [diaSemana]),
     supabase

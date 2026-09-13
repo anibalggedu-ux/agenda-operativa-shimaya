@@ -432,7 +432,7 @@ export async function obtenerReportesParaCorregir(
 
   const { data, error } = await supabase
     .from("rutas_diarias")
-    .select("id, fecha, observacion, actividad, tiendas(nombre)")
+    .select("id, fecha, observacion, actividad, tiendas!tienda_id(nombre)")
     .eq("usuario_id", usuarioId)
     .gte("fecha", desde)
     .lte("fecha", hasta)
@@ -463,7 +463,7 @@ export async function actualizarReporteRegistro(
 
   const { data: antes } = await supabase
     .from("rutas_diarias")
-    .select("fecha, usuarios(nombre), tiendas(nombre)")
+    .select("fecha, usuarios(nombre), tiendas!tienda_id(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -491,7 +491,7 @@ export async function eliminarReporteRegistro(id: string): Promise<ResultadoRegi
 
   const { data: antes } = await supabase
     .from("rutas_diarias")
-    .select("fecha, usuarios(nombre), tiendas(nombre)")
+    .select("fecha, usuarios(nombre), tiendas!tienda_id(nombre)")
     .eq("id", id)
     .maybeSingle();
 

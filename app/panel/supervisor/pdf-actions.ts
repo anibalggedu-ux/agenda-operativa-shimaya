@@ -17,7 +17,7 @@ export async function obtenerHistorialReportes(
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("rutas_diarias")
-    .select("fecha, observacion, actividad, tiendas(nombre)")
+    .select("fecha, observacion, actividad, tiendas!tienda_id(nombre)")
     .eq("usuario_id", sesion.id)
     .gte("fecha", desde)
     .lte("fecha", hasta)
