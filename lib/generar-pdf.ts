@@ -190,19 +190,22 @@ function dibujarResumenDesempeno(
     doc,
     "Racha de puntualidad:",
     rachaActual > 0 ? `${rachaActual} día(s) seguidos` : "Sin racha activa",
-    y
+    y,
+    75
   );
   y = campo(
     doc,
     "Puntualidad del periodo:",
     pct === null ? "Sin marcaciones en el rango" : `${puntuales} de ${totalMarcaciones} a tiempo (${pct}%)`,
-    y
+    y,
+    75
   );
   y = campo(
     doc,
     "Auto-asignaciones:",
     autoasignaciones === 0 ? "Ninguna en el rango" : `${autoasignaciones} vez(ces) — asignación de última hora`,
-    y
+    y,
+    75
   );
 
   doc.setFont("helvetica", "bold");
@@ -279,12 +282,12 @@ async function dibujarEncabezado(doc: jsPDF, subtitulo: string) {
   doc.setTextColor(0, 0, 0);
 }
 
-function campo(doc: jsPDF, etiqueta: string, valor: string, y: number): number {
+function campo(doc: jsPDF, etiqueta: string, valor: string, y: number, valorX = 48): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text(etiqueta, 14, y);
   doc.setFont("helvetica", "normal");
-  doc.text(valor, 48, y);
+  doc.text(valor, valorX, y);
   return y + 7;
 }
 
