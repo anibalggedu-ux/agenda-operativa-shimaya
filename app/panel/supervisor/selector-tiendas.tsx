@@ -14,7 +14,13 @@ import {
   type ResultadoReporte,
   type TiendaBasicaBitacora,
 } from "./actions";
-import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
+import {
+  formatearFechaLegible,
+  formatearHora,
+  horaPeru,
+  diaLaboralPeru,
+  esMadrugadaPeru,
+} from "@/lib/fechas";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
 const ESTILOS_URGENCIA: Record<
@@ -281,6 +287,25 @@ function MarcadoVisitaTienda({
 
   const ocupado = paso !== null;
 
+  // Salir de la tienda después de medianoche es habitual: esa marcación
+  // pertenece al turno que recién termina, no al día calendario nuevo. Se
+  // avisa antes de abrir la cámara para que no sea una sorpresa al ver el
+  // registro con la fecha del día anterior.
+  function confirmarTurnoDeMadrugada(): boolean {
+    if (!esMadrugadaPeru()) return true;
+    return window.confirm(
+      `Son las ${horaPeru().slice(0, 5)}.\n\n` +
+        `Esta marcación se va a registrar como parte del turno del ${formatearFechaLegible(
+          diaLaboralPeru()
+        )}, no del día de hoy.\n\n¿Es correcto?`
+    );
+  }
+
+  function abrirCamara(input: React.RefObject<HTMLInputElement>) {
+    if (!confirmarTurnoDeMadrugada()) return;
+    input.current?.click();
+  }
+
   return (
     <div className="mt-2 pt-2 border-t border-marca-borde/60 space-y-1">
       <input
@@ -324,7 +349,7 @@ function MarcadoVisitaTienda({
       ) : (
         <button
           type="button"
-          onClick={() => inputLlegada.current?.click()}
+          onClick={() => abrirCamara(inputLlegada)}
           disabled={ocupado}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] px-4 transition"
         >
@@ -335,7 +360,7 @@ function MarcadoVisitaTienda({
       {tienda.horaLlegada && !tienda.horaSalidaTienda && (
         <button
           type="button"
-          onClick={() => inputSalida.current?.click()}
+          onClick={() => abrirCamara(inputSalida)}
           disabled={ocupado}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 border border-marca-rojo/50 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-60 font-black text-sm rounded-[3px] px-4 transition"
         >

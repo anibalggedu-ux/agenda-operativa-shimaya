@@ -66,7 +66,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
   }
 
   const supabase = supabaseServer();
-  const hoy = diaLaboralPeru(sesion.rol === "capacitador");
+  const hoy = diaLaboralPeru();
   const manana = sumarDias(hoy, 1);
   const ayer = sumarDias(hoy, -1);
   const desdeVentana = sumarDias(hoy, -3); // margen de sobra para cubrir la ventana de 48h
@@ -262,7 +262,7 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
   }
 
   const supabase = supabaseServer();
-  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+  const fecha = diaLaboralPeru();
 
   const { data: existente, error: errorExistente } = await supabase
     .from("rutas_activas")
@@ -339,7 +339,7 @@ export async function enviarReporte(
   }
 
   const supabase = supabaseServer();
-  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+  const fecha = diaLaboralPeru();
 
   // El momento de la asignación (no el de envío) es lo que ancla la ventana
   // de 48 horas para poder editar el reporte después — se guarda tal cual
@@ -454,7 +454,7 @@ async function sincronizarAsistenciaDesdeTienda(
   ubicacion: string,
   fotoBlob: string
 ): Promise<void> {
-  const fecha = diaLaboralPeru(sesion.rol === "capacitador");
+  const fecha = diaLaboralPeru();
 
   const { data: existente, error: errorExistente } = await supabase
     .from("asistencia")

@@ -52,16 +52,21 @@ export function formatearFechaLegible(fechaISO: string): string {
   });
 }
 
-// El turno nocturno del Capacitador cruza la medianoche: si marca ingreso
-// a las 10pm y sale a las 5am, ese trabajo pertenece al día en que EMPEZÓ
-// el turno, no al día calendario en que salió. Antes de este corte de
-// madrugada, "hoy" para un turno nocturno sigue siendo el día anterior.
+// Nadie tiene turno nocturno, pero pasa seguido que la salida de la tienda
+// ocurra después de medianoche: esa marcación pertenece al turno que recién
+// termina, no al día calendario nuevo. Antes de este corte de madrugada,
+// "hoy" a efectos laborales sigue siendo el día anterior.
+//
+// Esto aplicaba solo al Capacitador, así que a un Supervisor que salía
+// 00:30 la salida le quedaba registrada al día siguiente.
 const CORTE_MADRUGADA_HORA = 6;
 
-export function diaLaboralPeru(esTurnoNocturno: boolean): string {
-  if (!esTurnoNocturno) return hoyPeru();
-  const horaActual = Number(horaPeru().split(":")[0]);
-  return horaActual < CORTE_MADRUGADA_HORA ? sumarDias(hoyPeru(), -1) : hoyPeru();
+export function esMadrugadaPeru(): boolean {
+  return Number(horaPeru().split(":")[0]) < CORTE_MADRUGADA_HORA;
+}
+
+export function diaLaboralPeru(): string {
+  return esMadrugadaPeru() ? sumarDias(hoyPeru(), -1) : hoyPeru();
 }
 
 export const DIAS_SEMANA = [
