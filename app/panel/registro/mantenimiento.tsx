@@ -69,7 +69,9 @@ function SeccionAsistencia() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    obtenerUsuariosBasicos().then(setUsuarios).catch(() => {});
+    obtenerUsuariosBasicos()
+      .then(setUsuarios)
+      .catch((e) => setError(e.message || "No se pudo cargar la lista de personas."));
   }, []);
 
   function cargar() {
@@ -250,7 +252,9 @@ function SeccionReportes() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    obtenerUsuariosBasicos().then(setUsuarios).catch(() => {});
+    obtenerUsuariosBasicos()
+      .then(setUsuarios)
+      .catch((e) => setError(e.message || "No se pudo cargar la lista de personas."));
   }, []);
 
   function cargar() {

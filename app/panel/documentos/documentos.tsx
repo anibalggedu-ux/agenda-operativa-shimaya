@@ -409,6 +409,7 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
                           <button
                             onClick={() => setModal({ modo: "editar", doc })}
                             title="Editar"
+                            aria-label={`Editar ${doc.nombre}`}
                             className="w-8 h-8 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-texto transition flex items-center justify-center"
                           >
                             ✎
@@ -417,6 +418,7 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
                             onClick={() => handleEliminar(doc)}
                             disabled={eliminandoId === doc.id}
                             title="Eliminar"
+                            aria-label={`Eliminar ${doc.nombre}`}
                             className="w-8 h-8 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-rojoclaro hover:border-marca-rojo/50 transition flex items-center justify-center disabled:opacity-50"
                           >
                             🗑
