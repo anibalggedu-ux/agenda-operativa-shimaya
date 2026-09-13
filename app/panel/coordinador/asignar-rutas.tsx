@@ -9,12 +9,14 @@ import {
   eliminarRutaActiva,
   obtenerColaboradoresCercanos,
   obtenerTiendasCercanas,
+  obtenerDistanciaColaboradorTienda,
   type UsuarioBasico,
   type TiendaBasica,
   type RutaActiva,
   type ResultadoAccion,
   type ColaboradorCercano,
   type TiendaCercana,
+  type DistanciaSeleccion,
 } from "./actions";
 import { AREAS_RUTA } from "./constantes";
 import { formatearFechaLegible, formatearHora, hoyPeru } from "@/lib/fechas";
@@ -128,6 +130,22 @@ export default function AsignarRutas() {
       .catch(() => setTiendasCercanas([]))
       .finally(() => setCargandoCercania(false));
   }, [ancla, usuarioId]);
+
+  // Ya elegidos ambos lados: mostrar la distancia real entre esa persona y
+  // esa tienda antes de confirmar la asignación.
+  const [distanciaSeleccion, setDistanciaSeleccion] = useState<DistanciaSeleccion | null>(null);
+  const [cargandoDistancia, setCargandoDistancia] = useState(false);
+  useEffect(() => {
+    if (!usuarioId || !tiendaId) {
+      setDistanciaSeleccion(null);
+      return;
+    }
+    setCargandoDistancia(true);
+    obtenerDistanciaColaboradorTienda(usuarioId, tiendaId)
+      .then(setDistanciaSeleccion)
+      .catch(() => setDistanciaSeleccion(null))
+      .finally(() => setCargandoDistancia(false));
+  }, [usuarioId, tiendaId]);
 
   function cargarTodo() {
     setCargando(true);
@@ -330,6 +348,25 @@ export default function AsignarRutas() {
                   </button>
                 ))}
               </div>
+            )}
+          </div>
+        ) : null}
+
+        {usuarioId && tiendaId ? (
+          <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5">
+            {cargandoDistancia ? (
+              <p className="text-marca-tenue text-xs animate-pulse">Calculando distancia...</p>
+            ) : distanciaSeleccion ? (
+              <p className="text-xs text-marca-texto">
+                📏 Esta asignación queda a{" "}
+                <span className="text-marca-rojoclaro font-black">{distanciaSeleccion.km} km</span>{" "}
+                (≈ {formatearMinutos(distanciaSeleccion.minutos)} manejando) desde el domicilio del
+                colaborador.
+              </p>
+            ) : (
+              <p className="text-marca-tenue text-xs italic">
+                No se pudo calcular la distancia (falta la dirección del colaborador o de la tienda).
+              </p>
             )}
           </div>
         ) : null}

@@ -137,6 +137,26 @@ export async function obtenerColaboradoresCercanos(tiendaId: string): Promise<Co
   return resultados.sort((a, b) => a.km - b.km).slice(0, MAX_SUGERENCIAS);
 }
 
+export type DistanciaSeleccion = { km: number; minutos: number };
+
+export async function obtenerDistanciaColaboradorTienda(
+  usuarioId: string,
+  tiendaId: string
+): Promise<DistanciaSeleccion | null> {
+  await exigirCoordinador();
+  if (!usuarioId || !tiendaId) return null;
+  const supabase = supabaseServer();
+
+  const [{ data: usuario }, { data: tienda }] = await Promise.all([
+    supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
+    supabase.from("tiendas").select("lat, lon").eq("id", tiendaId).maybeSingle(),
+  ]);
+
+  if (!usuario?.lat || !usuario?.lon || !tienda?.lat || !tienda?.lon) return null;
+
+  return calcularRutaAuto(Number(usuario.lat), Number(usuario.lon), Number(tienda.lat), Number(tienda.lon));
+}
+
 export type TiendaCercana = { tiendaId: string; tiendaNombre: string; km: number; minutos: number };
 
 export async function obtenerTiendasCercanas(usuarioId: string): Promise<TiendaCercana[]> {
