@@ -109,7 +109,7 @@ export async function obtenerColaboradoresCercanos(tiendaId: string): Promise<Co
   if (!tiendaId) return [];
   const supabase = supabaseServer();
 
-  const [{ data: tienda }, { data: usuarios }] = await Promise.all([
+  const [{ data: tienda, error: errorTienda }, { data: usuarios, error: errorUsuarios }] = await Promise.all([
     supabase.from("tiendas").select("lat, lon").eq("id", tiendaId).maybeSingle(),
     supabase
       .from("usuarios")
@@ -118,6 +118,7 @@ export async function obtenerColaboradoresCercanos(tiendaId: string): Promise<Co
       .in("rol", ROLES_CON_RUTA),
   ]);
 
+  if (errorTienda || errorUsuarios) throw new Error("No se pudo cargar colaboradores cercanos.");
   if (!tienda?.lat || !tienda?.lon) return [];
 
   const candidatos = (usuarios ?? []).filter((u) => u.lat && u.lon);
@@ -141,11 +142,12 @@ export async function obtenerDistanciaColaboradorTienda(
   if (!usuarioId || !tiendaId) return null;
   const supabase = supabaseServer();
 
-  const [{ data: usuario }, { data: tienda }] = await Promise.all([
+  const [{ data: usuario, error: errorUsuario }, { data: tienda, error: errorTienda }] = await Promise.all([
     supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
     supabase.from("tiendas").select("lat, lon").eq("id", tiendaId).maybeSingle(),
   ]);
 
+  if (errorUsuario || errorTienda) throw new Error("No se pudo calcular la distancia.");
   if (!usuario?.lat || !usuario?.lon || !tienda?.lat || !tienda?.lon) return null;
 
   return calcularRutaAuto(Number(usuario.lat), Number(usuario.lon), Number(tienda.lat), Number(tienda.lon));
@@ -158,11 +160,12 @@ export async function obtenerTiendasCercanas(usuarioId: string): Promise<TiendaC
   if (!usuarioId) return [];
   const supabase = supabaseServer();
 
-  const [{ data: usuario }, { data: tiendas }] = await Promise.all([
+  const [{ data: usuario, error: errorUsuario }, { data: tiendas, error: errorTiendas }] = await Promise.all([
     supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
     supabase.from("tiendas").select("id, nombre, lat, lon"),
   ]);
 
+  if (errorUsuario || errorTiendas) throw new Error("No se pudo cargar tiendas cercanas.");
   if (!usuario?.lat || !usuario?.lon) return [];
 
   const candidatas = (tiendas ?? []).filter((t) => t.lat && t.lon);
@@ -1233,7 +1236,7 @@ export async function obtenerHistorialPersona(
     { data: permanentes, error: errorPermanentes },
     puntos,
     kilometros,
-    { count: autoasignaciones },
+    { count: autoasignaciones, error: errorAutoasignaciones },
     { data: asignacionesEspecialesRaw, error: errorAsignacionesEspeciales },
   ] = await Promise.all([
     supabase
@@ -1278,7 +1281,14 @@ export async function obtenerHistorialPersona(
       .order("fecha_inicio", { ascending: true }),
   ]);
 
-  if (errorUsuario || errorRutas || errorMarcaciones || errorPermanentes || errorAsignacionesEspeciales) {
+  if (
+    errorUsuario ||
+    errorRutas ||
+    errorMarcaciones ||
+    errorPermanentes ||
+    errorAutoasignaciones ||
+    errorAsignacionesEspeciales
+  ) {
     throw new Error("No se pudo cargar el historial de la persona.");
   }
 

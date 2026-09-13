@@ -264,13 +264,16 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
   const supabase = supabaseServer();
   const fecha = diaLaboralPeru(sesion.rol === "capacitador");
 
-  const { data: existente } = await supabase
+  const { data: existente, error: errorExistente } = await supabase
     .from("rutas_activas")
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", tiendaId)
     .eq("fecha_planificada", fecha)
     .maybeSingle();
+  // Si no se pudo verificar, no se continúa — de lo contrario un error
+  // transitorio dejaría pasar una asignación duplicada para el mismo día.
+  if (errorExistente) return { exito: false, mensaje: "No se pudo verificar tus asignaciones. Intenta de nuevo." };
   if (existente) {
     return { exito: false, mensaje: "Ya te habías asignado esa tienda hoy." };
   }
@@ -385,13 +388,19 @@ export async function enviarReporte(
 
   // Si por algún motivo ya existe un reporte de esta misma tienda y fecha
   // (p. ej. un reenvío), se sobreescribe en vez de crear un segundo reporte.
-  const { data: existente } = await supabase
+  const { data: existente, error: errorExistente } = await supabase
     .from("rutas_diarias")
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", tiendaId)
     .eq("fecha", fecha)
     .maybeSingle();
+
+  // Si no se pudo verificar, no se continúa — de lo contrario un error
+  // transitorio dejaría crear un reporte duplicado para la misma visita.
+  if (errorExistente) {
+    return { exito: false, mensaje: "No se pudo verificar reportes existentes. Intenta de nuevo." };
+  }
 
   if (existente) {
     const { error } = await supabase
@@ -447,12 +456,18 @@ async function sincronizarAsistenciaDesdeTienda(
 ): Promise<void> {
   const fecha = diaLaboralPeru(sesion.rol === "capacitador");
 
-  const { data: existente } = await supabase
+  const { data: existente, error: errorExistente } = await supabase
     .from("asistencia")
     .select("id, hora_ingreso")
     .eq("usuario_id", sesion.id)
     .eq("fecha", fecha)
     .maybeSingle();
+
+  // La marcación de llegada/salida a la tienda ya se guardó con éxito antes
+  // de llamar a esta función — si acá no se puede verificar si ya existe un
+  // registro de asistencia del día, es más seguro no tocar nada (evitar un
+  // duplicado) que arriesgarse a insertar una segunda fila para el mismo día.
+  if (errorExistente) return;
 
   if (tipo === "llegada") {
     if (existente) {
