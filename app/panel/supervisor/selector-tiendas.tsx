@@ -71,13 +71,23 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
   const [tiendaId, setTiendaId] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+  const [cargandoTiendas, setCargandoTiendas] = useState(false);
+  const [errorTiendas, setErrorTiendas] = useState<string | null>(null);
+
+  function cargarTiendas() {
+    setCargandoTiendas(true);
+    setErrorTiendas(null);
+    obtenerTodasLasTiendas()
+      .then(setTiendas)
+      .catch((e) => setErrorTiendas(e?.message || "No se pudo cargar la lista de tiendas."))
+      .finally(() => setCargandoTiendas(false));
+  }
 
   useEffect(() => {
-    if (abierto && tiendas.length === 0) {
-      obtenerTodasLasTiendas()
-        .then(setTiendas)
-        .catch(() => {});
+    if (abierto && tiendas.length === 0 && !cargandoTiendas && !errorTiendas) {
+      cargarTiendas();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, tiendas.length]);
 
   async function handleAsignar() {
@@ -114,36 +124,57 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
         sistema. Se asigna para hoy y le llega un aviso automático — no necesitas esperar
         aprobación para reportar.
       </p>
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={tiendaId}
-          onChange={(e) => setTiendaId(e.target.value)}
-          className="flex-1 min-w-[180px] p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
-        >
-          <option value="">Selecciona una tienda...</option>
-          {tiendas.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nombre}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={handleAsignar}
-          disabled={enviando}
-          className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
-        >
-          {enviando ? "Asignando..." : "Asignarme"}
-        </button>
-        <button
-          onClick={() => {
-            setAbierto(false);
-            setMensaje(null);
-          }}
-          className="text-marca-tenue text-[11px] font-bold uppercase"
-        >
-          Cancelar
-        </button>
-      </div>
+      {errorTiendas ? (
+        <div className="bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3 space-y-2">
+          <p className="text-marca-rojoclaro text-xs font-bold">⚠️ {errorTiendas}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={cargarTiendas}
+              className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest hover:text-marca-rojo transition"
+            >
+              Reintentar
+            </button>
+            <button
+              onClick={() => setAbierto(false)}
+              className="text-marca-tenue text-[11px] font-bold uppercase"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={tiendaId}
+            onChange={(e) => setTiendaId(e.target.value)}
+            disabled={cargandoTiendas}
+            className="flex-1 min-w-[180px] p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro disabled:opacity-50"
+          >
+            <option value="">{cargandoTiendas ? "Cargando tiendas..." : "Selecciona una tienda..."}</option>
+            {tiendas.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nombre}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleAsignar}
+            disabled={enviando || cargandoTiendas}
+            className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+          >
+            {enviando ? "Asignando..." : "Asignarme"}
+          </button>
+          <button
+            onClick={() => {
+              setAbierto(false);
+              setMensaje(null);
+            }}
+            className="text-marca-tenue text-[11px] font-bold uppercase"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
       {mensaje && (
         <p className={`text-xs font-bold ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
           {mensaje.texto}
