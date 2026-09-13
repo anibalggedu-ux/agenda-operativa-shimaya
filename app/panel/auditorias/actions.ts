@@ -3,6 +3,8 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { tieneAccesoAuditoria } from "@/lib/permisos";
+import { formatearFechaLegible } from "@/lib/fechas";
+import { enviarCorreo, URL_APP } from "@/lib/email";
 
 async function exigirPuedeAuditar() {
   const sesion = await exigirSesion();
@@ -60,6 +62,117 @@ function clasificar(porcentaje: number): string {
 export type ResultadoAuditoria = { exito: boolean; mensaje?: string };
 
 const FILAS_COMPROMISOS = 5;
+
+// Al guardar una auditoría, se avisa por correo al supervisor a cargo
+// permanente de esa tienda, y en copia a todos los coordinadores y al
+// gerente — para que el resultado no dependa de que alguien entre a
+// revisarlo manualmente. Un fallo acá nunca debe tumbar el guardado de la
+// auditoría, que ya quedó hecho antes de llamar a esta función.
+async function notificarResultadoAuditoria(
+  supabase: ReturnType<typeof supabaseServer>,
+  datos: {
+    tiendaId: string;
+    fecha: string;
+    lider: string | null;
+    supervisorNombre: string;
+    puntajeTotal: number;
+    puntajeMaximo: number;
+    porcentaje: number;
+    clasificacion: string;
+    alertas: string[];
+    fortalezas: string | null;
+    oportunidades: string | null;
+    compromisos: { accion: string; responsable: string; fecha: string }[];
+    items: { categoria: string; item: string; puntaje: number }[];
+  }
+): Promise<void> {
+  try {
+    const [{ data: tienda }, { data: permanentes }, { data: administracion }] = await Promise.all([
+      supabase.from("tiendas").select("nombre").eq("id", datos.tiendaId).maybeSingle(),
+      supabase
+        .from("tiendas_permanentes")
+        .select("usuarios(nombre, email, rol)")
+        .eq("tienda_id", datos.tiendaId)
+        .is("fecha_fin", null),
+      supabase
+        .from("usuarios")
+        .select("email")
+        .in("rol", ["coordinador", "gerente"])
+        .eq("activo", true)
+        .not("email", "is", null),
+    ]);
+
+    const correosSupervisor = (permanentes ?? [])
+      .filter((p: any) => p.usuarios?.rol === "supervisor")
+      .map((p: any) => p.usuarios?.email as string | null)
+      .filter((e): e is string => !!e);
+
+    const correosAdministracion = (administracion ?? [])
+      .map((u) => u.email)
+      .filter((e): e is string => !!e);
+
+    if (correosSupervisor.length === 0 && correosAdministracion.length === 0) return;
+
+    const porCategoria = new Map<string, { puntaje: number; maximo: number }>();
+    datos.items.forEach((it) => {
+      const actual = porCategoria.get(it.categoria) ?? { puntaje: 0, maximo: 0 };
+      actual.puntaje += it.puntaje;
+      actual.maximo += 2;
+      porCategoria.set(it.categoria, actual);
+    });
+    const categoriasHtml = Array.from(porCategoria.entries())
+      .map(([categoria, c]) => `<li><strong>${categoria}:</strong> ${c.puntaje}/${c.maximo}</li>`)
+      .join("");
+
+    const alertasHtml =
+      datos.alertas.length > 0
+        ? `<p style="color:#e23744;"><strong>⚠️ Alertas:</strong> ${datos.alertas.join(", ")}</p>`
+        : "";
+
+    const compromisosHtml =
+      datos.compromisos.length > 0
+        ? `<p style="margin:16px 0 4px;"><strong>Compromisos:</strong></p><ul style="padding-left:18px; margin:0 0 16px;">${datos.compromisos
+            .map(
+              (c) =>
+                `<li>${c.accion || "—"} — responsable: ${c.responsable || "—"}${
+                  c.fecha ? ` — para: ${formatearFechaLegible(c.fecha)}` : ""
+                }</li>`
+            )
+            .join("")}</ul>`
+        : "";
+
+    const tiendaNombre = tienda?.nombre ?? "—";
+
+    await enviarCorreo({
+      para: correosSupervisor,
+      cco: correosAdministracion,
+      tituloEmoji: "🔍",
+      asunto: `Auditoría ${tiendaNombre} — ${datos.porcentaje}% (${datos.clasificacion})`,
+      cuerpoHtml: `
+        <p>Se registró una nueva auditoría:</p>
+        <ul style="padding-left:18px; margin:0 0 16px;">
+          <li><strong>Tienda:</strong> ${tiendaNombre}</li>
+          <li><strong>Fecha:</strong> ${formatearFechaLegible(datos.fecha)}</li>
+          ${datos.lider ? `<li><strong>Líder de tienda:</strong> ${datos.lider}</li>` : ""}
+          <li><strong>Realizada por:</strong> ${datos.supervisorNombre}</li>
+          <li><strong>Puntaje:</strong> ${datos.puntajeTotal} / ${datos.puntajeMaximo} (${datos.porcentaje}%)</li>
+          <li><strong>Clasificación:</strong> ${datos.clasificacion}</li>
+        </ul>
+        <p style="margin:0 0 4px;"><strong>Por categoría:</strong></p>
+        <ul style="padding-left:18px; margin:0 0 16px;">${categoriasHtml}</ul>
+        ${alertasHtml}
+        ${datos.fortalezas ? `<p><strong>Fortalezas:</strong> ${datos.fortalezas}</p>` : ""}
+        ${datos.oportunidades ? `<p><strong>Oportunidades de mejora:</strong> ${datos.oportunidades}</p>` : ""}
+        ${compromisosHtml}
+        <p style="margin:16px 0 0;">
+          <a href="${URL_APP}" style="color:#e23744; font-weight:700;">Ver en la Agenda Operativa →</a>
+        </p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo enviar la notificación de la auditoría por correo:", error);
+  }
+}
 
 export async function crearAuditoria(
   _prevState: ResultadoAuditoria,
@@ -141,6 +254,23 @@ export async function crearAuditoria(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la auditoría." };
+
+  await notificarResultadoAuditoria(supabase, {
+    tiendaId,
+    fecha,
+    lider: lider || null,
+    supervisorNombre: sesion.nombre,
+    puntajeTotal,
+    puntajeMaximo,
+    porcentaje,
+    clasificacion,
+    alertas,
+    fortalezas: String(formData.get("fortalezas") || "").trim() || null,
+    oportunidades: String(formData.get("oportunidades") || "").trim() || null,
+    compromisos,
+    items,
+  });
+
   return { exito: true, mensaje: `Auditoría guardada — ${porcentaje}% (${clasificacion}).` };
 }
 
