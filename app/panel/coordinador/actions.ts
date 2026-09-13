@@ -1346,7 +1346,7 @@ export async function obtenerHistorialPersona(
     totalKm: kilometros.filas[0]?.totalKm ?? 0,
     totalMinutos: kilometros.filas[0]?.totalMinutos ?? 0,
     kmPorTienda: kilometros.detalle.map((d) => ({
-      tiendaNombre: d.origenNombre ? `${d.origenNombre} → ${d.tiendaNombre}` : d.tiendaNombre,
+      tiendaNombre: d.origenNombre ? `${d.origenNombre} -> ${d.tiendaNombre}` : d.tiendaNombre,
       km: d.kmAcumulado,
       minutos: d.minutos * d.visitas,
       visitas: d.visitas,

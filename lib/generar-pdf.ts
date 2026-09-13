@@ -140,7 +140,7 @@ function dibujarKilometros(
   doc.text("Kilómetros recorridos:", 14, y);
   doc.setFont("helvetica", "normal");
   doc.text(
-    totalKm > 0 ? `${totalKm} km  (≈ ${formatearMinutos(totalMinutos)} manejando)` : "Sin datos suficientes",
+    totalKm > 0 ? `${totalKm} km  (~ ${formatearMinutos(totalMinutos)} manejando)` : "Sin datos suficientes",
     62,
     y
   );
@@ -217,7 +217,7 @@ function dibujarResumenDesempeno(
   } else {
     asignacionesEspeciales.forEach((a) => {
       const texto =
-        `${a.tipo}: ${formatearFechaLegible(a.fechaInicio)} → ${formatearFechaLegible(a.fechaFin)}` +
+        `${a.tipo}: ${formatearFechaLegible(a.fechaInicio)} - ${formatearFechaLegible(a.fechaFin)}` +
         (a.motivo ? " — " + a.motivo : "");
       const lineas = doc.splitTextToSize(texto, ANCHO_UTIL - 4);
       doc.text(lineas, 14, y);
@@ -403,7 +403,7 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
   y = campo(
     doc,
     "Rango:",
-    formatearFechaLegible(desde) + "  →  " + formatearFechaLegible(hasta),
+    formatearFechaLegible(desde) + "  -  " + formatearFechaLegible(hasta),
     y
   );
   y = dibujarVitrinaTrofeos(doc, 14, y, puntos, medallas);
@@ -584,7 +584,7 @@ export async function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
   y = campo(
     doc,
     "Rango:",
-    formatearFechaLegible(datos.desde) + "  →  " + formatearFechaLegible(datos.hasta),
+    formatearFechaLegible(datos.desde) + "  -  " + formatearFechaLegible(datos.hasta),
     y
   );
   y = campo(doc, "Total visitas:", String(datos.totalVisitas), y);
@@ -692,7 +692,7 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
   y = campo(
     doc,
     "Rango:",
-    formatearFechaLegible(datos.desde) + "  →  " + formatearFechaLegible(datos.hasta),
+    formatearFechaLegible(datos.desde) + "  -  " + formatearFechaLegible(datos.hasta),
     y
   );
   y = dibujarVitrinaTrofeos(doc, 14, y, datos.puntos.puntos, datos.puntos.medallas);
