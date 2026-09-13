@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { obtenerHistorialReportes, obtenerHistorialMarcaciones, obtenerPerfilParaPdf } from "./pdf-actions";
 import { obtenerMisPuntos } from "../puntos-actions";
+import { obtenerMisKilometros } from "../kilometros-actions";
 import { generarPdfHistorial } from "@/lib/generar-pdf";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -17,11 +18,12 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
     setGenerando(true);
     setError(null);
     try {
-      const [reportes, marcaciones, perfil, misPuntos] = await Promise.all([
+      const [reportes, marcaciones, perfil, misPuntos, kilometros] = await Promise.all([
         obtenerHistorialReportes(desde, hasta),
         obtenerHistorialMarcaciones(desde, hasta),
         obtenerPerfilParaPdf(),
         obtenerMisPuntos(),
+        obtenerMisKilometros(desde, hasta),
       ]);
       await generarPdfHistorial({
         nombre: supervisorNombre,
@@ -34,6 +36,14 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
         diasDescanso: perfil.diasDescanso,
         puntos: misPuntos.puntos,
         medallas: misPuntos.medallas,
+        totalKm: kilometros.filas[0]?.totalKm ?? 0,
+        totalMinutos: kilometros.filas[0]?.totalMinutos ?? 0,
+        kmPorTienda: kilometros.detalle.map((d) => ({
+          tiendaNombre: d.origenNombre ? `${d.origenNombre} → ${d.tiendaNombre}` : d.tiendaNombre,
+          km: d.kmAcumulado,
+          minutos: d.minutos * d.visitas,
+          visitas: d.visitas,
+        })),
       });
     } catch (e: any) {
       setError(e && e.message ? e.message : "No se pudo generar el PDF.");

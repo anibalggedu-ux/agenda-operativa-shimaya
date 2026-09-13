@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { formatearFechaLegible, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
+import { formatearMinutos } from "./distancia";
 
 const AMARILLO: [number, number, number] = [234, 179, 8];
 const FONDO_OSCURO: [number, number, number] = [15, 17, 26];
@@ -119,6 +120,51 @@ function dibujarVitrinaTrofeos(
   });
 
   return centroY + radio + 6;
+}
+
+export type KilometrosPorTienda = { tiendaNombre: string; km: number; minutos: number; visitas: number };
+
+// Dibuja el resumen de kilómetros recorridos (total + desglose por trayecto,
+// útil para calcular reembolsos de movilidad) — devuelve el nuevo cursor Y.
+// Si no hay nada que calcular (sin dirección cargada), lo indica sin
+// interrumpir el resto del PDF.
+function dibujarKilometros(
+  doc: jsPDF,
+  y: number,
+  totalKm: number,
+  totalMinutos: number,
+  porTienda: KilometrosPorTienda[]
+): number {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Kilómetros recorridos:", 14, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    totalKm > 0 ? `${totalKm} km  (≈ ${formatearMinutos(totalMinutos)} manejando)` : "Sin datos suficientes",
+    62,
+    y
+  );
+  y += 7;
+
+  if (porTienda.length > 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    porTienda.forEach((t) => {
+      if (y + 5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(
+        `${t.tiendaNombre} — ${t.km} km · ${formatearMinutos(t.minutos)} · ${t.visitas} visita(s)`,
+        18,
+        y
+      );
+      y += 5;
+    });
+    y += 3;
+  }
+
+  return y;
 }
 
 // Versión ya recortada en círculo del logo (PNG con transparencia real en
@@ -257,6 +303,9 @@ export type DatosHistorialPropio = {
   diasDescanso: string[];
   puntos: number;
   medallas: Record<"bronce" | "plata" | "oro" | "estrella", number>;
+  totalKm: number;
+  totalMinutos: number;
+  kmPorTienda: KilometrosPorTienda[];
 };
 
 export async function generarPdfHistorial(datos: DatosHistorialPropio) {
@@ -271,6 +320,9 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     diasDescanso,
     puntos,
     medallas,
+    totalKm,
+    totalMinutos,
+    kmPorTienda,
   } = datos;
   const doc = new jsPDF();
   const etiquetaRol = rol === "supervisor" ? "Supervisor" : rol === "capacitador" ? "Capacitador" : rol;
@@ -324,6 +376,9 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     doc.text(lineasFechas, 14, y);
     y += lineasFechas.length * 5 + 4;
   }
+  y += 4;
+
+  y = dibujarKilometros(doc, y, totalKm, totalMinutos, kmPorTienda);
   y += 4;
 
   // Cuadro resumen de tiendas visitadas en el rango (a partir de los mismos
@@ -549,6 +604,9 @@ export type DatosHistorialPersona = {
   antiguedad: { anios: number; meses: number } | null;
   proximoAniversario: { fecha: string; diasFaltantes: number } | null;
   proximoCumpleanos: { fecha: string; diasFaltantes: number; edadQueCumple: number | null } | null;
+  totalKm: number;
+  totalMinutos: number;
+  kmPorTienda: KilometrosPorTienda[];
 };
 
 export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
@@ -615,6 +673,9 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
       : "No registrado",
     y
   );
+  y += 4;
+
+  y = dibujarKilometros(doc, y, datos.totalKm, datos.totalMinutos, datos.kmPorTienda);
   y += 4;
 
   doc.setFont("helvetica", "bold");

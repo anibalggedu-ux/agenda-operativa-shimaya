@@ -18,6 +18,7 @@ import {
   HORA_LIMITE_TARDANZA,
 } from "./constantes";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
+import { obtenerResumenKilometros } from "../kilometros-actions";
 import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
@@ -1194,6 +1195,8 @@ export type MarcacionPersona = {
   tarde: boolean;
 };
 
+export type KilometrosPorTienda = { tiendaNombre: string; km: number; minutos: number; visitas: number };
+
 export type HistorialPersona = {
   usuarioNombre: string;
   rol: string;
@@ -1208,6 +1211,9 @@ export type HistorialPersona = {
   antiguedad: { anios: number; meses: number } | null;
   proximoAniversario: { fecha: string; diasFaltantes: number } | null;
   proximoCumpleanos: { fecha: string; diasFaltantes: number; edadQueCumple: number | null } | null;
+  totalKm: number;
+  totalMinutos: number;
+  kmPorTienda: KilometrosPorTienda[];
 };
 
 export async function obtenerHistorialPersona(
@@ -1224,6 +1230,7 @@ export async function obtenerHistorialPersona(
     { data: marcaciones, error: errorMarcaciones },
     { data: permanentes, error: errorPermanentes },
     puntos,
+    kilometros,
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -1250,6 +1257,7 @@ export async function obtenerHistorialPersona(
       .eq("usuario_id", usuarioId)
       .is("fecha_fin", null),
     obtenerPuntosDeUsuario(usuarioId),
+    obtenerResumenKilometros(desde, hasta, usuarioId),
   ]);
 
   if (errorUsuario || errorRutas || errorMarcaciones || errorPermanentes) {
@@ -1310,6 +1318,14 @@ export async function obtenerHistorialPersona(
     antiguedad,
     proximoAniversario,
     proximoCumpleanos,
+    totalKm: kilometros.filas[0]?.totalKm ?? 0,
+    totalMinutos: kilometros.filas[0]?.totalMinutos ?? 0,
+    kmPorTienda: kilometros.detalle.map((d) => ({
+      tiendaNombre: d.origenNombre ? `${d.origenNombre} → ${d.tiendaNombre}` : d.tiendaNombre,
+      km: d.kmAcumulado,
+      minutos: d.minutos * d.visitas,
+      visitas: d.visitas,
+    })),
   };
 }
 

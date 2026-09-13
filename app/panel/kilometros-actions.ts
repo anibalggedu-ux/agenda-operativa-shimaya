@@ -38,17 +38,27 @@ export type ResumenKilometros = {
   detalle: TrayectoKilometros[];
 };
 
-export async function obtenerResumenKilometros(desde: string, hasta: string): Promise<ResumenKilometros> {
+export async function obtenerResumenKilometros(
+  desde: string,
+  hasta: string,
+  soloUsuarioId?: string
+): Promise<ResumenKilometros> {
   await exigirSesion();
   const supabase = supabaseServer();
 
-  const [{ data: usuarios, error: errorUsuarios }, visitas, { data: tiendas, error: errorTiendas }] = await Promise.all([
-    supabase.from("usuarios").select("id, nombre, rol, lat, lon").eq("activo", true),
-    obtenerVisitasEnRangoAnalitica(desde, hasta),
-    supabase.from("tiendas").select("id, nombre, lat, lon"),
-  ]);
+  let consultaUsuarios = supabase.from("usuarios").select("id, nombre, rol, lat, lon");
+  consultaUsuarios = soloUsuarioId ? consultaUsuarios.eq("id", soloUsuarioId) : consultaUsuarios.eq("activo", true);
+
+  const [{ data: usuarios, error: errorUsuarios }, visitasCompletas, { data: tiendas, error: errorTiendas }] =
+    await Promise.all([
+      consultaUsuarios,
+      obtenerVisitasEnRangoAnalitica(desde, hasta),
+      supabase.from("tiendas").select("id, nombre, lat, lon"),
+    ]);
 
   if (errorUsuarios || errorTiendas) throw new Error("No se pudo cargar los datos de kilómetros.");
+
+  const visitas = soloUsuarioId ? visitasCompletas.filter((v) => v.usuarioId === soloUsuarioId) : visitasCompletas;
 
   const mapaUsuarios = new Map((usuarios ?? []).map((u) => [u.id, u]));
   const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
@@ -143,4 +153,11 @@ export async function obtenerResumenKilometros(desde: string, hasta: string): Pr
   detalle.sort((a, b) => b.kmAcumulado - a.kmAcumulado);
 
   return { filas, detalle };
+}
+
+// Version acotada a la propia sesion — el usuarioId sale de la sesion, no
+// de un parametro que el cliente pudiera manipular para ver el de otro.
+export async function obtenerMisKilometros(desde: string, hasta: string): Promise<ResumenKilometros> {
+  const sesion = await exigirSesion();
+  return obtenerResumenKilometros(desde, hasta, sesion.id);
 }
