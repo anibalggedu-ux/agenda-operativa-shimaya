@@ -41,10 +41,21 @@ function BotonEnviar() {
   );
 }
 
+// La auditoría es el formulario más largo de la app (40+ ítems). Se guarda
+// un borrador en el navegador con cada cambio, porque basta con cambiar de
+// pestaña dentro del panel para que el componente se desmonte y se pierda
+// todo lo cargado — y lo mismo pasaba si la sesión de 12 horas vencía justo
+// al enviar.
+const CLAVE_BORRADOR = "shimaya-borrador-auditoria";
+
+type Borrador = Record<string, string | string[]>;
+
 export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }) {
   const [items, setItems] = useState<ItemFormulario[]>([]);
   const [tiendas, setTiendas] = useState<TiendaBasicaAuditoria[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [calificados, setCalificados] = useState(0);
+  const [borradorRestaurado, setBorradorRestaurado] = useState(false);
   const [estado, formAction] = useFormState(crearAuditoria, estadoInicial);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -57,15 +68,79 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
       .finally(() => setCargando(false));
   }, []);
 
+  function contarCalificados(form: HTMLFormElement, lista: ItemFormulario[]) {
+    const datos = new FormData(form);
+    return lista.reduce((n, it) => (datos.get(`item_${it.id}`) !== null ? n + 1 : n), 0);
+  }
+
+  function guardarBorrador() {
+    const form = formRef.current;
+    if (!form) return;
+    const borrador: Borrador = {};
+    for (const [clave, valor] of new FormData(form).entries()) {
+      if (typeof valor !== "string") continue;
+      if (clave === "alertas") {
+        const previo = borrador[clave];
+        borrador[clave] = Array.isArray(previo) ? [...previo, valor] : [valor];
+      } else {
+        borrador[clave] = valor;
+      }
+    }
+    try {
+      localStorage.setItem(CLAVE_BORRADOR, JSON.stringify(borrador));
+    } catch {}
+    setCalificados(contarCalificados(form, items));
+  }
+
+  // Restaura el borrador recién cuando el checklist ya está en pantalla:
+  // antes de eso los campos todavía no existen en el DOM.
+  useEffect(() => {
+    const form = formRef.current;
+    if (cargando || items.length === 0 || !form) return;
+    try {
+      const crudo = localStorage.getItem(CLAVE_BORRADOR);
+      if (!crudo) return;
+      const borrador: Borrador = JSON.parse(crudo);
+      Object.entries(borrador).forEach(([nombre, valor]) => {
+        const campos = form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+          `[name="${CSS.escape(nombre)}"]`
+        );
+        campos.forEach((campo) => {
+          if (campo instanceof HTMLInputElement && (campo.type === "radio" || campo.type === "checkbox")) {
+            campo.checked = (Array.isArray(valor) ? valor : [valor]).includes(campo.value);
+          } else {
+            campo.value = String(valor);
+          }
+        });
+      });
+      setCalificados(contarCalificados(form, items));
+      setBorradorRestaurado(true);
+    } catch {}
+  }, [cargando, items]);
+
   useEffect(() => {
     if (estado.exito) {
       formRef.current?.reset();
+      try {
+        localStorage.removeItem(CLAVE_BORRADOR);
+      } catch {}
+      setCalificados(0);
+      setBorradorRestaurado(false);
       onGuardado();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
+  // Aviso del navegador al cerrar o recargar con la auditoría a medio llenar.
+  useEffect(() => {
+    if (calificados === 0) return;
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [calificados]);
+
   const categorias = Array.from(new Set(items.map((i) => i.categoria)));
+  const faltan = items.length - calificados;
 
   if (cargando) {
     return <p className="text-marca-tenue text-sm animate-pulse">Cargando checklist...</p>;
@@ -80,7 +155,29 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
   }
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-6">
+    <form ref={formRef} action={formAction} onChange={guardarBorrador} className="space-y-6">
+      {borradorRestaurado && (
+        <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-marca-tenue text-xs">
+            📝 Se recuperó lo que habías cargado antes de salir.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              formRef.current?.reset();
+              try {
+                localStorage.removeItem(CLAVE_BORRADOR);
+              } catch {}
+              setCalificados(0);
+              setBorradorRestaurado(false);
+            }}
+            className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest min-h-[32px] px-2"
+          >
+            Empezar de cero
+          </button>
+        </div>
+      )}
+
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
         <h3 className="text-xs font-black tracking-widest text-marca-tenue">DATOS GENERALES</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -122,7 +219,7 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
         </div>
       </div>
 
-      {categorias.map((cat, catIndex) => (
+      {categorias.map((cat) => (
         <div
           key={cat}
           className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5 space-y-3"
@@ -134,21 +231,45 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
               .map((it) => (
                 <div
                   key={it.id}
-                  className="flex flex-wrap items-center justify-between gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+                  className="bg-marca-fondo border border-marca-borde rounded-[3px] p-3 space-y-2"
                 >
-                  <span className="text-marca-texto text-sm flex-1 min-w-[180px]">{it.item}</span>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <label className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold cursor-pointer">
-                      <input type="radio" name={`item_${it.id}`} value="2" required className="accent-emerald-500" />
-                      Cumple
+                  <span className="text-marca-texto text-sm block">{it.item}</span>
+                  {/* Área de toque de 44px por opción: antes eran tres radios
+                      diminutos pegados, difíciles de acertar desde el celular. */}
+                  <div className="flex items-stretch gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] px-2 rounded-[3px] border border-marca-borde cursor-pointer hover:border-emerald-500/50 transition">
+                      <input
+                        type="radio"
+                        name={`item_${it.id}`}
+                        value="2"
+                        required
+                        className="peer w-4 h-4 shrink-0 accent-emerald-500"
+                      />
+                      <span className="text-[11px] font-bold text-marca-tenue peer-checked:text-emerald-400">
+                        Cumple
+                      </span>
                     </label>
-                    <label className="flex items-center gap-1 text-[11px] text-amber-400 font-bold cursor-pointer">
-                      <input type="radio" name={`item_${it.id}`} value="1" className="accent-amber-500" />
-                      Parcial
+                    <label className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] px-2 rounded-[3px] border border-marca-borde cursor-pointer hover:border-amber-500/50 transition">
+                      <input
+                        type="radio"
+                        name={`item_${it.id}`}
+                        value="1"
+                        className="peer w-4 h-4 shrink-0 accent-amber-500"
+                      />
+                      <span className="text-[11px] font-bold text-marca-tenue peer-checked:text-amber-400">
+                        Parcial
+                      </span>
                     </label>
-                    <label className="flex items-center gap-1 text-[11px] text-marca-rojoclaro font-bold cursor-pointer">
-                      <input type="radio" name={`item_${it.id}`} value="0" className="accent-marca-rojo" />
-                      No cumple
+                    <label className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] px-2 rounded-[3px] border border-marca-borde cursor-pointer hover:border-marca-rojo/50 transition">
+                      <input
+                        type="radio"
+                        name={`item_${it.id}`}
+                        value="0"
+                        className="peer w-4 h-4 shrink-0 accent-marca-rojo"
+                      />
+                      <span className="text-[11px] font-bold text-marca-tenue peer-checked:text-marca-rojoclaro">
+                        No cumple
+                      </span>
                     </label>
                   </div>
                 </div>
@@ -158,7 +279,10 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
             <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
               Observaciones
             </label>
-            <textarea name={`obs_${catIndex}`} rows={2} className={clasesInput} />
+            {/* Se identifica por nombre de categoría, no por posición: si
+                cambiaba el orden o el nombre en la plantilla, la observación
+                quedaba guardada bajo la categoría equivocada. */}
+            <textarea name={`obs_${cat}`} rows={2} className={clasesInput} />
           </div>
         </div>
       ))}
@@ -207,6 +331,27 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="text-marca-tenue font-bold">
+            {calificados} de {items.length} ítems calificados
+          </span>
+          {faltan > 0 ? (
+            <span className="text-amber-400 font-bold">
+              Falta{faltan === 1 ? "" : "n"} {faltan}
+            </span>
+          ) : (
+            <span className="text-emerald-400 font-bold">Checklist completo ✓</span>
+          )}
+        </div>
+        <div className="h-1.5 bg-marca-fondo border border-marca-borde rounded-full overflow-hidden">
+          <div
+            className="h-full bg-marca-rojo transition-all"
+            style={{ width: `${items.length > 0 ? (calificados / items.length) * 100 : 0}%` }}
+          />
         </div>
       </div>
 

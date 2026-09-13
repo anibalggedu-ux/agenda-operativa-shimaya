@@ -222,8 +222,11 @@ export async function crearAuditoria(
 
   const categorias = Array.from(new Set(plantilla.map((p) => p.categoria)));
   const observaciones: Record<string, string> = {};
-  categorias.forEach((cat, i) => {
-    const texto = String(formData.get(`obs_${i}`) || "").trim();
+  // Por nombre de categoría, no por posición: si cambiaba el orden o el
+  // nombre en la plantilla mientras alguien llenaba el formulario, la
+  // observación terminaba guardada bajo la categoría equivocada.
+  categorias.forEach((cat) => {
+    const texto = String(formData.get(`obs_${cat}`) || "").trim();
     if (texto) observaciones[cat] = texto;
   });
 
