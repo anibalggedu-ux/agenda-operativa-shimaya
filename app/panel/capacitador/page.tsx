@@ -5,7 +5,8 @@ import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
-import PerfilBanner from "../supervisor/perfil-banner";
+import PerfilBanner from "../perfil-banner";
+import { obtenerMiPerfil } from "../supervisor/actions";
 import MiDescanso from "../supervisor/mi-descanso";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import RankingCapacitadores from "./ranking-capacitadores";
@@ -28,7 +29,7 @@ export default async function PanelCapacitador() {
       icono: "🏠",
       contenido: (
         <div className="space-y-6">
-          <PerfilBanner />
+          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
           <MisPuntosWidget />
           <RankingCapacitadores />

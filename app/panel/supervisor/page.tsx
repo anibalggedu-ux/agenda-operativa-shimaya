@@ -6,7 +6,8 @@ import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import MisPuntosWidget from "../mis-puntos-widget";
 import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
-import PerfilBanner from "./perfil-banner";
+import PerfilBanner from "../perfil-banner";
+import { obtenerMiPerfil } from "./actions";
 import TiendasFijas from "./tiendas-fijas";
 import MiDescanso from "./mi-descanso";
 import MisMarcaciones from "./mis-marcaciones";
@@ -37,7 +38,7 @@ export default async function PanelSupervisor() {
       icono: "🏠",
       contenido: (
         <div className="space-y-6">
-          <PerfilBanner />
+          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
           <MisPuntosWidget />
           <AnunciosWidget />

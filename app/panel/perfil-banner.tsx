@@ -1,24 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obtenerMiPerfil, type PerfilPersonal } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
-export default function PerfilBanner() {
-  const [perfil, setPerfil] = useState<PerfilPersonal | null>(null);
+// Forma mínima que necesita este banner — coordinador y cada portal de
+// campo tienen su propia acción de servidor (con su propio tipo, algunos
+// campos extra como nombre/rol), pero todas calzan en esta forma.
+export type PerfilBase = {
+  diasDescanso: string[];
+  antiguedad: { anios: number; meses: number } | null;
+  proximoAniversario: { fecha: string; diasFaltantes: number } | null;
+};
+
+export default function PerfilBanner({ cargarPerfil }: { cargarPerfil: () => Promise<PerfilBase> }) {
+  const [perfil, setPerfil] = useState<PerfilBase | null>(null);
 
   useEffect(() => {
-    obtenerMiPerfil()
+    cargarPerfil()
       .then(setPerfil)
       .catch(() => setPerfil(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!perfil) return null;
 
   const textoDescanso =
-    perfil.diasDescanso.length === 0
-      ? "Sin descanso fijo asignado"
-      : perfil.diasDescanso.join(" y ");
+    perfil.diasDescanso.length === 0 ? "Sin descanso fijo asignado" : perfil.diasDescanso.join(" y ");
 
   const textoAntiguedad = perfil.antiguedad
     ? `${perfil.antiguedad.anios} año${perfil.antiguedad.anios !== 1 ? "s" : ""}` +

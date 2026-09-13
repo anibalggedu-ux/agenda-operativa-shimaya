@@ -3,7 +3,8 @@
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
-import PerfilBanner from "./perfil-banner";
+import PerfilBanner from "../perfil-banner";
+import { obtenerPerfilCoordinador } from "./actions";
 import AsignarRutas from "./asignar-rutas";
 import AsignacionesEspeciales from "./asignaciones-especiales";
 import TiendasPermanentes from "./tiendas-permanentes";
@@ -91,7 +92,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol} />
-          <PerfilBanner />
+          <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
         </div>
       }
     />
