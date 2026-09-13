@@ -178,6 +178,13 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
         </div>
       )}
 
+      {/* Los ítems que este formulario llegó a mostrar. Si alguien edita la
+          plantilla mientras el supervisor la está llenando, el servidor sabe
+          cuáles pedirle y cuáles ignorar por haber aparecido después — antes
+          reclamaba un ítem que no estaba en pantalla y dejaba el formulario
+          trabado, sin forma de guardar. */}
+      <input type="hidden" name="items_presentes" value={items.map((i) => i.id).join(",")} />
+
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
         <h3 className="text-xs font-black tracking-widest text-marca-tenue">DATOS GENERALES</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

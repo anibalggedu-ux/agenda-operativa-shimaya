@@ -211,13 +211,27 @@ export async function crearAuditoria(
     return { exito: false, mensaje: "No se pudo cargar el checklist." };
   }
 
+  // El formulario informa qué ítems alcanzó a mostrar. Si la plantilla se
+  // editó mientras el supervisor la llenaba, los ítems nuevos se ignoran en
+  // vez de reclamarlos: antes pedía calificar algo que no estaba en pantalla
+  // y no había forma de guardar sin recargar, perdiendo todo lo cargado.
+  const idsPresentes = String(formData.get("items_presentes") || "")
+    .split(",")
+    .filter(Boolean);
+  const seMostroElItem = (id: string) => idsPresentes.length === 0 || idsPresentes.includes(id);
+
   const items: { categoria: string; item: string; puntaje: number }[] = [];
   for (const p of plantilla) {
     const valor = formData.get(`item_${p.id}`);
     if (valor === null) {
+      if (!seMostroElItem(p.id)) continue;
       return { exito: false, mensaje: `Falta calificar: "${p.item}".` };
     }
     items.push({ categoria: p.categoria, item: p.item, puntaje: Number(valor) });
+  }
+
+  if (items.length === 0) {
+    return { exito: false, mensaje: "No se calificó ningún ítem del checklist." };
   }
 
   const categorias = Array.from(new Set(plantilla.map((p) => p.categoria)));
