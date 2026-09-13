@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { obtenerHistorialReportes, obtenerHistorialMarcaciones, obtenerPerfilParaPdf } from "./pdf-actions";
+import {
+  obtenerHistorialReportes,
+  obtenerHistorialMarcaciones,
+  obtenerPerfilParaPdf,
+  obtenerMisAutoasignaciones,
+  obtenerMisAsignacionesEspeciales,
+} from "./pdf-actions";
 import { obtenerMisPuntos } from "../puntos-actions";
 import { obtenerMisKilometros } from "../kilometros-actions";
 import { generarPdfHistorial } from "@/lib/generar-pdf";
@@ -18,13 +24,16 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
     setGenerando(true);
     setError(null);
     try {
-      const [reportes, marcaciones, perfil, misPuntos, kilometros] = await Promise.all([
-        obtenerHistorialReportes(desde, hasta),
-        obtenerHistorialMarcaciones(desde, hasta),
-        obtenerPerfilParaPdf(),
-        obtenerMisPuntos(),
-        obtenerMisKilometros(desde, hasta),
-      ]);
+      const [reportes, marcaciones, perfil, misPuntos, kilometros, autoasignaciones, asignacionesEspeciales] =
+        await Promise.all([
+          obtenerHistorialReportes(desde, hasta),
+          obtenerHistorialMarcaciones(desde, hasta),
+          obtenerPerfilParaPdf(),
+          obtenerMisPuntos(),
+          obtenerMisKilometros(desde, hasta),
+          obtenerMisAutoasignaciones(desde, hasta),
+          obtenerMisAsignacionesEspeciales(desde, hasta),
+        ]);
       await generarPdfHistorial({
         nombre: supervisorNombre,
         rol: perfil.rol,
@@ -44,6 +53,9 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
           minutos: d.minutos * d.visitas,
           visitas: d.visitas,
         })),
+        rachaActual: misPuntos.rachaActual,
+        autoasignaciones,
+        asignacionesEspeciales,
       });
     } catch (e: any) {
       setError(e && e.message ? e.message : "No se pudo generar el PDF.");

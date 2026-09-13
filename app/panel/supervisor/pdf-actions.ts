@@ -63,6 +63,50 @@ export async function obtenerHistorialMarcaciones(
   }));
 }
 
+export async function obtenerMisAutoasignaciones(desde: string, hasta: string): Promise<number> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { count, error } = await supabase
+    .from("rutas_diarias")
+    .select("id", { count: "exact", head: true })
+    .eq("usuario_id", sesion.id)
+    .not("origen_tienda_id", "is", null)
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
+
+  if (error) throw new Error("No se pudo cargar las auto-asignaciones.");
+  return count ?? 0;
+}
+
+export type AsignacionEspecialPdf = { tipo: string; fechaInicio: string; fechaFin: string; motivo: string | null };
+
+export async function obtenerMisAsignacionesEspeciales(
+  desde: string,
+  hasta: string
+): Promise<AsignacionEspecialPdf[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("asignaciones_especiales")
+    .select("tipo, fecha_inicio, fecha_fin, motivo")
+    .eq("usuario_id", sesion.id)
+    .lte("fecha_inicio", hasta)
+    .gte("fecha_fin", desde)
+    .order("fecha_inicio", { ascending: true });
+
+  if (error) throw new Error("No se pudo cargar las asignaciones especiales.");
+  return (data ?? []).map((a) => ({
+    tipo: a.tipo,
+    fechaInicio: a.fecha_inicio,
+    fechaFin: a.fecha_fin,
+    motivo: a.motivo ?? null,
+  }));
+}
+
 export type PerfilPdf = {
   rol: string;
   tiendasPermanentes: string[];

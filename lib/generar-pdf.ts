@@ -167,6 +167,68 @@ function dibujarKilometros(
   return y;
 }
 
+export type AsignacionEspecialPdf = { tipo: string; fechaInicio: string; fechaFin: string; motivo: string | null };
+
+// Dibuja racha de puntualidad, % de puntualidad del periodo, cuántas
+// auto-asignaciones hizo, y permisos/vacaciones vigentes en el rango —
+// devuelve el nuevo cursor Y. "marcaciones" ya viene cargado para la lista
+// de abajo, así que el % de puntualidad se calcula de ahí sin otra consulta.
+function dibujarResumenDesempeno(
+  doc: jsPDF,
+  y: number,
+  rachaActual: number,
+  marcaciones: { horaIngreso: string | null; tarde: boolean }[],
+  autoasignaciones: number,
+  asignacionesEspeciales: AsignacionEspecialPdf[]
+): number {
+  const totalMarcaciones = marcaciones.filter((m) => m.horaIngreso).length;
+  const tardanzas = marcaciones.filter((m) => m.tarde).length;
+  const puntuales = totalMarcaciones - tardanzas;
+  const pct = totalMarcaciones > 0 ? Math.round((puntuales / totalMarcaciones) * 100) : null;
+
+  y = campo(
+    doc,
+    "Racha de puntualidad:",
+    rachaActual > 0 ? `${rachaActual} día(s) seguidos` : "Sin racha activa",
+    y
+  );
+  y = campo(
+    doc,
+    "Puntualidad del periodo:",
+    pct === null ? "Sin marcaciones en el rango" : `${puntuales} de ${totalMarcaciones} a tiempo (${pct}%)`,
+    y
+  );
+  y = campo(
+    doc,
+    "Auto-asignaciones:",
+    autoasignaciones === 0 ? "Ninguna en el rango" : `${autoasignaciones} vez(ces) — asignación de última hora`,
+    y
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Permisos / vacaciones vigentes en el rango:", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  if (asignacionesEspeciales.length === 0) {
+    doc.text("Ninguno.", 14, y);
+    y += 6;
+  } else {
+    asignacionesEspeciales.forEach((a) => {
+      const texto =
+        `${a.tipo}: ${formatearFechaLegible(a.fechaInicio)} → ${formatearFechaLegible(a.fechaFin)}` +
+        (a.motivo ? " — " + a.motivo : "");
+      const lineas = doc.splitTextToSize(texto, ANCHO_UTIL - 4);
+      doc.text(lineas, 14, y);
+      y += lineas.length * 5;
+    });
+    y += 2;
+  }
+
+  return y;
+}
+
 // Versión ya recortada en círculo del logo (PNG con transparencia real en
 // las esquinas) — el recorte por software dentro del PDF con doc.clip() no
 // se veía confiable entre visores de PDF, así que se usa un archivo aparte
@@ -306,6 +368,9 @@ export type DatosHistorialPropio = {
   totalKm: number;
   totalMinutos: number;
   kmPorTienda: KilometrosPorTienda[];
+  rachaActual: number;
+  autoasignaciones: number;
+  asignacionesEspeciales: AsignacionEspecialPdf[];
 };
 
 export async function generarPdfHistorial(datos: DatosHistorialPropio) {
@@ -323,6 +388,9 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
     totalKm,
     totalMinutos,
     kmPorTienda,
+    rachaActual,
+    autoasignaciones,
+    asignacionesEspeciales,
   } = datos;
   const doc = new jsPDF();
   const etiquetaRol = rol === "supervisor" ? "Supervisor" : rol === "capacitador" ? "Capacitador" : rol;
@@ -379,6 +447,9 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
   y += 4;
 
   y = dibujarKilometros(doc, y, totalKm, totalMinutos, kmPorTienda);
+  y += 4;
+
+  y = dibujarResumenDesempeno(doc, y, rachaActual, marcaciones, autoasignaciones, asignacionesEspeciales);
   y += 4;
 
   // Cuadro resumen de tiendas visitadas en el rango (a partir de los mismos
@@ -607,6 +678,9 @@ export type DatosHistorialPersona = {
   totalKm: number;
   totalMinutos: number;
   kmPorTienda: KilometrosPorTienda[];
+  rachaActual: number;
+  autoasignaciones: number;
+  asignacionesEspeciales: AsignacionEspecialPdf[];
 };
 
 export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
@@ -676,6 +750,16 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
   y += 4;
 
   y = dibujarKilometros(doc, y, datos.totalKm, datos.totalMinutos, datos.kmPorTienda);
+  y += 4;
+
+  y = dibujarResumenDesempeno(
+    doc,
+    y,
+    datos.rachaActual,
+    datos.marcaciones,
+    datos.autoasignaciones,
+    datos.asignacionesEspeciales
+  );
   y += 4;
 
   doc.setFont("helvetica", "bold");

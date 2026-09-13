@@ -1196,6 +1196,12 @@ export type MarcacionPersona = {
 };
 
 export type KilometrosPorTienda = { tiendaNombre: string; km: number; minutos: number; visitas: number };
+export type AsignacionEspecialInfo = {
+  tipo: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string | null;
+};
 
 export type HistorialPersona = {
   usuarioNombre: string;
@@ -1214,6 +1220,9 @@ export type HistorialPersona = {
   totalKm: number;
   totalMinutos: number;
   kmPorTienda: KilometrosPorTienda[];
+  rachaActual: number;
+  autoasignaciones: number;
+  asignacionesEspeciales: AsignacionEspecialInfo[];
 };
 
 export async function obtenerHistorialPersona(
@@ -1231,6 +1240,8 @@ export async function obtenerHistorialPersona(
     { data: permanentes, error: errorPermanentes },
     puntos,
     kilometros,
+    { count: autoasignaciones },
+    { data: asignacionesEspecialesRaw, error: errorAsignacionesEspeciales },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -1258,9 +1269,23 @@ export async function obtenerHistorialPersona(
       .is("fecha_fin", null),
     obtenerPuntosDeUsuario(usuarioId),
     obtenerResumenKilometros(desde, hasta, usuarioId),
+    supabase
+      .from("rutas_diarias")
+      .select("id", { count: "exact", head: true })
+      .eq("usuario_id", usuarioId)
+      .not("origen_tienda_id", "is", null)
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+    supabase
+      .from("asignaciones_especiales")
+      .select("tipo, fecha_inicio, fecha_fin, motivo")
+      .eq("usuario_id", usuarioId)
+      .lte("fecha_inicio", hasta)
+      .gte("fecha_fin", desde)
+      .order("fecha_inicio", { ascending: true }),
   ]);
 
-  if (errorUsuario || errorRutas || errorMarcaciones || errorPermanentes) {
+  if (errorUsuario || errorRutas || errorMarcaciones || errorPermanentes || errorAsignacionesEspeciales) {
     throw new Error("No se pudo cargar el historial de la persona.");
   }
 
@@ -1325,6 +1350,14 @@ export async function obtenerHistorialPersona(
       km: d.kmAcumulado,
       minutos: d.minutos * d.visitas,
       visitas: d.visitas,
+    })),
+    rachaActual: puntos.rachaActual,
+    autoasignaciones: autoasignaciones ?? 0,
+    asignacionesEspeciales: (asignacionesEspecialesRaw ?? []).map((a) => ({
+      tipo: a.tipo,
+      fechaInicio: a.fecha_inicio,
+      fechaFin: a.fecha_fin,
+      motivo: a.motivo ?? null,
     })),
   };
 }
