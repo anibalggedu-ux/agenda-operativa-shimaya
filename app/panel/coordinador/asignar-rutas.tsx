@@ -86,11 +86,27 @@ export default function AsignarRutas() {
   const [tiendasCercanas, setTiendasCercanas] = useState<TiendaCercana[]>([]);
   const [cargandoCercania, setCargandoCercania] = useState(false);
 
-  // Sugerencias de cercanía: solo tienen sentido cuando falta un lado de la
-  // asignación por elegir — si ya se eligieron ambos, la decisión ya está
-  // tomada y no hace falta seguir sugiriendo.
+  // La sugerencia se ancla a lo PRIMERO que se eligió (desde que ambos
+  // campos estaban vacíos) y se queda anclada ahí aunque después se toque
+  // por error el otro campo — así siempre se puede corregir esa elección
+  // desde la lista de sugerencias, en vez de que desaparezca. Solo se
+  // libera cuando se borra el lado que la originó.
+  const [ancla, setAncla] = useState<"usuario" | "tienda" | null>(null);
   useEffect(() => {
-    if (!tiendaId || usuarioId) {
+    if (!usuarioId && !tiendaId) {
+      setAncla(null);
+    } else if (ancla === null) {
+      setAncla(usuarioId ? "usuario" : "tienda");
+    } else if (ancla === "usuario" && !usuarioId) {
+      setAncla(tiendaId ? "tienda" : null);
+    } else if (ancla === "tienda" && !tiendaId) {
+      setAncla(usuarioId ? "usuario" : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuarioId, tiendaId]);
+
+  useEffect(() => {
+    if (ancla !== "tienda" || !tiendaId) {
       setColaboradoresCercanos([]);
       return;
     }
@@ -99,10 +115,10 @@ export default function AsignarRutas() {
       .then(setColaboradoresCercanos)
       .catch(() => setColaboradoresCercanos([]))
       .finally(() => setCargandoCercania(false));
-  }, [tiendaId, usuarioId]);
+  }, [ancla, tiendaId]);
 
   useEffect(() => {
-    if (!usuarioId || tiendaId) {
+    if (ancla !== "usuario" || !usuarioId) {
       setTiendasCercanas([]);
       return;
     }
@@ -111,7 +127,7 @@ export default function AsignarRutas() {
       .then(setTiendasCercanas)
       .catch(() => setTiendasCercanas([]))
       .finally(() => setCargandoCercania(false));
-  }, [usuarioId, tiendaId]);
+  }, [ancla, usuarioId]);
 
   function cargarTodo() {
     setCargando(true);
@@ -239,14 +255,14 @@ export default function AsignarRutas() {
           />
         </div>
 
-        {(tiendaId && !usuarioId) || (usuarioId && !tiendaId) ? (
+        {ancla ? (
           <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
             <h4 className="text-marca-tenue text-[10px] uppercase font-bold mb-2">
-              📍 {tiendaId ? "Colaboradores más cercanos a esta tienda" : "Tiendas más cercanas a este colaborador"}
+              📍 {ancla === "tienda" ? "Colaboradores más cercanos a esta tienda" : "Tiendas más cercanas a este colaborador"}
             </h4>
             {cargandoCercania ? (
               <p className="text-marca-tenue text-xs animate-pulse">Calculando distancias reales por calle...</p>
-            ) : tiendaId ? (
+            ) : ancla === "tienda" ? (
               colaboradoresCercanos.length === 0 ? (
                 <p className="text-marca-tenue text-xs italic">
                   Sin colaboradores con dirección registrada para comparar (Registro → Dirección de
@@ -259,12 +275,21 @@ export default function AsignarRutas() {
                       key={c.usuarioId}
                       type="button"
                       onClick={() => setUsuarioId(c.usuarioId)}
-                      className="w-full flex items-center justify-between bg-marca-superficie2 hover:border-marca-rojoclaro/50 border border-marca-borde rounded-[3px] px-3 py-2 text-left transition"
+                      className={`w-full flex items-center justify-between border rounded-[3px] px-3 py-2 text-left transition ${
+                        usuarioId === c.usuarioId
+                          ? "bg-marca-rojo/10 border-marca-rojoclaro"
+                          : "bg-marca-superficie2 hover:border-marca-rojoclaro/50 border-marca-borde"
+                      }`}
                     >
                       <span className="text-marca-texto text-xs">
                         <span className="text-marca-tenue font-mono mr-1.5">{i + 1}.</span>
                         {c.usuarioNombre}{" "}
                         <span className="text-marca-tenue uppercase text-[10px]">({c.rol})</span>
+                        {usuarioId === c.usuarioId && (
+                          <span className="text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
+                            ✓ elegido
+                          </span>
+                        )}
                       </span>
                       <span className="text-marca-rojoclaro font-bold text-xs shrink-0">
                         {c.km} km · {formatearMinutos(c.minutos)}
@@ -284,11 +309,20 @@ export default function AsignarRutas() {
                     key={t.tiendaId}
                     type="button"
                     onClick={() => setTiendaId(t.tiendaId)}
-                    className="w-full flex items-center justify-between bg-marca-superficie2 hover:border-marca-rojoclaro/50 border border-marca-borde rounded-[3px] px-3 py-2 text-left transition"
+                    className={`w-full flex items-center justify-between border rounded-[3px] px-3 py-2 text-left transition ${
+                      tiendaId === t.tiendaId
+                        ? "bg-marca-rojo/10 border-marca-rojoclaro"
+                        : "bg-marca-superficie2 hover:border-marca-rojoclaro/50 border-marca-borde"
+                    }`}
                   >
                     <span className="text-marca-texto text-xs">
                       <span className="text-marca-tenue font-mono mr-1.5">{i + 1}.</span>
                       {t.tiendaNombre}
+                      {tiendaId === t.tiendaId && (
+                        <span className="text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
+                          ✓ elegida
+                        </span>
+                      )}
                     </span>
                     <span className="text-marca-rojoclaro font-bold text-xs shrink-0">
                       {t.km} km · {formatearMinutos(t.minutos)}
