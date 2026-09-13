@@ -7,13 +7,18 @@ import {
   obtenerRutasActivas,
   asignarRuta,
   eliminarRutaActiva,
+  obtenerColaboradoresCercanos,
+  obtenerTiendasCercanas,
   type UsuarioBasico,
   type TiendaBasica,
   type RutaActiva,
   type ResultadoAccion,
+  type ColaboradorCercano,
+  type TiendaCercana,
 } from "./actions";
 import { AREAS_RUTA } from "./constantes";
 import { formatearFechaLegible, formatearHora, hoyPeru } from "@/lib/fechas";
+import { formatearMinutos } from "@/lib/distancia";
 import SelectorGrid from "./selector-grid";
 
 const estadoInicial: ResultadoAccion = { exito: false };
@@ -76,6 +81,37 @@ export default function AsignarRutas() {
   const [fecha, setFecha] = useState(hoyPeru());
 
   const [estado, formAction] = useFormState(asignarRuta, estadoInicial);
+
+  const [colaboradoresCercanos, setColaboradoresCercanos] = useState<ColaboradorCercano[]>([]);
+  const [tiendasCercanas, setTiendasCercanas] = useState<TiendaCercana[]>([]);
+  const [cargandoCercania, setCargandoCercania] = useState(false);
+
+  // Sugerencias de cercanía: solo tienen sentido cuando falta un lado de la
+  // asignación por elegir — si ya se eligieron ambos, la decisión ya está
+  // tomada y no hace falta seguir sugiriendo.
+  useEffect(() => {
+    if (!tiendaId || usuarioId) {
+      setColaboradoresCercanos([]);
+      return;
+    }
+    setCargandoCercania(true);
+    obtenerColaboradoresCercanos(tiendaId)
+      .then(setColaboradoresCercanos)
+      .catch(() => setColaboradoresCercanos([]))
+      .finally(() => setCargandoCercania(false));
+  }, [tiendaId, usuarioId]);
+
+  useEffect(() => {
+    if (!usuarioId || tiendaId) {
+      setTiendasCercanas([]);
+      return;
+    }
+    setCargandoCercania(true);
+    obtenerTiendasCercanas(usuarioId)
+      .then(setTiendasCercanas)
+      .catch(() => setTiendasCercanas([]))
+      .finally(() => setCargandoCercania(false));
+  }, [usuarioId, tiendaId]);
 
   function cargarTodo() {
     setCargando(true);
@@ -202,6 +238,67 @@ export default function AsignarRutas() {
             onSeleccionar={setTiendaId}
           />
         </div>
+
+        {(tiendaId && !usuarioId) || (usuarioId && !tiendaId) ? (
+          <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
+            <h4 className="text-marca-tenue text-[10px] uppercase font-bold mb-2">
+              📍 {tiendaId ? "Colaboradores más cercanos a esta tienda" : "Tiendas más cercanas a este colaborador"}
+            </h4>
+            {cargandoCercania ? (
+              <p className="text-marca-tenue text-xs animate-pulse">Calculando distancias reales por calle...</p>
+            ) : tiendaId ? (
+              colaboradoresCercanos.length === 0 ? (
+                <p className="text-marca-tenue text-xs italic">
+                  Sin colaboradores con dirección registrada para comparar (Registro → Dirección de
+                  colaboradores).
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {colaboradoresCercanos.map((c, i) => (
+                    <button
+                      key={c.usuarioId}
+                      type="button"
+                      onClick={() => setUsuarioId(c.usuarioId)}
+                      className="w-full flex items-center justify-between bg-marca-superficie2 hover:border-marca-rojoclaro/50 border border-marca-borde rounded-[3px] px-3 py-2 text-left transition"
+                    >
+                      <span className="text-marca-texto text-xs">
+                        <span className="text-marca-tenue font-mono mr-1.5">{i + 1}.</span>
+                        {c.usuarioNombre}{" "}
+                        <span className="text-marca-tenue uppercase text-[10px]">({c.rol})</span>
+                      </span>
+                      <span className="text-marca-rojoclaro font-bold text-xs shrink-0">
+                        {c.km} km · {formatearMinutos(c.minutos)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )
+            ) : tiendasCercanas.length === 0 ? (
+              <p className="text-marca-tenue text-xs italic">
+                Este colaborador no tiene dirección registrada (Registro → Dirección de colaboradores).
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {tiendasCercanas.map((t, i) => (
+                  <button
+                    key={t.tiendaId}
+                    type="button"
+                    onClick={() => setTiendaId(t.tiendaId)}
+                    className="w-full flex items-center justify-between bg-marca-superficie2 hover:border-marca-rojoclaro/50 border border-marca-borde rounded-[3px] px-3 py-2 text-left transition"
+                  >
+                    <span className="text-marca-texto text-xs">
+                      <span className="text-marca-tenue font-mono mr-1.5">{i + 1}.</span>
+                      {t.tiendaNombre}
+                    </span>
+                    <span className="text-marca-rojoclaro font-bold text-xs shrink-0">
+                      {t.km} km · {formatearMinutos(t.minutos)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

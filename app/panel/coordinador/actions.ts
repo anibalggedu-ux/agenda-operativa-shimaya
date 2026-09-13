@@ -20,7 +20,7 @@ import {
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
-import { calcularRutaAuto, formatearMinutos } from "@/lib/distancia";
+import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 async function exigirCoordinador() {
@@ -91,6 +91,75 @@ export async function obtenerUsuariosYTiendas(): Promise<{
   }
 
   return { usuarios: usuarios ?? [], tiendas: tiendas ?? [] };
+}
+
+// ---------- Sugerencias de cercanía (para decidir mejor cada asignación) ----------
+//
+// El coordinador no siempre sabe qué colaborador vive más cerca de una
+// tienda, o qué tiendas le convienen más a un colaborador en particular.
+// Reutiliza el mismo motor de distancia real por calles que ya usa el
+// contador de kilómetros (OSRM, cacheado 30 días por par de coordenadas).
+
+const MAX_SUGERENCIAS = 8;
+
+export type ColaboradorCercano = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  km: number;
+  minutos: number;
+};
+
+export async function obtenerColaboradoresCercanos(tiendaId: string): Promise<ColaboradorCercano[]> {
+  await exigirCoordinador();
+  if (!tiendaId) return [];
+  const supabase = supabaseServer();
+
+  const [{ data: tienda }, { data: usuarios }] = await Promise.all([
+    supabase.from("tiendas").select("lat, lon").eq("id", tiendaId).maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol, lat, lon")
+      .eq("activo", true)
+      .in("rol", ROLES_CON_RUTA),
+  ]);
+
+  if (!tienda?.lat || !tienda?.lon) return [];
+
+  const candidatos = (usuarios ?? []).filter((u) => u.lat && u.lon);
+  const resultados: ColaboradorCercano[] = [];
+
+  await calcularRutasEnLotes(candidatos, async (u: any) => {
+    const ruta = await calcularRutaAuto(Number(u.lat), Number(u.lon), Number(tienda.lat), Number(tienda.lon));
+    if (ruta) resultados.push({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, km: ruta.km, minutos: ruta.minutos });
+  });
+
+  return resultados.sort((a, b) => a.km - b.km).slice(0, MAX_SUGERENCIAS);
+}
+
+export type TiendaCercana = { tiendaId: string; tiendaNombre: string; km: number; minutos: number };
+
+export async function obtenerTiendasCercanas(usuarioId: string): Promise<TiendaCercana[]> {
+  await exigirCoordinador();
+  if (!usuarioId) return [];
+  const supabase = supabaseServer();
+
+  const [{ data: usuario }, { data: tiendas }] = await Promise.all([
+    supabase.from("usuarios").select("lat, lon").eq("id", usuarioId).maybeSingle(),
+    supabase.from("tiendas").select("id, nombre, lat, lon"),
+  ]);
+
+  if (!usuario?.lat || !usuario?.lon) return [];
+
+  const candidatas = (tiendas ?? []).filter((t) => t.lat && t.lon);
+  const resultados: TiendaCercana[] = [];
+
+  await calcularRutasEnLotes(candidatas, async (t: any) => {
+    const ruta = await calcularRutaAuto(Number(usuario.lat), Number(usuario.lon), Number(t.lat), Number(t.lon));
+    if (ruta) resultados.push({ tiendaId: t.id, tiendaNombre: t.nombre, km: ruta.km, minutos: ruta.minutos });
+  });
+
+  return resultados.sort((a, b) => a.km - b.km).slice(0, MAX_SUGERENCIAS);
 }
 
 // ---------- Rutas / asignaciones ----------
