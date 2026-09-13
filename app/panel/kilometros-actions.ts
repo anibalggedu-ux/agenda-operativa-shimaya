@@ -37,7 +37,18 @@ export async function obtenerResumenKilometros(
   hasta: string,
   soloUsuarioId?: string
 ): Promise<ResumenKilometros> {
-  await exigirSesion();
+  const sesion = await exigirSesion();
+
+  // El ranking del mes (sin soloUsuarioId) es información compartida del
+  // equipo. Pero pedir el detalle de UNA persona en particular — sus
+  // trayectos casa/tienda — queda restringido a coordinador y gerente, o a
+  // uno mismo (ver obtenerMisKilometros); sin esto, cualquier colaborador
+  // podía consultar el de otro pasando su id.
+  const esAdmin = sesion.rol === "coordinador" || sesion.rol === "gerente";
+  if (soloUsuarioId && soloUsuarioId !== sesion.id && !esAdmin) {
+    throw new Error("No autorizado.");
+  }
+
   const supabase = supabaseServer();
 
   // No se filtra por activo=true: un colaborador desactivado después del

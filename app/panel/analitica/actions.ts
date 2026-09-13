@@ -169,6 +169,11 @@ export async function obtenerVisitasEnRangoAnalitica(
   hasta: string,
   tiendaId?: string
 ): Promise<VisitaAnalitica[]> {
+  // Está exportada porque la reutilizan otros módulos del servidor
+  // (kilómetros, mapa del gerente), pero al vivir en un archivo "use server"
+  // también queda expuesta como endpoint — sin este guard, cualquiera sin
+  // sesión podría pedir las visitas de todo el equipo.
+  await exigirSesion();
   const supabase = supabaseServer();
 
   let consultaReportes = supabase

@@ -1,9 +1,14 @@
 const OFFSET_HORAS_PERU = -5;
 
+// El instante que devuelve getTime() ya es absoluto (epoch UTC), así que
+// alcanza con correrlo -5h y leerlo con getters UTC (toISOString) para
+// obtener la hora de pared de Perú. Antes se le sumaba getTimezoneOffset(),
+// que pertenece al idiom de leer con getters LOCALES: en el servidor (UTC)
+// ese término vale 0 y no se notaba, pero en el celular de cualquier usuario
+// en Perú (UTC-5) sumaba 5 horas de más — pasadas las 19:00 hora Perú, la
+// app pasaba a creer que ya era el día siguiente.
 function ahoraEnPeru(): Date {
-  const ahora = new Date();
-  const utcMs = ahora.getTime() + ahora.getTimezoneOffset() * 60000;
-  return new Date(utcMs + OFFSET_HORAS_PERU * 3600000);
+  return new Date(Date.now() + OFFSET_HORAS_PERU * 3600000);
 }
 
 export function hoyPeru(): string {

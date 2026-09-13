@@ -81,7 +81,11 @@ export default function Calendario({ modo, hoy }: { modo: "completo" | "propio";
       descansoChip: boolean;
     }[] = [];
 
-    for (let i = 0; i < 35; i++) {
+    // 42 celdas (6 semanas), no 35: la grilla arranca en el domingo de la
+    // semana del día 1, así que un mes de 31 días que empieza sábado ocupa
+    // 37 casilleros. Con 35 se dejaban de dibujar los últimos días —
+    // agosto 2026 perdía el 30 y el 31, y con ellos sus rutas y permisos.
+    for (let i = 0; i < 42; i++) {
       const fecha = new Date(inicioGrid);
       fecha.setDate(fecha.getDate() + i);
       const iso = formatoISO(fecha);
