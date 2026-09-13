@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import AuditoriaForm from "./auditoria-form";
 import HistorialAuditorias from "./historial-auditorias";
 
@@ -11,7 +12,12 @@ export default function AuditoriasPanel({
   esAdmin: boolean;
   puedeAuditar: boolean;
 }) {
-  const [tab, setTab] = useState<"nueva" | "historial">("nueva");
+  // Si se llega desde el link del correo de resultado de auditoría
+  // (?auditoriaId=...), hay que abrir directo en "Mis Auditorías" — si no,
+  // el historial ni se monta y el link no tendría nada que abrir.
+  const parametros = useSearchParams();
+  const tieneAuditoriaId = !!parametros.get("auditoriaId");
+  const [tab, setTab] = useState<"nueva" | "historial">(tieneAuditoriaId ? "historial" : "nueva");
 
   if (esAdmin) {
     return (

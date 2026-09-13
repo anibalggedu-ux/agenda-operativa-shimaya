@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   obtenerTodasLasAuditorias,
   obtenerMisAuditorias,
@@ -52,6 +53,15 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
       setCargandoDetalle(false);
     }
   }
+
+  // Link directo desde el correo de resultado de auditoría — abre el detalle
+  // apenas carga la pestaña, sin que haga falta buscarla en la lista.
+  const parametros = useSearchParams();
+  useEffect(() => {
+    const auditoriaId = parametros.get("auditoriaId");
+    if (auditoriaId) abrirDetalle(auditoriaId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando auditorías...</p>;
 

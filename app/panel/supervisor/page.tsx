@@ -86,7 +86,7 @@ export default async function PanelSupervisor() {
 
   if (accesoAuditoria) {
     items.push({
-      id: "auditoria",
+      id: "auditorias",
       etiqueta: "Auditoría",
       icono: "🔍",
       contenido: <AuditoriasPanel esAdmin={false} puedeAuditar={true} />,

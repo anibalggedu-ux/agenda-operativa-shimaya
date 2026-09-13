@@ -71,6 +71,7 @@ const FILAS_COMPROMISOS = 5;
 async function notificarResultadoAuditoria(
   supabase: ReturnType<typeof supabaseServer>,
   datos: {
+    auditoriaId: string;
     tiendaId: string;
     fecha: string;
     lider: string | null;
@@ -102,10 +103,15 @@ async function notificarResultadoAuditoria(
         .not("email", "is", null),
     ]);
 
-    const correosSupervisor = (permanentes ?? [])
-      .filter((p: any) => p.usuarios?.rol === "supervisor")
-      .map((p: any) => p.usuarios?.email as string | null)
+    const supervisoresTienda = (permanentes ?? [])
+      .map((p: any) => p.usuarios)
+      .filter((u: any) => u?.rol === "supervisor");
+
+    const correosSupervisor = supervisoresTienda
+      .map((u: any) => u?.email as string | null)
       .filter((e): e is string => !!e);
+
+    const nombresSupervisor = supervisoresTienda.map((u: any) => u?.nombre as string).filter(Boolean);
 
     const correosAdministracion = (administracion ?? [])
       .map((u) => u.email)
@@ -142,6 +148,7 @@ async function notificarResultadoAuditoria(
         : "";
 
     const tiendaNombre = tienda?.nombre ?? "—";
+    const enlaceDetalle = `${URL_APP}/?seccion=auditorias&auditoriaId=${datos.auditoriaId}`;
 
     await enviarCorreo({
       para: correosSupervisor,
@@ -153,6 +160,11 @@ async function notificarResultadoAuditoria(
         <ul style="padding-left:18px; margin:0 0 16px;">
           <li><strong>Tienda:</strong> ${tiendaNombre}</li>
           <li><strong>Fecha:</strong> ${formatearFechaLegible(datos.fecha)}</li>
+          ${
+            nombresSupervisor.length > 0
+              ? `<li><strong>Supervisor(a) de la tienda:</strong> ${nombresSupervisor.join(" y ")}</li>`
+              : ""
+          }
           ${datos.lider ? `<li><strong>Líder de tienda:</strong> ${datos.lider}</li>` : ""}
           <li><strong>Realizada por:</strong> ${datos.supervisorNombre}</li>
           <li><strong>Puntaje:</strong> ${datos.puntajeTotal} / ${datos.puntajeMaximo} (${datos.porcentaje}%)</li>
@@ -165,7 +177,7 @@ async function notificarResultadoAuditoria(
         ${datos.oportunidades ? `<p><strong>Oportunidades de mejora:</strong> ${datos.oportunidades}</p>` : ""}
         ${compromisosHtml}
         <p style="margin:16px 0 0;">
-          <a href="${URL_APP}" style="color:#e23744; font-weight:700;">Ver en la Agenda Operativa →</a>
+          <a href="${enlaceDetalle}" style="color:#e23744; font-weight:700;">Ver resultado completo →</a>
         </p>
       `,
     });
@@ -235,27 +247,32 @@ export async function crearAuditoria(
   const porcentaje = puntajeMaximo > 0 ? Math.round((puntajeTotal / puntajeMaximo) * 100) : 0;
   const clasificacion = clasificar(porcentaje);
 
-  const { error } = await supabase.from("auditorias").insert({
-    tienda_id: tiendaId,
-    fecha,
-    lider: lider || null,
-    supervisor_id: sesion.id,
-    supervisor_nombre: sesion.nombre,
-    items,
-    observaciones,
-    fortalezas: String(formData.get("fortalezas") || "").trim() || null,
-    oportunidades: String(formData.get("oportunidades") || "").trim() || null,
-    compromisos,
-    alertas,
-    puntaje_total: puntajeTotal,
-    puntaje_maximo: puntajeMaximo,
-    porcentaje,
-    clasificacion,
-  });
+  const { data: creada, error } = await supabase
+    .from("auditorias")
+    .insert({
+      tienda_id: tiendaId,
+      fecha,
+      lider: lider || null,
+      supervisor_id: sesion.id,
+      supervisor_nombre: sesion.nombre,
+      items,
+      observaciones,
+      fortalezas: String(formData.get("fortalezas") || "").trim() || null,
+      oportunidades: String(formData.get("oportunidades") || "").trim() || null,
+      compromisos,
+      alertas,
+      puntaje_total: puntajeTotal,
+      puntaje_maximo: puntajeMaximo,
+      porcentaje,
+      clasificacion,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { exito: false, mensaje: "No se pudo guardar la auditoría." };
+  if (error || !creada) return { exito: false, mensaje: "No se pudo guardar la auditoría." };
 
   await notificarResultadoAuditoria(supabase, {
+    auditoriaId: creada.id,
     tiendaId,
     fecha,
     lider: lider || null,
@@ -351,7 +368,24 @@ export async function obtenerDetalleAuditoria(id: string): Promise<DetalleAudito
 
   const esPropia = data.supervisor_id === sesion.id;
   const esAdmin = sesion.rol === "coordinador" || sesion.rol === "gerente";
-  if (!esPropia && !esAdmin) throw new Error("No autorizado.");
+
+  // Quien hizo la auditoría no siempre es el supervisor a cargo de esa
+  // tienda (p. ej. la audita un coordinador de visita) — el correo de
+  // resultado se le manda igual a ese supervisor, así que también puede
+  // abrir el detalle aunque no la haya realizado él.
+  let esResponsableDeLaTienda = false;
+  if (!esPropia && !esAdmin) {
+    const { data: permanente } = await supabase
+      .from("tiendas_permanentes")
+      .select("id")
+      .eq("tienda_id", data.tienda_id)
+      .eq("usuario_id", sesion.id)
+      .is("fecha_fin", null)
+      .maybeSingle();
+    esResponsableDeLaTienda = !!permanente;
+  }
+
+  if (!esPropia && !esAdmin && !esResponsableDeLaTienda) throw new Error("No autorizado.");
 
   return {
     id: data.id,
