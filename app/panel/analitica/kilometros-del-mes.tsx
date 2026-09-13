@@ -13,8 +13,10 @@ const MEDALLAS_TOP3 = ["🥇", "🥈", "🥉"];
 
 // Ranking fijo del mes calendario en curso (sin selector de fechas) — para
 // que quede a la vista de un vistazo al entrar, útil para definir premios e
-// incentivos mensuales por kilometraje recorrido.
-export default function KilometrosDelMes() {
+// incentivos mensuales por kilometraje recorrido. Con soloRol, se filtra a
+// un solo rol (ej. capacitador) para que cada quien se compare con sus
+// pares, no con todo el equipo.
+export default function KilometrosDelMes({ soloRol }: { soloRol?: string } = {}) {
   const [filas, setFilas] = useState<FilaKilometros[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +28,13 @@ export default function KilometrosDelMes() {
     setCargando(true);
     setError(null);
     obtenerResumenKilometros(desde, hoy)
-      .then((r) => setFilas(r.filas.slice(0, 3)))
+      .then((r) => {
+        const filtradas = soloRol ? r.filas.filter((f) => f.rol === soloRol) : r.filas;
+        setFilas(filtradas.slice(0, 3));
+      })
       .catch((e) => setError(e.message || "Error al cargar los kilómetros del mes."))
       .finally(() => setCargando(false));
-  }, [desde, hoy]);
+  }, [desde, hoy, soloRol]);
 
   const nombreMes = new Date(hoy + "T00:00:00Z").toLocaleDateString("es-PE", {
     month: "long",

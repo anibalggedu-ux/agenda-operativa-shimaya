@@ -9,6 +9,7 @@ import PerfilBanner from "../supervisor/perfil-banner";
 import MiDescanso from "../supervisor/mi-descanso";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import RankingCapacitadores from "./ranking-capacitadores";
+import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import { LazyCalendario as Calendario } from "../panel-lazy";
@@ -31,6 +32,15 @@ export default async function PanelCapacitador() {
           <MiDescanso />
           <MisPuntosWidget />
           <RankingCapacitadores />
+          <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
+            <h3 className="text-xs font-black tracking-widest text-marca-tenue">
+              🚗 KILÓMETROS DEL MES — CAPACITADORES
+            </h3>
+            <p className="text-marca-tenue text-[11px]">
+              Quién recorrió más distancia este mes, solo entre capacitadores.
+            </p>
+            <KilometrosDelMes soloRol="capacitador" />
+          </div>
           <AnunciosWidget />
         </div>
       ),
