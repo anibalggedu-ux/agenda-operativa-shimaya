@@ -46,28 +46,22 @@ export default async function PanelCapacitador() {
       ),
     },
     {
-      id: "asistencia",
-      etiqueta: "Asistencia",
-      icono: "⏱",
-      contenido: <MisMarcaciones />,
-    },
-    {
       id: "bitacora",
       etiqueta: "Bitácora de Campo",
       icono: "📍",
-      contenido: <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />,
+      contenido: (
+        <div className="space-y-6">
+          <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
+          <MisMarcaciones />
+          <HistorialPdf supervisorNombre={sesion.nombre} />
+        </div>
+      ),
     },
     {
       id: "reportes",
       etiqueta: "Mis Reportes",
       icono: "📝",
       contenido: <MisReportes />,
-    },
-    {
-      id: "historial-pdf",
-      etiqueta: "Historial PDF",
-      icono: "🧾",
-      contenido: <HistorialPdf supervisorNombre={sesion.nombre} />,
     },
     {
       id: "calendario",
