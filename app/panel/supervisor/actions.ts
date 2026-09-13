@@ -280,11 +280,31 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
     return { exito: false, mensaje: "Tienda no encontrada." };
   }
 
+  // Una auto-asignación casi siempre pasa estando ya en otra tienda (la ruta
+  // del día) y de ahí te mandan a esta de improviso — el kilometraje debe
+  // salir desde ese punto, no desde la casa. Se infiere en este orden:
+  // 1) la tienda donde ya marcaste llegada hoy y todavía no marcaste salida
+  //    (ahí estás parado ahora mismo);
+  // 2) si no, cualquier otra tienda ya asignada hoy (tu ruta planificada);
+  // 3) si no hay ninguna, se deja sin origen y el cálculo de km usa tu casa
+  //    (primera asignación del día, llegando de casa).
+  const { data: otrasHoy } = await supabase
+    .from("rutas_activas")
+    .select("tienda_id, hora_llegada, hora_salida, autoasignada")
+    .eq("usuario_id", sesion.id)
+    .eq("fecha_planificada", fecha);
+
+  const listaOtrasHoy = otrasHoy ?? [];
+  const dondeEstaAhora = listaOtrasHoy.find((r) => r.hora_llegada && !r.hora_salida);
+  const cualquierOtra = [...listaOtrasHoy].sort((a, b) => Number(a.autoasignada) - Number(b.autoasignada))[0];
+  const origenTiendaId = dondeEstaAhora?.tienda_id ?? cualquierOtra?.tienda_id ?? null;
+
   const { error } = await supabase.from("rutas_activas").insert({
     usuario_id: sesion.id,
     tienda_id: tiendaId,
     fecha_planificada: fecha,
     autoasignada: true,
+    origen_tienda_id: origenTiendaId,
   });
   if (error) return { exito: false, mensaje: "No se pudo asignar la tienda." };
 
@@ -327,6 +347,7 @@ export async function enviarReporte(
     hora_salida: string | null;
     ubicacion_salida: string | null;
     foto_salida_blob: string | null;
+    origen_tienda_id: string | null;
   } = {
     hora_llegada: null,
     ubicacion_llegada: null,
@@ -334,12 +355,13 @@ export async function enviarReporte(
     hora_salida: null,
     ubicacion_salida: null,
     foto_salida_blob: null,
+    origen_tienda_id: null,
   };
   if (rutaActivaId) {
     const { data: activa } = await supabase
       .from("rutas_activas")
       .select(
-        "created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob"
+        "created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id"
       )
       .eq("id", rutaActivaId)
       .maybeSingle();
@@ -352,6 +374,7 @@ export async function enviarReporte(
         hora_salida: activa.hora_salida,
         ubicacion_salida: activa.ubicacion_salida,
         foto_salida_blob: activa.foto_salida_blob,
+        origen_tienda_id: activa.origen_tienda_id,
       };
     }
   }

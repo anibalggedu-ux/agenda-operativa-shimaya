@@ -24,6 +24,9 @@ export type FilaKilometros = {
 export type TrayectoKilometros = {
   usuarioNombre: string;
   tiendaNombre: string;
+  // Tienda de origen cuando el trayecto es una auto-asignación hecha desde
+  // otra tienda — null significa que el origen es el domicilio (caso normal).
+  origenNombre: string | null;
   km: number;
   minutos: number;
   visitas: number;
@@ -53,35 +56,41 @@ export async function obtenerResumenKilometros(desde: string, hasta: string): Pr
   // Cada visita ya viene deduplicada por usuario+tienda+fecha (mismo criterio
   // que el resto del sistema: cuenta cada asignación, tenga o no observación
   // escrita, y sin importar si fue asignada por el coordinador o
-  // auto-asignada). Se agrupan por usuario+tienda porque la ruta entre esas
-  // dos direcciones es siempre la misma — solo cambia cuántas veces se repitió.
-  const conteos = new Map<string, { usuarioId: string; tiendaId: string; veces: number }>();
+  // auto-asignada). Se agrupan por usuario+origen+destino porque la ruta
+  // entre esos dos puntos es siempre la misma — solo cambia cuántas veces se
+  // repitió. El origen normalmente es el domicilio, pero en una
+  // auto-asignación es la tienda desde la que se hizo (ver origen_tienda_id).
+  const conteos = new Map<
+    string,
+    { usuarioId: string; tiendaId: string; origenTiendaId: string | null; veces: number }
+  >();
   visitas.forEach((v) => {
-    const clave = `${v.usuarioId}|${v.tiendaId}`;
+    const clave = `${v.usuarioId}|${v.origenTiendaId ?? "casa"}|${v.tiendaId}`;
     const actual = conteos.get(clave);
     if (actual) actual.veces += 1;
-    else conteos.set(clave, { usuarioId: v.usuarioId, tiendaId: v.tiendaId, veces: 1 });
+    else conteos.set(clave, { usuarioId: v.usuarioId, tiendaId: v.tiendaId, origenTiendaId: v.origenTiendaId, veces: 1 });
   });
 
   const pares = Array.from(conteos.values()).map((p) => ({
     ...p,
     tiendaNombre: mapaTiendas.get(p.tiendaId)?.nombre ?? "—",
+    origenNombre: p.origenTiendaId ? mapaTiendas.get(p.origenTiendaId)?.nombre ?? "—" : null,
   }));
 
   const rutasPorClave = new Map<string, { km: number; minutos: number } | null>();
 
   await calcularRutasEnLotes(pares, async (par) => {
-    const usuario = mapaUsuarios.get(par.usuarioId);
     const tienda = mapaTiendas.get(par.tiendaId);
+    const origen = par.origenTiendaId ? mapaTiendas.get(par.origenTiendaId) : mapaUsuarios.get(par.usuarioId);
 
-    const clave = `${par.usuarioId}|${par.tiendaId}`;
-    if (!usuario?.lat || !usuario?.lon || !tienda?.lat || !tienda?.lon) {
+    const clave = `${par.usuarioId}|${par.origenTiendaId ?? "casa"}|${par.tiendaId}`;
+    if (!origen?.lat || !origen?.lon || !tienda?.lat || !tienda?.lon) {
       rutasPorClave.set(clave, null);
       return;
     }
     const ruta = await calcularRutaAuto(
-      Number(usuario.lat),
-      Number(usuario.lon),
+      Number(origen.lat),
+      Number(origen.lon),
       Number(tienda.lat),
       Number(tienda.lon)
     );
@@ -107,13 +116,14 @@ export async function obtenerResumenKilometros(desde: string, hasta: string): Pr
 
     fila.totalVisitas += par.veces;
 
-    const ruta = rutasPorClave.get(`${par.usuarioId}|${par.tiendaId}`);
+    const ruta = rutasPorClave.get(`${par.usuarioId}|${par.origenTiendaId ?? "casa"}|${par.tiendaId}`);
     if (ruta) {
       fila.totalKm += Math.round(ruta.km * par.veces * 10) / 10;
       fila.totalMinutos += ruta.minutos * par.veces;
       detalle.push({
         usuarioNombre: usuario.nombre,
         tiendaNombre: par.tiendaNombre,
+        origenNombre: par.origenNombre,
         km: ruta.km,
         minutos: ruta.minutos,
         visitas: par.veces,

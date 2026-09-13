@@ -163,6 +163,10 @@ export type VisitaAnalitica = {
   usuarioNombre: string;
   rol: string;
   tieneObservacion: boolean;
+  // Tienda desde la que se hizo el viaje, cuando la asignación fue una
+  // auto-asignación de último momento hecha estando en otra tienda — null
+  // significa que el viaje sale del domicilio del colaborador (caso normal).
+  origenTiendaId: string | null;
 };
 
 export async function obtenerVisitasEnRangoAnalitica(
@@ -174,14 +178,14 @@ export async function obtenerVisitasEnRangoAnalitica(
 
   let consultaReportes = supabase
     .from("rutas_diarias")
-    .select("fecha, tienda_id, usuario_id, rol, usuarios(nombre)")
+    .select("fecha, tienda_id, usuario_id, rol, origen_tienda_id, usuarios(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta);
   if (tiendaId) consultaReportes = consultaReportes.eq("tienda_id", tiendaId);
 
   let consultaAsignaciones = supabase
     .from("rutas_activas")
-    .select("fecha_planificada, tienda_id, usuario_id, usuarios(nombre, rol)")
+    .select("fecha_planificada, tienda_id, usuario_id, origen_tienda_id, usuarios(nombre, rol)")
     .gte("fecha_planificada", desde)
     .lte("fecha_planificada", hasta);
   if (tiendaId) consultaAsignaciones = consultaAsignaciones.eq("tienda_id", tiendaId);
@@ -208,6 +212,7 @@ export async function obtenerVisitasEnRangoAnalitica(
     usuarioNombre: r.usuarios?.nombre ?? "—",
     rol: r.rol ?? "—",
     tieneObservacion: true,
+    origenTiendaId: r.origen_tienda_id ?? null,
   }));
 
   (asignaciones ?? []).forEach((a: any) => {
@@ -220,6 +225,7 @@ export async function obtenerVisitasEnRangoAnalitica(
       usuarioNombre: a.usuarios?.nombre ?? "—",
       rol: a.usuarios?.rol ?? "—",
       tieneObservacion: false,
+      origenTiendaId: a.origen_tienda_id ?? null,
     });
   });
 

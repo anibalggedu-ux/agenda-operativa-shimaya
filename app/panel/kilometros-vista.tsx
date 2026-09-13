@@ -79,14 +79,14 @@ export default function KilometrosVista({
       {mostrarDetalle && datos.detalle.length > 0 && (
         <div className="mt-4">
           <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">
-            DETALLE POR TRAYECTO (CASA → TIENDA)
+            DETALLE POR TRAYECTO
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-marca-tenue text-[10px] uppercase text-left">
                   <th className="py-1.5 pr-3">Colaborador</th>
-                  <th className="py-1.5 pr-3">Tienda</th>
+                  <th className="py-1.5 pr-3">Trayecto</th>
                   <th className="py-1.5 pr-3 text-right">Km (ida)</th>
                   <th className="py-1.5 pr-3 text-right">Tiempo (ida)</th>
                   <th className="py-1.5 pr-3 text-right">Visitas</th>
@@ -97,7 +97,15 @@ export default function KilometrosVista({
                 {datos.detalle.map((d, i) => (
                   <tr key={i} className="border-t border-marca-borde">
                     <td className="py-1.5 pr-3 text-marca-texto whitespace-nowrap">{d.usuarioNombre}</td>
-                    <td className="py-1.5 pr-3 text-marca-texto whitespace-nowrap">{d.tiendaNombre}</td>
+                    <td className="py-1.5 pr-3 text-marca-texto whitespace-nowrap">
+                      {d.origenNombre ? (
+                        <>
+                          <span className="text-marca-tenue">{d.origenNombre} →</span> {d.tiendaNombre}
+                        </>
+                      ) : (
+                        d.tiendaNombre
+                      )}
+                    </td>
                     <td className="py-1.5 pr-3 text-right text-marca-tenue">{d.km}</td>
                     <td className="py-1.5 pr-3 text-right text-marca-tenue whitespace-nowrap">
                       {formatearMinutos(d.minutos)}
