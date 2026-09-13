@@ -24,6 +24,7 @@ import RankingPorRol from "./ranking-por-rol";
 import DashboardTiendasVista from "./dashboard-tiendas";
 import KilometrosVista from "../kilometros-vista";
 import TendenciasTiendas from "./tendencias-tiendas";
+import KilometrosDelMes from "./kilometros-del-mes";
 
 const COLOR_EJE = "#8b8d92";
 const COLOR_GRILLA = "#2a2c31";
@@ -302,6 +303,22 @@ export default function CentralAnalitica() {
                   className="block w-full text-center mt-3 text-marca-rojoclaro text-[11px] font-bold border border-dashed border-marca-borde rounded-[3px] py-2.5 hover:border-marca-rojo/40 transition"
                 >
                   Ver vitrina completa →
+                </button>
+              </section>
+
+              <section className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5">
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+                  🚗 KILÓMETROS DEL MES
+                </h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Quién recorrió más distancia este mes — útil para premios e incentivos mensuales.
+                </p>
+                <KilometrosDelMes />
+                <button
+                  onClick={() => setPestana("personas")}
+                  className="block w-full text-center mt-3 text-marca-rojoclaro text-[11px] font-bold border border-dashed border-marca-borde rounded-[3px] py-2.5 hover:border-marca-rojo/40 transition"
+                >
+                  Ver kilómetros por rango de fechas →
                 </button>
               </section>
             </div>
