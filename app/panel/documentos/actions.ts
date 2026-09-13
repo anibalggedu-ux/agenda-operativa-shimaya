@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { tieneAccesoRegistro } from "@/lib/permisos";
+import type { TablesUpdate } from "@/lib/database.types";
 
 const BUCKET = "documentos";
 const CATEGORIAS_VALIDAS = ["checklists", "formatos", "manuales"] as const;
@@ -42,7 +43,9 @@ export async function obtenerDocumentos(): Promise<Documento[]> {
   return (data ?? []).map((d) => ({
     id: d.id,
     nombre: d.nombre,
-    categoria: d.categoria,
+    // categoria es texto libre en la base de datos, pero solo se escribe
+    // acá mismo validado contra CATEGORIAS_VALIDAS (ver más abajo).
+    categoria: d.categoria as Categoria,
     extension: d.extension,
     tamanoBytes: d.tamano_bytes,
     subidoPor: d.subido_por,
@@ -149,7 +152,7 @@ export async function actualizarDocumento(formData: FormData): Promise<Resultado
 
   if (!actual) return { exito: false, mensaje: "El documento ya no existe." };
 
-  const cambios: Record<string, unknown> = {
+  const cambios: TablesUpdate<"documentos"> = {
     nombre,
     categoria,
     actualizado_en: new Date().toISOString(),

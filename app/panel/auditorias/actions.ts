@@ -232,11 +232,14 @@ export async function obtenerDetalleAuditoria(id: string): Promise<DetalleAudito
     clasificacion: data.clasificacion,
     alertas: data.alertas ?? [],
     lider: data.lider,
-    items: data.items ?? [],
-    observaciones: data.observaciones ?? {},
+    // items/observaciones/compromisos son columnas JSONB — su forma real la
+    // garantiza quien las escribe (el formulario de auditoría), no el
+    // esquema de la base de datos, así que se tipan acá en el límite.
+    items: (data.items as DetalleAuditoria["items"]) ?? [],
+    observaciones: (data.observaciones as DetalleAuditoria["observaciones"]) ?? {},
     fortalezas: data.fortalezas,
     oportunidades: data.oportunidades,
-    compromisos: data.compromisos ?? [],
+    compromisos: (data.compromisos as DetalleAuditoria["compromisos"]) ?? [],
     puntajeTotal: data.puntaje_total,
     puntajeMaximo: data.puntaje_maximo,
   };

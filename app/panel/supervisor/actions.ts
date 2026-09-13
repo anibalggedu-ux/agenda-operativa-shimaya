@@ -708,7 +708,7 @@ export async function editarReporte(
   // respaldo — reportes viejos o cargados sin pasar por una asignación).
   const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
   const inicioVentana = reporte.asignado_en ?? reporte.created_at;
-  if (new Date(inicioVentana).getTime() <= limite) {
+  if (!inicioVentana || new Date(inicioVentana).getTime() <= limite) {
     return {
       exito: false,
       mensaje: "Ya pasaron las 48 horas desde que se asignó esta ruta — no se puede editar el reporte.",
