@@ -27,7 +27,17 @@ import { hoyPeru } from "@/lib/fechas";
 
 export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string }) {
   const items: ItemMenuPanel[] = [
-    { id: "rutas", etiqueta: "Rutas", icono: "🚚", contenido: <AsignarRutas /> },
+    {
+      id: "rutas",
+      etiqueta: "Rutas",
+      icono: "🚚",
+      contenido: (
+        <div className="space-y-8">
+          <AsignarRutas />
+          <AsignacionesEspeciales />
+        </div>
+      ),
+    },
     {
       id: "mi-ruta",
       etiqueta: "Mi Ruta",
@@ -49,7 +59,6 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
       contenido: (
         <div className="space-y-8">
           <EstadoPersonalHoy />
-          <AsignacionesEspeciales />
           <TiendasPermanentes />
           <DescansosSemanales />
         </div>
