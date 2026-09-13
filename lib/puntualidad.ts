@@ -3,7 +3,7 @@
 // (coordinador y gerente ven la de todos). Una sola fuente de verdad para
 // no repetir la lógica en 3 lugares distintos.
 
-import { diaSemanaPeru, sumarDias } from "./fechas";
+import { diaSemanaPeru, sumarDias, formatearHora, formatearFechaLegible } from "./fechas";
 
 // Misma hora límite que ya usa Central Analítica y el sistema de puntos —
 // un ingreso después de esta hora cuenta como tarde.
@@ -139,4 +139,86 @@ export function tieneAlertaActiva(estado: AlertaPuntualidad): boolean {
     estado.rachaTardanzas >= 2 ||
     estado.rachaSinSalida >= 1
   );
+}
+
+// ---------- Alertas "atendidas" (marcadas como ya vistas por el coordinador/gerente) ----------
+//
+// Cada alerta se puede marcar como atendida — pero no desaparece para
+// siempre: si el problema sigue después de la fecha en que se marcó (una
+// tardanza nueva, o una salida nueva sin marcar), vuelve a aparecer sola,
+// porque ya es una situación distinta a la que se atendió.
+
+export type TipoAlertaPuntualidad = "tardanza" | "salida";
+
+export type AtendidoPorTipo = { tardanzaDesde: string | null; salidaDesde: string | null };
+
+export type AlertaPuntualidadItem = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  tipo: TipoAlertaPuntualidad;
+  mensaje: string;
+};
+
+// Última fecha con evidencia de tardanza: hoy mismo si hoy está tarde o
+// pendiente de pasar su límite, o el día que cierra la racha (ayer) si
+// viene arrastrando una racha sin que hoy sea (todavía) un problema.
+function fechaProblemaTardanza(a: AlertaPuntualidad, hoy: string): string | null {
+  if (a.estadoHoy === "tarde" || a.estadoHoy === "pendiente_tarde") return hoy;
+  if (a.rachaTardanzas > 0) return sumarDias(hoy, -1);
+  return null;
+}
+
+function mensajeTardanza(a: AlertaPuntualidad): string {
+  const partes: string[] = [];
+  if (a.estadoHoy === "pendiente_tarde") {
+    partes.push("Todavía no marca su llegada hoy y ya pasó su hora límite.");
+  } else if (a.estadoHoy === "tarde" && a.horaIngresoHoy) {
+    partes.push(`Hoy llegó tarde — marcó a las ${formatearHora(a.horaIngresoHoy)}.`);
+  }
+  if (a.rachaTardanzas >= 2) {
+    partes.push(`Lleva ${a.rachaTardanzas} días seguidos llegando tarde o sin marcar entrada.`);
+  }
+  return partes.join(" ");
+}
+
+function mensajeSalida(a: AlertaPuntualidad): string {
+  if (!a.fechaSinSalida) return "";
+  return a.rachaSinSalida === 1
+    ? `No registró su salida el ${formatearFechaLegible(a.fechaSinSalida)}.`
+    : `No registra su salida desde hace ${a.rachaSinSalida} días (${formatearFechaLegible(a.fechaSinSalida)}).`;
+}
+
+// Arma la lista de alertas de una persona ya filtrada por lo que marcó
+// atendido el coordinador/gerente — cada tipo (tardanza / salida) se evalúa
+// por separado, así que una persona puede tener una visible y la otra no.
+export function construirItemsAlerta(
+  a: AlertaPuntualidad,
+  hoy: string,
+  atendido?: AtendidoPorTipo
+): AlertaPuntualidadItem[] {
+  const items: AlertaPuntualidadItem[] = [];
+
+  const fechaTardanza = fechaProblemaTardanza(a, hoy);
+  if (fechaTardanza && (!atendido?.tardanzaDesde || fechaTardanza > atendido.tardanzaDesde)) {
+    items.push({
+      usuarioId: a.usuarioId,
+      usuarioNombre: a.usuarioNombre,
+      rol: a.rol,
+      tipo: "tardanza",
+      mensaje: mensajeTardanza(a),
+    });
+  }
+
+  if (a.fechaSinSalida && (!atendido?.salidaDesde || a.fechaSinSalida > atendido.salidaDesde)) {
+    items.push({
+      usuarioId: a.usuarioId,
+      usuarioNombre: a.usuarioNombre,
+      rol: a.rol,
+      tipo: "salida",
+      mensaje: mensajeSalida(a),
+    });
+  }
+
+  return items;
 }

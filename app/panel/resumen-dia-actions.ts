@@ -9,9 +9,11 @@ import { obtenerDashboardTiendas } from "./analitica/actions";
 import { obtenerClimaActual, resumirClimaActual } from "@/lib/clima";
 import {
   calcularEstadoPuntualidad,
-  tieneAlertaActiva,
+  construirItemsAlerta,
   expandirRangoFechas,
   type AlertaPuntualidad,
+  type AlertaPuntualidadItem,
+  type AtendidoPorTipo,
   type RegistroAsistencia,
 } from "@/lib/puntualidad";
 
@@ -233,7 +235,7 @@ export type ResumenOperativo = {
   asignacionesEspecialesHoyTotal: number;
   comunicadosSemana: number;
   rachaTop: { nombre: string; racha: number } | null;
-  alertasPuntualidad: AlertaPuntualidad[];
+  alertasPuntualidad: AlertaPuntualidadItem[];
 };
 
 const ROLES_CON_ASISTENCIA = ["supervisor", "capacitador"];
@@ -259,6 +261,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: colaboradores },
     { data: asistenciaEquipo },
     { data: especialesEquipo },
+    { data: atendidas },
   ] = await Promise.all([
     supabase.from("tiendas").select("id"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
@@ -289,6 +292,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .select("usuario_id, fecha_inicio, fecha_fin")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", hoy),
+    supabase.from("alertas_puntualidad_atendidas").select("usuario_id, tipo, fecha_referencia"),
   ]);
 
   const asistenciaPorUsuario = new Map<string, Map<string, RegistroAsistencia>>();
@@ -305,21 +309,30 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     diasExentosPorUsuario.set(e.usuario_id, set);
   });
 
-  const alertasPuntualidad = (colaboradores ?? [])
-    .map((u) =>
-      calcularEstadoPuntualidad(
-        u.id,
-        u.nombre,
-        u.rol,
-        u.dias_descanso ?? [],
-        asistenciaPorUsuario.get(u.id) ?? new Map(),
-        hoy,
-        horaActual,
-        diasExentosPorUsuario.get(u.id) ?? new Set()
-      )
+  const atendidoPorUsuario = new Map<string, AtendidoPorTipo>();
+  (atendidas ?? []).forEach((a) => {
+    const actual = atendidoPorUsuario.get(a.usuario_id) ?? { tardanzaDesde: null, salidaDesde: null };
+    if (a.tipo === "tardanza") actual.tardanzaDesde = a.fecha_referencia;
+    else actual.salidaDesde = a.fecha_referencia;
+    atendidoPorUsuario.set(a.usuario_id, actual);
+  });
+
+  const estadosEquipo = (colaboradores ?? []).map((u) =>
+    calcularEstadoPuntualidad(
+      u.id,
+      u.nombre,
+      u.rol,
+      u.dias_descanso ?? [],
+      asistenciaPorUsuario.get(u.id) ?? new Map(),
+      hoy,
+      horaActual,
+      diasExentosPorUsuario.get(u.id) ?? new Set()
     )
-    .filter(tieneAlertaActiva)
-    .sort((a, b) => b.rachaTardanzas + b.rachaSinSalida - (a.rachaTardanzas + a.rachaSinSalida));
+  );
+
+  const alertasPuntualidad: AlertaPuntualidadItem[] = estadosEquipo
+    .flatMap((e) => construirItemsAlerta(e, hoy, atendidoPorUsuario.get(e.usuarioId)))
+    .sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === "tardanza" ? -1 : 1));
 
   const totalTiendas = tiendas?.length ?? 0;
   const visitasHoy = new Set((visitasHoyRows ?? []).map((r: any) => r.tienda_id)).size;
@@ -346,4 +359,33 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     rachaTop: top ? { nombre: top.nombre, racha: top.rachaActual } : null,
     alertasPuntualidad,
   };
+}
+
+// Marca una alerta de puntualidad como atendida — no la borra para siempre:
+// si el problema sigue después de hoy (una tardanza o salida sin marcar
+// nueva), vuelve a aparecer sola porque ya es una situación distinta a la
+// que se atendió (ver construirItemsAlerta en lib/puntualidad.ts).
+export async function marcarAlertaAtendida(
+  usuarioId: string,
+  tipo: "tardanza" | "salida"
+): Promise<{ exito: boolean; mensaje?: string }> {
+  const sesion = await obtenerSesion();
+  if (!sesion || (sesion.rol !== "coordinador" && sesion.rol !== "gerente")) {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("alertas_puntualidad_atendidas").upsert(
+    {
+      usuario_id: usuarioId,
+      tipo,
+      fecha_referencia: hoyPeru(),
+      atendido_por_nombre: sesion.nombre,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "usuario_id,tipo" }
+  );
+
+  if (error) return { exito: false, mensaje: "No se pudo marcar como atendida." };
+  return { exito: true };
 }

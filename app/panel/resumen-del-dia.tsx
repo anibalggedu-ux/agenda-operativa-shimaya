@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
+  marcarAlertaAtendida,
   type ResumenPersonal,
   type ResumenOperativo,
 } from "./resumen-dia-actions";
@@ -90,6 +91,15 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esOperativo]);
 
+  function handleAtenderAlerta(usuarioId: string, tipo: "tardanza" | "salida") {
+    setOperativo((prev) =>
+      prev
+        ? { ...prev, alertasPuntualidad: prev.alertasPuntualidad.filter((a) => !(a.usuarioId === usuarioId && a.tipo === tipo)) }
+        : prev
+    );
+    marcarAlertaAtendida(usuarioId, tipo).catch(() => {});
+  }
+
   const primerNombre = nombre.split(" ")[0];
   const [saludo, setSaludo] = useState("Hola");
   const [fechaHoy, setFechaHoy] = useState("");
@@ -138,17 +148,24 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
             ⚠️ Alertas de puntualidad ({operativo.alertasPuntualidad.length})
           </p>
           <div className="space-y-1.5">
-            {operativo.alertasPuntualidad.map((a) => {
-              const mensajes = mensajesAlertaPuntualidad(a);
-              if (mensajes.length === 0) return null;
-              return (
-                <p key={a.usuarioId} className="text-marca-texto text-xs">
+            {operativo.alertasPuntualidad.map((a) => (
+              <div
+                key={`${a.usuarioId}-${a.tipo}`}
+                className="flex items-start justify-between gap-2 bg-marca-fondo/40 rounded-[3px] p-2"
+              >
+                <p className="text-marca-texto text-xs min-w-0">
                   <span className="font-bold">{a.usuarioNombre}</span>{" "}
-                  <span className="text-marca-tenue uppercase text-[10px]">({a.rol})</span> —{" "}
-                  {mensajes.join(" ")}
+                  <span className="text-marca-tenue uppercase text-[10px]">({a.rol})</span> — {a.mensaje}
                 </p>
-              );
-            })}
+                <button
+                  onClick={() => handleAtenderAlerta(a.usuarioId, a.tipo)}
+                  className="shrink-0 text-[10px] font-bold text-marca-tenue hover:text-emerald-400 border border-marca-borde hover:border-emerald-500/40 rounded-[3px] px-2 py-1 transition whitespace-nowrap"
+                  title="Ya tomé acción — dejar de avisar mientras no vuelva a pasar"
+                >
+                  ✓ Atendido
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
