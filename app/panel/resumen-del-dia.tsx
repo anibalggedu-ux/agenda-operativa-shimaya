@@ -7,7 +7,30 @@ import {
   type ResumenPersonal,
   type ResumenOperativo,
 } from "./resumen-dia-actions";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
+import type { AlertaPuntualidad } from "@/lib/puntualidad";
+
+// Arma las frases de alerta de puntualidad de una persona — puede haber más
+// de una a la vez (ej. llegó tarde hoy Y además lleva racha).
+function mensajesAlertaPuntualidad(a: AlertaPuntualidad): string[] {
+  const mensajes: string[] = [];
+  if (a.estadoHoy === "pendiente_tarde") {
+    mensajes.push("Todavía no marca su llegada hoy y ya pasó su hora límite.");
+  } else if (a.estadoHoy === "tarde" && a.horaIngresoHoy) {
+    mensajes.push(`Hoy llegó tarde — marcó a las ${formatearHora(a.horaIngresoHoy)}.`);
+  }
+  if (a.rachaTardanzas >= 2) {
+    mensajes.push(`Lleva ${a.rachaTardanzas} días seguidos llegando tarde o sin marcar entrada.`);
+  }
+  if (a.rachaSinSalida >= 1 && a.fechaSinSalida) {
+    mensajes.push(
+      a.rachaSinSalida === 1
+        ? `No registró su salida el ${formatearFechaLegible(a.fechaSinSalida)}.`
+        : `No registra su salida desde hace ${a.rachaSinSalida} días (${formatearFechaLegible(a.fechaSinSalida)}).`
+    );
+  }
+  return mensajes;
+}
 
 function Tarjeta({
   icono,
@@ -91,6 +114,44 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
+
+      {!esOperativo &&
+        personal &&
+        (() => {
+          const mensajes = mensajesAlertaPuntualidad(personal.alertaPuntualidad);
+          if (mensajes.length === 0) return null;
+          return (
+            <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-1">
+              {mensajes.map((m, i) => (
+                <p key={i} className="text-marca-texto text-xs font-semibold flex items-start gap-2">
+                  <span>⚠️</span>
+                  <span>{m}</span>
+                </p>
+              ))}
+            </div>
+          );
+        })()}
+
+      {esOperativo && operativo && operativo.alertasPuntualidad.length > 0 && (
+        <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">
+          <p className="text-marca-tenue text-[10px] uppercase font-bold">
+            ⚠️ Alertas de puntualidad ({operativo.alertasPuntualidad.length})
+          </p>
+          <div className="space-y-1.5">
+            {operativo.alertasPuntualidad.map((a) => {
+              const mensajes = mensajesAlertaPuntualidad(a);
+              if (mensajes.length === 0) return null;
+              return (
+                <p key={a.usuarioId} className="text-marca-texto text-xs">
+                  <span className="font-bold">{a.usuarioNombre}</span>{" "}
+                  <span className="text-marca-tenue uppercase text-[10px]">({a.rol})</span> —{" "}
+                  {mensajes.join(" ")}
+                </p>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {esOperativo && operativo && (

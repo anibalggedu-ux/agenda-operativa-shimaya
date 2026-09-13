@@ -2,11 +2,17 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, sumarDias, diaSemanaPeru } from "@/lib/fechas";
+import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru } from "@/lib/fechas";
 import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
 import { obtenerDashboardTiendas } from "./analitica/actions";
 import { obtenerClimaActual, resumirClimaActual } from "@/lib/clima";
+import {
+  calcularEstadoPuntualidad,
+  tieneAlertaActiva,
+  type AlertaPuntualidad,
+  type RegistroAsistencia,
+} from "@/lib/puntualidad";
 
 export type ClimaResumenPersonal = {
   zonaNombre: string;
@@ -29,6 +35,7 @@ export type ResumenPersonal = {
   ultimoComunicadoTipo: string | null;
   proximoEvento: { etiqueta: string; fecha: string } | null;
   climaActual: ClimaResumenPersonal | null;
+  alertaPuntualidad: AlertaPuntualidad;
 };
 
 export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
@@ -39,16 +46,40 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
 
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  const horaActual = horaPeru();
+  const desdeAlerta = sumarDias(hoy, -45);
 
-  const [{ tiendas }, misPuntos, { data: comunicados }] = await Promise.all([
-    obtenerTiendasClasificadas(),
-    obtenerMisPuntos(),
-    supabase
-      .from("comunicados")
-      .select("tipo, created_at")
-      .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ tiendas }, misPuntos, { data: comunicados }, { data: usuarioPropio }, { data: asistenciaPropia }] =
+    await Promise.all([
+      obtenerTiendasClasificadas(),
+      obtenerMisPuntos(),
+      supabase
+        .from("comunicados")
+        .select("tipo, created_at")
+        .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
+        .order("created_at", { ascending: false }),
+      supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+      supabase
+        .from("asistencia")
+        .select("fecha, hora_ingreso, hora_salida")
+        .eq("usuario_id", sesion.id)
+        .gte("fecha", desdeAlerta)
+        .lte("fecha", hoy),
+    ]);
+
+  const asistenciaPorFecha = new Map<string, RegistroAsistencia>();
+  (asistenciaPropia ?? []).forEach((a) => {
+    asistenciaPorFecha.set(a.fecha, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
+  });
+  const alertaPuntualidad = calcularEstadoPuntualidad(
+    sesion.id,
+    sesion.nombre,
+    sesion.rol,
+    usuarioPropio?.dias_descanso ?? [],
+    asistenciaPorFecha,
+    hoy,
+    horaActual
+  );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
   const pendientesHoy = cardsHoy.filter((t) => t.rutaActivaId);
@@ -146,12 +177,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   }
 
   if (!proximoEvento) {
-    const { data: usuario } = await supabase
-      .from("usuarios")
-      .select("dias_descanso")
-      .eq("id", sesion.id)
-      .maybeSingle();
-    const diasDescanso: string[] = usuario?.dias_descanso ?? [];
+    const diasDescanso: string[] = usuarioPropio?.dias_descanso ?? [];
 
     if (diasDescanso.length > 0) {
       let cursor = hoy;
@@ -175,6 +201,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     ultimoComunicadoTipo: comunicados?.[0]?.tipo ?? null,
     proximoEvento,
     climaActual,
+    alertaPuntualidad,
   };
 }
 
@@ -186,7 +213,10 @@ export type ResumenOperativo = {
   asignacionesEspecialesHoyTotal: number;
   comunicadosSemana: number;
   rachaTop: { nombre: string; racha: number } | null;
+  alertasPuntualidad: AlertaPuntualidad[];
 };
+
+const ROLES_CON_ASISTENCIA = ["supervisor", "capacitador"];
 
 export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   const sesion = await obtenerSesion();
@@ -196,6 +226,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
 
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  const horaActual = horaPeru();
+  const desdeAlerta = sumarDias(hoy, -45);
 
   const [
     { data: tiendas },
@@ -204,6 +236,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: comunicadosSemana },
     vitrina,
     dashboard,
+    { data: colaboradores },
+    { data: asistenciaEquipo },
   ] = await Promise.all([
     supabase.from("tiendas").select("id"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
@@ -215,7 +249,39 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     supabase.from("comunicados").select("id").gte("created_at", sumarDias(hoy, -6) + "T00:00:00"),
     obtenerVitrinaTrofeos(),
     obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol, dias_descanso")
+      .eq("activo", true)
+      .in("rol", ROLES_CON_ASISTENCIA),
+    supabase
+      .from("asistencia")
+      .select("usuario_id, fecha, hora_ingreso, hora_salida")
+      .gte("fecha", desdeAlerta)
+      .lte("fecha", hoy),
   ]);
+
+  const asistenciaPorUsuario = new Map<string, Map<string, RegistroAsistencia>>();
+  (asistenciaEquipo ?? []).forEach((a) => {
+    const mapa = asistenciaPorUsuario.get(a.usuario_id) ?? new Map<string, RegistroAsistencia>();
+    mapa.set(a.fecha, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
+    asistenciaPorUsuario.set(a.usuario_id, mapa);
+  });
+
+  const alertasPuntualidad = (colaboradores ?? [])
+    .map((u) =>
+      calcularEstadoPuntualidad(
+        u.id,
+        u.nombre,
+        u.rol,
+        u.dias_descanso ?? [],
+        asistenciaPorUsuario.get(u.id) ?? new Map(),
+        hoy,
+        horaActual
+      )
+    )
+    .filter(tieneAlertaActiva)
+    .sort((a, b) => b.rachaTardanzas + b.rachaSinSalida - (a.rachaTardanzas + a.rachaSinSalida));
 
   const totalTiendas = tiendas?.length ?? 0;
   const visitasHoy = new Set((visitasHoyRows ?? []).map((r: any) => r.tienda_id)).size;
@@ -240,5 +306,6 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     asignacionesEspecialesHoyTotal: especialesHoy?.length ?? 0,
     comunicadosSemana: comunicadosSemana?.length ?? 0,
     rachaTop: top ? { nombre: top.nombre, racha: top.rachaActual } : null,
+    alertasPuntualidad,
   };
 }
