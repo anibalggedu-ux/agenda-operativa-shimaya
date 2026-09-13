@@ -8,9 +8,7 @@ import {
   type DashboardTiendas,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
-
-const COLOR_EJE = "#8b8d92";
-const COLOR_GRILLA = "#2a2c31";
+import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 const CLASIFICACIONES = ["Excelente", "Bueno", "Requiere mejora", "Acción inmediata"] as const;
 
@@ -43,6 +41,7 @@ export default function DashboardTiendasVista({ desde, hasta }: { desde: string;
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<string>("todos");
   const [orden, setOrden] = useState<{ columna: Columna; asc: boolean }>({ columna: "tienda", asc: true });
+  const colores = useColoresGrafico();
 
   useEffect(() => {
     setCargando(true);
@@ -138,11 +137,11 @@ export default function DashboardTiendasVista({ desde, hasta }: { desde: string;
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={datos.promediosPorCategoria} margin={{ left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRILLA} />
-              <XAxis dataKey="categoria" stroke={COLOR_EJE} tick={{ fontSize: 9.5 }} interval={0} angle={-12} textAnchor="end" height={50} />
-              <YAxis stroke={COLOR_EJE} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
+              <XAxis dataKey="categoria" stroke={colores.eje} tick={{ fontSize: 9.5 }} interval={0} angle={-12} textAnchor="end" height={50} />
+              <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
               <Tooltip
-                contentStyle={{ background: "#18191d", border: "1px solid #2a2c31" }}
+                contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
                 formatter={(v) => [`${v ?? 0}%`, "Promedio"] as [string, string]}
               />
               <Bar dataKey="promedio" radius={[4, 4, 0, 0]}>

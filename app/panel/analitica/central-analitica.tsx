@@ -25,9 +25,7 @@ import DashboardTiendasVista from "./dashboard-tiendas";
 import KilometrosVista from "../kilometros-vista";
 import TendenciasTiendas from "./tendencias-tiendas";
 import KilometrosDelMes from "./kilometros-del-mes";
-
-const COLOR_EJE = "#8b8d92";
-const COLOR_GRILLA = "#2a2c31";
+import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 type Pestana = "resumen" | "asistencia" | "tiendas" | "personas";
 
@@ -119,6 +117,7 @@ export default function CentralAnalitica() {
   const [error, setError] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>("resumen");
   const [vistaAsistencia, setVistaAsistencia] = useState<"puntual" | "tarde">("puntual");
+  const colores = useColoresGrafico();
 
   const [reportesPorDia, setReportesPorDia] = useState<ReportesPorDia[]>([]);
   const [desempeno, setDesempeno] = useState<DesempenoPersona[]>([]);
@@ -263,16 +262,16 @@ export default function CentralAnalitica() {
                 ) : (
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={reportesPorDia}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRILLA} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
                       <XAxis
                         dataKey="fecha"
-                        stroke={COLOR_EJE}
+                        stroke={colores.eje}
                         tick={{ fontSize: 10 }}
                         tickFormatter={(v) => v.slice(5)}
                       />
-                      <YAxis stroke={COLOR_EJE} tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} allowDecimals={false} />
                       <Tooltip
-                        contentStyle={{ background: "#18191d", border: "1px solid #2a2c31" }}
+                        contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
                         labelFormatter={(v) => formatearFechaLegible(String(v))}
                       />
                       <Bar dataKey="cantidad" name="Reportes" fill="#e23744" radius={[4, 4, 0, 0]} />

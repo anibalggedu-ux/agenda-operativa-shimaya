@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerTendenciasTiendas, type TendenciasTiendas, type PuntoSemanalTienda } from "./actions";
+import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 type Metrica = "puntualidad" | "reportado" | "tardanzas";
 type Modo = "tendencia" | "torres";
@@ -68,6 +69,7 @@ export default function TendenciasTiendas({ desde, hasta }: { desde: string; has
   const [error, setError] = useState<string | null>(null);
 
   const [modo, setModo] = useState<Modo>("tendencia");
+  const colores = useColoresGrafico();
   const [metrica, setMetrica] = useState<Metrica>("puntualidad");
   const [seleccion, setSeleccion] = useState<Record<string, boolean>>({});
   const [semanaIdx, setSemanaIdx] = useState(0);
@@ -295,22 +297,22 @@ export default function TendenciasTiendas({ desde, hasta }: { desde: string; has
                 <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ overflow: "visible", display: "block" }}>
                   {yTicks.map((v) => (
                     <g key={v}>
-                      <line x1={padL} x2={W - padR} y1={yFor(v)} y2={yFor(v)} stroke="#2a2c31" strokeWidth={1} />
-                      <text x={padL - 8} y={yFor(v) + 3} textAnchor="end" fontSize={10} fill="#8b8d92" fontFamily="monospace">
+                      <line x1={padL} x2={W - padR} y1={yFor(v)} y2={yFor(v)} stroke={colores.grilla} strokeWidth={1} />
+                      <text x={padL - 8} y={yFor(v) + 3} textAnchor="end" fontSize={10} fill={colores.eje} fontFamily="monospace">
                         {v}
                       </text>
                     </g>
                   ))}
                   {semanas.map((s, i) => (
-                    <text key={s.inicio} x={xFor(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#8b8d92" fontFamily="monospace">
+                    <text key={s.inicio} x={xFor(i)} y={H - 6} textAnchor="middle" fontSize={10} fill={colores.eje} fontFamily="monospace">
                       {s.etiqueta}
                     </text>
                   ))}
                   <line
                     x1={padL} x2={W - padR} y1={yFor(meta.meta)} y2={yFor(meta.meta)}
-                    stroke="#8b8d92" strokeWidth={1} strokeDasharray="3,4" opacity={0.6}
+                    stroke={colores.eje} strokeWidth={1} strokeDasharray="3,4" opacity={0.6}
                   />
-                  <text x={W - padR} y={yFor(meta.meta) - 5} textAnchor="end" fontSize={9.5} fill="#8b8d92" fontFamily="monospace">
+                  <text x={W - padR} y={yFor(meta.meta) - 5} textAnchor="end" fontSize={9.5} fill={colores.eje} fontFamily="monospace">
                     meta {meta.invertido ? "≤" : "≥"}{meta.meta}{meta.suffix}
                   </text>
 
