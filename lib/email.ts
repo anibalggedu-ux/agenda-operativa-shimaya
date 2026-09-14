@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { supabaseServer } from "./supabase-server";
 
 const transportador = nodemailer.createTransport({
   service: "gmail",
@@ -52,6 +53,26 @@ function plantillaCorreo(tituloEmoji: string, titulo: string, cuerpoHtml: string
 }
 
 export type ContactoCorreo = { nombre: string; email: string };
+export type ResultadoEnvioCorreo = { exito: boolean };
+
+// Un correo que falla queda anotado en la misma bitácora de "Historial de
+// cambios" que ya usa Registro — así el fallo se ve en la app en vez de
+// perderse en logs de servidor que en el plan actual de Vercel se borran a
+// la hora. Es un registro "del sistema" (usuario_id null), y esta inserción
+// es en sí misma best-effort: si falla, no debe tumbar nada más.
+async function registrarFalloCorreo(asunto: string, destinatarios: string[], detalleError: string): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    await supabase.from("auditoria_cambios").insert({
+      usuario_id: null,
+      usuario_nombre: "Sistema (correo)",
+      accion: "No se pudo enviar un correo",
+      detalle: `"${asunto}" → ${destinatarios.join(", ") || "(sin destinatarios directos)"}: ${detalleError}`,
+    });
+  } catch (error) {
+    console.error("No se pudo registrar el fallo de correo en la bitácora:", error);
+  }
+}
 
 export async function enviarCorreo(opciones: {
   para: string | string[];
@@ -60,19 +81,20 @@ export async function enviarCorreo(opciones: {
   tituloEmoji?: string;
   cuerpoHtml: string;
   responderA?: ContactoCorreo | null;
-}): Promise<void> {
+}): Promise<ResultadoEnvioCorreo> {
   const destinatarios = (Array.isArray(opciones.para) ? opciones.para : [opciones.para]).filter(
     Boolean
   );
   const copiaOculta = (opciones.cco ?? []).filter(Boolean);
 
-  if (destinatarios.length === 0 && copiaOculta.length === 0) return;
+  if (destinatarios.length === 0 && copiaOculta.length === 0) return { exito: false };
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     console.error(
       "No se pudo enviar el correo: faltan las variables GMAIL_USER / GMAIL_APP_PASSWORD."
     );
-    return;
+    await registrarFalloCorreo(opciones.asunto, destinatarios, "Faltan las variables GMAIL_USER / GMAIL_APP_PASSWORD.");
+    return { exito: false };
   }
 
   try {
@@ -94,9 +116,16 @@ export async function enviarCorreo(opciones: {
       });
       if (i < lotes.length - 1) await dormir(PAUSA_ENTRE_LOTES_MS);
     }
+    return { exito: true };
   } catch (error) {
     // Un correo que falla nunca debe tumbar la acción principal (asignar una
-    // ruta, un descanso, etc.) — solo se registra en los logs del servidor.
+    // ruta, un descanso, etc.) — pero sí debe quedar anotado en algún lado.
     console.error("Error al enviar correo:", error);
+    await registrarFalloCorreo(
+      opciones.asunto,
+      destinatarios,
+      error instanceof Error ? error.message : String(error)
+    );
+    return { exito: false };
   }
 }

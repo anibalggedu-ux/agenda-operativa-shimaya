@@ -7,6 +7,7 @@ import {
   obtenerRutasActivas,
   asignarRuta,
   eliminarRutaActiva,
+  reenviarCorreoRuta,
   obtenerColaboradoresCercanos,
   obtenerTiendasCercanas,
   obtenerDistanciaColaboradorTienda,
@@ -77,6 +78,8 @@ export default function AsignarRutas() {
   const [rutas, setRutas] = useState<RutaActiva[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null);
+  const [mensajeReenvio, setMensajeReenvio] = useState<{ id: string; texto: string; ok: boolean } | null>(null);
 
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [tiendaId, setTiendaId] = useState<string | null>(null);
@@ -182,6 +185,14 @@ export default function AsignarRutas() {
     const resultado = await eliminarRutaActiva(id);
     if (resultado.exito) setRutas((prev) => prev.filter((r) => r.id !== id));
     else window.alert(resultado.mensaje || "No se pudo cancelar la ruta.");
+  }
+
+  async function handleReenviarCorreo(id: string) {
+    setReenviandoId(id);
+    setMensajeReenvio(null);
+    const resultado = await reenviarCorreoRuta(id);
+    setMensajeReenvio({ id, texto: resultado.mensaje || "", ok: resultado.exito });
+    setReenviandoId(null);
   }
 
   const asignadosEnFecha = useMemo(() => {
@@ -518,13 +529,31 @@ export default function AsignarRutas() {
                       />
                     </p>
                   )}
+                  {mensajeReenvio?.id === r.id && (
+                    <p
+                      className={`text-[11px] font-bold mt-1.5 ${
+                        mensajeReenvio.ok ? "text-emerald-400" : "text-marca-rojoclaro"
+                      }`}
+                    >
+                      {mensajeReenvio.texto}
+                    </p>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleEliminar(r.id)}
-                  className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase shrink-0"
-                >
-                  Cancelar
-                </button>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <button
+                    onClick={() => handleReenviarCorreo(r.id)}
+                    disabled={reenviandoId === r.id}
+                    className="text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase disabled:opacity-50"
+                  >
+                    {reenviandoId === r.id ? "Enviando..." : "Reenviar correo"}
+                  </button>
+                  <button
+                    onClick={() => handleEliminar(r.id)}
+                    className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             ))}
           </div>

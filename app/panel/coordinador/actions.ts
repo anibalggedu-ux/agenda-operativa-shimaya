@@ -56,7 +56,7 @@ async function obtenerReplyTo(
   return contacto?.email ? { nombre: sesion.nombre, email: contacto.email } : null;
 }
 
-async function notificarPorCorreo(tarea: () => Promise<void>): Promise<void> {
+async function notificarPorCorreo(tarea: () => Promise<unknown>): Promise<void> {
   try {
     await tarea();
   } catch (error) {
@@ -365,74 +365,125 @@ export async function asignarRuta(
 
   if (error) return { exito: false, mensaje: "No se pudo asignar la ruta." };
 
-  await notificarPorCorreo(async () => {
-    const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
-      obtenerContacto(supabase, usuarioId),
-      supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
-      supabase.from("usuarios").select("lat, lon, rol").eq("id", usuarioId).maybeSingle(),
-      obtenerReplyTo(supabase, sesion),
-    ]);
-    if (!contacto?.email) return;
-
-    const tiendaLat = tienda?.lat === null || tienda?.lat === undefined ? null : Number(tienda.lat);
-    const tiendaLon = tienda?.lon === null || tienda?.lon === undefined ? null : Number(tienda.lon);
-
-    let climaHtml = "";
-    if (tiendaLat !== null && tiendaLon !== null) {
-      const diario = await obtenerClimaDiario(tiendaLat, tiendaLon);
-      const dia = diario.get(fechaPlanificada);
-      if (dia) {
-        const resumen = resumirClimaDia(dia);
-        climaHtml = `<li><strong>Clima previsto:</strong> ${resumen.icono} ${resumen.descripcion} · ${resumen.tempMax}°/${resumen.tempMin}°${
-          resumen.avisoTexto ? ` — ⚠️ ${resumen.avisoTexto}` : ""
-        }</li>`;
-      }
-    }
-
-    let distanciaHtml = "";
-    const colabLat = colaborador?.lat === null || colaborador?.lat === undefined ? null : Number(colaborador.lat);
-    const colabLon = colaborador?.lon === null || colaborador?.lon === undefined ? null : Number(colaborador.lon);
-    if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
-      const ruta = await calcularRutaAuto(colabLat, colabLon, tiendaLat, tiendaLon);
-      if (ruta) {
-        distanciaHtml = `<li><strong>Distancia desde tu domicilio:</strong> ${ruta.km} km (~${formatearMinutos(
-          ruta.minutos
-        )} en auto)</li>`;
-      }
-    }
-
-    const direccionHtml = tienda?.direccion
-      ? `<li><strong>Dirección:</strong> ${tienda.direccion}</li>`
-      : "";
-
-    const enlaceBitacora = `${URL_APP}/panel/${colaborador?.rol ?? "supervisor"}?seccion=bitacora`;
-
-    await enviarCorreo({
-      para: contacto.email,
-      tituloEmoji: "📍",
-      asunto: `Nueva ruta asignada — ${formatearFechaLegible(fechaPlanificada)}`,
-      responderA,
-      cuerpoHtml: `
-        <p>Hola ${contacto.nombre},</p>
-        <p>Se te asignó una nueva ruta:</p>
-        <ul style="padding-left:18px; margin:0 0 16px;">
-          <li><strong>Tienda:</strong> ${tienda?.nombre ?? "—"}</li>
-          <li><strong>Fecha:</strong> ${formatearFechaLegible(fechaPlanificada)}</li>
-          ${area ? `<li><strong>Área:</strong> ${area}</li>` : ""}
-          ${enfoque ? `<li><strong>Enfoque:</strong> ${enfoque}</li>` : ""}
-          ${direccionHtml}
-          ${climaHtml}
-          ${distanciaHtml}
-        </ul>
-        <p style="margin:0 0 16px;">
-          <a href="${enlaceBitacora}" style="color:#e23744; font-weight:700;">Ir a la Bitácora de Campo →</a>
-        </p>
-        <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
-      `,
-    });
-  });
+  await notificarPorCorreo(() =>
+    enviarCorreoNuevaRuta(supabase, sesion, usuarioId, tiendaId, fechaPlanificada, area || null, enfoque || null)
+  );
 
   return { exito: true, mensaje: "Ruta asignada correctamente." };
+}
+
+type ResultadoEnvioRuta = { enviado: boolean; motivo?: string };
+
+// Extraído de asignarRuta() para poder reutilizarlo también desde
+// reenviarCorreoRuta() (botón "Reenviar correo" en la lista de rutas
+// activas) cuando el correo original no le llegó a la persona.
+async function enviarCorreoNuevaRuta(
+  supabase: ReturnType<typeof supabaseServer>,
+  sesion: SesionUsuario,
+  usuarioId: string,
+  tiendaId: string,
+  fechaPlanificada: string,
+  area: string | null,
+  enfoque: string | null
+): Promise<ResultadoEnvioRuta> {
+  const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
+    obtenerContacto(supabase, usuarioId),
+    supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
+    supabase.from("usuarios").select("lat, lon, rol").eq("id", usuarioId).maybeSingle(),
+    obtenerReplyTo(supabase, sesion),
+  ]);
+  if (!contacto?.email) return { enviado: false, motivo: "Esa persona no tiene un correo registrado." };
+
+  const tiendaLat = tienda?.lat === null || tienda?.lat === undefined ? null : Number(tienda.lat);
+  const tiendaLon = tienda?.lon === null || tienda?.lon === undefined ? null : Number(tienda.lon);
+
+  let climaHtml = "";
+  if (tiendaLat !== null && tiendaLon !== null) {
+    const diario = await obtenerClimaDiario(tiendaLat, tiendaLon);
+    const dia = diario.get(fechaPlanificada);
+    if (dia) {
+      const resumen = resumirClimaDia(dia);
+      climaHtml = `<li><strong>Clima previsto:</strong> ${resumen.icono} ${resumen.descripcion} · ${resumen.tempMax}°/${resumen.tempMin}°${
+        resumen.avisoTexto ? ` — ⚠️ ${resumen.avisoTexto}` : ""
+      }</li>`;
+    }
+  }
+
+  let distanciaHtml = "";
+  const colabLat = colaborador?.lat === null || colaborador?.lat === undefined ? null : Number(colaborador.lat);
+  const colabLon = colaborador?.lon === null || colaborador?.lon === undefined ? null : Number(colaborador.lon);
+  if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
+    const ruta = await calcularRutaAuto(colabLat, colabLon, tiendaLat, tiendaLon);
+    if (ruta) {
+      distanciaHtml = `<li><strong>Distancia desde tu domicilio:</strong> ${ruta.km} km (~${formatearMinutos(
+        ruta.minutos
+      )} en auto)</li>`;
+    }
+  }
+
+  const direccionHtml = tienda?.direccion
+    ? `<li><strong>Dirección:</strong> ${tienda.direccion}</li>`
+    : "";
+
+  const enlaceBitacora = `${URL_APP}/panel/${colaborador?.rol ?? "supervisor"}?seccion=bitacora`;
+
+  const resultado = await enviarCorreo({
+    para: contacto.email,
+    tituloEmoji: "📍",
+    asunto: `Nueva ruta asignada — ${formatearFechaLegible(fechaPlanificada)}`,
+    responderA,
+    cuerpoHtml: `
+      <p>Hola ${contacto.nombre},</p>
+      <p>Se te asignó una nueva ruta:</p>
+      <ul style="padding-left:18px; margin:0 0 16px;">
+        <li><strong>Tienda:</strong> ${tienda?.nombre ?? "—"}</li>
+        <li><strong>Fecha:</strong> ${formatearFechaLegible(fechaPlanificada)}</li>
+        ${area ? `<li><strong>Área:</strong> ${area}</li>` : ""}
+        ${enfoque ? `<li><strong>Enfoque:</strong> ${enfoque}</li>` : ""}
+        ${direccionHtml}
+        ${climaHtml}
+        ${distanciaHtml}
+      </ul>
+      <p style="margin:0 0 16px;">
+        <a href="${enlaceBitacora}" style="color:#e23744; font-weight:700;">Ir a la Bitácora de Campo →</a>
+      </p>
+      <p style="color:#8b8d92; font-size:12px;">Asignado por ${sesion.nombre}.</p>
+    `,
+  });
+
+  return resultado.exito
+    ? { enviado: true }
+    : { enviado: false, motivo: "Gmail rechazó el envío — revisa Historial de cambios en Registro." };
+}
+
+// Reenvía el correo de "Nueva ruta asignada" sin volver a crear la
+// asignación — para cuando a alguien no le llegó (buzón lleno, filtro de
+// spam, límite diario de Gmail, etc.) y no hace falta reasignarle la ruta.
+export async function reenviarCorreoRuta(rutaActivaId: string): Promise<ResultadoAccion> {
+  const sesion = await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: ruta, error } = await supabase
+    .from("rutas_activas")
+    .select("usuario_id, tienda_id, fecha_planificada, area, enfoque")
+    .eq("id", rutaActivaId)
+    .maybeSingle();
+
+  if (error || !ruta) return { exito: false, mensaje: "No se encontró la ruta." };
+
+  const resultado = await enviarCorreoNuevaRuta(
+    supabase,
+    sesion,
+    ruta.usuario_id,
+    ruta.tienda_id,
+    ruta.fecha_planificada,
+    ruta.area,
+    ruta.enfoque
+  );
+
+  return resultado.enviado
+    ? { exito: true, mensaje: "Correo reenviado correctamente." }
+    : { exito: false, mensaje: resultado.motivo || "No se pudo reenviar el correo." };
 }
 
 export async function eliminarRutaActiva(id: string): Promise<ResultadoAccion> {
