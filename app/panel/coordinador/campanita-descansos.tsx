@@ -83,7 +83,11 @@ export default function CampanitaDescansos() {
       {abierto && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-marca-superficie border border-marca-rojo/30 rounded-[3px] shadow-lg z-20 p-3">
+          <div
+            className="fixed inset-x-4 top-16 max-h-[70vh] sm:absolute sm:inset-x-auto sm:top-auto sm:right-0
+              sm:mt-2 sm:w-80 sm:max-h-96 overflow-y-auto bg-marca-superficie border border-marca-rojo/30
+              rounded-[3px] shadow-lg z-20 p-3"
+          >
             <p className="text-xs font-black tracking-widest text-marca-tenue mb-2">SOLICITUDES PENDIENTES</p>
             {items === null && <p className="text-marca-tenue text-xs animate-pulse">Cargando...</p>}
             {items && items.length === 0 && (
