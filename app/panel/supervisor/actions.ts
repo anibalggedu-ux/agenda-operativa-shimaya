@@ -66,7 +66,17 @@ export async function obtenerTiendasClasificadas(): Promise<{
   }
 
   const supabase = supabaseServer();
-  const hoy = diaLaboralPeru();
+  // OJO: acá va hoyPeru() (fecha calendario), NO diaLaboralPeru(). Esta
+  // clasificación decide en qué columna (HOY/MAÑANA/AYER) aparece una tienda
+  // ya planificada — y una ruta planificada para el 14 debe verse como "HOY"
+  // durante TODO el 14, incluida la madrugada, no recién desde las 6am.
+  // El corte de madrugada (diaLaboralPeru) es solo para decidir a qué turno
+  // pertenece una MARCACIÓN que se hace entre medianoche y las 6am — eso
+  // sigue aplicando más abajo, en autoasignarTienda/enviarReporte/
+  // sincronizarAsistenciaDesdeTienda. Mezclar ambos acá hacía que una ruta
+  // recién asignada para hoy apareciera como "Mañana" si alguien la miraba
+  // antes de las 6am.
+  const hoy = hoyPeru();
   const manana = sumarDias(hoy, 1);
   const ayer = sumarDias(hoy, -1);
   const desdeVentana = sumarDias(hoy, -3); // margen de sobra para cubrir la ventana de 48h
