@@ -238,9 +238,12 @@ export type ResumenOperativo = {
   tiendasCriticas: { nombre: string; porcentaje: number }[];
   visitasHoy: number;
   totalTiendas: number;
+  tiendasDeHoyDetalle: { tiendaNombre: string; reportada: boolean }[];
   asignacionEspecialHoy: { nombre: string; tipo: string } | null;
   asignacionesEspecialesHoyTotal: number;
+  asignacionesEspecialesHoy: { nombre: string; tipo: string }[];
   comunicadosSemana: number;
+  comunicadosDetalle: { tipo: string; fecha: string }[];
   rachaTop: { nombre: string; racha: number } | null;
   alertasPuntualidad: AlertaPuntualidadItem[];
 };
@@ -271,7 +274,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: especialesEquipo },
     { data: atendidas },
   ] = await Promise.all([
-    supabase.from("tiendas").select("id"),
+    supabase.from("tiendas").select("id, nombre"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
     supabase.from("rutas_activas").select("tienda_id").eq("fecha_planificada", hoy),
     supabase
@@ -279,7 +282,11 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .select("tipo, usuarios(nombre)")
       .lte("fecha_inicio", hoy)
       .gte("fecha_fin", hoy),
-    supabase.from("comunicados").select("id").gte("created_at", sumarDias(hoy, -6) + "T00:00:00"),
+    supabase
+      .from("comunicados")
+      .select("tipo, created_at")
+      .gte("created_at", sumarDias(hoy, -6) + "T00:00:00")
+      .order("created_at", { ascending: false }),
     obtenerVitrinaTrofeos(),
     obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
     supabase
@@ -350,24 +357,33 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     });
 
   const totalTiendas = tiendas?.length ?? 0;
+  const tiendaNombrePorId = new Map((tiendas ?? []).map((t: any) => [t.id, t.nombre as string]));
+
   // Cuenta tiendas con ruta asignada hoy, se haya enviado ya el reporte o no
   // — rutas_diarias (ya reportadas) + rutas_activas (asignadas, pendientes
   // de reportar). Antes solo miraba rutas_diarias, así que una tienda recién
   // asignada no aparecía aquí hasta que alguien enviaba la observación.
-  const tiendasConActividadHoy = new Set([
-    ...(visitasHoyRows ?? []).map((r: any) => r.tienda_id),
-    ...(asignadasHoyRows ?? []).map((r: any) => r.tienda_id),
-  ]);
+  const reportadasHoySet = new Set((visitasHoyRows ?? []).map((r: any) => r.tienda_id));
+  const asignadasHoySet = new Set((asignadasHoyRows ?? []).map((r: any) => r.tienda_id));
+  const tiendasConActividadHoy = new Set([...reportadasHoySet, ...asignadasHoySet]);
   const visitasHoy = tiendasConActividadHoy.size;
+
+  const tiendasDeHoyDetalle = Array.from(tiendasConActividadHoy)
+    .map((id) => ({
+      tiendaNombre: tiendaNombrePorId.get(id as string) ?? "—",
+      reportada: reportadasHoySet.has(id),
+    }))
+    .sort((a, b) => a.tiendaNombre.localeCompare(b.tiendaNombre));
 
   const tiendasCriticas = dashboard.resumenTiendas
     .filter((t) => t.clasificacion === "Acción inmediata")
     .map((t) => ({ nombre: t.tiendaNombre, porcentaje: t.ultimaAuditoriaPorcentaje ?? 0 }));
 
-  const primeraEspecial = (especialesHoy ?? [])[0] as any;
-  const asignacionEspecialHoy = primeraEspecial
-    ? { nombre: primeraEspecial.usuarios?.nombre ?? "—", tipo: primeraEspecial.tipo }
-    : null;
+  const asignacionesEspecialesHoy = (especialesHoy ?? []).map((e: any) => ({
+    nombre: e.usuarios?.nombre ?? "—",
+    tipo: e.tipo,
+  }));
+  const asignacionEspecialHoy = asignacionesEspecialesHoy[0] ?? null;
 
   const conRacha = vitrina.filter((f) => f.rachaActual > 0);
   const top = conRacha.length > 0 ? conRacha.reduce((max, f) => (f.rachaActual > max.rachaActual ? f : max)) : null;
@@ -376,9 +392,12 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     tiendasCriticas,
     visitasHoy,
     totalTiendas,
+    tiendasDeHoyDetalle,
     asignacionEspecialHoy,
     asignacionesEspecialesHoyTotal: especialesHoy?.length ?? 0,
+    asignacionesEspecialesHoy,
     comunicadosSemana: comunicadosSemana?.length ?? 0,
+    comunicadosDetalle: (comunicadosSemana ?? []).map((c: any) => ({ tipo: c.tipo, fecha: c.created_at })),
     rachaTop: top ? { nombre: top.nombre, racha: top.rachaActual } : null,
     alertasPuntualidad,
   };

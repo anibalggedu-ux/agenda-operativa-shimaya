@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
@@ -40,6 +40,9 @@ function Tarjeta({
   extra,
   valorClase,
   destacada,
+  expandible,
+  abierta,
+  onClick,
 }: {
   icono: string;
   etiqueta: string;
@@ -47,19 +50,44 @@ function Tarjeta({
   extra?: string;
   valorClase?: string;
   destacada?: boolean;
+  // Cuadros con más detalle atrás (ej. la lista completa de tiendas, no solo
+  // las primeras 2) se pueden tocar para desplegarlo debajo del grid.
+  expandible?: boolean;
+  abierta?: boolean;
+  onClick?: () => void;
 }) {
+  const Contenedor = expandible ? "button" : "div";
   return (
-    <div
-      className={`rounded-[3px] p-2.5 border ${
+    <Contenedor
+      type={expandible ? "button" : undefined}
+      onClick={onClick}
+      className={`rounded-[3px] p-2.5 border text-left w-full ${
         destacada ? "bg-marca-rojo/10 border-marca-rojo/40" : "bg-marca-superficie border-marca-borde"
-      }`}
+      } ${expandible ? `transition hover:border-marca-rojo/50 ${abierta ? "ring-2 ring-marca-rojo/60" : ""}` : ""}`}
     >
-      <p className="text-sm mb-1 leading-none">{icono}</p>
+      <p className="text-sm mb-1 leading-none flex items-center justify-between">
+        <span>{icono}</span>
+        {expandible && (
+          <span className="text-marca-tenue text-[10px]">{abierta ? "▲" : "▼"}</span>
+        )}
+      </p>
       <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">{etiqueta}</p>
       <p className={`font-display text-base font-semibold leading-tight ${valorClase ?? "text-marca-textofuerte"}`}>
         {valor}
       </p>
       {extra && <p className="text-marca-tenue text-[9.5px] mt-0.5 leading-snug">{extra}</p>}
+    </Contenedor>
+  );
+}
+
+// Panel de detalle que se despliega debajo del grid cuando se toca un
+// cuadro expandible — mismo lugar para los 4, para no repetir el mismo
+// contenedor 4 veces.
+function PanelDetalle({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-4">
+      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">{titulo}</h4>
+      {children}
     </div>
   );
 }
@@ -81,6 +109,12 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
   const [operativo, setOperativo] = useState<ResumenOperativo | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorAtender, setErrorAtender] = useState<string | null>(null);
+  type CuadroExpandible = "criticas" | "tiendasHoy" | "especiales" | "comunicados";
+  const [cuadroAbierto, setCuadroAbierto] = useState<CuadroExpandible | null>(null);
+
+  function alternarCuadro(cuadro: CuadroExpandible) {
+    setCuadroAbierto((actual) => (actual === cuadro ? null : cuadro));
+  }
 
   useEffect(() => {
     setCargando(true);
@@ -223,12 +257,18 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
                       .join(" · ")
                   : "Ninguna por ahora"
               }
+              expandible={operativo.tiendasCriticas.length > 0}
+              abierta={cuadroAbierto === "criticas"}
+              onClick={() => alternarCuadro("criticas")}
             />
             <Tarjeta
               icono="📍"
               etiqueta="Tiendas de hoy"
               valor={`${operativo.visitasHoy}/${operativo.totalTiendas}`}
               extra="con ruta asignada hoy (reportada o no)"
+              expandible={operativo.tiendasDeHoyDetalle.length > 0}
+              abierta={cuadroAbierto === "tiendasHoy"}
+              onClick={() => alternarCuadro("tiendasHoy")}
             />
             <Tarjeta
               icono="🌴"
@@ -239,12 +279,18 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
                   ? `${operativo.asignacionEspecialHoy.nombre} — ${operativo.asignacionEspecialHoy.tipo}`
                   : "Nadie hoy"
               }
+              expandible={operativo.asignacionesEspecialesHoy.length > 0}
+              abierta={cuadroAbierto === "especiales"}
+              onClick={() => alternarCuadro("especiales")}
             />
             <Tarjeta
               icono="📣"
               etiqueta="Comunicados (7 días)"
               valor={String(operativo.comunicadosSemana)}
               extra="enviados al equipo"
+              expandible={operativo.comunicadosDetalle.length > 0}
+              abierta={cuadroAbierto === "comunicados"}
+              onClick={() => alternarCuadro("comunicados")}
             />
             {operativo.rachaTop && (
               <TarjetaAncha
@@ -254,6 +300,78 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
                   operativo.rachaTop.racha === 1 ? "" : "s"
                 }`}
               />
+            )}
+
+            {cuadroAbierto === "criticas" && (
+              <PanelDetalle titulo="🚨 TIENDAS EN ACCIÓN INMEDIATA">
+                <div className="space-y-1.5">
+                  {operativo.tiendasCriticas.map((t, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-marca-fondo border border-marca-rojo/30 rounded-[3px] px-3 py-2"
+                    >
+                      <span className="text-marca-texto text-sm">{t.nombre}</span>
+                      <span className="text-marca-rojoclaro font-black text-xs">{t.porcentaje}%</span>
+                    </div>
+                  ))}
+                </div>
+              </PanelDetalle>
+            )}
+
+            {cuadroAbierto === "tiendasHoy" && (
+              <PanelDetalle titulo="📍 TIENDAS CON RUTA ASIGNADA HOY">
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                  {operativo.tiendasDeHoyDetalle.map((t, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
+                    >
+                      <span className="text-marca-texto text-sm">{t.tiendaNombre}</span>
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-widest ${
+                          t.reportada ? "text-emerald-400" : "text-amber-400"
+                        }`}
+                      >
+                        {t.reportada ? "✓ Reportada" : "⏳ Pendiente"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </PanelDetalle>
+            )}
+
+            {cuadroAbierto === "especiales" && (
+              <PanelDetalle titulo="🌴 ASIGNACIÓN ESPECIAL HOY">
+                <div className="space-y-1.5">
+                  {operativo.asignacionesEspecialesHoy.map((a, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
+                    >
+                      <span className="text-marca-texto text-sm">{a.nombre}</span>
+                      <span className="text-marca-tenue text-[11px] uppercase">{a.tipo}</span>
+                    </div>
+                  ))}
+                </div>
+              </PanelDetalle>
+            )}
+
+            {cuadroAbierto === "comunicados" && (
+              <PanelDetalle titulo="📣 COMUNICADOS (ÚLTIMOS 7 DÍAS)">
+                <div className="space-y-1.5">
+                  {operativo.comunicadosDetalle.map((c, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
+                    >
+                      <span className="text-marca-texto text-sm">{c.tipo}</span>
+                      <span className="text-marca-tenue text-[11px] capitalize">
+                        {formatearFechaLegible(c.fecha.slice(0, 10))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </PanelDetalle>
             )}
           </>
         )}
