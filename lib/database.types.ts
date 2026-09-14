@@ -1,6 +1,3 @@
-// Generado desde el esquema real de Supabase (mcp generate_typescript_types).
-// No editar a mano — si cambia el esquema, se vuelve a generar.
-
 export type Json =
   | string
   | number
@@ -718,6 +715,7 @@ export type Database = {
           nombre: string
           puede_auditar: boolean
           puede_registrar: boolean
+          puntos_heredados: number
           rol: string
         }
         Insert: {
@@ -737,6 +735,7 @@ export type Database = {
           nombre: string
           puede_auditar?: boolean
           puede_registrar?: boolean
+          puntos_heredados?: number
           rol: string
         }
         Update: {
@@ -756,6 +755,7 @@ export type Database = {
           nombre?: string
           puede_auditar?: boolean
           puede_registrar?: boolean
+          puntos_heredados?: number
           rol?: string
         }
         Relationships: []

@@ -106,7 +106,9 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const [usuariosRes, asistenciaRes, reportesRes] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
+      .select(
+        "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
+      )
       .in("rol", ROLES_CON_PUNTOS),
     supabase
       .from("asistencia")
@@ -167,7 +169,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       usuarioId: u.id,
       nombre: u.nombre,
       rol: u.rol,
-      puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono,
+      puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono + (u.puntos_heredados ?? 0),
       rachaActual: racha,
     };
   });
