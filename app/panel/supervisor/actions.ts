@@ -39,6 +39,10 @@ export type TiendaClasificada = {
   actividadActual: string;
   clima: ResumenClimaDia | null;
   autoasignada: boolean;
+  // false = pasaron 48h desde que el coordinador asignó esta ruta sin que se
+  // enviara el reporte — la tarjeta se queda solo de lectura (para saber qué
+  // tienda tenía asignada), pero ya no se puede reportar ni marcar llegada.
+  puedeReportar: boolean;
   // Marcación de llegada/salida a esta tienda en particular (distinta de la
   // marcación general de asistencia del día) — con foto y ubicación.
   horaLlegada: string | null;
@@ -90,7 +94,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     supabase
       .from("rutas_activas")
       .select(
-        "id, fecha_planificada, area, enfoque, autoasignada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas!tienda_id(id, nombre, lat, lon)"
+        "id, fecha_planificada, area, enfoque, autoasignada, created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas!tienda_id(id, nombre, lat, lon)"
       )
       .eq("usuario_id", sesion.id)
       .order("fecha_planificada", { ascending: false }),
@@ -131,6 +135,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     actividadActual: "",
     clima: null,
     autoasignada: !!r.autoasignada,
+    puedeReportar: new Date(r.created_at).getTime() > limite,
     horaLlegada: r.hora_llegada ?? null,
     ubicacionLlegada: r.ubicacion_llegada ?? null,
     fotoLlegadaUrl: null,
@@ -162,6 +167,9 @@ export async function obtenerTiendasClasificadas(): Promise<{
       actividadActual: r.actividad ?? "",
       clima: null,
       autoasignada: false,
+      // Ya pasó el filtro de arriba (dentro de la ventana de 48h), así que
+      // siempre es editable en este punto.
+      puedeReportar: true,
       horaLlegada: r.hora_llegada ?? null,
       ubicacionLlegada: r.ubicacion_llegada ?? null,
       fotoLlegadaUrl: null,
@@ -392,6 +400,21 @@ export async function enviarReporte(
         ubicacion_salida: activa.ubicacion_salida,
         foto_salida_blob: activa.foto_salida_blob,
         origen_tienda_id: activa.origen_tienda_id,
+      };
+    }
+  }
+
+  // Mismo candado que editarReporte: pasadas las 48h desde que el
+  // coordinador asignó esta ruta, ya no se puede enviar el reporte — la
+  // tarjeta queda solo de lectura (obtenerTiendasClasificadas marca
+  // puedeReportar: false para que la UI ni siquiera abra el formulario,
+  // pero se valida también acá por si acaso).
+  if (rutaActivaId && asignadoEn) {
+    const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
+    if (new Date(asignadoEn).getTime() <= limite) {
+      return {
+        exito: false,
+        mensaje: "Ya pasaron las 48 horas desde que se asignó esta ruta — ya no se puede reportar.",
       };
     }
   }

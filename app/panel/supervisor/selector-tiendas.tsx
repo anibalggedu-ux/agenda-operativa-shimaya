@@ -520,21 +520,24 @@ export default function SelectorTiendas({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {grupo.items.map((tienda) => {
                 const estaSeleccionada = seleccionada?.id === tienda.id;
+                const bloqueada = !tienda.puedeReportar;
                 return (
                   <div
                     key={tienda.id}
                     className={`rounded-[3px] border-2 p-4 transition ${estilo.borde} ${estilo.fondo} ${
                       estaSeleccionada ? "ring-2 ring-marca-rojo" : ""
-                    }`}
+                    } ${bloqueada ? "opacity-70" : ""}`}
                   >
                     <button
                       type="button"
+                      disabled={bloqueada}
                       onClick={() => {
+                        if (bloqueada) return;
                         setSeleccionada(tienda);
                         setObservacion(tienda.observacionActual);
                         setActividad(tienda.actividadActual);
                       }}
-                      className="w-full text-left hover:brightness-125 transition"
+                      className={`w-full text-left transition ${bloqueada ? "cursor-default" : "hover:brightness-125"}`}
                     >
                       <p className="font-black text-marca-textofuerte">{tienda.tiendaNombre}</p>
                       <p className="text-[11px] text-marca-tenue capitalize mt-1">
@@ -579,7 +582,14 @@ export default function SelectorTiendas({
                       )}
                     </button>
 
-                    <MarcadoVisitaTienda tienda={tienda} onMarcado={cargar} />
+                    {bloqueada ? (
+                      <p className="mt-2 pt-2 border-t border-marca-borde/60 text-[10.5px] text-marca-tenue">
+                        🔒 Pasaron 48 horas desde que se asignó esta ruta — ya no se puede reportar ni
+                        marcar llegada. Queda solo como referencia de qué tienda tenías asignada.
+                      </p>
+                    ) : (
+                      <MarcadoVisitaTienda tienda={tienda} onMarcado={cargar} />
+                    )}
                   </div>
                 );
               })}
