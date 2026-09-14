@@ -19,7 +19,7 @@ import {
   type DistanciaSeleccion,
 } from "./actions";
 import { AREAS_RUTA } from "./constantes";
-import { formatearFechaLegible, formatearHora, hoyPeru } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, hoyPeru, diaSemanaPeru } from "@/lib/fechas";
 import { formatearMinutos } from "@/lib/distancia";
 import SelectorGrid from "./selector-grid";
 
@@ -196,17 +196,42 @@ export default function AsignarRutas() {
     return { usuariosSet, tiendasSet };
   }, [rutas, fecha]);
 
+  // Día de la semana de la fecha elegida (DOMINGO, LUNES, ...) — se
+  // recalcula cada vez que cambia la fecha del formulario, para saber a
+  // quién le toca descanso fijo justo ese día.
+  const diaSemanaSeleccionado = useMemo(() => diaSemanaPeru(fecha), [fecha]);
+
   const opcionesUsuarios = useMemo(
     () =>
       usuarios.map((u) => ({
         id: u.id,
         titulo: u.nombre,
         subtitulo: u.rol,
+        advertencia: u.diasDescanso.includes(diaSemanaSeleccionado),
+        etiquetaAdvertencia: "Descansa este día",
         destacado: asignadosEnFecha.usuariosSet.has(u.id),
         etiquetaDestacado: "Ya asignado",
       })),
-    [usuarios, asignadosEnFecha]
+    [usuarios, asignadosEnFecha, diaSemanaSeleccionado]
   );
+
+  const usuarioSeleccionado = useMemo(
+    () => usuarios.find((u) => u.id === usuarioId) ?? null,
+    [usuarios, usuarioId]
+  );
+  const usuarioEnDescanso = !!usuarioSeleccionado?.diasDescanso.includes(diaSemanaSeleccionado);
+
+  // Segunda confirmación al enviar, además de la marca visual — para que
+  // asignar a alguien en su día de descanso sea una decisión consciente
+  // (ej. una emergencia real) y no un click apurado sobre la tarjeta ámbar.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (usuarioEnDescanso && usuarioSeleccionado) {
+      const confirmado = window.confirm(
+        `${usuarioSeleccionado.nombre} tiene descanso fijo los días ${diaSemanaSeleccionado.toLowerCase()} — justo la fecha elegida.\n\n¿Asignarle la tienda de todas formas?`
+      );
+      if (!confirmado) e.preventDefault();
+    }
+  }
 
   const opcionesTiendas = useMemo(
     () =>
@@ -231,6 +256,7 @@ export default function AsignarRutas() {
     <div className="space-y-6">
       <form
         action={formAction}
+        onSubmit={handleSubmit}
         className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
       >
         <h3 className="text-xs font-black tracking-widest text-marca-tenue">NUEVA ASIGNACIÓN</h3>
@@ -256,7 +282,7 @@ export default function AsignarRutas() {
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
             Usuario{" "}
             <span className="text-marca-tenue/70 normal-case font-normal">
-              (verde = ya tiene ruta esta fecha)
+              (verde = ya tiene ruta esta fecha · ámbar = descansa este día)
             </span>
           </label>
           <SelectorGrid
@@ -264,6 +290,12 @@ export default function AsignarRutas() {
             seleccionadoId={usuarioId}
             onSeleccionar={setUsuarioId}
           />
+          {usuarioEnDescanso && usuarioSeleccionado && (
+            <p className="mt-2 text-amber-400 text-xs font-bold">
+              ⚠ {usuarioSeleccionado.nombre} tiene descanso fijo los {diaSemanaSeleccionado.toLowerCase()} — se
+              pedirá confirmación extra antes de asignar.
+            </p>
+          )}
         </div>
 
         <div>

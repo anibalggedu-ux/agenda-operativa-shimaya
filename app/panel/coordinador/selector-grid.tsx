@@ -6,6 +6,11 @@ export type OpcionGrid = {
   subtitulo?: string;
   destacado?: boolean;
   etiquetaDestacado?: string;
+  // Distinto de "destacado" (verde, informativo): esto es una advertencia —
+  // se pinta en ámbar y va antes que el verde para que no pase desapercibida
+  // (ej. la persona tiene descanso fijo justo ese día).
+  advertencia?: boolean;
+  etiquetaAdvertencia?: string;
 };
 
 export default function SelectorGrid({
@@ -29,14 +34,22 @@ export default function SelectorGrid({
             className={`text-left rounded-[3px] border-2 p-3 transition ${
               seleccionado
                 ? "border-marca-rojo bg-marca-rojo/20 ring-2 ring-marca-rojo"
-                : o.destacado
-                  ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
-                  : "border-marca-borde bg-marca-fondo hover:brightness-125"
+                : o.advertencia
+                  ? "border-amber-500/70 bg-amber-950/25 hover:brightness-125"
+                  : o.destacado
+                    ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
+                    : "border-marca-borde bg-marca-fondo hover:brightness-125"
             }`}
           >
             <p
               className={`font-bold text-sm truncate ${
-                seleccionado ? "text-marca-textofuerte" : o.destacado ? "text-emerald-300" : "text-marca-texto"
+                seleccionado
+                  ? "text-marca-textofuerte"
+                  : o.advertencia
+                    ? "text-amber-300"
+                    : o.destacado
+                      ? "text-emerald-300"
+                      : "text-marca-texto"
               }`}
             >
               {o.titulo}
@@ -44,7 +57,10 @@ export default function SelectorGrid({
             {o.subtitulo && (
               <p className="text-[10px] text-marca-tenue uppercase mt-0.5 truncate">{o.subtitulo}</p>
             )}
-            {o.destacado && o.etiquetaDestacado && (
+            {o.advertencia && o.etiquetaAdvertencia && (
+              <p className="text-[10px] text-amber-400 font-bold mt-1">⚠ {o.etiquetaAdvertencia}</p>
+            )}
+            {!o.advertencia && o.destacado && o.etiquetaDestacado && (
               <p className="text-[10px] text-emerald-400 font-bold mt-1">✓ {o.etiquetaDestacado}</p>
             )}
           </button>

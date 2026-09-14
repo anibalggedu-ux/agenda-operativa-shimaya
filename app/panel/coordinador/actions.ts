@@ -64,7 +64,7 @@ async function notificarPorCorreo(tarea: () => Promise<void>): Promise<void> {
   }
 }
 
-export type UsuarioBasico = { id: string; nombre: string; rol: string };
+export type UsuarioBasico = { id: string; nombre: string; rol: string; diasDescanso: string[] };
 export type TiendaBasica = { id: string; nombre: string };
 
 export async function obtenerUsuariosYTiendas(): Promise<{
@@ -76,7 +76,7 @@ export async function obtenerUsuariosYTiendas(): Promise<{
 
   const [{ data: usuarios, error: errorUsuarios }, { data: tiendas, error: errorTiendas }] =
     await Promise.all([
-      supabase.from("usuarios").select("id, nombre, rol").order("nombre"),
+      supabase.from("usuarios").select("id, nombre, rol, dias_descanso").order("nombre"),
       supabase.from("tiendas").select("id, nombre").order("nombre"),
     ]);
 
@@ -84,7 +84,15 @@ export async function obtenerUsuariosYTiendas(): Promise<{
     throw new Error("No se pudo cargar usuarios y tiendas.");
   }
 
-  return { usuarios: usuarios ?? [], tiendas: tiendas ?? [] };
+  return {
+    usuarios: (usuarios ?? []).map((u) => ({
+      id: u.id,
+      nombre: u.nombre,
+      rol: u.rol,
+      diasDescanso: u.dias_descanso ?? [],
+    })),
+    tiendas: tiendas ?? [],
+  };
 }
 
 // ---------- Sugerencias de cercanía (para decidir mejor cada asignación) ----------
