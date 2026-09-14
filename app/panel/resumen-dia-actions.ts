@@ -69,7 +69,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .order("created_at", { ascending: false }),
     supabase
       .from("usuarios")
-      .select("dias_descanso, fecha_ingreso, hora_limite_ingreso")
+      .select("dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
       .eq("id", sesion.id)
       .maybeSingle(),
     supabase
@@ -106,7 +106,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     horaActual,
     diasExentosPropios,
     usuarioPropio?.fecha_ingreso ?? null,
-    usuarioPropio?.hora_limite_ingreso ?? null
+    usuarioPropio?.hora_limite_ingreso ?? null,
+    (usuarioPropio?.horario_por_dia as Record<string, string> | null) ?? null
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -281,7 +282,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso")
+      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
       .eq("activo", true)
       .in("rol", ROLES_CON_ASISTENCIA),
     supabase
@@ -334,7 +335,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       horaActual,
       diasExentosPorUsuario.get(u.id) ?? new Set(),
       u.fecha_ingreso ?? null,
-      u.hora_limite_ingreso ?? null
+      u.hora_limite_ingreso ?? null,
+      (u.horario_por_dia as Record<string, string> | null) ?? null
     )
   );
 

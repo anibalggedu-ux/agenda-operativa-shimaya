@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import type { ReporteHistorialItem, MarcacionHistorial } from "@/lib/generar-pdf";
 import { resolverHoraLimite } from "@/lib/puntualidad";
+import { diaSemanaPeru } from "@/lib/fechas";
 
 export async function obtenerHistorialReportes(
   desde: string,
@@ -51,19 +52,25 @@ export async function obtenerHistorialMarcaciones(
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: true }),
-    supabase.from("usuarios").select("hora_limite_ingreso").eq("id", sesion.id).maybeSingle(),
+    supabase.from("usuarios").select("hora_limite_ingreso, horario_por_dia").eq("id", sesion.id).maybeSingle(),
   ]);
 
   if (error) throw new Error("No se pudo cargar las marcaciones.");
 
-  const limite = resolverHoraLimite(sesion.rol, usuario?.hora_limite_ingreso);
-
-  return (data ?? []).map((a) => ({
-    fecha: a.fecha,
-    horaIngreso: a.hora_ingreso,
-    horaSalida: a.hora_salida,
-    tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
-  }));
+  return (data ?? []).map((a) => {
+    const limite = resolverHoraLimite(
+      sesion.rol,
+      usuario?.hora_limite_ingreso,
+      usuario?.horario_por_dia as Record<string, string> | null,
+      diaSemanaPeru(a.fecha)
+    );
+    return {
+      fecha: a.fecha,
+      horaIngreso: a.hora_ingreso,
+      horaSalida: a.hora_salida,
+      tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
+    };
+  });
 }
 
 export async function obtenerMisAutoasignaciones(desde: string, hasta: string): Promise<number> {

@@ -26,8 +26,14 @@ function minutosDesdeMedianoche(horaHHMMSS: string): number {
   return h * 60 + m;
 }
 
-function puntosPorIngreso(rol: string, horaIngreso: string, horaLimitePersonalizada?: string | null): number {
-  const limite = resolverHoraLimite(rol, horaLimitePersonalizada);
+function puntosPorIngreso(
+  rol: string,
+  horaIngreso: string,
+  horaLimitePersonalizada?: string | null,
+  horarioPorDia?: Record<string, string> | null,
+  diaSemana?: string
+): number {
+  const limite = resolverHoraLimite(rol, horaLimitePersonalizada, horarioPorDia, diaSemana);
   if (!limite) return 0;
 
   const minutosAntes = minutosDesdeMedianoche(limite) - minutosDesdeMedianoche(horaIngreso);
@@ -50,7 +56,8 @@ function calcularRachaYBono(
   diasDescanso: string[],
   asistenciaPorFecha: Map<string, string>,
   rol: string,
-  horaLimitePersonalizada?: string | null
+  horaLimitePersonalizada?: string | null,
+  horarioPorDia?: Record<string, string> | null
 ): { racha: number; bono: number } {
   let inicio = fechaInicio;
   if (diasEntreFechas(inicio, hoy) > TOPE_DIAS_HACIA_ATRAS) {
@@ -72,7 +79,7 @@ function calcularRachaYBono(
 
     if (cursor === hoy && !horaIngreso) break; // el día de hoy aún no termina
 
-    if (horaIngreso && puntosPorIngreso(rol, horaIngreso, horaLimitePersonalizada) > 0) {
+    if (horaIngreso && puntosPorIngreso(rol, horaIngreso, horaLimitePersonalizada, horarioPorDia, diaSemana) > 0) {
       racha += 1;
       if (racha % RACHA_TRAMO === 0) bono += BONO_POR_TRAMO;
     } else {
@@ -99,11 +106,11 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const [usuariosRes, asistenciaRes, reportesRes] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso")
+      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
       .in("rol", ROLES_CON_PUNTOS),
     supabase
       .from("asistencia")
-      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso)")
+      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
       .not("hora_ingreso", "is", null),
     supabase.from("rutas_diarias").select("usuario_id"),
   ]);
@@ -118,7 +125,13 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   (asistenciaRes.data ?? []).forEach((a: any) => {
     const rol = a.usuarios?.rol as string | undefined;
     if (!rol || !a.hora_ingreso) return;
-    const suma = puntosPorIngreso(rol, a.hora_ingreso, a.usuarios?.hora_limite_ingreso);
+    const suma = puntosPorIngreso(
+      rol,
+      a.hora_ingreso,
+      a.usuarios?.hora_limite_ingreso,
+      a.usuarios?.horario_por_dia,
+      diaSemanaPeru(a.fecha)
+    );
     puntosPorUsuario.set(a.usuario_id, (puntosPorUsuario.get(a.usuario_id) ?? 0) + suma);
 
     const fechas = asistenciaPorUsuario.get(a.usuario_id) ?? new Map<string, string>();
@@ -146,7 +159,8 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       u.dias_descanso ?? [],
       asistenciaPorFecha,
       u.rol,
-      u.hora_limite_ingreso
+      u.hora_limite_ingreso,
+      u.horario_por_dia
     );
 
     return {

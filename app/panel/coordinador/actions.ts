@@ -1425,7 +1425,9 @@ export async function obtenerHistorialPersona(
   ] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, hora_limite_ingreso")
+      .select(
+        "nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, hora_limite_ingreso, horario_por_dia"
+      )
       .eq("id", usuarioId)
       .maybeSingle(),
     supabase
@@ -1477,7 +1479,10 @@ export async function obtenerHistorialPersona(
   }
 
   const rol = usuario?.rol ?? "";
-  const limite = resolverHoraLimite(rol, usuario?.hora_limite_ingreso);
+  const horarioPorDia = (usuario?.horario_por_dia as Record<string, string> | null) ?? null;
+  function limiteDe(fecha: string): string | undefined {
+    return resolverHoraLimite(rol, usuario?.hora_limite_ingreso, horarioPorDia, diaSemanaPeru(fecha));
+  }
   const diasDescanso: string[] = usuario?.dias_descanso ?? [];
 
   const fechasDescansoEnRango: string[] = [];
@@ -1517,12 +1522,15 @@ export async function obtenerHistorialPersona(
       tiendaNombre: r.tiendas?.nombre ?? "—",
       observacion: r.observacion,
     })),
-    marcaciones: (marcaciones ?? []).map((m) => ({
-      fecha: m.fecha,
-      horaIngreso: m.hora_ingreso,
-      horaSalida: m.hora_salida,
-      tarde: !!(limite && m.hora_ingreso && m.hora_ingreso > limite),
-    })),
+    marcaciones: (marcaciones ?? []).map((m) => {
+      const limite = limiteDe(m.fecha);
+      return {
+        fecha: m.fecha,
+        horaIngreso: m.hora_ingreso,
+        horaSalida: m.hora_salida,
+        tarde: !!(limite && m.hora_ingreso && m.hora_ingreso > limite),
+      };
+    }),
     puntos,
     tiendasPermanentes: (permanentes ?? []).map((p: any) => p.tiendas?.nombre ?? "—"),
     diasDescanso,
@@ -1614,7 +1622,7 @@ export async function obtenerAsistenciaGeneral(
   const { data, error } = await supabase
     .from("asistencia")
     .select(
-      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol, hora_limite_ingreso)"
+      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol, hora_limite_ingreso, horario_por_dia)"
     )
     .gte("fecha", desde)
     .lte("fecha", hasta)
@@ -1624,7 +1632,12 @@ export async function obtenerAsistenciaGeneral(
 
   return (data ?? []).map((a: any) => {
     const rol = a.usuarios?.rol ?? "";
-    const limite = resolverHoraLimite(rol, a.usuarios?.hora_limite_ingreso);
+    const limite = resolverHoraLimite(
+      rol,
+      a.usuarios?.hora_limite_ingreso,
+      a.usuarios?.horario_por_dia,
+      diaSemanaPeru(a.fecha)
+    );
     return {
       fecha: a.fecha,
       usuarioNombre: a.usuarios?.nombre ?? "—",

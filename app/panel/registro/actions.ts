@@ -918,6 +918,8 @@ export type UsuarioConHorario = {
   nombre: string;
   rol: string;
   horaLimiteIngreso: string | null;
+  horarioPorDia: Record<string, string> | null;
+  diasDescanso: string[];
 };
 
 export async function obtenerUsuariosConHorario(): Promise<UsuarioConHorario[]> {
@@ -926,7 +928,7 @@ export async function obtenerUsuariosConHorario(): Promise<UsuarioConHorario[]> 
 
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, hora_limite_ingreso")
+    .select("id, nombre, rol, hora_limite_ingreso, horario_por_dia, dias_descanso")
     .in("rol", ROLES_CON_PUNTUALIDAD)
     .eq("activo", true)
     .order("nombre");
@@ -938,7 +940,49 @@ export async function obtenerUsuariosConHorario(): Promise<UsuarioConHorario[]> 
     nombre: u.nombre,
     rol: u.rol,
     horaLimiteIngreso: u.hora_limite_ingreso,
+    horarioPorDia: u.horario_por_dia as Record<string, string> | null,
+    diasDescanso: u.dias_descanso ?? [],
   }));
+}
+
+// Horario mixto: distinta hora límite según el día de la semana (ej. alguien
+// que entra a las 12pm miércoles/jueves pero a la 1pm el viernes). Tiene
+// prioridad sobre la hora límite plana de arriba para el día que especifique
+// — ver resolverHoraLimite en lib/puntualidad.ts.
+export async function actualizarHorarioPorDia(
+  usuarioId: string,
+  horarioPorDia: Record<string, string> | null
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("nombre")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ horario_por_dia: horarioPorDia })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el horario mixto." };
+
+  const detalle =
+    horarioPorDia && Object.keys(horarioPorDia).length > 0
+      ? Object.entries(horarioPorDia)
+          .map(([dia, hora]) => `${dia} ${hora}`)
+          .join(", ")
+      : null;
+
+  await registrarCambio(
+    sesion,
+    detalle ? "Configuró un horario mixto por día" : "Quitó el horario mixto por día",
+    `${usuario?.nombre ?? usuarioId}${detalle ? ` — ${detalle}` : ""}`
+  );
+
+  return { exito: true };
 }
 
 export async function actualizarHoraLimiteIngreso(

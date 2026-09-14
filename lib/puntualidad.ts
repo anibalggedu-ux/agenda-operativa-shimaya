@@ -16,11 +16,22 @@ export const HORA_LIMITE_PUNTUALIDAD: Record<string, string> = {
 // Cada persona puede tener una hora límite propia (usuarios.hora_limite_ingreso,
 // para quienes tienen un horario diferido del resto de su rol) que reemplaza el
 // valor por defecto del rol. Sin ella, se usa el valor por defecto de siempre.
+//
+// Para horarios mixtos (distinta hora según el día, ej. Rodrigo: 12pm mié/jue,
+// 1pm vie, 11am sáb/dom) existe además usuarios.horario_por_dia — un mapa
+// {DIA_SEMANA: "HH:MM:SS"} que tiene prioridad sobre hora_limite_ingreso para
+// el día que especifique. Un día que no está en ese mapa (o si la persona no
+// tiene horario mixto) cae a hora_limite_ingreso y luego al valor del rol,
+// como siempre. Los días de dias_descanso ni llegan a consultar esto — se
+// saltan aparte en cada lugar que ya filtra por descanso.
 export function resolverHoraLimite(
   rol: string,
-  horaLimitePersonalizada?: string | null
+  horaLimitePersonalizada?: string | null,
+  horarioPorDia?: Record<string, string> | null,
+  diaSemana?: string
 ): string | undefined {
-  return horaLimitePersonalizada ?? HORA_LIMITE_PUNTUALIDAD[rol];
+  const horaDelDia = diaSemana ? horarioPorDia?.[diaSemana] : undefined;
+  return horaDelDia ?? horaLimitePersonalizada ?? HORA_LIMITE_PUNTUALIDAD[rol];
 }
 
 // No hace falta mirar más atrás que esto: si el problema viene de antes,
@@ -65,9 +76,17 @@ export function calcularEstadoPuntualidad(
   horaActual: string,
   diasExentos: Set<string> = new Set(),
   fechaIngreso: string | null = null,
-  horaLimitePersonalizada: string | null = null
+  horaLimitePersonalizada: string | null = null,
+  horarioPorDia: Record<string, string> | null = null
 ): AlertaPuntualidad {
-  const limite = resolverHoraLimite(rol, horaLimitePersonalizada);
+  // Para horarios mixtos, la hora límite cambia según el día de la semana —
+  // por eso se resuelve por fecha en cada punto, no una sola vez. limiteBase
+  // solo sirve para saber si esta persona/rol tiene puntualidad habilitada
+  // en absoluto (ej. gerente no).
+  const limiteBase = resolverHoraLimite(rol, horaLimitePersonalizada);
+  function limiteDe(fecha: string): string | undefined {
+    return resolverHoraLimite(rol, horaLimitePersonalizada, horarioPorDia, diaSemanaPeru(fecha));
+  }
   // No se evalúa puntualidad antes de que la persona existiera como
   // colaborador — evita marcar "tardanza" en días previos a su ingreso.
   const topeLookback = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
@@ -80,13 +99,13 @@ export function calcularEstadoPuntualidad(
   let estadoHoy: EstadoHoy;
   const registroHoy = asistenciaPorFecha.get(hoy);
 
-  if (!limite) {
+  if (!limiteBase) {
     estadoHoy = "sin_limite";
   } else if (esDiaExento(hoy)) {
     estadoHoy = "descanso";
   } else if (registroHoy?.horaIngreso) {
-    estadoHoy = registroHoy.horaIngreso > limite ? "tarde" : "a_tiempo";
-  } else if (horaActual > limite) {
+    estadoHoy = registroHoy.horaIngreso > limiteDe(hoy)! ? "tarde" : "a_tiempo";
+  } else if (horaActual > limiteDe(hoy)!) {
     estadoHoy = "pendiente_tarde";
   } else {
     estadoHoy = "pendiente";
@@ -97,7 +116,7 @@ export function calcularEstadoPuntualidad(
   // Un día de descanso o cubierto por vacaciones/permiso/misión especial no
   // cuenta ni corta la racha — simplemente se salta.
   let rachaTardanzas = 0;
-  if (limite) {
+  if (limiteBase) {
     let cursor = sumarDias(hoy, -1);
     while (cursor >= limiteFecha) {
       if (esDiaExento(cursor)) {
@@ -105,7 +124,7 @@ export function calcularEstadoPuntualidad(
         continue;
       }
       const registro = asistenciaPorFecha.get(cursor);
-      const tarde = !registro?.horaIngreso || registro.horaIngreso > limite;
+      const tarde = !registro?.horaIngreso || registro.horaIngreso > limiteDe(cursor)!;
       if (!tarde) break;
       rachaTardanzas += 1;
       cursor = sumarDias(cursor, -1);
