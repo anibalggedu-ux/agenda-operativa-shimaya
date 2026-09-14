@@ -15,8 +15,14 @@ const MEDALLAS_TOP3 = ["🥇", "🥈", "🥉"];
 // que quede a la vista de un vistazo al entrar, útil para definir premios e
 // incentivos mensuales por kilometraje recorrido. Con soloRol, se filtra a
 // un solo rol (ej. capacitador) para que cada quien se compare con sus
-// pares, no con todo el equipo.
-export default function KilometrosDelMes({ soloRol }: { soloRol?: string } = {}) {
+// pares, no con todo el equipo. `limite` corta la lista (por defecto un
+// podio de 3, como en Central Analítica) — pasar 0 para mostrarla completa
+// (ej. el Inicio de Capacitador, donde cada quien quiere verse a sí mismo
+// aunque no esté entre los primeros 3).
+export default function KilometrosDelMes({
+  soloRol,
+  limite = 3,
+}: { soloRol?: string; limite?: number } = {}) {
   const [filas, setFilas] = useState<FilaKilometros[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,11 +36,11 @@ export default function KilometrosDelMes({ soloRol }: { soloRol?: string } = {})
     obtenerResumenKilometros(desde, hoy)
       .then((r) => {
         const filtradas = soloRol ? r.filas.filter((f) => f.rol === soloRol) : r.filas;
-        setFilas(filtradas.slice(0, 3));
+        setFilas(limite > 0 ? filtradas.slice(0, limite) : filtradas);
       })
       .catch((e) => setError(e.message || "Error al cargar los kilómetros del mes."))
       .finally(() => setCargando(false));
-  }, [desde, hoy, soloRol]);
+  }, [desde, hoy, soloRol, limite]);
 
   const nombreMes = new Date(hoy + "T00:00:00Z").toLocaleDateString("es-PE", {
     month: "long",
@@ -59,7 +65,11 @@ export default function KilometrosDelMes({ soloRol }: { soloRol?: string } = {})
           className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] p-3 gap-3"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-lg shrink-0">{MEDALLAS_TOP3[i]}</span>
+            {i < 3 ? (
+              <span className="text-lg shrink-0 w-5 text-center">{MEDALLAS_TOP3[i]}</span>
+            ) : (
+              <span className="text-marca-tenue font-black text-xs w-5 text-right shrink-0">{i + 1}</span>
+            )}
             <div className="min-w-0">
               <p className="text-marca-textofuerte font-bold text-sm truncate">{f.usuarioNombre}</p>
               <p className="text-marca-tenue text-[10px] uppercase">

@@ -42,7 +42,7 @@ export default async function PanelCapacitador() {
             <p className="text-marca-tenue text-[11px]">
               Quién recorrió más distancia este mes, solo entre capacitadores.
             </p>
-            <KilometrosDelMes soloRol="capacitador" />
+            <KilometrosDelMes soloRol="capacitador" limite={0} />
           </div>
           <AnunciosWidget />
         </div>
