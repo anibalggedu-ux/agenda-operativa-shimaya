@@ -8,6 +8,7 @@ import {
   obtenerRankingTardanzas,
   obtenerRankingPuntualidad,
   obtenerRankingTiendasCompleto,
+  obtenerRankingTiendasPorDia,
   type ReportesPorDia,
   type DesempenoPersona,
   type RankingTardanza,
@@ -124,6 +125,7 @@ export default function CentralAnalitica() {
   const [rankingTardanzas, setRankingTardanzas] = useState<RankingTardanza[]>([]);
   const [rankingPuntualidad, setRankingPuntualidad] = useState<RankingPuntualidad[]>([]);
   const [rankingTiendas, setRankingTiendas] = useState<RankingTiendasCompleto | null>(null);
+  const [rankingTiendasPorDia, setRankingTiendasPorDia] = useState<RankingTiendasCompleto | null>(null);
 
   const [vitrina, setVitrina] = useState<FilaVitrina[]>([]);
   const [cargandoVitrina, setCargandoVitrina] = useState(true);
@@ -145,13 +147,15 @@ export default function CentralAnalitica() {
       obtenerRankingTardanzas(desde, hasta),
       obtenerRankingPuntualidad(desde, hasta),
       obtenerRankingTiendasCompleto(desde, hasta),
+      obtenerRankingTiendasPorDia(desde, hasta),
     ])
-      .then(([rpd, dp, rta, rp, rt]) => {
+      .then(([rpd, dp, rta, rp, rt, rtpd]) => {
         setReportesPorDia(rpd);
         setDesempeno(dp);
         setRankingTardanzas(rta);
         setRankingPuntualidad(rp);
         setRankingTiendas(rt);
+        setRankingTiendasPorDia(rtpd);
       })
       .catch((e) => setError(e.message || "Error al cargar la Central Analítica."))
       .finally(() => setCargando(false));
@@ -434,8 +438,25 @@ export default function CentralAnalitica() {
                 <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
                   🏬 RANKING DE TIENDAS MÁS VISITADAS
                 </h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Cuenta cada persona por separado: si 3 supervisores y 1 capacitador van a la misma
+                  tienda el mismo día, son 4 visitas.
+                </p>
                 {rankingTiendas && (
                   <RankingTiendas ranking={rankingTiendas} desde={desde} hasta={hasta} />
+                )}
+              </section>
+
+              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
+                  🏬 RANKING DE TIENDAS — CONTROLADAS POR DÍA
+                </h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Sin importar cuánta gente fue, ni si dejaron o no observación o foto: la misma
+                  tienda el mismo día cuenta como UNA sola visita.
+                </p>
+                {rankingTiendasPorDia && (
+                  <RankingTiendas ranking={rankingTiendasPorDia} desde={desde} hasta={hasta} />
                 )}
               </section>
 

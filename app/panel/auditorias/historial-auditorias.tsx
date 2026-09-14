@@ -10,6 +10,7 @@ import {
   type DetalleAuditoria,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { generarPdfAuditoria } from "@/lib/generar-pdf";
 
 function claseClasificacion(clasificacion: string): string {
   switch (clasificacion) {
@@ -30,6 +31,7 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
   const [error, setError] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<DetalleAuditoria | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
 
   function cargar() {
     setCargando(true);
@@ -51,6 +53,36 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
       setError(e.message || "No se pudo abrir la auditoría.");
     } finally {
       setCargandoDetalle(false);
+    }
+  }
+
+  // Pensado para imprimir y entregar en papel al líder/encargado de la
+  // tienda. jsPDF corre en el navegador, así que usa el detalle que ya está
+  // cargado en pantalla — no hace falta otra consulta al servidor.
+  async function descargarPdf() {
+    if (!detalle) return;
+    setGenerandoPdf(true);
+    try {
+      await generarPdfAuditoria({
+        tiendaNombre: detalle.tiendaNombre,
+        fecha: detalle.fecha,
+        supervisorNombre: detalle.supervisorNombre,
+        lider: detalle.lider,
+        puntajeTotal: detalle.puntajeTotal,
+        puntajeMaximo: detalle.puntajeMaximo,
+        porcentaje: detalle.porcentaje,
+        clasificacion: detalle.clasificacion,
+        alertas: detalle.alertas,
+        items: detalle.items,
+        observaciones: detalle.observaciones,
+        fortalezas: detalle.fortalezas,
+        oportunidades: detalle.oportunidades,
+        compromisos: detalle.compromisos,
+      });
+    } catch {
+      setError("No se pudo generar el PDF.");
+    } finally {
+      setGenerandoPdf(false);
     }
   }
 
@@ -213,12 +245,21 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
                   </div>
                 )}
 
-                <button
-                  onClick={() => setDetalle(null)}
-                  className="w-full bg-marca-superficie2 border border-marca-borde text-marca-tenue py-2.5 rounded-[3px] text-xs font-bold uppercase hover:text-marca-texto transition"
-                >
-                  Cerrar
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={descargarPdf}
+                    disabled={generandoPdf}
+                    className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte py-2.5 rounded-[3px] text-xs font-black uppercase tracking-widest transition"
+                  >
+                    {generandoPdf ? "Generando..." : "📄 Descargar PDF"}
+                  </button>
+                  <button
+                    onClick={() => setDetalle(null)}
+                    className="flex-1 bg-marca-superficie2 border border-marca-borde text-marca-tenue py-2.5 rounded-[3px] text-xs font-bold uppercase hover:text-marca-texto transition"
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </>
             ) : null}
           </div>

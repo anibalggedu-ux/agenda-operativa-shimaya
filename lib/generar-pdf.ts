@@ -851,3 +851,209 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
     "historial_" + datos.usuarioNombre.replace(/\s+/g, "_") + "_" + datos.desde + "_a_" + datos.hasta + ".pdf";
   doc.save(nombreArchivo);
 }
+
+// ---------- Auditoría de tienda ----------
+//
+// Pensado para imprimirse y entregarse en papel al líder/encargado de la
+// tienda, así que además del contenido lleva dos líneas de firma al final.
+
+const COLOR_CLASIFICACION: Record<string, [number, number, number]> = {
+  Excelente: [16, 150, 90],
+  Bueno: [37, 130, 190],
+  "Requiere mejora": [200, 140, 20],
+  "Acción inmediata": [200, 30, 40],
+};
+
+export type DatosAuditoriaPdf = {
+  tiendaNombre: string;
+  fecha: string;
+  supervisorNombre: string; // quien realizó la auditoría
+  lider: string | null;
+  puntajeTotal: number;
+  puntajeMaximo: number;
+  porcentaje: number;
+  clasificacion: string;
+  alertas: string[];
+  items: { categoria: string; item: string; puntaje: number }[];
+  observaciones: Record<string, string>;
+  fortalezas: string | null;
+  oportunidades: string | null;
+  compromisos: { accion: string; responsable: string; fecha: string }[];
+};
+
+const ETIQUETA_PUNTAJE: Record<number, string> = { 2: "Cumple", 1: "Parcial", 0: "No cumple" };
+
+export async function generarPdfAuditoria(datos: DatosAuditoriaPdf) {
+  const doc = new jsPDF();
+  await dibujarEncabezado(doc, "Auditoría de tienda");
+
+  let y = 40;
+  y = campo(doc, "Tienda:", datos.tiendaNombre, y);
+  y = campo(doc, "Fecha:", formatearFechaLegible(datos.fecha), y);
+  y = campo(doc, "Realizada por:", datos.supervisorNombre, y);
+  if (datos.lider) y = campo(doc, "Líder de tienda:", datos.lider, y);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  const colorClasificacion = COLOR_CLASIFICACION[datos.clasificacion] ?? [0, 0, 0];
+  doc.setTextColor(...colorClasificacion);
+  doc.text(
+    `Puntaje: ${datos.puntajeTotal}/${datos.puntajeMaximo} (${datos.porcentaje}%) — ${datos.clasificacion}`,
+    14,
+    y
+  );
+  doc.setTextColor(0, 0, 0);
+  y += 10;
+
+  if (datos.alertas.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ROJO_TARDANZA);
+    doc.text("Alertas críticas:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    datos.alertas.forEach((a) => {
+      const lineas = doc.splitTextToSize("• " + a, ANCHO_UTIL - 4);
+      doc.text(lineas, 18, y);
+      y += lineas.length * 5;
+    });
+    doc.setTextColor(0, 0, 0);
+    y += 4;
+  }
+
+  // Checklist agrupado por categoría, en el mismo orden en que aparecen los
+  // ítems (que ya vienen ordenados por categoría desde la plantilla).
+  const categorias = Array.from(new Set(datos.items.map((i) => i.categoria)));
+
+  categorias.forEach((categoria) => {
+    const itemsCategoria = datos.items.filter((i) => i.categoria === categoria);
+    const obs = datos.observaciones[categoria];
+    const alturaEstimativa = 8 + itemsCategoria.length * 5.5 + (obs ? 10 : 0);
+
+    if (y + alturaEstimativa > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.text(categoria, 14, y);
+    y += 6;
+
+    itemsCategoria.forEach((it) => {
+      if (y + 5.5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      const lineasItem = doc.splitTextToSize(it.item, ANCHO_UTIL - 30);
+      doc.text(lineasItem, 18, y);
+
+      const etiqueta = ETIQUETA_PUNTAJE[it.puntaje] ?? "—";
+      doc.setFont("helvetica", "bold");
+      if (it.puntaje === 2) doc.setTextColor(16, 150, 90);
+      else if (it.puntaje === 1) doc.setTextColor(200, 140, 20);
+      else doc.setTextColor(...ROJO_TARDANZA);
+      doc.text(etiqueta, 175, y, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+
+      y += Math.max(lineasItem.length * 5, 5.5);
+    });
+
+    if (obs) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      const lineasObs = doc.splitTextToSize("Obs: " + obs, ANCHO_UTIL - 4);
+      doc.text(lineasObs, 18, y);
+      y += lineasObs.length * 4.5;
+    }
+
+    y += 4;
+  });
+
+  y += 2;
+
+  if (datos.fortalezas) {
+    if (y + 16 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Fortalezas:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const lineas = doc.splitTextToSize(datos.fortalezas, ANCHO_UTIL);
+    doc.text(lineas, 14, y);
+    y += lineas.length * 5 + 4;
+  }
+
+  if (datos.oportunidades) {
+    if (y + 16 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Oportunidades de mejora:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const lineas = doc.splitTextToSize(datos.oportunidades, ANCHO_UTIL);
+    doc.text(lineas, 14, y);
+    y += lineas.length * 5 + 4;
+  }
+
+  if (datos.compromisos.length > 0) {
+    if (y + 12 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Compromisos:", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    datos.compromisos.forEach((c) => {
+      const texto =
+        `• ${c.accion} — responsable: ${c.responsable || "—"}` +
+        (c.fecha ? ` — para: ${formatearFechaLegible(c.fecha)}` : "");
+      const lineas = doc.splitTextToSize(texto, ANCHO_UTIL - 4);
+      if (y + lineas.length * 5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lineas, 18, y);
+      y += lineas.length * 5;
+    });
+    y += 4;
+  }
+
+  // Pensado para entregarse impreso en la tienda — dos líneas de firma al
+  // final, en una página nueva si no queda espacio decente para ambas.
+  if (y + 40 > ALTO_PAGINA) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y += 14;
+  }
+
+  const anchoFirma = 78;
+  doc.setDrawColor(0, 0, 0);
+  doc.line(14, y, 14 + anchoFirma, y);
+  doc.line(210 - 14 - anchoFirma, y, 210 - 14, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text("Firma — realizó la auditoría", 14, y);
+  doc.text("Firma — líder / encargado de tienda", 210 - 14 - anchoFirma, y);
+
+  const nombreArchivo =
+    "auditoria_" + datos.tiendaNombre.replace(/\s+/g, "_") + "_" + datos.fecha + ".pdf";
+  doc.save(nombreArchivo);
+}

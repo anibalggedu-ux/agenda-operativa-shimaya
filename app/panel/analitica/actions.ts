@@ -282,6 +282,51 @@ export async function obtenerRankingTiendasCompleto(
   };
 }
 
+// Ranking paralelo al de arriba: ahí cada persona que visita la tienda ese
+// día cuenta por separado (3 supervisores + 1 capacitador el mismo día =
+// 4 visitas), lo cual mide "cuánta gente puso un ojo en la tienda". Este
+// otro mide algo distinto — "¿se controló la tienda ese día?" — así que sin
+// importar cuánta gente fue, con o sin observación, con o sin foto, el
+// mismo día para la misma tienda cuenta como UNA sola visita. Reutiliza la
+// misma fuente de datos (obtenerVisitasEnRangoAnalitica) sin tocarla, así
+// que el ranking original no cambia en nada.
+export async function obtenerRankingTiendasPorDia(
+  desde: string,
+  hasta: string
+): Promise<RankingTiendasCompleto> {
+  await exigirSesion();
+  const supabase = supabaseServer();
+
+  const [{ data: tiendas, error: errorTiendas }, visitas] = await Promise.all([
+    supabase.from("tiendas").select("id, nombre").order("nombre"),
+    obtenerVisitasEnRangoAnalitica(desde, hasta),
+  ]);
+
+  if (errorTiendas) throw new Error("No se pudo cargar el ranking de tiendas por día.");
+
+  const diasUnicosPorTienda = new Set<string>();
+  visitas.forEach((v) => diasUnicosPorTienda.add(`${v.tiendaId}|${v.fecha}`));
+
+  const conteo = new Map<string, number>();
+  diasUnicosPorTienda.forEach((clave) => {
+    const tiendaId = clave.slice(0, clave.indexOf("|"));
+    conteo.set(tiendaId, (conteo.get(tiendaId) ?? 0) + 1);
+  });
+
+  const ranking = (tiendas ?? [])
+    .map((t) => ({ tiendaId: t.id, tiendaNombre: t.nombre, visitas: conteo.get(t.id) ?? 0 }))
+    .sort((a, b) => b.visitas - a.visitas);
+
+  const conVisitas = ranking.filter((r) => r.visitas > 0);
+  const sinVisitas = ranking.filter((r) => r.visitas === 0);
+
+  return {
+    top20: conVisitas.slice(0, 20),
+    resto: conVisitas.slice(20),
+    sinVisitas,
+  };
+}
+
 export type VisitaTiendaDetalle = {
   fecha: string;
   usuarioNombre: string;
