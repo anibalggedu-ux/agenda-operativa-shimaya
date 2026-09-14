@@ -90,6 +90,15 @@ export default function PanelShell({
             Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
           </span>
           {accionesExtra}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="bg-marca-superficie2 border border-marca-borde text-marca-tenue w-9 h-9 rounded-[3px] hover:text-marca-texto transition shrink-0"
+            aria-label="Recargar página"
+            title="Recargar página"
+          >
+            🔄
+          </button>
           <ThemeToggle />
           <form action={cerrarSesionAction}>
             <button className="bg-marca-superficie2 border border-marca-borde text-marca-tenue px-3 py-2 rounded-[3px] text-xs font-semibold hover:text-marca-texto transition">
