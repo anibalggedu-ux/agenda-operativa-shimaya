@@ -261,6 +261,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   const [
     { data: tiendas },
     { data: visitasHoyRows },
+    { data: asignadasHoyRows },
     { data: especialesHoy },
     { data: comunicadosSemana },
     vitrina,
@@ -272,6 +273,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   ] = await Promise.all([
     supabase.from("tiendas").select("id"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
+    supabase.from("rutas_activas").select("tienda_id").eq("fecha_planificada", hoy),
     supabase
       .from("asignaciones_especiales")
       .select("tipo, usuarios(nombre)")
@@ -348,7 +350,15 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     });
 
   const totalTiendas = tiendas?.length ?? 0;
-  const visitasHoy = new Set((visitasHoyRows ?? []).map((r: any) => r.tienda_id)).size;
+  // Cuenta tiendas con ruta asignada hoy, se haya enviado ya el reporte o no
+  // — rutas_diarias (ya reportadas) + rutas_activas (asignadas, pendientes
+  // de reportar). Antes solo miraba rutas_diarias, así que una tienda recién
+  // asignada no aparecía aquí hasta que alguien enviaba la observación.
+  const tiendasConActividadHoy = new Set([
+    ...(visitasHoyRows ?? []).map((r: any) => r.tienda_id),
+    ...(asignadasHoyRows ?? []).map((r: any) => r.tienda_id),
+  ]);
+  const visitasHoy = tiendasConActividadHoy.size;
 
   const tiendasCriticas = dashboard.resumenTiendas
     .filter((t) => t.clasificacion === "Acción inmediata")

@@ -226,9 +226,9 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
             />
             <Tarjeta
               icono="📍"
-              etiqueta="Visitas de hoy"
+              etiqueta="Tiendas de hoy"
               valor={`${operativo.visitasHoy}/${operativo.totalTiendas}`}
-              extra="tiendas visitadas hasta ahora"
+              extra="con ruta asignada hoy (reportada o no)"
             />
             <Tarjeta
               icono="🌴"
