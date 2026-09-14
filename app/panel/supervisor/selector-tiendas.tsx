@@ -22,6 +22,7 @@ import {
   esMadrugadaPeru,
 } from "@/lib/fechas";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
+import { reproducirSonidoExito } from "@/lib/sonido";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -252,6 +253,7 @@ function MarcadoVisitaTienda({
 
       if (resultado.exito) {
         setPendiente(null);
+        reproducirSonidoExito();
         onMarcado();
       } else {
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
@@ -459,6 +461,7 @@ export default function SelectorTiendas({
       setSeleccionada(null);
       setObservacion("");
       setActividad("");
+      reproducirSonidoExito();
       cargar();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
