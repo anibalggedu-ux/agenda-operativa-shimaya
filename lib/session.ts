@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { SECRETO_SESION } from "./secreto-sesion";
 
 // FIX SEGURIDAD DE FONDO: en Apps Script guardábamos el rol en sessionStorage,
 // que cualquiera puede editar a mano desde la consola del navegador
@@ -7,9 +8,7 @@ import { cookies } from "next/headers";
 // hueco de seguridad que detectamos en la auditoría. Acá el rol viaja dentro
 // de un JWT FIRMADO por el servidor, guardado en una cookie httpOnly: el
 // navegador no puede leerlo ni modificarlo, solo reenviarlo tal cual.
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || "cambia-este-secreto-en-produccion"
-);
+const SECRET = SECRETO_SESION;
 const COOKIE_NAME = "sesion_shimaya";
 
 export type SesionUsuario = {
