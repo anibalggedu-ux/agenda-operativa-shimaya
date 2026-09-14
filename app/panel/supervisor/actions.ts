@@ -784,6 +784,7 @@ export async function obtenerMiPerfil(): Promise<PerfilPersonal> {
 export type SolicitudDescansoPropia = {
   id: string;
   diasSolicitados: string[];
+  fechaDeseada: string | null;
   createdAt: string;
 };
 
@@ -794,7 +795,7 @@ export async function obtenerMiSolicitudDescansoPendiente(): Promise<SolicitudDe
   const supabase = supabaseServer();
   const { data } = await supabase
     .from("solicitudes_descanso")
-    .select("id, dias_solicitados, created_at")
+    .select("id, dias_solicitados, fecha_deseada, created_at")
     .eq("usuario_id", sesion.id)
     .eq("estado", "pendiente")
     .order("created_at", { ascending: false })
@@ -802,10 +803,18 @@ export async function obtenerMiSolicitudDescansoPendiente(): Promise<SolicitudDe
     .maybeSingle();
 
   if (!data) return null;
-  return { id: data.id, diasSolicitados: data.dias_solicitados ?? [], createdAt: data.created_at };
+  return {
+    id: data.id,
+    diasSolicitados: data.dias_solicitados ?? [],
+    fechaDeseada: data.fecha_deseada,
+    createdAt: data.created_at,
+  };
 }
 
-export async function solicitarCambioDescanso(dias: string[]): Promise<ResultadoReporte> {
+export async function solicitarCambioDescanso(
+  dias: string[],
+  fechaDeseada: string
+): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
 
@@ -814,6 +823,12 @@ export async function solicitarCambioDescanso(dias: string[]): Promise<Resultado
   }
   if (dias.some((d) => !(DIAS_SEMANA as readonly string[]).includes(d))) {
     return { exito: false, mensaje: "Día inválido." };
+  }
+  if (!fechaDeseada) {
+    return { exito: false, mensaje: "Indica desde qué fecha quieres el cambio." };
+  }
+  if (fechaDeseada < hoyPeru()) {
+    return { exito: false, mensaje: "La fecha no puede ser anterior a hoy." };
   }
 
   const supabase = supabaseServer();
@@ -841,7 +856,12 @@ export async function solicitarCambioDescanso(dias: string[]): Promise<Resultado
   if (pendiente) {
     const { error } = await supabase
       .from("solicitudes_descanso")
-      .update({ dias_actuales: actuales, dias_solicitados: dias, created_at: new Date().toISOString() })
+      .update({
+        dias_actuales: actuales,
+        dias_solicitados: dias,
+        fecha_deseada: fechaDeseada,
+        created_at: new Date().toISOString(),
+      })
       .eq("id", pendiente.id);
     if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
     return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
@@ -851,6 +871,103 @@ export async function solicitarCambioDescanso(dias: string[]): Promise<Resultado
     usuario_id: sesion.id,
     dias_actuales: actuales,
     dias_solicitados: dias,
+    fecha_deseada: fechaDeseada,
+  });
+  if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
+  return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
+}
+
+// ---------------------------------------------------------------------
+// Permiso anticipado: igual que el cambio de descanso, el colaborador
+// solo pide y el coordinador aprueba o rechaza (ve la misma campanita).
+// Al aprobarse, el coordinador la convierte en una asignación especial
+// (tipo "Permiso") — así aparece en todos lados donde ya se muestran esas
+// asignaciones (calendario, alertas, advertencia al asignar rutas, etc.)
+// sin duplicar esa lógica.
+// ---------------------------------------------------------------------
+
+export type SolicitudPermisoPropia = {
+  id: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string | null;
+  createdAt: string;
+};
+
+export async function obtenerMiSolicitudPermisoPendiente(): Promise<SolicitudPermisoPropia | null> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("solicitudes_permiso")
+    .select("id, fecha_inicio, fecha_fin, motivo, created_at")
+    .eq("usuario_id", sesion.id)
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+  return {
+    id: data.id,
+    fechaInicio: data.fecha_inicio,
+    fechaFin: data.fecha_fin,
+    motivo: data.motivo,
+    createdAt: data.created_at,
+  };
+}
+
+export async function solicitarPermiso(
+  fechaInicio: string,
+  fechaFin: string,
+  motivo: string
+): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  if (!fechaInicio || !fechaFin) {
+    return { exito: false, mensaje: "Completa la fecha de inicio y de fin." };
+  }
+  if (fechaInicio < hoyPeru()) {
+    return { exito: false, mensaje: "La fecha de inicio no puede ser anterior a hoy." };
+  }
+  if (fechaFin < fechaInicio) {
+    return { exito: false, mensaje: "La fecha de fin no puede ser anterior a la de inicio." };
+  }
+
+  const supabase = supabaseServer();
+
+  // Igual que con el descanso: si ya hay una pendiente, se reemplaza en vez
+  // de acumular varias solicitudes del mismo colaborador.
+  const { data: pendiente } = await supabase
+    .from("solicitudes_permiso")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("estado", "pendiente")
+    .maybeSingle();
+
+  const motivoLimpio = motivo.trim() || null;
+
+  if (pendiente) {
+    const { error } = await supabase
+      .from("solicitudes_permiso")
+      .update({
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        motivo: motivoLimpio,
+        created_at: new Date().toISOString(),
+      })
+      .eq("id", pendiente.id);
+    if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
+    return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
+  }
+
+  const { error } = await supabase.from("solicitudes_permiso").insert({
+    usuario_id: sesion.id,
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+    motivo: motivoLimpio,
   });
   if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
   return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };

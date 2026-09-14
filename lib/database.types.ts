@@ -555,6 +555,7 @@ export type Database = {
           dias_actuales: string[] | null
           dias_solicitados: string[]
           estado: string
+          fecha_deseada: string | null
           id: string
           respondido_en: string | null
           respondido_por: string | null
@@ -565,6 +566,7 @@ export type Database = {
           dias_actuales?: string[] | null
           dias_solicitados: string[]
           estado?: string
+          fecha_deseada?: string | null
           id?: string
           respondido_en?: string | null
           respondido_por?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           dias_actuales?: string[] | null
           dias_solicitados?: string[]
           estado?: string
+          fecha_deseada?: string | null
           id?: string
           respondido_en?: string | null
           respondido_por?: string | null
@@ -583,6 +586,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "solicitudes_descanso_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitudes_permiso: {
+        Row: {
+          created_at: string
+          estado: string
+          fecha_fin: string
+          fecha_inicio: string
+          id: string
+          motivo: string | null
+          respondido_en: string | null
+          respondido_por: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          fecha_fin: string
+          fecha_inicio: string
+          id?: string
+          motivo?: string | null
+          respondido_en?: string | null
+          respondido_por?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          fecha_fin?: string
+          fecha_inicio?: string
+          id?: string
+          motivo?: string | null
+          respondido_en?: string | null
+          respondido_por?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_permiso_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"

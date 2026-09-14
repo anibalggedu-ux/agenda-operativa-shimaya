@@ -10,6 +10,7 @@ import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "./actions";
 import TiendasFijas from "./tiendas-fijas";
 import MiDescanso from "./mi-descanso";
+import MiPermiso from "./mi-permiso";
 import MisMarcaciones from "./mis-marcaciones";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -40,6 +41,7 @@ export default async function PanelSupervisor() {
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
+          <MiPermiso />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>

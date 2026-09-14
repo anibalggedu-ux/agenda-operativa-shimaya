@@ -986,6 +986,7 @@ export type SolicitudDescansoPendiente = {
   usuarioNombre: string;
   diasActuales: string[];
   diasSolicitados: string[];
+  fechaDeseada: string | null;
   createdAt: string;
 };
 
@@ -1008,7 +1009,7 @@ export async function obtenerSolicitudesDescansoPendientes(): Promise<SolicitudD
 
   const { data, error } = await supabase
     .from("solicitudes_descanso")
-    .select("id, usuario_id, dias_actuales, dias_solicitados, created_at, usuarios(nombre)")
+    .select("id, usuario_id, dias_actuales, dias_solicitados, fecha_deseada, created_at, usuarios(nombre)")
     .eq("estado", "pendiente")
     .order("created_at", { ascending: true });
 
@@ -1020,6 +1021,7 @@ export async function obtenerSolicitudesDescansoPendientes(): Promise<SolicitudD
     usuarioNombre: s.usuarios?.nombre ?? "—",
     diasActuales: s.dias_actuales ?? [],
     diasSolicitados: s.dias_solicitados ?? [],
+    fechaDeseada: s.fecha_deseada,
     createdAt: s.created_at,
   }));
 }
@@ -1078,6 +1080,123 @@ export async function responderSolicitudDescanso(
         <p>Tu solicitud de descanso (${dias.join(" y ") || "sin día"}) fue <strong>${
         aprobar ? "aprobada" : "rechazada"
       }</strong> por ${sesion.nombre}.</p>
+      `,
+    });
+  });
+
+  return { exito: true };
+}
+
+// ---------- Solicitudes de permiso anticipado ----------
+//
+// Mismo patrón que las de descanso: el colaborador pide, el coordinador
+// aprueba o rechaza desde la campanita. A diferencia del descanso (que
+// actualiza usuarios.dias_descanso), aprobar un permiso crea una fila en
+// asignaciones_especiales (tipo "Permiso") — así hereda gratis todo lo que
+// ya existe para esas asignaciones (advertencia al asignar rutas, "estado
+// del personal hoy", calendario, etc.).
+
+export type SolicitudPermisoPendiente = {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string | null;
+  createdAt: string;
+};
+
+export async function contarSolicitudesPermisoPendientes(): Promise<number> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { count, error } = await supabase
+    .from("solicitudes_permiso")
+    .select("id", { count: "exact", head: true })
+    .eq("estado", "pendiente");
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function obtenerSolicitudesPermisoPendientes(): Promise<SolicitudPermisoPendiente[]> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("solicitudes_permiso")
+    .select("id, usuario_id, fecha_inicio, fecha_fin, motivo, created_at, usuarios(nombre)")
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error("No se pudo cargar las solicitudes de permiso.");
+
+  return (data ?? []).map((s: any) => ({
+    id: s.id,
+    usuarioId: s.usuario_id,
+    usuarioNombre: s.usuarios?.nombre ?? "—",
+    fechaInicio: s.fecha_inicio,
+    fechaFin: s.fecha_fin,
+    motivo: s.motivo,
+    createdAt: s.created_at,
+  }));
+}
+
+export async function responderSolicitudPermiso(
+  id: string,
+  aprobar: boolean
+): Promise<ResultadoAccion> {
+  const sesion = await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: solicitud, error: errorSolicitud } = await supabase
+    .from("solicitudes_permiso")
+    .select("usuario_id, fecha_inicio, fecha_fin, motivo, estado")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (errorSolicitud || !solicitud) {
+    return { exito: false, mensaje: "No se encontró la solicitud." };
+  }
+  if (solicitud.estado !== "pendiente") {
+    return { exito: false, mensaje: "Esta solicitud ya fue respondida." };
+  }
+
+  if (aprobar) {
+    const { error: errorAsignacion } = await supabase.from("asignaciones_especiales").insert({
+      usuario_id: solicitud.usuario_id,
+      tipo: "Permiso",
+      fecha_inicio: solicitud.fecha_inicio,
+      fecha_fin: solicitud.fecha_fin,
+      motivo: solicitud.motivo,
+    });
+    if (errorAsignacion) return { exito: false, mensaje: "No se pudo registrar el permiso." };
+  }
+
+  const { error } = await supabase
+    .from("solicitudes_permiso")
+    .update({
+      estado: aprobar ? "aprobado" : "rechazado",
+      respondido_en: new Date().toISOString(),
+      respondido_por: sesion.nombre,
+    })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
+
+  await notificarPorCorreo(async () => {
+    const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
+    if (!contacto?.email) return;
+
+    await enviarCorreo({
+      para: contacto.email,
+      tituloEmoji: aprobar ? "✅" : "❌",
+      asunto: aprobar ? "Tu solicitud de permiso fue aprobada" : "Tu solicitud de permiso fue rechazada",
+      cuerpoHtml: `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Tu solicitud de permiso (${formatearFechaLegible(solicitud.fecha_inicio)} → ${formatearFechaLegible(
+        solicitud.fecha_fin
+      )}) fue <strong>${aprobar ? "aprobada" : "rechazada"}</strong> por ${sesion.nombre}.</p>
       `,
     });
   });

@@ -7,13 +7,14 @@ import {
   solicitarCambioDescanso,
   type SolicitudDescansoPropia,
 } from "./actions";
-import { DIAS_SEMANA } from "@/lib/fechas";
+import { DIAS_SEMANA, hoyPeru, formatearFechaLegible } from "@/lib/fechas";
 
 const MAX_DIAS = 2;
 
 export default function MiDescanso() {
   const [diasActuales, setDiasActuales] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([]);
+  const [fechaDeseada, setFechaDeseada] = useState(hoyPeru());
   const [pendiente, setPendiente] = useState<SolicitudDescansoPropia | null>(null);
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -44,7 +45,7 @@ export default function MiDescanso() {
   async function enviar() {
     setEnviando(true);
     setMensaje(null);
-    const resultado = await solicitarCambioDescanso(dias);
+    const resultado = await solicitarCambioDescanso(dias, fechaDeseada);
     setEnviando(false);
     setMensaje({ texto: resultado.mensaje || (resultado.exito ? "Enviado." : "No se pudo enviar."), exito: resultado.exito });
     if (resultado.exito) cargar();
@@ -70,8 +71,9 @@ export default function MiDescanso() {
       {pendiente && (
         <div className="bg-amber-950/20 border border-amber-500/40 rounded-[3px] px-3 py-2">
           <p className="text-amber-400 text-[11px] font-bold">
-            ⏳ Solicitud pendiente: {pendiente.diasSolicitados.join(" y ") || "sin días"} — esperando
-            aprobación del coordinador.
+            ⏳ Solicitud pendiente: {pendiente.diasSolicitados.join(" y ") || "sin días"}
+            {pendiente.fechaDeseada && ` desde el ${formatearFechaLegible(pendiente.fechaDeseada)}`} —
+            esperando aprobación del coordinador.
           </p>
         </div>
       )}
@@ -93,6 +95,22 @@ export default function MiDescanso() {
             </button>
           );
         })}
+      </div>
+
+      <div>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+          ¿Desde qué fecha quieres el cambio?
+        </label>
+        <input
+          type="date"
+          value={fechaDeseada}
+          min={hoyPeru()}
+          onChange={(e) => setFechaDeseada(e.target.value)}
+          className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+        />
+        <p className="text-marca-tenue text-[10px] mt-1">
+          Puede ser hoy o una fecha futura — el coordinador ve la fecha al revisar tu solicitud.
+        </p>
       </div>
 
       <button

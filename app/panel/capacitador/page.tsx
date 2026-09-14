@@ -8,6 +8,7 @@ import MisPuntosWidget from "../mis-puntos-widget";
 import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "../supervisor/actions";
 import MiDescanso from "../supervisor/mi-descanso";
+import MiPermiso from "../supervisor/mi-permiso";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
@@ -31,6 +32,7 @@ export default async function PanelCapacitador() {
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
+          <MiPermiso />
           <MisPuntosWidget />
           <RankingCapacitadores />
           <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
