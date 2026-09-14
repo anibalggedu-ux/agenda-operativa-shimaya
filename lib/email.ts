@@ -1,13 +1,9 @@
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import { supabaseServer } from "./supabase-server";
 
-const transportador = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 const NOMBRE_REMITENTE = "Agenda Operativa Shimaya";
 
@@ -16,10 +12,9 @@ const NOMBRE_REMITENTE = "Agenda Operativa Shimaya";
 // entorno si el dominio cambia.
 export const URL_APP = process.env.NEXT_PUBLIC_URL_APP || "https://agenda-operativa-shimaya.vercel.app";
 
-// Gmail penaliza a las cuentas nuevas que mandan un solo correo con muchos
-// destinatarios en copia oculta (patrón típico de spam). Los comunicados
-// masivos se dividen en lotes pequeños con una pausa entre cada uno para
-// que se vean como envíos normales en vez de una explosión de correo.
+// Los comunicados masivos (muchos destinatarios en copia oculta) se dividen
+// en lotes pequeños con una pausa entre cada uno, para no mandar una sola
+// petición gigante a la API de SendGrid.
 const TAMANO_LOTE_CCO = 10;
 const PAUSA_ENTRE_LOTES_MS = 1200;
 
@@ -89,11 +84,11 @@ export async function enviarCorreo(opciones: {
 
   if (destinatarios.length === 0 && copiaOculta.length === 0) return { exito: false };
 
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
     console.error(
-      "No se pudo enviar el correo: faltan las variables GMAIL_USER / GMAIL_APP_PASSWORD."
+      "No se pudo enviar el correo: faltan las variables SENDGRID_API_KEY / SENDGRID_FROM_EMAIL."
     );
-    await registrarFalloCorreo(opciones.asunto, destinatarios, "Faltan las variables GMAIL_USER / GMAIL_APP_PASSWORD.");
+    await registrarFalloCorreo(opciones.asunto, destinatarios, "Faltan las variables SENDGRID_API_KEY / SENDGRID_FROM_EMAIL.");
     return { exito: false };
   }
 
@@ -102,14 +97,14 @@ export async function enviarCorreo(opciones: {
     const lotes = lotesCco.length > 0 ? lotesCco : [[]];
 
     for (let i = 0; i < lotes.length; i++) {
-      await transportador.sendMail({
-        from: `"${NOMBRE_REMITENTE}" <${process.env.GMAIL_USER}>`,
+      await sgMail.send({
+        from: { email: process.env.SENDGRID_FROM_EMAIL, name: NOMBRE_REMITENTE },
         // Si solo hay copia oculta (envíos masivos tipo comunicado), el "para"
         // queda como la propia cuenta remitente para no dejar el campo vacío.
-        to: destinatarios.length > 0 ? destinatarios : process.env.GMAIL_USER,
+        to: destinatarios.length > 0 ? destinatarios : process.env.SENDGRID_FROM_EMAIL,
         bcc: lotes[i].length > 0 ? lotes[i] : undefined,
         replyTo: opciones.responderA
-          ? `"${opciones.responderA.nombre}" <${opciones.responderA.email}>`
+          ? { email: opciones.responderA.email, name: opciones.responderA.nombre }
           : undefined,
         subject: opciones.asunto,
         html: plantillaCorreo(opciones.tituloEmoji ?? "📋", opciones.asunto, opciones.cuerpoHtml),
@@ -121,11 +116,13 @@ export async function enviarCorreo(opciones: {
     // Un correo que falla nunca debe tumbar la acción principal (asignar una
     // ruta, un descanso, etc.) — pero sí debe quedar anotado en algún lado.
     console.error("Error al enviar correo:", error);
-    await registrarFalloCorreo(
-      opciones.asunto,
-      destinatarios,
-      error instanceof Error ? error.message : String(error)
-    );
+    const detalleError =
+      error && typeof error === "object" && "response" in error
+        ? JSON.stringify((error as { response?: { body?: unknown } }).response?.body)
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    await registrarFalloCorreo(opciones.asunto, destinatarios, detalleError);
     return { exito: false };
   }
 }

@@ -27,12 +27,12 @@ import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 // ---------- Notificaciones por correo ----------
 //
-// El correo sale siempre de la cuenta configurada en GMAIL_USER (no se puede
-// enviar "como si fuera" el Gmail personal del coordinador — los proveedores
-// de correo bloquean ese tipo de suplantación). En su lugar, se deja al
-// coordinador como "Responder a": si el destinatario responde el correo, le
-// escribe directo a él. Un fallo al enviar nunca debe romper la acción
-// principal, por eso cada llamado va en su propio try/catch silencioso.
+// El correo sale siempre del remitente configurado en SENDGRID_FROM_EMAIL (no
+// se puede enviar "como si fuera" el Gmail personal del coordinador — los
+// proveedores de correo bloquean ese tipo de suplantación). En su lugar, se
+// deja al coordinador como "Responder a": si el destinatario responde el
+// correo, le escribe directo a él. Un fallo al enviar nunca debe romper la
+// acción principal, por eso cada llamado va en su propio try/catch silencioso.
 
 type ContactoUsuario = { nombre: string; email: string | null };
 
