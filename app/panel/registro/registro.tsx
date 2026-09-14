@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import { DIAS_SEMANA } from "@/lib/fechas";
 import MantenimientoDatos from "./mantenimiento";
+import HorarioPersonalizado from "./horario-personalizado";
 import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
 import HistorialCambios from "./historial-cambios";
@@ -295,6 +296,14 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
         descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
       >
         <PlantillaAuditoria />
+      </SeccionColapsable>
+
+      <SeccionColapsable
+        titulo="Horario de ingreso personalizado"
+        icono="⏰"
+        descripcion="Configura una hora límite propia para quien tenga un turno diferido del resto."
+      >
+        <HorarioPersonalizado />
       </SeccionColapsable>
 
       <MantenimientoDatos />

@@ -3,13 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { hoyPeru, calcularAntiguedad, diasEntreFechas, sumarDias, formatearFechaCorta } from "@/lib/fechas";
-
-// Umbral de tardanza al marcar ingreso: cada rol tiene su propia hora límite.
-const HORA_LIMITE_POR_ROL: Record<string, string> = {
-  capacitador: "11:00:00",
-  supervisor: "12:00:00",
-  coordinador: "12:00:00",
-};
+import { resolverHoraLimite } from "@/lib/puntualidad";
 
 export type ReportesPorDia = { fecha: string; cantidad: number };
 
@@ -85,7 +79,7 @@ export async function obtenerRankingTardanzas(
 
   const { data, error } = await supabase
     .from("asistencia")
-    .select("fecha, hora_ingreso, usuarios(nombre, rol)")
+    .select("fecha, hora_ingreso, usuarios(nombre, rol, hora_limite_ingreso)")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .not("hora_ingreso", "is", null);
@@ -96,7 +90,7 @@ export async function obtenerRankingTardanzas(
   (data ?? []).forEach((r: any) => {
     const rol = r.usuarios?.rol as string | undefined;
     if (!rol || !r.hora_ingreso) return;
-    const limite = HORA_LIMITE_POR_ROL[rol];
+    const limite = resolverHoraLimite(rol, r.usuarios?.hora_limite_ingreso);
     if (!limite) return;
     if (r.hora_ingreso <= limite) return;
 
@@ -120,7 +114,7 @@ export async function obtenerRankingPuntualidad(
 
   const { data, error } = await supabase
     .from("asistencia")
-    .select("fecha, hora_ingreso, usuarios(nombre, rol)")
+    .select("fecha, hora_ingreso, usuarios(nombre, rol, hora_limite_ingreso)")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .not("hora_ingreso", "is", null);
@@ -131,7 +125,7 @@ export async function obtenerRankingPuntualidad(
   (data ?? []).forEach((r: any) => {
     const rol = r.usuarios?.rol as string | undefined;
     if (!rol || !r.hora_ingreso) return;
-    const limite = HORA_LIMITE_POR_ROL[rol];
+    const limite = resolverHoraLimite(rol, r.usuarios?.hora_limite_ingreso);
     if (!limite) return;
     if (r.hora_ingreso > limite) return; // llegó tarde, no cuenta como puntual
 
@@ -382,7 +376,7 @@ export async function obtenerTiendasPorTardanzas(
       obtenerVisitasEnRangoAnalitica(desde, hasta),
       supabase
         .from("asistencia")
-        .select("usuario_id, fecha, hora_ingreso")
+        .select("usuario_id, fecha, hora_ingreso, usuarios(hora_limite_ingreso)")
         .gte("fecha", desde)
         .lte("fecha", hasta),
     ]);
@@ -392,12 +386,14 @@ export async function obtenerTiendasPorTardanzas(
   }
 
   const horaIngresoPorClave = new Map<string, string | null>();
+  const horaLimitePersonalizadaPorUsuario = new Map<string, string | null>();
   (asistencia ?? []).forEach((a: any) => {
     horaIngresoPorClave.set(`${a.usuario_id}|${a.fecha}`, a.hora_ingreso);
+    horaLimitePersonalizadaPorUsuario.set(a.usuario_id, a.usuarios?.hora_limite_ingreso ?? null);
   });
 
   function esTarde(usuarioId: string, fecha: string, rol: string): boolean {
-    const limite = HORA_LIMITE_POR_ROL[rol];
+    const limite = resolverHoraLimite(rol, horaLimitePersonalizadaPorUsuario.get(usuarioId));
     if (!limite) return false;
     const horaIngreso = horaIngresoPorClave.get(`${usuarioId}|${fecha}`);
     return !!horaIngreso && horaIngreso > limite;
@@ -610,7 +606,7 @@ export async function obtenerTendenciasTiendas(
       obtenerVisitasEnRangoAnalitica(desdeReal, hastaReal),
       supabase
         .from("asistencia")
-        .select("usuario_id, fecha, hora_ingreso")
+        .select("usuario_id, fecha, hora_ingreso, usuarios(hora_limite_ingreso)")
         .gte("fecha", desdeReal)
         .lte("fecha", hastaReal),
     ]);
@@ -620,12 +616,14 @@ export async function obtenerTendenciasTiendas(
   }
 
   const horaIngresoPorClave = new Map<string, string | null>();
+  const horaLimitePersonalizadaPorUsuario = new Map<string, string | null>();
   (asistencia ?? []).forEach((a: any) => {
     horaIngresoPorClave.set(`${a.usuario_id}|${a.fecha}`, a.hora_ingreso);
+    horaLimitePersonalizadaPorUsuario.set(a.usuario_id, a.usuarios?.hora_limite_ingreso ?? null);
   });
 
   function esTarde(usuarioId: string, fecha: string, rol: string): boolean | null {
-    const limite = HORA_LIMITE_POR_ROL[rol];
+    const limite = resolverHoraLimite(rol, horaLimitePersonalizadaPorUsuario.get(usuarioId));
     if (!limite) return null;
     const horaIngreso = horaIngresoPorClave.get(`${usuarioId}|${fecha}`);
     if (!horaIngreso) return null;

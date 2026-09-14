@@ -15,8 +15,8 @@ import {
   AREAS_RUTA,
   MAX_TIENDAS_PERMANENTES,
   MAX_DIAS_DESCANSO,
-  HORA_LIMITE_TARDANZA,
 } from "./constantes";
+import { resolverHoraLimite } from "@/lib/puntualidad";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { obtenerResumenKilometros } from "../kilometros-actions";
 import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
@@ -1255,7 +1255,7 @@ export async function obtenerHistorialPersona(
   ] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, hora_limite_ingreso")
       .eq("id", usuarioId)
       .maybeSingle(),
     supabase
@@ -1307,7 +1307,7 @@ export async function obtenerHistorialPersona(
   }
 
   const rol = usuario?.rol ?? "";
-  const limite = HORA_LIMITE_TARDANZA[rol];
+  const limite = resolverHoraLimite(rol, usuario?.hora_limite_ingreso);
   const diasDescanso: string[] = usuario?.dias_descanso ?? [];
 
   const fechasDescansoEnRango: string[] = [];
@@ -1443,7 +1443,9 @@ export async function obtenerAsistenciaGeneral(
 
   const { data, error } = await supabase
     .from("asistencia")
-    .select("fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol)")
+    .select(
+      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol, hora_limite_ingreso)"
+    )
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false });
@@ -1452,7 +1454,7 @@ export async function obtenerAsistenciaGeneral(
 
   return (data ?? []).map((a: any) => {
     const rol = a.usuarios?.rol ?? "";
-    const limite = HORA_LIMITE_TARDANZA[rol];
+    const limite = resolverHoraLimite(rol, a.usuarios?.hora_limite_ingreso);
     return {
       fecha: a.fecha,
       usuarioNombre: a.usuarios?.nombre ?? "—",

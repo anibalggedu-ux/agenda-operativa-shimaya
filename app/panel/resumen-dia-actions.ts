@@ -67,7 +67,11 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .select("tipo, created_at")
       .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
       .order("created_at", { ascending: false }),
-    supabase.from("usuarios").select("dias_descanso, fecha_ingreso").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("dias_descanso, fecha_ingreso, hora_limite_ingreso")
+      .eq("id", sesion.id)
+      .maybeSingle(),
     supabase
       .from("asistencia")
       .select("fecha, hora_ingreso, hora_salida")
@@ -101,7 +105,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     hoy,
     horaActual,
     diasExentosPropios,
-    usuarioPropio?.fecha_ingreso ?? null
+    usuarioPropio?.fecha_ingreso ?? null,
+    usuarioPropio?.hora_limite_ingreso ?? null
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -276,7 +281,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso, fecha_ingreso")
+      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso")
       .eq("activo", true)
       .in("rol", ROLES_CON_ASISTENCIA),
     supabase
@@ -328,7 +333,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       hoy,
       horaActual,
       diasExentosPorUsuario.get(u.id) ?? new Set(),
-      u.fecha_ingreso ?? null
+      u.fecha_ingreso ?? null,
+      u.hora_limite_ingreso ?? null
     )
   );
 

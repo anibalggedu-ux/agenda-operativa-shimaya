@@ -663,6 +663,7 @@ export type Database = {
           email: string | null
           fecha_ingreso: string | null
           fecha_nacimiento: string | null
+          hora_limite_ingreso: string | null
           id: string
           lat: number | null
           lon: number | null
@@ -680,6 +681,7 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
+          hora_limite_ingreso?: string | null
           id?: string
           lat?: number | null
           lon?: number | null
@@ -697,6 +699,7 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
+          hora_limite_ingreso?: string | null
           id?: string
           lat?: number | null
           lon?: number | null

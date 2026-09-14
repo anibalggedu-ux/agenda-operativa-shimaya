@@ -906,6 +906,71 @@ export async function geocodificarDireccionColaborador(
 }
 
 // ---------------------------------------------------------------------
+// Horario de ingreso personalizado: para quienes tienen un turno diferido
+// del resto de su rol (ver lib/puntualidad.ts) y por eso no sumaban puntos
+// ni figuraban como puntuales aunque llegaran a tiempo con su propio horario.
+// ---------------------------------------------------------------------
+
+const ROLES_CON_PUNTUALIDAD = ["capacitador", "supervisor", "coordinador"];
+
+export type UsuarioConHorario = {
+  id: string;
+  nombre: string;
+  rol: string;
+  horaLimiteIngreso: string | null;
+};
+
+export async function obtenerUsuariosConHorario(): Promise<UsuarioConHorario[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol, hora_limite_ingreso")
+    .in("rol", ROLES_CON_PUNTUALIDAD)
+    .eq("activo", true)
+    .order("nombre");
+
+  if (error) throw new Error("No se pudo cargar los usuarios.");
+
+  return (data ?? []).map((u) => ({
+    id: u.id,
+    nombre: u.nombre,
+    rol: u.rol,
+    horaLimiteIngreso: u.hora_limite_ingreso,
+  }));
+}
+
+export async function actualizarHoraLimiteIngreso(
+  usuarioId: string,
+  horaLimite: string | null
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("nombre")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ hora_limite_ingreso: horaLimite })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar el horario." };
+
+  await registrarCambio(
+    sesion,
+    horaLimite ? "Configuró un horario de ingreso personalizado" : "Quitó el horario de ingreso personalizado",
+    `${usuario?.nombre ?? usuarioId}${horaLimite ? ` — límite ${horaLimite}` : ""}`
+  );
+
+  return { exito: true };
+}
+
+// ---------------------------------------------------------------------
 // Bitácora de auditoría: consulta de solo lectura de todo lo registrado
 // arriba, para transparencia — cualquiera con acceso a Registro puede ver
 // quién corrigió o eliminó qué y cuándo.

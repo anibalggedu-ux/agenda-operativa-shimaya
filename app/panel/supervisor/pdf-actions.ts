@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import type { ReporteHistorialItem, MarcacionHistorial } from "@/lib/generar-pdf";
-import { HORA_LIMITE_TARDANZA } from "../coordinador/constantes";
+import { resolverHoraLimite } from "@/lib/puntualidad";
 
 export async function obtenerHistorialReportes(
   desde: string,
@@ -43,17 +43,20 @@ export async function obtenerHistorialMarcaciones(
   }
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("asistencia")
-    .select("fecha, hora_ingreso, hora_salida")
-    .eq("usuario_id", sesion.id)
-    .gte("fecha", desde)
-    .lte("fecha", hasta)
-    .order("fecha", { ascending: true });
+  const [{ data, error }, { data: usuario }] = await Promise.all([
+    supabase
+      .from("asistencia")
+      .select("fecha, hora_ingreso, hora_salida")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: true }),
+    supabase.from("usuarios").select("hora_limite_ingreso").eq("id", sesion.id).maybeSingle(),
+  ]);
 
   if (error) throw new Error("No se pudo cargar las marcaciones.");
 
-  const limite = HORA_LIMITE_TARDANZA[sesion.rol];
+  const limite = resolverHoraLimite(sesion.rol, usuario?.hora_limite_ingreso);
 
   return (data ?? []).map((a) => ({
     fecha: a.fecha,

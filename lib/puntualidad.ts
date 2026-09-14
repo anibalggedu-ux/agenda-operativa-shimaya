@@ -13,6 +13,16 @@ export const HORA_LIMITE_PUNTUALIDAD: Record<string, string> = {
   coordinador: "12:00:00",
 };
 
+// Cada persona puede tener una hora límite propia (usuarios.hora_limite_ingreso,
+// para quienes tienen un horario diferido del resto de su rol) que reemplaza el
+// valor por defecto del rol. Sin ella, se usa el valor por defecto de siempre.
+export function resolverHoraLimite(
+  rol: string,
+  horaLimitePersonalizada?: string | null
+): string | undefined {
+  return horaLimitePersonalizada ?? HORA_LIMITE_PUNTUALIDAD[rol];
+}
+
 // No hace falta mirar más atrás que esto: si el problema viene de antes,
 // ya se habría notado — y evita recorrer años de historial innecesariamente.
 const TOPE_DIAS_HACIA_ATRAS = 45;
@@ -54,9 +64,10 @@ export function calcularEstadoPuntualidad(
   hoy: string,
   horaActual: string,
   diasExentos: Set<string> = new Set(),
-  fechaIngreso: string | null = null
+  fechaIngreso: string | null = null,
+  horaLimitePersonalizada: string | null = null
 ): AlertaPuntualidad {
-  const limite = HORA_LIMITE_PUNTUALIDAD[rol];
+  const limite = resolverHoraLimite(rol, horaLimitePersonalizada);
   // No se evalúa puntualidad antes de que la persona existiera como
   // colaborador — evita marcar "tardanza" en días previos a su ingreso.
   const topeLookback = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
