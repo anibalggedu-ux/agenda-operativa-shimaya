@@ -31,3 +31,101 @@
 body {
   background-color: rgb(var(--marca-fondo));
 }
+
+/* Animación de entrada del login: la mascota aparece un instante ANTES que
+   el logo oficial, se superpone encima, "aterriza" con un rebote y un sello
+   rojo pulsa detrás suyo — y después se desvanece, dejando ver el logo de
+   Shimaya Ramen de siempre (estático, sin cambios) debajo. El título y el
+   formulario aparecen recién ahí. Son clases (no un componente cliente)
+   porque toda la secuencia es CSS puro — no hace falta JS para esto. */
+@keyframes intro-mascota {
+  0% {
+    opacity: 0;
+    transform: translateY(-36px) scale(0.72) rotate(-8deg);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.06) rotate(2deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.85) rotate(0deg);
+  }
+}
+
+@keyframes intro-sello {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  35% {
+    opacity: 0.35;
+    transform: scale(1.15);
+  }
+  60% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+  82% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes intro-subir {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animar-intro-mascota {
+  animation: intro-mascota 1.3s ease-in-out both;
+}
+.animar-intro-sello {
+  animation: intro-sello 1.3s ease-in-out both;
+}
+/* El logo oficial arranca invisible y se revela justo cuando la mascota
+   empieza a desvanecerse (a partir del 82% de su animación, ≈1.07s). */
+.animar-logo-oficial {
+  animation: intro-subir 0.45s ease-out 1.05s both;
+}
+.animar-intro-titulo {
+  animation: intro-subir 0.5s ease-out 1.15s both;
+}
+.animar-intro-form {
+  animation: intro-subir 0.5s ease-out 1.3s both;
+}
+
+/* Quien pidió menos movimiento en su sistema operativo se salta la mascota
+   directamente y ve el logo oficial, título y formulario de una. */
+@media (prefers-reduced-motion: reduce) {
+  .animar-intro-mascota,
+  .animar-intro-sello {
+    animation: none;
+    opacity: 0;
+  }
+  .animar-logo-oficial,
+  .animar-intro-titulo,
+  .animar-intro-form {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
