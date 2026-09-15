@@ -389,7 +389,11 @@ async function enviarCorreoNuevaRuta(
   const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
     obtenerContacto(supabase, usuarioId),
     supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
-    supabase.from("usuarios").select("lat, lon, rol").eq("id", usuarioId).maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("lat, lon, rol, hora_limite_ingreso, horario_por_dia")
+      .eq("id", usuarioId)
+      .maybeSingle(),
     obtenerReplyTo(supabase, sesion),
   ]);
   if (!contacto?.email) return { enviado: false, motivo: "Esa persona no tiene un correo registrado." };
@@ -413,7 +417,21 @@ async function enviarCorreoNuevaRuta(
   const colabLat = colaborador?.lat === null || colaborador?.lat === undefined ? null : Number(colaborador.lat);
   const colabLon = colaborador?.lon === null || colaborador?.lon === undefined ? null : Number(colaborador.lon);
   if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
-    const ruta = await calcularRutaAuto(colabLat, colabLon, tiendaLat, tiendaLon);
+    // El tráfico se predice para la hora en que la persona debería estar
+    // saliendo de casa (su hora límite de ingreso ese día), no para el
+    // momento en que el coordinador asigna la ruta — si no, una ruta
+    // asignada de noche para mañana en la mañana saldría con el tráfico
+    // (casi nulo) de esa misma noche.
+    const diaSemanaRuta = diaSemanaPeru(fechaPlanificada);
+    const horaLimiteRuta = resolverHoraLimite(
+      colaborador?.rol ?? "supervisor",
+      colaborador?.hora_limite_ingreso,
+      colaborador?.horario_por_dia as Record<string, string> | null,
+      diaSemanaRuta
+    );
+    const horaSalida = horaLimiteRuta ? new Date(`${fechaPlanificada}T${horaLimiteRuta}-05:00`) : undefined;
+
+    const ruta = await calcularRutaAuto(colabLat, colabLon, tiendaLat, tiendaLon, horaSalida);
     if (ruta) {
       distanciaHtml = `<li><strong>Distancia desde tu domicilio:</strong> ${ruta.km} km (~${formatearMinutos(
         ruta.minutos

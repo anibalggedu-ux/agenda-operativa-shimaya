@@ -12,13 +12,20 @@ export async function calcularRutaAuto(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
+  // Hora de salida a futuro para la que se quiere predecir el tráfico (ej.
+  // la hora límite de ingreso de la persona, el día que le toca esa ruta) —
+  // sin esto, Mapbox calcula el tráfico de AHORA MISMO, que no sirve de
+  // nada si se está asignando de noche una ruta para mañana en la mañana.
+  horaSalida?: Date
 ): Promise<RutaAuto | null> {
   const token = process.env.MAPBOX_ACCESS_TOKEN;
   if (!token) return null;
 
   try {
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${lon1},${lat1};${lon2},${lat2}?overview=false&access_token=${token}`;
+    const departAt =
+      horaSalida && horaSalida.getTime() > Date.now() ? `&depart_at=${horaSalida.toISOString()}` : "";
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${lon1},${lat1};${lon2},${lat2}?overview=false&access_token=${token}${departAt}`;
     // Sin tiempo máximo de espera, un Mapbox lento o colgado bloqueaba el
     // render hasta que expiraba la función de Vercel y se caía la página
     // entera. Preferimos quedarnos sin el dato de distancia (la vista lo
