@@ -118,7 +118,7 @@ export default function CampanitaDescansos() {
                     <p className="text-marca-textofuerte text-xs font-bold">
                       {item.datos.usuarioNombre}{" "}
                       <span className="text-marca-tenue text-[10px] uppercase font-black">
-                        · {item.tipo === "descanso" ? "Descanso" : "Permiso"}
+                        · {item.tipo === "descanso" ? "Descanso" : item.datos.tipo}
                       </span>
                     </p>
                     {item.tipo === "descanso" ? (

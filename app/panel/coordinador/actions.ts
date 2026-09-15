@@ -1123,6 +1123,7 @@ export type SolicitudPermisoPendiente = {
   id: string;
   usuarioId: string;
   usuarioNombre: string;
+  tipo: string;
   fechaInicio: string;
   fechaFin: string;
   motivo: string | null;
@@ -1148,7 +1149,7 @@ export async function obtenerSolicitudesPermisoPendientes(): Promise<SolicitudPe
 
   const { data, error } = await supabase
     .from("solicitudes_permiso")
-    .select("id, usuario_id, fecha_inicio, fecha_fin, motivo, created_at, usuarios(nombre)")
+    .select("id, usuario_id, fecha_inicio, fecha_fin, motivo, tipo, created_at, usuarios(nombre)")
     .eq("estado", "pendiente")
     .order("created_at", { ascending: true });
 
@@ -1158,6 +1159,7 @@ export async function obtenerSolicitudesPermisoPendientes(): Promise<SolicitudPe
     id: s.id,
     usuarioId: s.usuario_id,
     usuarioNombre: s.usuarios?.nombre ?? "—",
+    tipo: s.tipo ?? "Permiso",
     fechaInicio: s.fecha_inicio,
     fechaFin: s.fecha_fin,
     motivo: s.motivo,
@@ -1174,7 +1176,7 @@ export async function responderSolicitudPermiso(
 
   const { data: solicitud, error: errorSolicitud } = await supabase
     .from("solicitudes_permiso")
-    .select("usuario_id, fecha_inicio, fecha_fin, motivo, estado")
+    .select("usuario_id, fecha_inicio, fecha_fin, motivo, estado, tipo")
     .eq("id", id)
     .maybeSingle();
 
@@ -1185,15 +1187,19 @@ export async function responderSolicitudPermiso(
     return { exito: false, mensaje: "Esta solicitud ya fue respondida." };
   }
 
+  const tipoSolicitud = solicitud.tipo ?? "Permiso";
+  const esVacaciones = tipoSolicitud === "Vacaciones";
+
   if (aprobar) {
     const { error: errorAsignacion } = await supabase.from("asignaciones_especiales").insert({
       usuario_id: solicitud.usuario_id,
-      tipo: "Permiso",
+      tipo: tipoSolicitud,
       fecha_inicio: solicitud.fecha_inicio,
       fecha_fin: solicitud.fecha_fin,
       motivo: solicitud.motivo,
     });
-    if (errorAsignacion) return { exito: false, mensaje: "No se pudo registrar el permiso." };
+    if (errorAsignacion)
+      return { exito: false, mensaje: `No se pudo registrar ${esVacaciones ? "las vacaciones" : "el permiso"}.` };
   }
 
   const { error } = await supabase
@@ -1211,13 +1217,14 @@ export async function responderSolicitudPermiso(
     const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
     if (!contacto?.email) return;
 
+    const etiqueta = esVacaciones ? "vacaciones" : "permiso";
     await enviarCorreo({
       para: contacto.email,
       tituloEmoji: aprobar ? "✅" : "❌",
-      asunto: aprobar ? "Tu solicitud de permiso fue aprobada" : "Tu solicitud de permiso fue rechazada",
+      asunto: aprobar ? `Tu solicitud de ${etiqueta} fue aprobada` : `Tu solicitud de ${etiqueta} fue rechazada`,
       cuerpoHtml: `
         <p>Hola ${contacto.nombre},</p>
-        <p>Tu solicitud de permiso (${formatearFechaLegible(solicitud.fecha_inicio)} → ${formatearFechaLegible(
+        <p>Tu solicitud de ${etiqueta} (${formatearFechaLegible(solicitud.fecha_inicio)} → ${formatearFechaLegible(
         solicitud.fecha_fin
       )}) fue <strong>${aprobar ? "aprobada" : "rechazada"}</strong> por ${sesion.nombre}.</p>
       `,

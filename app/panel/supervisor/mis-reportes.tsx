@@ -131,6 +131,11 @@ function FilaReporte({ reporte }: { reporte: MiReporte }) {
             <span className="text-marca-tenue font-normal text-[11px] capitalize">
               · {formatearFechaLegible(version.fecha)}
             </span>
+            {version.leido && (
+              <span className="ml-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest align-middle">
+                ✓ Leído
+              </span>
+            )}
           </p>
         </div>
         {version.puedeEditar && !editando && (

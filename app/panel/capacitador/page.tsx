@@ -33,6 +33,7 @@ export default async function PanelCapacitador() {
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
           <MiPermiso />
+          <MiPermiso tipo="Vacaciones" />
           <MisPuntosWidget />
           <RankingCapacitadores />
           <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">

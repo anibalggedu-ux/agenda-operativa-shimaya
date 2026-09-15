@@ -6,6 +6,7 @@ import {
   obtenerMisTiendasFijas,
   obtenerObservacionesTiendasFijas,
   responderObservacionTiendaFija,
+  marcarObservacionLeida,
   type TiendaFija,
   type ObservacionTiendaFija,
   type ResultadoReporte,
@@ -73,11 +74,22 @@ function ObservacionItem({
   onRespondida: () => void;
 }) {
   const [estado, formAction] = useFormState(responderObservacionTiendaFija, estadoInicial);
+  const [marcando, setMarcando] = useState(false);
+  const [errorLeido, setErrorLeido] = useState<string | null>(null);
 
   useEffect(() => {
     if (estado.exito) onRespondida();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
+
+  async function handleMarcarLeido() {
+    setMarcando(true);
+    setErrorLeido(null);
+    const resultado = await marcarObservacionLeida(obs.id);
+    setMarcando(false);
+    if (resultado.exito) onRespondida();
+    else setErrorLeido(resultado.mensaje || "No se pudo marcar como leída.");
+  }
 
   return (
     <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
@@ -110,10 +122,21 @@ function ObservacionItem({
             placeholder="Responde a este colaborador..."
             className="w-full p-2.5 bg-marca-superficie2 border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
-          <BotonResponder />
+          <div className="flex items-center gap-3">
+            <BotonResponder />
+            <button
+              type="button"
+              onClick={handleMarcarLeido}
+              disabled={marcando}
+              className="text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
+            >
+              {marcando ? "Marcando..." : "✓ Marcar como leído"}
+            </button>
+          </div>
           {estado.mensaje && !estado.exito && (
             <p className="text-marca-rojoclaro text-xs font-bold">{estado.mensaje}</p>
           )}
+          {errorLeido && <p className="text-marca-rojoclaro text-xs font-bold">{errorLeido}</p>}
         </form>
       )}
     </div>

@@ -649,6 +649,7 @@ export type MiReporte = {
   actividad: string | null;
   respuesta: string | null;
   respuestaPor: string | null;
+  leido: boolean;
   puedeEditar: boolean;
 };
 
@@ -670,7 +671,7 @@ export async function obtenerMisReportesRecientes(
   let consulta = supabase
     .from("rutas_diarias")
     .select(
-      "id, fecha, observacion, actividad, respuesta, respuesta_por, created_at, asignado_en, tiendas!tienda_id(nombre)"
+      "id, fecha, observacion, actividad, respuesta, respuesta_por, leido, created_at, asignado_en, tiendas!tienda_id(nombre)"
     )
     .eq("usuario_id", sesion.id);
 
@@ -697,6 +698,7 @@ export async function obtenerMisReportesRecientes(
     actividad: r.actividad,
     respuesta: r.respuesta,
     respuestaPor: r.respuesta_por,
+    leido: r.leido ?? false,
     // Ancla la ventana a cuando el coordinador asignó la ruta/tienda, no a
     // cuando se envió el reporte. Si no hay ese dato (reportes viejos), se
     // usa la fecha de envío como respaldo.
@@ -849,7 +851,8 @@ async function notificarCoordinadoresSolicitudPermiso(
   nombreUsuario: string,
   fechaInicio: string,
   fechaFin: string,
-  motivo: string | null
+  motivo: string | null,
+  tipo: string
 ): Promise<void> {
   try {
     const supabase = supabaseServer();
@@ -862,12 +865,15 @@ async function notificarCoordinadoresSolicitudPermiso(
     const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
     if (correos.length === 0) return;
 
+    const esVacaciones = tipo === "Vacaciones";
     await enviarCorreo({
       para: correos,
-      tituloEmoji: "📝",
-      asunto: `${nombreUsuario} solicitó un permiso`,
+      tituloEmoji: esVacaciones ? "🏖️" : "📝",
+      asunto: esVacaciones
+        ? `${nombreUsuario} solicitó vacaciones`
+        : `${nombreUsuario} solicitó un permiso`,
       cuerpoHtml: `
-        <p><strong>${nombreUsuario}</strong> pidió un permiso anticipado:</p>
+        <p><strong>${nombreUsuario}</strong> pidió ${esVacaciones ? "vacaciones planificadas" : "un permiso anticipado"}:</p>
         <ul style="padding-left:18px; margin:0 0 16px;">
           <li><strong>Fechas:</strong> ${formatearFechaLegible(fechaInicio)} → ${formatearFechaLegible(fechaFin)}</li>
           ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
@@ -878,7 +884,7 @@ async function notificarCoordinadoresSolicitudPermiso(
       `,
     });
   } catch (error) {
-    console.error("No se pudo notificar la solicitud de permiso:", error);
+    console.error("No se pudo notificar la solicitud de permiso/vacaciones:", error);
   }
 }
 
@@ -993,6 +999,8 @@ export async function solicitarCambioDescanso(
 // sin duplicar esa lógica.
 // ---------------------------------------------------------------------
 
+export type TipoSolicitudPermiso = "Permiso" | "Vacaciones";
+
 export type SolicitudPermisoPropia = {
   id: string;
   fechaInicio: string;
@@ -1001,7 +1009,9 @@ export type SolicitudPermisoPropia = {
   createdAt: string;
 };
 
-export async function obtenerMiSolicitudPermisoPendiente(): Promise<SolicitudPermisoPropia | null> {
+export async function obtenerMiSolicitudPermisoPendiente(
+  tipo: TipoSolicitudPermiso = "Permiso"
+): Promise<SolicitudPermisoPropia | null> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
@@ -1010,6 +1020,7 @@ export async function obtenerMiSolicitudPermisoPendiente(): Promise<SolicitudPer
     .from("solicitudes_permiso")
     .select("id, fecha_inicio, fecha_fin, motivo, created_at")
     .eq("usuario_id", sesion.id)
+    .eq("tipo", tipo)
     .eq("estado", "pendiente")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -1028,10 +1039,13 @@ export async function obtenerMiSolicitudPermisoPendiente(): Promise<SolicitudPer
 export async function solicitarPermiso(
   fechaInicio: string,
   fechaFin: string,
-  motivo: string
+  motivo: string,
+  tipo: TipoSolicitudPermiso = "Permiso"
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  const etiqueta = tipo === "Vacaciones" ? "vacaciones" : "permiso";
 
   if (!fechaInicio || !fechaFin) {
     return { exito: false, mensaje: "Completa la fecha de inicio y de fin." };
@@ -1045,12 +1059,15 @@ export async function solicitarPermiso(
 
   const supabase = supabaseServer();
 
-  // Igual que con el descanso: si ya hay una pendiente, se reemplaza en vez
-  // de acumular varias solicitudes del mismo colaborador.
+  // Igual que con el descanso: si ya hay una pendiente de este mismo tipo, se
+  // reemplaza en vez de acumular varias solicitudes del mismo colaborador.
+  // Un permiso pendiente y unas vacaciones pendientes pueden coexistir, por
+  // eso el filtro también va por tipo.
   const { data: pendiente } = await supabase
     .from("solicitudes_permiso")
     .select("id")
     .eq("usuario_id", sesion.id)
+    .eq("tipo", tipo)
     .eq("estado", "pendiente")
     .maybeSingle();
 
@@ -1066,9 +1083,9 @@ export async function solicitarPermiso(
         created_at: new Date().toISOString(),
       })
       .eq("id", pendiente.id);
-    if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
-    await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio);
-    return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
+    if (error) return { exito: false, mensaje: `No se pudo actualizar tu solicitud de ${etiqueta}.` };
+    await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio, tipo);
+    return { exito: true, mensaje: `Solicitud de ${etiqueta} actualizada — pendiente de aprobación del coordinador.` };
   }
 
   const { error } = await supabase.from("solicitudes_permiso").insert({
@@ -1076,10 +1093,11 @@ export async function solicitarPermiso(
     fecha_inicio: fechaInicio,
     fecha_fin: fechaFin,
     motivo: motivoLimpio,
+    tipo,
   });
-  if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
-  await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio);
-  return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
+  if (error) return { exito: false, mensaje: `No se pudo enviar la solicitud de ${etiqueta}.` };
+  await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio, tipo);
+  return { exito: true, mensaje: `Solicitud de ${etiqueta} enviada — queda pendiente de aprobación del coordinador.` };
 }
 
 // ---------- Tiendas fijas y sus observaciones ----------
@@ -1142,6 +1160,7 @@ export async function obtenerObservacionesTiendasFijas(
     )
     .in("tienda_id", tiendaIds)
     .neq("usuario_id", sesion.id)
+    .or("leido.is.null,leido.eq.false")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false })
@@ -1213,6 +1232,41 @@ export async function responderObservacionTiendaFija(
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
   return { exito: true, mensaje: "Respuesta enviada." };
+}
+
+// Marca la observación como leída sin necesidad de escribir una respuesta —
+// para cuando no hace falta contestar nada, solo confirmar que se vio. Quien
+// la escribió ve igual que ya se leyó (ver MiReporte.leido en "Mis Reportes").
+export async function marcarObservacionLeida(reporteId: string): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  const supabase = supabaseServer();
+
+  const { data: reporte, error: errorReporte } = await supabase
+    .from("rutas_diarias")
+    .select("tienda_id")
+    .eq("id", reporteId)
+    .maybeSingle();
+
+  if (errorReporte || !reporte) {
+    return { exito: false, mensaje: "No se encontró el reporte." };
+  }
+
+  const { data: fija } = await supabase
+    .from("tiendas_permanentes")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("tienda_id", reporte.tienda_id)
+    .maybeSingle();
+
+  if (!fija) {
+    return { exito: false, mensaje: "Solo puedes marcar como leídas observaciones de tus tiendas fijas." };
+  }
+
+  const { error } = await supabase.from("rutas_diarias").update({ leido: true }).eq("id", reporteId);
+  if (error) return { exito: false, mensaje: "No se pudo marcar como leída." };
+  return { exito: true };
 }
 
 // ---------- Historial de marcaciones GPS propias ----------

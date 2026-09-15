@@ -42,6 +42,7 @@ export default async function PanelSupervisor() {
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MiDescanso />
           <MiPermiso />
+          <MiPermiso tipo="Vacaciones" />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>

@@ -600,6 +600,7 @@ export type Database = {
           motivo: string | null
           respondido_en: string | null
           respondido_por: string | null
+          tipo: string
           usuario_id: string
         }
         Insert: {
@@ -611,6 +612,7 @@ export type Database = {
           motivo?: string | null
           respondido_en?: string | null
           respondido_por?: string | null
+          tipo?: string
           usuario_id: string
         }
         Update: {
@@ -622,6 +624,7 @@ export type Database = {
           motivo?: string | null
           respondido_en?: string | null
           respondido_por?: string | null
+          tipo?: string
           usuario_id?: string
         }
         Relationships: [

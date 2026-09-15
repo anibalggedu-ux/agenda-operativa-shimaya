@@ -5,10 +5,12 @@ import {
   obtenerMiSolicitudPermisoPendiente,
   solicitarPermiso,
   type SolicitudPermisoPropia,
+  type TipoSolicitudPermiso,
 } from "./actions";
 import { hoyPeru, formatearFechaLegible } from "@/lib/fechas";
 
-export default function MiPermiso() {
+export default function MiPermiso({ tipo = "Permiso" }: { tipo?: TipoSolicitudPermiso }) {
+  const esVacaciones = tipo === "Vacaciones";
   const [fechaInicio, setFechaInicio] = useState(hoyPeru());
   const [fechaFin, setFechaFin] = useState(hoyPeru());
   const [motivo, setMotivo] = useState("");
@@ -19,7 +21,7 @@ export default function MiPermiso() {
 
   function cargar() {
     setCargando(true);
-    obtenerMiSolicitudPermisoPendiente()
+    obtenerMiSolicitudPermisoPendiente(tipo)
       .then(setPendiente)
       .finally(() => setCargando(false));
   }
@@ -29,7 +31,7 @@ export default function MiPermiso() {
   async function enviar() {
     setEnviando(true);
     setMensaje(null);
-    const resultado = await solicitarPermiso(fechaInicio, fechaFin, motivo);
+    const resultado = await solicitarPermiso(fechaInicio, fechaFin, motivo, tipo);
     setEnviando(false);
     setMensaje({ texto: resultado.mensaje || (resultado.exito ? "Enviado." : "No se pudo enviar."), exito: resultado.exito });
     if (resultado.exito) {
@@ -44,10 +46,13 @@ export default function MiPermiso() {
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">📝 SOLICITAR PERMISO ANTICIPADO</h3>
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
+        {esVacaciones ? "🏖️ SOLICITAR VACACIONES PLANIFICADAS" : "📝 SOLICITAR PERMISO ANTICIPADO"}
+      </h3>
       <p className="text-marca-tenue text-[11px]">
-        Pide un permiso con anticipación indicando las fechas — el coordinador debe aprobarlo antes de
-        que quede activo.
+        {esVacaciones
+          ? "Pide tus vacaciones con anticipación indicando las fechas — el coordinador debe aprobarlas antes de que queden activas."
+          : "Pide un permiso con anticipación indicando las fechas — el coordinador debe aprobarlo antes de que quede activo."}
       </p>
 
       {pendiente && (
@@ -104,7 +109,7 @@ export default function MiPermiso() {
         disabled={enviando}
         className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
       >
-        {enviando ? "Enviando..." : "Solicitar permiso"}
+        {enviando ? "Enviando..." : esVacaciones ? "Solicitar vacaciones" : "Solicitar permiso"}
       </button>
 
       {mensaje && (
