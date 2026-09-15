@@ -63,6 +63,7 @@ export async function crearUsuario(
   const diaDescanso = String(formData.get("diaDescanso") || "").trim();
   const direccion = String(formData.get("direccion") || "").trim();
   const horaLimiteIngreso = String(formData.get("horaLimiteIngreso") || "").trim();
+  const horarioPorDiaRaw = String(formData.get("horarioPorDia") || "").trim();
 
   if (!nombre || !rol || !credencial) {
     return { exito: false, mensaje: "Completa nombre, rol y credencial." };
@@ -72,6 +73,19 @@ export async function crearUsuario(
   }
   if (diaDescanso && !(DIAS_SEMANA as readonly string[]).includes(diaDescanso)) {
     return { exito: false, mensaje: "Día de descanso inválido." };
+  }
+
+  let horarioPorDia: Record<string, string> | null = null;
+  if (horarioPorDiaRaw) {
+    try {
+      const parseado = JSON.parse(horarioPorDiaRaw);
+      if (parseado && typeof parseado === "object" && Object.keys(parseado).length > 0) {
+        horarioPorDia = parseado;
+      }
+    } catch {
+      // Si por algún motivo el JSON viene corrupto, se ignora el horario
+      // mixto en vez de bloquear el registro del usuario.
+    }
   }
 
   const supabase = supabaseServer();
@@ -122,6 +136,7 @@ export async function crearUsuario(
     lat: ubicacion?.lat ?? null,
     lon: ubicacion?.lon ?? null,
     hora_limite_ingreso: horaLimiteIngreso ? `${horaLimiteIngreso}:00` : null,
+    horario_por_dia: horarioPorDia,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo registrar el usuario." };

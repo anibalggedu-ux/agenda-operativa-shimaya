@@ -45,9 +45,26 @@ function BotonRegistrar() {
 function FormularioNuevoUsuario() {
   const [estado, formAction] = useFormState(crearUsuario, estadoInicial);
   const formRef = useRef<HTMLFormElement>(null);
+  const [diaDescanso, setDiaDescanso] = useState("");
+  const [horarioMixtoAbierto, setHorarioMixtoAbierto] = useState(false);
+  const [valoresMixto, setValoresMixto] = useState<Record<string, string>>({});
+
+  const diasTrabaja = DIAS_SEMANA.filter((d) => d !== diaDescanso);
+  const horarioPorDiaJson = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(valoresMixto)
+        .filter(([dia, hora]) => diasTrabaja.includes(dia) && hora.trim())
+        .map(([dia, hora]) => [dia, `${hora}:00`])
+    )
+  );
 
   useEffect(() => {
-    if (estado.exito) formRef.current?.reset();
+    if (estado.exito) {
+      formRef.current?.reset();
+      setDiaDescanso("");
+      setHorarioMixtoAbierto(false);
+      setValoresMixto({});
+    }
   }, [estado]);
 
   return (
@@ -139,7 +156,8 @@ function FormularioNuevoUsuario() {
           </label>
           <select
             name="diaDescanso"
-            defaultValue=""
+            value={diaDescanso}
+            onChange={(e) => setDiaDescanso(e.target.value)}
             className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           >
             <option value="">Sin asignar</option>
@@ -163,8 +181,43 @@ function FormularioNuevoUsuario() {
         />
         <p className="text-marca-tenue text-[10px] mt-1">
           Solo si tiene un turno diferido del resto de su rol (no aplica a gerente). Déjalo vacío para usar el
-          horario por defecto — se puede ajustar después en Horario de ingreso personalizado.
+          horario por defecto.
         </p>
+
+        <button
+          type="button"
+          onClick={() => setHorarioMixtoAbierto((v) => !v)}
+          className="mt-2 text-marca-tenue hover:text-marca-texto text-[10px] font-black uppercase tracking-widest transition"
+        >
+          {horarioMixtoAbierto ? "▲ Ocultar horario mixto por día" : "▼ 🔀 ¿Horario mixto por día?"}
+        </button>
+
+        {horarioMixtoAbierto && (
+          <div className="border-t border-marca-borde mt-2 pt-3 space-y-2">
+            <p className="text-marca-tenue text-[10px]">
+              Si entra a horas distintas según el día, ponlas aquí — esto manda sobre la hora límite de arriba,
+              día por día. Deja un día vacío para que use esa hora límite (o la de su rol) ese día.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {diasTrabaja.map((dia) => (
+                <div key={dia}>
+                  <label className="block text-marca-tenue text-[9px] uppercase font-bold mb-0.5">
+                    {dia}
+                  </label>
+                  <input
+                    type="time"
+                    value={valoresMixto[dia] ?? ""}
+                    onChange={(e) =>
+                      setValoresMixto((prev) => ({ ...prev, [dia]: e.target.value }))
+                    }
+                    className="w-full p-2 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <input type="hidden" name="horarioPorDia" value={horarioPorDiaJson} />
       </div>
 
       <div>
