@@ -26,15 +26,18 @@ async function exigirAccesoRegistro() {
 async function registrarCambio(
   sesion: { id: string; nombre: string },
   accion: string,
-  detalle?: string
+  detalle?: string,
+  motivo?: string
 ): Promise<void> {
   try {
     const supabase = supabaseServer();
+    const motivoLimpio = motivo?.trim();
+    const detalleFinal = motivoLimpio ? `${detalle ?? ""} · Motivo: ${motivoLimpio}` : detalle ?? null;
     await supabase.from("auditoria_cambios").insert({
       usuario_id: sesion.id,
       usuario_nombre: sesion.nombre,
       accion,
-      detalle: detalle ?? null,
+      detalle: detalleFinal,
     });
   } catch (error) {
     console.error("No se pudo registrar el cambio en la bitácora de auditoría:", error);
@@ -281,7 +284,8 @@ export async function obtenerAsistenciaParaCorregir(
 export async function actualizarAsistencia(
   id: string,
   horaIngreso: string | null,
-  horaSalida: string | null
+  horaSalida: string | null,
+  motivo?: string
 ): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
@@ -303,13 +307,14 @@ export async function actualizarAsistencia(
   await registrarCambio(
     sesion,
     "Corrigió una marcación de asistencia",
-    `${nombre} — ${antes?.fecha ?? "?"}: ingreso ${antes?.hora_ingreso ?? "—"} → ${horaIngreso ?? "—"}, salida ${antes?.hora_salida ?? "—"} → ${horaSalida ?? "—"}`
+    `${nombre} — ${antes?.fecha ?? "?"}: ingreso ${antes?.hora_ingreso ?? "—"} → ${horaIngreso ?? "—"}, salida ${antes?.hora_salida ?? "—"} → ${horaSalida ?? "—"}`,
+    motivo
   );
 
   return { exito: true };
 }
 
-export async function eliminarAsistencia(id: string): Promise<ResultadoRegistro> {
+export async function eliminarAsistencia(id: string, motivo?: string): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
 
@@ -326,7 +331,8 @@ export async function eliminarAsistencia(id: string): Promise<ResultadoRegistro>
   await registrarCambio(
     sesion,
     "Eliminó una marcación de asistencia",
-    `${nombre} — ${antes?.fecha ?? "?"} (ingreso ${antes?.hora_ingreso ?? "—"}, salida ${antes?.hora_salida ?? "—"})`
+    `${nombre} — ${antes?.fecha ?? "?"} (ingreso ${antes?.hora_ingreso ?? "—"}, salida ${antes?.hora_salida ?? "—"})`,
+    motivo
   );
 
   return { exito: true };
@@ -364,7 +370,10 @@ export async function obtenerAsignacionesEspecialesParaCorregir(): Promise<
   }));
 }
 
-export async function eliminarAsignacionEspecialRegistro(id: string): Promise<ResultadoRegistro> {
+export async function eliminarAsignacionEspecialRegistro(
+  id: string,
+  motivo?: string
+): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
 
@@ -381,7 +390,8 @@ export async function eliminarAsignacionEspecialRegistro(id: string): Promise<Re
   await registrarCambio(
     sesion,
     "Eliminó una asignación especial",
-    `${antes?.tipo ?? "?"} de ${nombre} (${antes?.fecha_inicio ?? "?"} → ${antes?.fecha_fin ?? "?"})`
+    `${antes?.tipo ?? "?"} de ${nombre} (${antes?.fecha_inicio ?? "?"} → ${antes?.fecha_fin ?? "?"})`,
+    motivo
   );
 
   return { exito: true };
@@ -408,7 +418,7 @@ export async function obtenerComunicadosParaCorregir(): Promise<ComunicadoCorreg
   return data ?? [];
 }
 
-export async function eliminarComunicado(id: string): Promise<ResultadoRegistro> {
+export async function eliminarComunicado(id: string, motivo?: string): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
 
@@ -424,7 +434,8 @@ export async function eliminarComunicado(id: string): Promise<ResultadoRegistro>
   await registrarCambio(
     sesion,
     "Eliminó un comunicado",
-    `${antes?.tipo ?? "?"} (${antes?.fecha ?? "?"}): ${(antes?.mensaje ?? "").slice(0, 80)}`
+    `${antes?.tipo ?? "?"} (${antes?.fecha ?? "?"}): ${(antes?.mensaje ?? "").slice(0, 80)}`,
+    motivo
   );
 
   return { exito: true };
@@ -468,7 +479,8 @@ export async function obtenerReportesParaCorregir(
 export async function actualizarReporteRegistro(
   id: string,
   observacion: string,
-  actividad: string
+  actividad: string,
+  motivo?: string
 ): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   if (!observacion.trim()) {
@@ -495,13 +507,14 @@ export async function actualizarReporteRegistro(
   await registrarCambio(
     sesion,
     "Corrigió un reporte de bitácora",
-    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`
+    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`,
+    motivo
   );
 
   return { exito: true };
 }
 
-export async function eliminarReporteRegistro(id: string): Promise<ResultadoRegistro> {
+export async function eliminarReporteRegistro(id: string, motivo?: string): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();
 
@@ -519,7 +532,8 @@ export async function eliminarReporteRegistro(id: string): Promise<ResultadoRegi
   await registrarCambio(
     sesion,
     "Eliminó un reporte de bitácora",
-    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`
+    `${nombre} — ${tienda} (${antes?.fecha ?? "?"})`,
+    motivo
   );
 
   return { exito: true };

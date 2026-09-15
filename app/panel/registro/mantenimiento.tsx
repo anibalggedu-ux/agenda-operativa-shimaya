@@ -64,6 +64,7 @@ function SeccionAsistencia() {
   const [hasta, setHasta] = useState(hoyPeru());
   const [registros, setRegistros] = useState<AsistenciaCorregible[]>([]);
   const [ediciones, setEdiciones] = useState<Record<string, { ingreso: string; salida: string }>>({});
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
@@ -107,7 +108,8 @@ function SeccionAsistencia() {
     const resultado = await actualizarAsistencia(
       id,
       edicion?.ingreso ? `${edicion.ingreso}:00` : null,
-      edicion?.salida ? `${edicion.salida}:00` : null
+      edicion?.salida ? `${edicion.salida}:00` : null,
+      motivos[id]
     );
     setGuardandoId(null);
     if (resultado.exito) cargar();
@@ -123,7 +125,7 @@ function SeccionAsistencia() {
       return;
     setEliminandoId(id);
     setError(null);
-    const resultado = await eliminarAsistencia(id);
+    const resultado = await eliminarAsistencia(id, motivos[id]);
     setEliminandoId(null);
     if (resultado.exito) cargar();
     else setError(resultado.mensaje || "No se pudo eliminar.");
@@ -218,6 +220,18 @@ function SeccionAsistencia() {
                   className={clasesInputChico}
                 />
               </div>
+              <div className="min-w-[160px] flex-1">
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Motivo (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={motivos[r.id] ?? ""}
+                  onChange={(e) => setMotivos((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                  placeholder="Ej. Olvidó marcar, se corrige con su hora real"
+                  className={clasesInputChico + " w-full"}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => handleGuardar(r.id)}
@@ -247,6 +261,7 @@ function SeccionReportes() {
   const [ediciones, setEdiciones] = useState<Record<string, { observacion: string; actividad: string }>>(
     {}
   );
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
@@ -287,7 +302,8 @@ function SeccionReportes() {
     const resultado = await actualizarReporteRegistro(
       id,
       edicion?.observacion ?? "",
-      edicion?.actividad ?? ""
+      edicion?.actividad ?? "",
+      motivos[id]
     );
     setGuardandoId(null);
     if (resultado.exito) cargar();
@@ -303,7 +319,7 @@ function SeccionReportes() {
       return;
     setEliminandoId(id);
     setError(null);
-    const resultado = await eliminarReporteRegistro(id);
+    const resultado = await eliminarReporteRegistro(id, motivos[id]);
     setEliminandoId(null);
     if (resultado.exito) cargar();
     else setError(resultado.mensaje || "No se pudo eliminar.");
@@ -402,6 +418,12 @@ function SeccionReportes() {
                 className={clasesInput}
                 placeholder="Actividad (opcional)"
               />
+              <input
+                value={motivos[r.id] ?? ""}
+                onChange={(e) => setMotivos((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                className={clasesInput}
+                placeholder="Motivo del cambio (opcional)"
+              />
             </div>
           ))}
         </div>
@@ -428,9 +450,10 @@ function SeccionAsignacionesEspeciales() {
 
   async function handleEliminar(id: string, etiqueta: string) {
     if (!window.confirm(`¿Eliminar "${etiqueta}"? No se puede deshacer.`)) return;
+    const motivo = window.prompt("Motivo (opcional):") ?? undefined;
     setEliminandoId(id);
     setError(null);
-    const resultado = await eliminarAsignacionEspecialRegistro(id);
+    const resultado = await eliminarAsignacionEspecialRegistro(id, motivo);
     setEliminandoId(null);
     if (resultado.exito) cargar();
     else setError(resultado.mensaje || "No se pudo eliminar.");
@@ -493,9 +516,10 @@ function SeccionComunicados() {
 
   async function handleEliminar(id: string, tipo: string) {
     if (!window.confirm(`¿Eliminar el comunicado "${tipo}"? No se puede deshacer.`)) return;
+    const motivo = window.prompt("Motivo (opcional):") ?? undefined;
     setEliminandoId(id);
     setError(null);
-    const resultado = await eliminarComunicado(id);
+    const resultado = await eliminarComunicado(id, motivo);
     setEliminandoId(null);
     if (resultado.exito) cargar();
     else setError(resultado.mensaje || "No se pudo eliminar.");
