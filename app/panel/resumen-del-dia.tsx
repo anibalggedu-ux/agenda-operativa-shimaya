@@ -264,8 +264,8 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
             <Tarjeta
               icono="📍"
               etiqueta="Tiendas de hoy"
-              valor={`${operativo.visitasHoy}/${operativo.totalTiendas}`}
-              extra="con ruta asignada hoy (reportada o no)"
+              valor={`${operativo.reportadasHoy} / ${operativo.visitasHoy}`}
+              extra={`reportadas / asignadas hoy (de ${operativo.totalTiendas})`}
               expandible={operativo.tiendasDeHoyDetalle.length > 0}
               abierta={cuadroAbierto === "tiendasHoy"}
               onClick={() => alternarCuadro("tiendasHoy")}

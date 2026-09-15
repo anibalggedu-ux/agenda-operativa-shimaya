@@ -32,8 +32,14 @@ export type AsignacionEspecialVigente = {
 
 export type DashboardGerente = {
   kpis: {
+    // Tiendas que ya enviaron su reporte hoy, y por separado las que tienen
+    // ruta asignada hoy (se haya reportado o no) -- antes "tiendas
+    // visitadas" contaba filas de rutas_diarias en vez de tiendas distintas
+    // (una tienda con dos reportes el mismo día se contaba doble), y no
+    // había forma de ver cuántas estaban asignadas sin mezclarlo con lo ya
+    // reportado.
     tiendasVisitadasHoy: number;
-    reportesPendientesHoy: number;
+    tiendasAsignadasHoy: number;
     reportesAtrasados: number;
     personalEnCampoHoy: number;
   };
@@ -55,10 +61,10 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
     asignacionesEspeciales,
     enCampoHoy,
   ] = await Promise.all([
-    supabase.from("rutas_diarias").select("id", { count: "exact", head: true }).eq("fecha", hoy),
+    supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
     supabase
       .from("rutas_activas")
-      .select("id, fecha_planificada, usuarios(nombre), tiendas!tienda_id(nombre)")
+      .select("id, tienda_id, fecha_planificada, usuarios(nombre), tiendas!tienda_id(nombre)")
       .order("fecha_planificada", { ascending: true }),
     supabase.from("usuarios").select("nombre, rol").contains("dias_descanso", [diaSemana]),
     supabase
@@ -74,7 +80,7 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
       .is("hora_salida", null),
   ]);
 
-  if (rutasActivas.error || usuariosDescanso.error || asignacionesEspeciales.error) {
+  if (visitasHoy.error || rutasActivas.error || usuariosDescanso.error || asignacionesEspeciales.error) {
     throw new Error("No se pudo cargar el dashboard.");
   }
 
@@ -82,10 +88,15 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
   const pendientesHoy = activas.filter((r) => r.fecha_planificada === hoy);
   const atrasadas = activas.filter((r) => r.fecha_planificada < hoy);
 
+  // Tiendas distintas, no filas: si una tienda recibió dos reportes hoy (o
+  // fue asignada dos veces, ej. a dos personas), sigue contando una sola vez.
+  const tiendasReportadasHoy = new Set((visitasHoy.data ?? []).map((r: any) => r.tienda_id));
+  const tiendasAsignadasHoy = new Set(pendientesHoy.map((r: any) => r.tienda_id));
+
   return {
     kpis: {
-      tiendasVisitadasHoy: visitasHoy.count ?? 0,
-      reportesPendientesHoy: pendientesHoy.length,
+      tiendasVisitadasHoy: tiendasReportadasHoy.size,
+      tiendasAsignadasHoy: tiendasAsignadasHoy.size,
       reportesAtrasados: atrasadas.length,
       personalEnCampoHoy: enCampoHoy.count ?? 0,
     },

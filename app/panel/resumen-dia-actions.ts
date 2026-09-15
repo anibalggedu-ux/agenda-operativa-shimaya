@@ -237,6 +237,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
 export type ResumenOperativo = {
   tiendasCriticas: { nombre: string; porcentaje: number }[];
   visitasHoy: number;
+  reportadasHoy: number;
   totalTiendas: number;
   tiendasDeHoyDetalle: { tiendaNombre: string; reportada: boolean }[];
   asignacionEspecialHoy: { nombre: string; tipo: string } | null;
@@ -391,6 +392,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   return {
     tiendasCriticas,
     visitasHoy,
+    reportadasHoy: reportadasHoySet.size,
     totalTiendas,
     tiendasDeHoyDetalle,
     asignacionEspecialHoy,

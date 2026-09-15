@@ -51,13 +51,13 @@ export default function Dashboard() {
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <TarjetaKpi
-            etiqueta="Tiendas visitadas"
+            etiqueta="Tiendas reportadas"
             valor={datos.kpis.tiendasVisitadasHoy}
             color="text-emerald-500"
           />
           <TarjetaKpi
-            etiqueta="Reportes pendientes"
-            valor={datos.kpis.reportesPendientesHoy}
+            etiqueta="Tiendas asignadas"
+            valor={datos.kpis.tiendasAsignadasHoy}
             color="text-amber-400"
           />
           <TarjetaKpi
