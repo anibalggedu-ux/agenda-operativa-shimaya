@@ -58,6 +58,8 @@ export async function crearUsuario(
   const rol = String(formData.get("rol") || "");
   const credencial = String(formData.get("credencial") || "");
   const diaDescanso = String(formData.get("diaDescanso") || "").trim();
+  const direccion = String(formData.get("direccion") || "").trim();
+  const horaLimiteIngreso = String(formData.get("horaLimiteIngreso") || "").trim();
 
   if (!nombre || !rol || !credencial) {
     return { exito: false, mensaje: "Completa nombre, rol y credencial." };
@@ -97,6 +99,14 @@ export async function crearUsuario(
     return { exito: false, mensaje: "Esa credencial ya está en uso por otro usuario. Elige una distinta." };
   }
 
+  let ubicacion: { direccion: string; lat: number; lon: number } | null = null;
+  if (direccion) {
+    const resultado = await geocodificarDireccion(direccion);
+    if (resultado) {
+      ubicacion = { direccion, lat: resultado.lat, lon: resultado.lon };
+    }
+  }
+
   const { error } = await supabase.from("usuarios").insert({
     nombre,
     email: email || null,
@@ -105,11 +115,22 @@ export async function crearUsuario(
     rol,
     clave_hash: claveHash,
     dias_descanso: diaDescanso ? [diaDescanso] : null,
+    direccion: ubicacion?.direccion ?? (direccion || null),
+    lat: ubicacion?.lat ?? null,
+    lon: ubicacion?.lon ?? null,
+    hora_limite_ingreso: horaLimiteIngreso ? `${horaLimiteIngreso}:00` : null,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo registrar el usuario." };
 
   await registrarCambio(sesion, "Registró un nuevo usuario", `${nombre} — rol ${rol}`);
+
+  if (direccion && !ubicacion) {
+    return {
+      exito: true,
+      mensaje: `${nombre} fue registrado(a) correctamente como ${rol}, pero no se encontró la dirección — complétala luego en Dirección de colaboradores.`,
+    };
+  }
 
   return { exito: true, mensaje: `${nombre} fue registrado(a) correctamente como ${rol}.` };
 }

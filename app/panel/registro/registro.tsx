@@ -76,6 +76,21 @@ function FormularioNuevoUsuario() {
         />
       </div>
 
+      <div>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+          Dirección de domicilio (opcional)
+        </label>
+        <input
+          type="text"
+          name="direccion"
+          className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+          placeholder="Ej. Jr. Las Camelias 320, Los Olivos"
+        />
+        <p className="text-marca-tenue text-[10px] mt-1">
+          Se busca y guarda automáticamente. Si no aparece la haces luego en Dirección de colaboradores.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
@@ -135,6 +150,21 @@ function FormularioNuevoUsuario() {
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+          Hora límite de ingreso personalizada (opcional)
+        </label>
+        <input
+          type="time"
+          name="horaLimiteIngreso"
+          className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+        />
+        <p className="text-marca-tenue text-[10px] mt-1">
+          Solo si tiene un turno diferido del resto de su rol (no aplica a gerente). Déjalo vacío para usar el
+          horario por defecto — se puede ajustar después en Horario de ingreso personalizado.
+        </p>
       </div>
 
       <div>
