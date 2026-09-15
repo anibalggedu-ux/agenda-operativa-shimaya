@@ -54,7 +54,6 @@ export default async function PanelSupervisor() {
           <TiendasFijas />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
-          <HistorialPdf supervisorNombre={sesion.nombre} />
         </div>
       ),
     },
@@ -62,7 +61,12 @@ export default async function PanelSupervisor() {
       id: "reportes",
       etiqueta: "Mis Reportes",
       icono: "📝",
-      contenido: <MisReportes />,
+      contenido: (
+        <div className="space-y-6">
+          <MisReportes />
+          <HistorialPdf supervisorNombre={sesion.nombre} />
+        </div>
+      ),
     },
     {
       id: "analitica",

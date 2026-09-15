@@ -54,7 +54,6 @@ export default async function PanelCapacitador() {
         <div className="space-y-6">
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
-          <HistorialPdf supervisorNombre={sesion.nombre} />
         </div>
       ),
     },
@@ -62,7 +61,12 @@ export default async function PanelCapacitador() {
       id: "reportes",
       etiqueta: "Mis Reportes",
       icono: "📝",
-      contenido: <MisReportes />,
+      contenido: (
+        <div className="space-y-6">
+          <MisReportes />
+          <HistorialPdf supervisorNombre={sesion.nombre} />
+        </div>
+      ),
     },
     {
       id: "calendario",
