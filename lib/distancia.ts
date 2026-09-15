@@ -23,8 +23,12 @@ export async function calcularRutaAuto(
   if (!token) return null;
 
   try {
+    // Mapbox rechaza el "YYYY-MM-DDThh:mm:ss.sssZ" que da toISOString() por
+    // los milisegundos -- solo acepta hasta los segundos.
     const departAt =
-      horaSalida && horaSalida.getTime() > Date.now() ? `&depart_at=${horaSalida.toISOString()}` : "";
+      horaSalida && horaSalida.getTime() > Date.now()
+        ? `&depart_at=${horaSalida.toISOString().replace(/\.\d{3}Z$/, "Z")}`
+        : "";
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${lon1},${lat1};${lon2},${lat2}?overview=false&access_token=${token}${departAt}`;
     // Sin tiempo máximo de espera, un Mapbox lento o colgado bloqueaba el
     // render hasta que expiraba la función de Vercel y se caía la página
