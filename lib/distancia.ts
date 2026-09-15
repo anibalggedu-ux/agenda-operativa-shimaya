@@ -6,6 +6,15 @@
 
 export type RutaAuto = { km: number; minutos: number };
 
+// OSRM calcula la duración asumiendo vía libre según el tipo de calle, sin
+// datos de tráfico real — en Lima eso deja el tiempo muy por debajo de la
+// realidad (caso real reportado: 6 km que OSRM daba en 9 min tomaban 25-30
+// min manejando de verdad). Este factor corrige esa subestimación; es una
+// aproximación pareja para toda la ciudad, no un cálculo de tráfico en vivo,
+// así que puede ajustarse si con más casos reales sigue quedando corto o
+// largo.
+const FACTOR_TRAFICO_LIMA = 2.2;
+
 export async function calcularRutaAuto(
   lat1: number,
   lon1: number,
@@ -28,7 +37,7 @@ export async function calcularRutaAuto(
     if (!ruta || typeof ruta.distance !== "number" || typeof ruta.duration !== "number") return null;
     return {
       km: Math.round((ruta.distance / 1000) * 10) / 10,
-      minutos: Math.round(ruta.duration / 60),
+      minutos: Math.round((ruta.duration / 60) * FACTOR_TRAFICO_LIMA),
     };
   } catch {
     return null;
