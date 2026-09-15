@@ -453,12 +453,12 @@ async function enviarCorreoNuevaRuta(
 
   return resultado.exito
     ? { enviado: true }
-    : { enviado: false, motivo: "Gmail rechazó el envío — revisa Historial de cambios en Registro." };
+    : { enviado: false, motivo: "El envío falló — revisa Historial de cambios en Registro." };
 }
 
 // Reenvía el correo de "Nueva ruta asignada" sin volver a crear la
 // asignación — para cuando a alguien no le llegó (buzón lleno, filtro de
-// spam, límite diario de Gmail, etc.) y no hace falta reasignarle la ruta.
+// spam, etc.) y no hace falta reasignarle la ruta.
 export async function reenviarCorreoRuta(rutaActivaId: string): Promise<ResultadoAccion> {
   const sesion = await exigirCoordinador();
   const supabase = supabaseServer();
