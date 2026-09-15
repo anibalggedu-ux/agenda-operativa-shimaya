@@ -234,6 +234,81 @@ function dibujarResumenDesempeno(
   return y;
 }
 
+export type MarcacionParaPdf = {
+  fecha: string;
+  horaIngreso: string | null;
+  horaSalida: string | null;
+  tarde: boolean;
+};
+
+// Dibuja la lista de marcaciones de entrada/salida, resaltando en rojo el
+// día si llegó tarde -- usado tanto en el propio historial (self-service)
+// como en el historial de un colaborador visto por el coordinador. Cada uno
+// mantiene su propio título y espaciado de cierre, que ya eran ligeramente
+// distintos antes de compartir esta función.
+function dibujarMarcaciones(
+  doc: jsPDF,
+  y: number,
+  titulo: string,
+  marcaciones: MarcacionParaPdf[],
+  margenVacio: number,
+  margenFinal: number
+): number {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(titulo, 14, y);
+  y += 7;
+
+  if (marcaciones.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Sin marcaciones en este rango.", 14, y);
+    return y + margenVacio;
+  }
+
+  marcaciones.forEach((m) => {
+    if (y + 6 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    if (m.tarde) doc.setTextColor(...ROJO_TARDANZA);
+    const texto =
+      formatearFechaLegible(m.fecha) +
+      " — Ingreso: " +
+      (m.horaIngreso ? formatearHora(m.horaIngreso) : "—") +
+      (m.tarde ? " (TARDE)" : "") +
+      "  ·  Salida: " +
+      (m.horaSalida ? formatearHora(m.horaSalida) : "—");
+    doc.text(texto, 14, y);
+    doc.setTextColor(0, 0, 0);
+    y += 5.5;
+  });
+
+  return y + margenFinal;
+}
+
+// Dibuja el bloque "Descansó estos días en el rango" a partir de una lista
+// de fechas ya calculada -- generarPdfHistorial la calcula inline (a partir
+// de desde/hasta) y generarPdfHistorialPersona la recibe ya calculada desde
+// la acción que junta los datos, pero el dibujo es el mismo en ambos casos.
+function dibujarDiasDescansoEnRango(doc: jsPDF, y: number, fechasDescanso: string[]): number {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Descansó estos días en el rango:", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const textoFechas =
+    fechasDescanso.length === 0
+      ? "Ninguno dentro de este rango."
+      : fechasDescanso.map((f) => formatearFechaLegible(f)).join("  ·  ");
+  const lineasFechas = doc.splitTextToSize(textoFechas, ANCHO_UTIL);
+  doc.text(lineasFechas, 14, y);
+  return y + lineasFechas.length * 5 + 4;
+}
+
 // Versión ya recortada en círculo del logo (PNG con transparencia real en
 // las esquinas) — el recorte por software dentro del PDF con doc.clip() no
 // se veía confiable entre visores de PDF, así que se usa un archivo aparte
@@ -443,20 +518,7 @@ export async function generarPdfHistorial(
       if (diasDescanso.includes(diaSemanaPeru(cursor))) fechasDescanso.push(cursor);
       cursor = sumarDias(cursor, 1);
     }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Descansó estos días en el rango:", 14, y);
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    const textoFechas =
-      fechasDescanso.length === 0
-        ? "Ninguno dentro de este rango."
-        : fechasDescanso.map((f) => formatearFechaLegible(f)).join("  ·  ");
-    const lineasFechas = doc.splitTextToSize(textoFechas, ANCHO_UTIL);
-    doc.text(lineasFechas, 14, y);
-    y += lineasFechas.length * 5 + 4;
+    y = dibujarDiasDescansoEnRango(doc, y, fechasDescanso);
   }
   y += 4;
 
@@ -498,38 +560,7 @@ export async function generarPdfHistorial(
     y += 6;
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("Asistencia y marcaciones:", 14, y);
-  y += 7;
-
-  if (marcaciones.length === 0) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.text("Sin marcaciones en este rango.", 14, y);
-    y += 8;
-  } else {
-    marcaciones.forEach((m) => {
-      if (y + 6 > ALTO_PAGINA) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      if (m.tarde) doc.setTextColor(...ROJO_TARDANZA);
-      const texto =
-        formatearFechaLegible(m.fecha) +
-        " — Ingreso: " +
-        (m.horaIngreso ? formatearHora(m.horaIngreso) : "—") +
-        (m.tarde ? " (TARDE)" : "") +
-        "  ·  Salida: " +
-        (m.horaSalida ? formatearHora(m.horaSalida) : "—");
-      doc.text(texto, 14, y);
-      doc.setTextColor(0, 0, 0);
-      y += 5.5;
-    });
-    y += 6;
-  }
+  y = dibujarMarcaciones(doc, y, "Asistencia y marcaciones:", marcaciones, 8, 6);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -740,19 +771,7 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
     y
   );
   if (datos.diasDescanso.length > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Descansó estos días en el rango:", 14, y);
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    const textoFechas =
-      datos.fechasDescansoEnRango.length === 0
-        ? "Ninguno dentro de este rango."
-        : datos.fechasDescansoEnRango.map((f) => formatearFechaLegible(f)).join("  ·  ");
-    const lineasFechas = doc.splitTextToSize(textoFechas, ANCHO_UTIL);
-    doc.text(lineasFechas, 14, y);
-    y += lineasFechas.length * 5 + 4;
+    y = dibujarDiasDescansoEnRango(doc, y, datos.fechasDescansoEnRango);
   }
   y = campo(
     doc,
@@ -793,38 +812,7 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
   );
   y += 4;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("Marcaciones de entrada / salida:", 14, y);
-  y += 7;
-
-  if (datos.marcaciones.length === 0) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.text("Sin marcaciones en este rango.", 14, y);
-    y += 6;
-  } else {
-    datos.marcaciones.forEach((m) => {
-      if (y + 6 > ALTO_PAGINA) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      if (m.tarde) doc.setTextColor(200, 30, 30);
-      else doc.setTextColor(0, 0, 0);
-      const ingreso = m.horaIngreso ? formatearHora(m.horaIngreso) : "—";
-      const salida = m.horaSalida ? formatearHora(m.horaSalida) : "—";
-      doc.text(
-        `${formatearFechaLegible(m.fecha)} — Ingreso: ${ingreso}${m.tarde ? " (TARDE)" : ""} · Salida: ${salida}`,
-        14,
-        y
-      );
-      y += 5.5;
-    });
-    doc.setTextColor(0, 0, 0);
-    y += 4;
-  }
+  y = dibujarMarcaciones(doc, y, "Marcaciones de entrada / salida:", datos.marcaciones, 6, 4);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
