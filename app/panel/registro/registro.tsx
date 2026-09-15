@@ -11,7 +11,15 @@ import {
   type UsuarioConAcceso,
 } from "./actions";
 import { DIAS_SEMANA } from "@/lib/fechas";
-import MantenimientoDatos from "./mantenimiento";
+import {
+  BloqueUbicacionTiendas,
+  BloqueDireccionColaboradores,
+  BloqueAsistencia,
+  BloqueReportes,
+  BloqueAsignacionesEspeciales,
+  BloqueComunicados,
+  BloqueKilometros,
+} from "./mantenimiento";
 import HorarioPersonalizado from "./horario-personalizado";
 import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
@@ -275,56 +283,95 @@ function GestionAccesos() {
   );
 }
 
+function Categoria({ icono, titulo }: { icono: string; titulo: string }) {
+  return (
+    <div className="flex items-center gap-2 px-1">
+      <span className="text-xs">{icono}</span>
+      <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+        {titulo}
+      </p>
+      <span className="flex-1 h-px bg-marca-borde" />
+    </div>
+  );
+}
+
 export default function Registro({ esCoordinador }: { esCoordinador: boolean }) {
   return (
-    <div className="space-y-3">
-      <SeccionColapsable titulo="Nuevo usuario" icono="👤" descripcion="Registra un nuevo colaborador.">
-        <FormularioNuevoUsuario />
-      </SeccionColapsable>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <Categoria icono="👤" titulo="Personas y accesos" />
 
-      <SeccionColapsable
-        titulo="Acceso a auditorías"
-        icono="🔍"
-        descripcion="Activa o desactiva quién puede llenar una auditoría."
-      >
-        <AccesoAuditoria />
-      </SeccionColapsable>
-
-      <SeccionColapsable
-        titulo="Plantilla del checklist de auditoría"
-        icono="🧾"
-        descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
-      >
-        <PlantillaAuditoria />
-      </SeccionColapsable>
-
-      <SeccionColapsable
-        titulo="Horario de ingreso personalizado"
-        icono="⏰"
-        descripcion="Configura una hora límite propia para quien tenga un turno diferido del resto."
-      >
-        <HorarioPersonalizado />
-      </SeccionColapsable>
-
-      <MantenimientoDatos />
-
-      {esCoordinador && (
-        <SeccionColapsable
-          titulo="Personal y acceso a Registro"
-          icono="👥"
-          descripcion="Quién más puede registrar usuarios, o dar de baja a alguien."
-        >
-          <GestionAccesos />
+        <SeccionColapsable titulo="Nuevo usuario" icono="👤" descripcion="Registra un nuevo colaborador.">
+          <FormularioNuevoUsuario />
         </SeccionColapsable>
-      )}
 
-      <SeccionColapsable
-        titulo="Historial de cambios (auditoría)"
-        icono="🕵️"
-        descripcion="Quién corrigió o eliminó qué desde Registro, y cuándo — por transparencia."
-      >
-        <HistorialCambios />
-      </SeccionColapsable>
+        {esCoordinador && (
+          <SeccionColapsable
+            titulo="Personal y acceso a Registro"
+            icono="👥"
+            descripcion="Quién más puede registrar usuarios, o dar de baja a alguien."
+          >
+            <GestionAccesos />
+          </SeccionColapsable>
+        )}
+
+        <SeccionColapsable
+          titulo="Acceso a auditorías"
+          icono="🔍"
+          descripcion="Activa o desactiva quién puede llenar una auditoría."
+        >
+          <AccesoAuditoria />
+        </SeccionColapsable>
+      </div>
+
+      <div className="space-y-3">
+        <Categoria icono="🏬" titulo="Tiendas y ubicaciones" />
+
+        <BloqueUbicacionTiendas />
+        <BloqueDireccionColaboradores />
+        <BloqueKilometros />
+      </div>
+
+      <div className="space-y-3">
+        <Categoria icono="⚙️" titulo="Configuración" />
+
+        <SeccionColapsable
+          titulo="Horario de ingreso personalizado"
+          icono="⏰"
+          descripcion="Configura una hora límite propia para quien tenga un turno diferido del resto."
+        >
+          <HorarioPersonalizado />
+        </SeccionColapsable>
+
+        <SeccionColapsable
+          titulo="Plantilla del checklist de auditoría"
+          icono="🧾"
+          descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
+        >
+          <PlantillaAuditoria />
+        </SeccionColapsable>
+      </div>
+
+      <div className="space-y-3">
+        <Categoria icono="🧹" titulo="Corrección de datos" />
+
+        <BloqueAsistencia />
+        <BloqueReportes />
+        <BloqueAsignacionesEspeciales />
+        <BloqueComunicados />
+      </div>
+
+      <div className="space-y-3">
+        <Categoria icono="🕵️" titulo="Historial" />
+
+        <SeccionColapsable
+          titulo="Historial de cambios (auditoría)"
+          icono="🕵️"
+          descripcion="Quién corrigió o eliminó qué desde Registro, y cuándo — por transparencia."
+        >
+          <HistorialCambios />
+        </SeccionColapsable>
+      </div>
     </div>
   );
 }

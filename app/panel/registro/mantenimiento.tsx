@@ -902,65 +902,82 @@ function SeccionKilometros() {
   );
 }
 
-export default function MantenimientoDatos() {
+export function BloqueUbicacionTiendas() {
   return (
-    <div className="space-y-3">
-      <p className="text-marca-tenue text-[11px]">
-        🛠 Mantenimiento de datos — corrige información mal registrada o elimina lo que fue de
-        prueba. Toca una sección para abrirla.
-      </p>
+    <SeccionColapsable
+      titulo="Ubicación de tiendas (clima)"
+      icono="⛅"
+      descripcion="Dirección/coordenadas por tienda para que aparezca el pronóstico del clima."
+    >
+      <SeccionUbicacionTiendas />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable
-        titulo="Ubicación de tiendas (clima)"
-        icono="⛅"
-        descripcion="Dirección/coordenadas por tienda para que aparezca el pronóstico del clima."
-      >
-        <SeccionUbicacionTiendas />
-      </SeccionColapsable>
+export function BloqueDireccionColaboradores() {
+  return (
+    <SeccionColapsable
+      titulo="Dirección de colaboradores"
+      icono="🏠"
+      descripcion="Dirección de vivienda de cada colaborador, para el futuro contador de kilómetros."
+    >
+      <SeccionDireccionColaboradores />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable
-        titulo="Dirección de colaboradores"
-        icono="🏠"
-        descripcion="Dirección de vivienda de cada colaborador, para el futuro contador de kilómetros."
-      >
-        <SeccionDireccionColaboradores />
-      </SeccionColapsable>
+export function BloqueAsistencia() {
+  return (
+    <SeccionColapsable
+      titulo="Asistencia (marcaciones GPS)"
+      icono="⏱"
+      descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
+    >
+      <SeccionAsistencia />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable
-        titulo="Asistencia (marcaciones GPS)"
-        icono="⏱"
-        descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
-      >
-        <SeccionAsistencia />
-      </SeccionColapsable>
+export function BloqueReportes() {
+  return (
+    <SeccionColapsable
+      titulo="Reportes de bitácora"
+      icono="📝"
+      descripcion="Corrige la observación/actividad de un reporte, o elimínalo."
+    >
+      <SeccionReportes />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable
-        titulo="Reportes de bitácora"
-        icono="📝"
-        descripcion="Corrige la observación/actividad de un reporte, o elimínalo."
-      >
-        <SeccionReportes />
-      </SeccionColapsable>
+export function BloqueAsignacionesEspeciales() {
+  return (
+    <SeccionColapsable
+      titulo="Asignaciones especiales"
+      icono="🌴"
+      descripcion="Elimina asignaciones especiales cargadas de prueba."
+    >
+      <SeccionAsignacionesEspeciales />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable
-        titulo="Asignaciones especiales"
-        icono="🌴"
-        descripcion="Elimina asignaciones especiales cargadas de prueba."
-      >
-        <SeccionAsignacionesEspeciales />
-      </SeccionColapsable>
+export function BloqueComunicados() {
+  return (
+    <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
+      <SeccionComunicados />
+    </SeccionColapsable>
+  );
+}
 
-      <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
-        <SeccionComunicados />
-      </SeccionColapsable>
-
-      <SeccionColapsable
-        titulo="Kilómetros recorridos"
-        icono="🚗"
-        descripcion="Distancia y tiempo real por calles entre cada colaborador y las tiendas que visitó, por trayecto — útil para reembolsos de movilidad."
-      >
-        <SeccionKilometros />
-      </SeccionColapsable>
-    </div>
+export function BloqueKilometros() {
+  return (
+    <SeccionColapsable
+      titulo="Kilómetros recorridos"
+      icono="🚗"
+      descripcion="Distancia y tiempo real por calles entre cada colaborador y las tiendas que visitó, por trayecto — útil para reembolsos de movilidad."
+    >
+      <SeccionKilometros />
+    </SeccionColapsable>
   );
 }
