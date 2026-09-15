@@ -637,6 +637,7 @@ export type Database = {
       tiendas: {
         Row: {
           direccion: string | null
+          es_provincia: boolean
           id: string
           lat: number | null
           lon: number | null
@@ -644,6 +645,7 @@ export type Database = {
         }
         Insert: {
           direccion?: string | null
+          es_provincia?: boolean
           id?: string
           lat?: number | null
           lon?: number | null
@@ -651,6 +653,7 @@ export type Database = {
         }
         Update: {
           direccion?: string | null
+          es_provincia?: boolean
           id?: string
           lat?: number | null
           lon?: number | null

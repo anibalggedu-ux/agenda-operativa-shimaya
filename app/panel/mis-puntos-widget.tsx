@@ -24,7 +24,7 @@ export default function MisPuntosWidget() {
     return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
-  const { puntos, medallas, progresoBronce, rachaActual } = datos;
+  const { puntos, medallas, progresoBronce, rachaActual, viajesProvincia } = datos;
   const progreso = Math.round((progresoBronce.actual / (progresoBronce.actual + progresoBronce.faltan)) * 100);
 
   return (
@@ -40,13 +40,19 @@ export default function MisPuntosWidget() {
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         {UMBRALES_MEDALLAS.map((u) => (
           <div key={u.id} className="flex items-center gap-1">
             <span className="text-2xl leading-none">{u.emoji}</span>
             <span className="text-marca-texto font-black text-sm">×{medallas[u.id]}</span>
           </div>
         ))}
+        {viajesProvincia > 0 && (
+          <div className="flex items-center gap-1" title="Copas de provincia — una por cada visita a una tienda fuera de Lima">
+            <span className="text-2xl leading-none">🏆</span>
+            <span className="text-marca-texto font-black text-sm">×{viajesProvincia}</span>
+          </div>
+        )}
       </div>
 
       <div>

@@ -388,7 +388,7 @@ async function enviarCorreoNuevaRuta(
 ): Promise<ResultadoEnvioRuta> {
   const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
     obtenerContacto(supabase, usuarioId),
-    supabase.from("tiendas").select("nombre, direccion, lat, lon").eq("id", tiendaId).maybeSingle(),
+    supabase.from("tiendas").select("nombre, direccion, lat, lon, es_provincia").eq("id", tiendaId).maybeSingle(),
     supabase
       .from("usuarios")
       .select("lat, lon, rol, hora_limite_ingreso, horario_por_dia")
@@ -416,7 +416,12 @@ async function enviarCorreoNuevaRuta(
   let distanciaHtml = "";
   const colabLat = colaborador?.lat === null || colaborador?.lat === undefined ? null : Number(colaborador.lat);
   const colabLon = colaborador?.lon === null || colaborador?.lon === undefined ? null : Number(colaborador.lon);
-  if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
+  if (tienda?.es_provincia) {
+    // Tienda de provincia: se viaja en avión y se hospeda cerca de la sede,
+    // así que una distancia en auto desde el domicilio en Lima no tiene
+    // sentido (y de paso ahorra la consulta a Mapbox).
+    distanciaHtml = `<li>🏆 <strong>Tienda de provincia</strong> — viaje aéreo, no aplica cálculo de distancia en auto.</li>`;
+  } else if (colabLat !== null && colabLon !== null && tiendaLat !== null && tiendaLon !== null) {
     // El tráfico se predice para la hora en que la persona debería estar
     // saliendo de casa (su hora límite de ingreso ese día), no para el
     // momento en que el coordinador asigna la ruta — si no, una ruta

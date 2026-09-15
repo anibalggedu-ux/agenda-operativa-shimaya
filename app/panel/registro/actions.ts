@@ -731,6 +731,7 @@ export type TiendaUbicacion = {
   direccion: string | null;
   lat: number | null;
   lon: number | null;
+  esProvincia: boolean;
 };
 
 export async function obtenerTiendasConUbicacion(): Promise<TiendaUbicacion[]> {
@@ -739,7 +740,7 @@ export async function obtenerTiendasConUbicacion(): Promise<TiendaUbicacion[]> {
 
   const { data, error } = await supabase
     .from("tiendas")
-    .select("id, nombre, direccion, lat, lon")
+    .select("id, nombre, direccion, lat, lon, es_provincia")
     .order("nombre");
   if (error) throw new Error("No se pudo cargar las tiendas.");
 
@@ -749,7 +750,30 @@ export async function obtenerTiendasConUbicacion(): Promise<TiendaUbicacion[]> {
     direccion: t.direccion,
     lat: t.lat === null ? null : Number(t.lat),
     lon: t.lon === null ? null : Number(t.lon),
+    esProvincia: t.es_provincia,
   }));
+}
+
+// Tiendas fuera de Lima (Chiclayo, Arequipa, etc.): se viaja en avión y se
+// hospeda cerca, así que la distancia real en auto no aplica — se marcan
+// aparte para que el kilometraje las trate distinto (ver kilometros-actions.ts
+// y el correo de "nueva ruta asignada" en coordinador/actions.ts).
+export async function actualizarEsProvincia(id: string, valor: boolean): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+
+  const supabase = supabaseServer();
+  const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("tiendas").update({ es_provincia: valor }).eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo guardar el cambio." };
+
+  await registrarCambio(
+    sesion,
+    valor ? "Marcó una tienda como de provincia" : "Desmarcó una tienda como de provincia",
+    tienda?.nombre ?? id
+  );
+
+  return { exito: true };
 }
 
 export async function actualizarUbicacionTienda(

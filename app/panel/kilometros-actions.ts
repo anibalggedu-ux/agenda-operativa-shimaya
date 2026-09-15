@@ -5,6 +5,13 @@ import { exigirSesion } from "@/lib/session";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 import { obtenerVisitasEnRangoAnalitica } from "./analitica/actions";
 
+// Tiendas de provincia (Chiclayo, Arequipa, etc.): se viaja en avión y se
+// hospeda cerca de la sede, así que la distancia real en auto entre el
+// domicilio en Lima y la tienda no tiene sentido — se usa un flat de 1 km
+// por visita en su lugar (ver también coordinador/actions.ts, que evita
+// calcular/mostrar esa distancia en el correo de ruta asignada).
+const RUTA_PROVINCIA_FLAT = { km: 1, minutos: 2 };
+
 export type FilaKilometros = {
   usuarioId: string;
   usuarioNombre: string;
@@ -62,7 +69,7 @@ export async function obtenerResumenKilometros(
     await Promise.all([
       consultaUsuarios,
       obtenerVisitasEnRangoAnalitica(desde, hasta),
-      supabase.from("tiendas").select("id, nombre, lat, lon"),
+      supabase.from("tiendas").select("id, nombre, lat, lon, es_provincia"),
     ]);
 
   if (errorUsuarios || errorTiendas) throw new Error("No se pudo cargar los datos de kilómetros.");
@@ -103,6 +110,10 @@ export async function obtenerResumenKilometros(
     const origen = par.origenTiendaId ? mapaTiendas.get(par.origenTiendaId) : mapaUsuarios.get(par.usuarioId);
 
     const clave = `${par.usuarioId}|${par.origenTiendaId ?? "casa"}|${par.tiendaId}`;
+    if (tienda?.es_provincia) {
+      rutasPorClave.set(clave, RUTA_PROVINCIA_FLAT);
+      return;
+    }
     if (!origen?.lat || !origen?.lon || !tienda?.lat || !tienda?.lon) {
       rutasPorClave.set(clave, null);
       return;

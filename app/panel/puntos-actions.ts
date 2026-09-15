@@ -98,12 +98,15 @@ export type PuntosUsuario = {
   rol: string;
   puntos: number;
   rachaActual: number;
+  // Cuántas veces reportó una tienda de provincia (viaje aéreo) — cada una
+  // suma una "copa" en la Vitrina de Trofeos, aparte del sistema de puntos.
+  viajesProvincia: number;
 };
 
 async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const supabase = supabaseServer();
 
-  const [usuariosRes, asistenciaRes, reportesRes] = await Promise.all([
+  const [usuariosRes, asistenciaRes, reportesRes, tiendasProvinciaRes] = await Promise.all([
     supabase
       .from("usuarios")
       .select(
@@ -114,12 +117,16 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       .from("asistencia")
       .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
       .not("hora_ingreso", "is", null),
-    supabase.from("rutas_diarias").select("usuario_id"),
+    supabase.from("rutas_diarias").select("usuario_id, tienda_id"),
+    supabase.from("tiendas").select("id").eq("es_provincia", true),
   ]);
 
-  if (usuariosRes.error || asistenciaRes.error || reportesRes.error) {
+  if (usuariosRes.error || asistenciaRes.error || reportesRes.error || tiendasProvinciaRes.error) {
     throw new Error("No se pudo calcular los puntos.");
   }
+
+  const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
+  const viajesProvinciaPorUsuario = new Map<string, number>();
 
   const puntosPorUsuario = new Map<string, number>();
   const asistenciaPorUsuario = new Map<string, Map<string, string>>();
@@ -146,6 +153,9 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       r.usuario_id,
       (puntosPorUsuario.get(r.usuario_id) ?? 0) + PUNTOS_POR_REPORTE
     );
+    if (tiendasProvinciaIds.has(r.tienda_id)) {
+      viajesProvinciaPorUsuario.set(r.usuario_id, (viajesProvinciaPorUsuario.get(r.usuario_id) ?? 0) + 1);
+    }
   });
 
   const hoy = hoyPeru();
@@ -171,6 +181,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       rol: u.rol,
       puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono + (u.puntos_heredados ?? 0),
       rachaActual: racha,
+      viajesProvincia: viajesProvinciaPorUsuario.get(u.id) ?? 0,
     };
   });
 }
@@ -180,6 +191,7 @@ export type MisPuntos = {
   medallas: ConteoMedallas;
   progresoBronce: { actual: number; faltan: number };
   rachaActual: number;
+  viajesProvincia: number;
 };
 
 export async function obtenerMisPuntos(): Promise<MisPuntos> {
@@ -194,6 +206,7 @@ export async function obtenerMisPuntos(): Promise<MisPuntos> {
     medallas: calcularConteoMedallas(propio?.puntos ?? 0),
     progresoBronce: progresoProximoBronce(propio?.puntos ?? 0),
     rachaActual: propio?.rachaActual ?? 0,
+    viajesProvincia: propio?.viajesProvincia ?? 0,
   };
 }
 
@@ -209,6 +222,7 @@ export async function obtenerPuntosDeUsuario(usuarioId: string): Promise<MisPunt
     medallas: calcularConteoMedallas(propio?.puntos ?? 0),
     progresoBronce: progresoProximoBronce(propio?.puntos ?? 0),
     rachaActual: propio?.rachaActual ?? 0,
+    viajesProvincia: propio?.viajesProvincia ?? 0,
   };
 }
 

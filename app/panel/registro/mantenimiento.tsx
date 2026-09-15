@@ -16,6 +16,7 @@ import {
   crearTienda,
   obtenerTiendasConUbicacion,
   actualizarUbicacionTienda,
+  actualizarEsProvincia,
   geocodificarUbicacionTienda,
   obtenerColaboradoresConDireccion,
   geocodificarDireccionColaborador,
@@ -663,6 +664,15 @@ function SeccionUbicacionTiendas() {
     else setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo guardar." }));
   }
 
+  async function handleToggleProvincia(id: string, valorActual: boolean) {
+    setTiendas((prev) => prev.map((t) => (t.id === id ? { ...t, esProvincia: !valorActual } : t)));
+    const resultado = await actualizarEsProvincia(id, !valorActual);
+    if (!resultado.exito) {
+      setTiendas((prev) => prev.map((t) => (t.id === id ? { ...t, esProvincia: valorActual } : t)));
+      setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo guardar." }));
+    }
+  }
+
   if (cargando) {
     return <p className="text-marca-tenue text-sm animate-pulse">Cargando tiendas...</p>;
   }
@@ -752,6 +762,19 @@ function SeccionUbicacionTiendas() {
               {mensajes[t.id] && <span className="text-emerald-400 text-[11px] font-bold">{mensajes[t.id]}</span>}
               {errores[t.id] && <span className="text-marca-rojoclaro text-[11px] font-bold">{errores[t.id]}</span>}
             </div>
+
+            <label className="flex items-center gap-2 text-[11px] text-marca-tenue cursor-pointer pt-1 border-t border-marca-borde/60">
+              <input
+                type="checkbox"
+                checked={t.esProvincia}
+                onChange={() => handleToggleProvincia(t.id, t.esProvincia)}
+                className="accent-marca-rojo"
+              />
+              <span>
+                🏆 Es de provincia (viaje aéreo — no calcular km real, 1 km fijo por visita, suma copa en la
+                vitrina de trofeos)
+              </span>
+            </label>
           </div>
         ))}
       </div>
