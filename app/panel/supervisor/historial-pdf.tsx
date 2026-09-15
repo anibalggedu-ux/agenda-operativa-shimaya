@@ -112,22 +112,16 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={() => handleGenerar("vista_previa")}
-          disabled={!!generando}
-          className="flex-1 border border-marca-rojo/50 hover:border-marca-rojo text-marca-rojoclaro hover:text-marca-textofuerte disabled:opacity-50 font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
-        >
-          {generando === "vista_previa" ? "Abriendo..." : "👁️ Vista previa"}
-        </button>
-        <button
-          onClick={() => handleGenerar("descargar")}
-          disabled={!!generando}
-          className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
-        >
-          {generando === "descargar" ? "Generando..." : "Descargar historial PDF"}
-        </button>
-      </div>
+      <button
+        onClick={() => handleGenerar("vista_previa")}
+        disabled={!!generando}
+        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
+      >
+        {generando === "vista_previa" ? "Abriendo..." : "👁️ Ver / Descargar Historial"}
+      </button>
+      <p className="text-marca-tenue text-[10px] text-center -mt-2">
+        Se abre en una pestaña nueva — desde ahí también lo puedes descargar o imprimir.
+      </p>
 
       {error && <p className="text-marca-rojoclaro text-xs font-bold text-center">{error}</p>}
     </div>
