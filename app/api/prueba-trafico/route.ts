@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const [ahora, prediccion] = await Promise.all([
-    calcularRutaAuto(-12.088823, -77.058946, -12.087664, -77.003546),
-    calcularRutaAuto(-12.088823, -77.058946, -12.087664, -77.003546, new Date("2026-09-15T12:00:00-05:00")),
-  ]);
+  const departAt = new Date("2026-09-15T12:00:00-05:00").toISOString();
+  const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/-77.058946,-12.088823;-77.003546,-12.087664?overview=false&access_token=${process.env.MAPBOX_ACCESS_TOKEN}&depart_at=${departAt}`;
+  const res = await fetch(url);
+  const crudo = await res.json();
 
-  return NextResponse.json({ ahora, prediccion_manana_12pm: prediccion });
+  return NextResponse.json({ departAtEnviado: departAt, status: res.status, crudo });
 }
