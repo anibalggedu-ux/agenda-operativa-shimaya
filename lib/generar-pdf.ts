@@ -384,7 +384,10 @@ export type DatosHistorialPropio = {
   asignacionesEspeciales: AsignacionEspecialPdf[];
 };
 
-export async function generarPdfHistorial(datos: DatosHistorialPropio) {
+export async function generarPdfHistorial(
+  datos: DatosHistorialPropio,
+  modo: "descargar" | "vista_previa" = "descargar"
+): Promise<string | void> {
   const {
     nombre,
     rol,
@@ -570,6 +573,13 @@ export async function generarPdfHistorial(datos: DatosHistorialPropio) {
   });
 
   const nombreArchivo = "historial_" + desde + "_a_" + hasta + ".pdf";
+  // Vista previa: se devuelve la URL del blob para que quien llama la abra
+  // en una pestaña ya creada (por el propio click, antes de este await) —
+  // así el navegador no la bloquea como pop-up. El navegador renderiza el
+  // PDF directo, con su propio zoom/scroll, sin descargar nada.
+  if (modo === "vista_previa") {
+    return doc.output("bloburl").toString();
+  }
   doc.save(nombreArchivo);
 }
 

@@ -17,11 +17,17 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
   const hoy = hoyPeru();
   const [desde, setDesde] = useState<string>(sumarDias(hoy, -7));
   const [hasta, setHasta] = useState<string>(hoy);
-  const [generando, setGenerando] = useState<boolean>(false);
+  const [generando, setGenerando] = useState<false | "descargar" | "vista_previa">(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleGenerar() {
-    setGenerando(true);
+  async function handleGenerar(modo: "descargar" | "vista_previa") {
+    // Se abre la pestaña YA (vacía) dentro del propio click, antes de
+    // cualquier await — si se abre después de esperar los datos, la mayoría
+    // de navegadores la bloquea como pop-up por no venir de un gesto directo
+    // del usuario. Después solo se le cambia la URL cuando el PDF esté listo.
+    const ventana = modo === "vista_previa" ? window.open("", "_blank") : null;
+
+    setGenerando(modo);
     setError(null);
     try {
       const [reportes, marcaciones, perfil, misPuntos, kilometros, autoasignaciones, asignacionesEspeciales] =
@@ -34,30 +40,38 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
           obtenerMisAutoasignaciones(desde, hasta),
           obtenerMisAsignacionesEspeciales(desde, hasta),
         ]);
-      await generarPdfHistorial({
-        nombre: supervisorNombre,
-        rol: perfil.rol,
-        desde,
-        hasta,
-        reportes,
-        marcaciones,
-        tiendasPermanentes: perfil.rol === "supervisor" ? perfil.tiendasPermanentes : [],
-        diasDescanso: perfil.diasDescanso,
-        puntos: misPuntos.puntos,
-        medallas: misPuntos.medallas,
-        totalKm: kilometros.filas[0]?.totalKm ?? 0,
-        totalMinutos: kilometros.filas[0]?.totalMinutos ?? 0,
-        kmPorTienda: kilometros.detalle.map((d) => ({
-          tiendaNombre: d.origenNombre ? `${d.origenNombre} -> ${d.tiendaNombre}` : d.tiendaNombre,
-          km: d.kmAcumulado,
-          minutos: d.minutos * d.visitas,
-          visitas: d.visitas,
-        })),
-        rachaActual: misPuntos.rachaActual,
-        autoasignaciones,
-        asignacionesEspeciales,
-      });
+      const resultado = await generarPdfHistorial(
+        {
+          nombre: supervisorNombre,
+          rol: perfil.rol,
+          desde,
+          hasta,
+          reportes,
+          marcaciones,
+          tiendasPermanentes: perfil.rol === "supervisor" ? perfil.tiendasPermanentes : [],
+          diasDescanso: perfil.diasDescanso,
+          puntos: misPuntos.puntos,
+          medallas: misPuntos.medallas,
+          totalKm: kilometros.filas[0]?.totalKm ?? 0,
+          totalMinutos: kilometros.filas[0]?.totalMinutos ?? 0,
+          kmPorTienda: kilometros.detalle.map((d) => ({
+            tiendaNombre: d.origenNombre ? `${d.origenNombre} -> ${d.tiendaNombre}` : d.tiendaNombre,
+            km: d.kmAcumulado,
+            minutos: d.minutos * d.visitas,
+            visitas: d.visitas,
+          })),
+          rachaActual: misPuntos.rachaActual,
+          autoasignaciones,
+          asignacionesEspeciales,
+        },
+        modo
+      );
+      if (modo === "vista_previa" && resultado) {
+        if (ventana) ventana.location.href = resultado;
+        else window.open(resultado, "_blank");
+      }
     } catch (e: any) {
+      ventana?.close();
       setError(e && e.message ? e.message : "No se pudo generar el PDF.");
     } finally {
       setGenerando(false);
@@ -98,13 +112,22 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
         </div>
       </div>
 
-      <button
-        onClick={handleGenerar}
-        disabled={generando}
-        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
-      >
-        {generando ? "Generando..." : "Descargar historial PDF"}
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={() => handleGenerar("vista_previa")}
+          disabled={!!generando}
+          className="flex-1 border border-marca-rojo/50 hover:border-marca-rojo text-marca-rojoclaro hover:text-marca-textofuerte disabled:opacity-50 font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
+        >
+          {generando === "vista_previa" ? "Abriendo..." : "👁️ Vista previa"}
+        </button>
+        <button
+          onClick={() => handleGenerar("descargar")}
+          disabled={!!generando}
+          className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
+        >
+          {generando === "descargar" ? "Generando..." : "Descargar historial PDF"}
+        </button>
+      </div>
 
       {error && <p className="text-marca-rojoclaro text-xs font-bold text-center">{error}</p>}
     </div>
