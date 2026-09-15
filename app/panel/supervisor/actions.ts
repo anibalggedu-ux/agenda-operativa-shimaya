@@ -14,7 +14,7 @@ import {
 } from "@/lib/fechas";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
-import { enviarCorreo } from "@/lib/email";
+import { enviarCorreo, URL_APP } from "@/lib/email";
 import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/azure-storage";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
@@ -800,6 +800,88 @@ export async function obtenerMiPerfil(): Promise<PerfilPersonal> {
   };
 }
 
+// Enlace directo a la campanita de "Solicitudes pendientes" del coordinador
+// (?abrirSolicitudes=1 la abre sola al cargar — ver campanita-descansos.tsx).
+const ENLACE_SOLICITUDES = `${URL_APP}/panel/coordinador?abrirSolicitudes=1`;
+
+// Mismo patrón que notificarCoordinadoresAutoasignacion: un fallo de correo
+// nunca debe romper el envío de la solicitud en sí, por eso va en su propio
+// try/catch silencioso.
+async function notificarCoordinadoresSolicitudDescanso(
+  nombreUsuario: string,
+  diasActuales: string[],
+  diasSolicitados: string[],
+  fechaDeseada: string
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: coordinadores } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("rol", "coordinador")
+      .eq("activo", true);
+
+    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "🛌",
+      asunto: `${nombreUsuario} solicitó cambio de descanso semanal`,
+      cuerpoHtml: `
+        <p><strong>${nombreUsuario}</strong> pidió cambiar su descanso semanal:</p>
+        <ul style="padding-left:18px; margin:0 0 16px;">
+          <li><strong>Actual:</strong> ${diasActuales.length > 0 ? diasActuales.join(" y ") : "sin descanso fijo"}</li>
+          <li><strong>Solicitado:</strong> ${diasSolicitados.join(" y ") || "sin días"}</li>
+          <li><strong>Desde:</strong> ${formatearFechaLegible(fechaDeseada)}</li>
+        </ul>
+        <p style="margin:0 0 16px;">
+          <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
+        </p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la solicitud de descanso:", error);
+  }
+}
+
+async function notificarCoordinadoresSolicitudPermiso(
+  nombreUsuario: string,
+  fechaInicio: string,
+  fechaFin: string,
+  motivo: string | null
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: coordinadores } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("rol", "coordinador")
+      .eq("activo", true);
+
+    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "📝",
+      asunto: `${nombreUsuario} solicitó un permiso`,
+      cuerpoHtml: `
+        <p><strong>${nombreUsuario}</strong> pidió un permiso anticipado:</p>
+        <ul style="padding-left:18px; margin:0 0 16px;">
+          <li><strong>Fechas:</strong> ${formatearFechaLegible(fechaInicio)} → ${formatearFechaLegible(fechaFin)}</li>
+          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
+        </ul>
+        <p style="margin:0 0 16px;">
+          <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
+        </p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la solicitud de permiso:", error);
+  }
+}
+
 // El colaborador ya no cambia su descanso directo: queda como solicitud
 // pendiente hasta que el coordinador la apruebe (ve la campanita de
 // notificaciones en su panel).
@@ -887,6 +969,7 @@ export async function solicitarCambioDescanso(
       })
       .eq("id", pendiente.id);
     if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
+    await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada);
     return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
   }
 
@@ -897,6 +980,7 @@ export async function solicitarCambioDescanso(
     fecha_deseada: fechaDeseada,
   });
   if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
+  await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada);
   return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
 }
 
@@ -983,6 +1067,7 @@ export async function solicitarPermiso(
       })
       .eq("id", pendiente.id);
     if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
+    await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio);
     return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
   }
 
@@ -993,6 +1078,7 @@ export async function solicitarPermiso(
     motivo: motivoLimpio,
   });
   if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
+  await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fechaInicio, fechaFin, motivoLimpio);
   return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
 }
 

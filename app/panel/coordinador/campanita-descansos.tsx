@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   contarSolicitudesDescansoPendientes,
   obtenerSolicitudesDescansoPendientes,
@@ -22,11 +23,24 @@ export default function CampanitaDescansos() {
   const [conteo, setConteo] = useState(0);
   const [items, setItems] = useState<ItemSolicitud[] | null>(null);
   const [respondiendoId, setRespondiendoId] = useState<string | null>(null);
+  const parametros = useSearchParams();
 
   function cargarConteo() {
     Promise.all([contarSolicitudesDescansoPendientes(), contarSolicitudesPermisoPendientes()])
       .then(([descansos, permisos]) => setConteo(descansos + permisos))
       .catch(() => {});
+  }
+
+  function cargarItems() {
+    Promise.all([obtenerSolicitudesDescansoPendientes(), obtenerSolicitudesPermisoPendientes()])
+      .then(([descansos, permisos]) => {
+        const combinadas: ItemSolicitud[] = [
+          ...descansos.map((d): ItemSolicitud => ({ tipo: "descanso", datos: d })),
+          ...permisos.map((p): ItemSolicitud => ({ tipo: "permiso", datos: p })),
+        ].sort((a, b) => a.datos.createdAt.localeCompare(b.datos.createdAt));
+        setItems(combinadas);
+      })
+      .catch(() => setItems([]));
   }
 
   useEffect(() => {
@@ -35,20 +49,21 @@ export default function CampanitaDescansos() {
     return () => clearInterval(intervalo);
   }, []);
 
+  // Enlace directo desde el correo de "solicitó cambio de descanso/permiso"
+  // (?abrirSolicitudes=1) — abre la campanita sola al cargar la página, sin
+  // que el coordinador tenga que encontrarla y hacerle clic.
+  useEffect(() => {
+    if (parametros.get("abrirSolicitudes") === "1") {
+      setAbierto(true);
+      cargarItems();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function abrir() {
     const nuevoEstado = !abierto;
     setAbierto(nuevoEstado);
-    if (nuevoEstado) {
-      Promise.all([obtenerSolicitudesDescansoPendientes(), obtenerSolicitudesPermisoPendientes()])
-        .then(([descansos, permisos]) => {
-          const combinadas: ItemSolicitud[] = [
-            ...descansos.map((d): ItemSolicitud => ({ tipo: "descanso", datos: d })),
-            ...permisos.map((p): ItemSolicitud => ({ tipo: "permiso", datos: p })),
-          ].sort((a, b) => a.datos.createdAt.localeCompare(b.datos.createdAt));
-          setItems(combinadas);
-        })
-        .catch(() => setItems([]));
-    }
+    if (nuevoEstado) cargarItems();
   }
 
   async function responder(item: ItemSolicitud, aprobar: boolean) {
