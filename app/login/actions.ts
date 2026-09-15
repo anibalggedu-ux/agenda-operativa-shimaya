@@ -48,5 +48,18 @@ export async function iniciarSesionAction(
     rol: usuario.rol,
   });
 
+  // Deja constancia de cada inicio de sesión (quién y cuándo) para poder
+  // medir uso del sistema en Registro -- nunca debe bloquear el login si
+  // falla el insert.
+  try {
+    await supabase.from("accesos_sistema").insert({
+      usuario_id: usuario.id,
+      usuario_nombre: usuario.nombre,
+      rol: usuario.rol,
+    });
+  } catch (error) {
+    console.error("No se pudo registrar el acceso al sistema:", error);
+  }
+
   redirect(`/panel/${usuario.rol}`);
 }

@@ -7,7 +7,7 @@ import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
 
-async function exigirAccesoRegistro() {
+export async function exigirAccesoRegistro() {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
   const permitido = await tieneAccesoRegistro(sesion.id, sesion.rol);

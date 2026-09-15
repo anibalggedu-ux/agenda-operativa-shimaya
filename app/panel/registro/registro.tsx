@@ -24,6 +24,7 @@ import HorarioPersonalizado from "./horario-personalizado";
 import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
 import HistorialCambios from "./historial-cambios";
+import ActividadUsuarios from "./actividad-usuarios";
 
 const ROLES = ["capacitador", "supervisor", "coordinador", "gerente"] as const;
 
@@ -446,6 +447,14 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
       <div className="space-y-3">
         <Categoria icono="🕵️" titulo="Historial" />
+
+        <SeccionColapsable
+          titulo="Actividad de usuarios"
+          icono="📊"
+          descripcion="Quién entra al sistema y genera reportes, con fecha y hora — y quién no."
+        >
+          <ActividadUsuarios />
+        </SeccionColapsable>
 
         <SeccionColapsable
           titulo="Historial de cambios (auditoría)"

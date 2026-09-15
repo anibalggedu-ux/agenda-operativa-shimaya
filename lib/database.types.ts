@@ -87,6 +87,38 @@ export type Database = {
           },
         ]
       }
+      accesos_sistema: {
+        Row: {
+          created_at: string
+          id: string
+          rol: string
+          usuario_id: string | null
+          usuario_nombre: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rol: string
+          usuario_id?: string | null
+          usuario_nombre: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rol?: string
+          usuario_id?: string | null
+          usuario_nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accesos_sistema_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asistencia: {
         Row: {
           fecha: string
