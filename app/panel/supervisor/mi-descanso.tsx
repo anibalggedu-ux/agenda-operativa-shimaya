@@ -11,7 +11,11 @@ import { DIAS_SEMANA, hoyPeru, formatearFechaLegible } from "@/lib/fechas";
 
 const MAX_DIAS = 2;
 
-export default function MiDescanso() {
+export default function MiDescanso({
+  onEstadoPendiente,
+}: {
+  onEstadoPendiente?: (hayPendiente: boolean) => void;
+}) {
   const [diasActuales, setDiasActuales] = useState<string[]>([]);
   const [dias, setDias] = useState<string[]>([]);
   const [fechaDeseada, setFechaDeseada] = useState(hoyPeru());
@@ -27,6 +31,7 @@ export default function MiDescanso() {
         setDiasActuales(perfil.diasDescanso);
         setDias(perfil.diasDescanso);
         setPendiente(solicitud);
+        onEstadoPendiente?.(!!solicitud);
       })
       .finally(() => setCargando(false));
   }
@@ -56,10 +61,7 @@ export default function MiDescanso() {
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-        🛌 MI DESCANSO SEMANAL
-      </h3>
+    <div className="space-y-4">
       <p className="text-marca-tenue text-[11px]">
         {diasActuales.length > 0
           ? `Tu descanso actual: ${diasActuales.join(" y ")}.`

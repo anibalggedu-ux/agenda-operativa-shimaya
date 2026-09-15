@@ -9,7 +9,13 @@ import {
 } from "./actions";
 import { hoyPeru, formatearFechaLegible } from "@/lib/fechas";
 
-export default function MiPermiso({ tipo = "Permiso" }: { tipo?: TipoSolicitudPermiso }) {
+export default function MiPermiso({
+  tipo = "Permiso",
+  onEstadoPendiente,
+}: {
+  tipo?: TipoSolicitudPermiso;
+  onEstadoPendiente?: (hayPendiente: boolean) => void;
+}) {
   const esVacaciones = tipo === "Vacaciones";
   const [fechaInicio, setFechaInicio] = useState(hoyPeru());
   const [fechaFin, setFechaFin] = useState(hoyPeru());
@@ -22,7 +28,10 @@ export default function MiPermiso({ tipo = "Permiso" }: { tipo?: TipoSolicitudPe
   function cargar() {
     setCargando(true);
     obtenerMiSolicitudPermisoPendiente(tipo)
-      .then(setPendiente)
+      .then((solicitud) => {
+        setPendiente(solicitud);
+        onEstadoPendiente?.(!!solicitud);
+      })
       .finally(() => setCargando(false));
   }
 
@@ -45,10 +54,7 @@ export default function MiPermiso({ tipo = "Permiso" }: { tipo?: TipoSolicitudPe
   }
 
   return (
-    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-        {esVacaciones ? "🏖️ SOLICITAR VACACIONES PLANIFICADAS" : "📝 SOLICITAR PERMISO ANTICIPADO"}
-      </h3>
+    <div className="space-y-4">
       <p className="text-marca-tenue text-[11px]">
         {esVacaciones
           ? "Pide tus vacaciones con anticipación indicando las fechas — el coordinador debe aprobarlas antes de que queden activas."
