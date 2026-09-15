@@ -48,11 +48,20 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
           <MisPuntosWidget />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
+        </div>
+      ),
+    },
+    {
+      id: "reportes",
+      etiqueta: "Reportes",
+      icono: "📝",
+      contenido: (
+        <div className="space-y-6">
+          <Reportes />
           <HistorialPdf supervisorNombre={nombre} />
         </div>
       ),
     },
-    { id: "reportes", etiqueta: "Reportes", icono: "📝", contenido: <Reportes /> },
     {
       id: "personal",
       etiqueta: "Personal",
