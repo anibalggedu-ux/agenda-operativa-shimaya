@@ -23,6 +23,39 @@ function formatearValor(tipo: string, valor: any): string {
   return String(valor);
 }
 
+function colorBarraPorcentaje(promedio: number): string {
+  if (promedio >= 90) return "#34d399";
+  if (promedio >= 75) return "#38bdf8";
+  if (promedio >= 60) return "#fbbf24";
+  return "#e23744";
+}
+
+function claseBadgeClasificacion(clasificacion: string | null): string {
+  switch (clasificacion) {
+    case "Excelente":
+      return "bg-emerald-950/30 border-emerald-700/40 text-emerald-300";
+    case "Bueno":
+      return "bg-sky-950/30 border-sky-700/40 text-sky-300";
+    case "Requiere mejora":
+      return "bg-amber-950/30 border-amber-700/40 text-amber-300";
+    case "Acción inmediata":
+      return "bg-marca-rojo/15 border-marca-rojo/40 text-marca-rojoclaro";
+    default:
+      return "border-dashed border-marca-borde text-marca-tenue";
+  }
+}
+
+function BadgePuntaje({ porcentaje, clasificacion }: { porcentaje: number | null; clasificacion: string | null }) {
+  if (porcentaje === null) {
+    return <span className="text-[11px] text-marca-tenue border border-dashed border-marca-borde px-2.5 py-1 rounded-full">Sin puntaje</span>;
+  }
+  return (
+    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${claseBadgeClasificacion(clasificacion)}`}>
+      {porcentaje}% · {clasificacion}
+    </span>
+  );
+}
+
 function DetalleChecklist({
   id,
   secciones,
@@ -57,6 +90,8 @@ function DetalleChecklist({
       usuarioNombre: detalle.usuarioNombre,
       rol: detalle.rol,
       secciones: seccionesPdf,
+      porcentaje: detalle.porcentaje,
+      clasificacion: detalle.clasificacion,
     });
   }
 
@@ -72,6 +107,9 @@ function DetalleChecklist({
               <p className="text-marca-tenue text-[11px]">
                 {formatearFechaLegible(detalle.fecha)} · {detalle.usuarioNombre} ({detalle.rol})
               </p>
+              <div className="mt-1.5">
+                <BadgePuntaje porcentaje={detalle.porcentaje} clasificacion={detalle.clasificacion} />
+              </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <button
@@ -147,6 +185,46 @@ export default function ChecklistVisitaAnalitica({ desde, hasta }: { desde: stri
 
   return (
     <div className="space-y-6">
+      <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+          🎯 PUNTAJE GENERAL POR TIENDA
+        </h3>
+        <p className="text-marca-tenue text-[11px] mb-4">
+          Promedio de todos los checklists enviados en el rango, en base a las preguntas que sí
+          cuentan para el puntaje (las de texto libre y algunas de opción no puntúan).
+        </p>
+        {datos.promedioGeneralPorTienda.length === 0 ? (
+          <p className="text-marca-tenue text-sm italic py-6 text-center">
+            No hay checklists con puntaje calculable en este rango.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={datos.promedioGeneralPorTienda} margin={{ left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
+              <XAxis
+                dataKey="tiendaNombre"
+                stroke={colores.eje}
+                tick={{ fontSize: 9.5 }}
+                interval={0}
+                angle={-20}
+                textAnchor="end"
+                height={55}
+              />
+              <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+              <Tooltip
+                contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
+                formatter={(v) => [`${v}%`, "Promedio"] as [string, string]}
+              />
+              <Bar dataKey="promedio" radius={[4, 4, 0, 0]}>
+                {datos.promedioGeneralPorTienda.map((d, i) => (
+                  <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
         <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
           📊 PROMEDIO DE CAJA POR TIENDA
@@ -239,6 +317,9 @@ export default function ChecklistVisitaAnalitica({ desde, hasta }: { desde: stri
                   <th className="pb-2.5 pr-3 text-[10.5px] uppercase tracking-wide text-marca-tenue font-bold">
                     Colaborador
                   </th>
+                  <th className="pb-2.5 pr-3 text-[10.5px] uppercase tracking-wide text-marca-tenue font-bold">
+                    Puntaje
+                  </th>
                   <th className="pb-2.5 text-[10.5px] uppercase tracking-wide text-marca-tenue font-bold" />
                 </tr>
               </thead>
@@ -255,6 +336,9 @@ export default function ChecklistVisitaAnalitica({ desde, hasta }: { desde: stri
                       <td className="py-2.5 pr-3 text-marca-tenue text-[12.5px]">
                         {c.usuarioNombre} ({c.rol})
                       </td>
+                      <td className="py-2.5 pr-3">
+                        <BadgePuntaje porcentaje={c.porcentaje} clasificacion={c.clasificacion} />
+                      </td>
                       <td className="py-2.5 text-right">
                         <button
                           onClick={() => setDetalleAbierto(detalleAbierto === c.id ? null : c.id)}
@@ -266,7 +350,7 @@ export default function ChecklistVisitaAnalitica({ desde, hasta }: { desde: stri
                     </tr>
                     {detalleAbierto === c.id && (
                       <tr>
-                        <td colSpan={4}>
+                        <td colSpan={5}>
                           <DetalleChecklist id={c.id} secciones={secciones} onCerrar={() => setDetalleAbierto(null)} />
                         </td>
                       </tr>

@@ -1078,6 +1078,8 @@ export type DatosChecklistVisitaPdf = {
   usuarioNombre: string;
   rol: string;
   secciones: SeccionChecklistVisitaPdf[];
+  porcentaje?: number | null;
+  clasificacion?: string | null;
 };
 
 function formatearValorChecklist(item: ItemChecklistVisitaPdf): string {
@@ -1096,6 +1098,16 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
   y = campo(doc, "Tienda:", datos.tiendaNombre, y);
   y = campo(doc, "Fecha:", formatearFechaLegible(datos.fecha), y);
   y = campo(doc, "Realizado por:", `${datos.usuarioNombre} (${datos.rol})`, y);
+
+  if (datos.porcentaje !== null && datos.porcentaje !== undefined) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    const color = COLOR_CLASIFICACION[datos.clasificacion ?? ""] ?? [0, 0, 0];
+    doc.setTextColor(...color);
+    doc.text(`Puntaje: ${datos.porcentaje}% — ${datos.clasificacion ?? ""}`, 14, y);
+    doc.setTextColor(0, 0, 0);
+    y += 8;
+  }
   y += 3;
 
   datos.secciones.forEach((seccion) => {

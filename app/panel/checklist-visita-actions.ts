@@ -20,6 +20,14 @@ export type ItemChecklist = {
   etiqueta: string;
   tipo: TipoItemChecklist;
   opciones?: string[];
+  // Puntaje 0-100 por cada opción posible -- solo para tipo "opciones". Si no
+  // está definido, la pregunta es informativa y no cuenta en el puntaje final
+  // (ej. "qué se visualiza" en TV no tiene una respuesta "mejor" que otra).
+  puntajes?: Record<string, number>;
+  // Solo para tipo "si_no": qué respuesta vale 100% -- por defecto "si" (la
+  // mayoría de preguntas sí/no son "sí es bueno"), pero algo como
+  // "¿Contaminación cruzada?" es al revés (no es lo bueno).
+  siNoBueno?: "si" | "no";
 };
 
 export type SeccionChecklist = {
@@ -29,6 +37,54 @@ export type SeccionChecklist = {
 };
 
 export type RespuestasChecklist = Record<string, Record<string, string | number | null>>;
+
+export type ClasificacionChecklist = "Excelente" | "Bueno" | "Requiere mejora" | "Acción inmediata";
+
+function clasificarPorcentaje(porcentaje: number): ClasificacionChecklist {
+  if (porcentaje >= 90) return "Excelente";
+  if (porcentaje >= 75) return "Bueno";
+  if (porcentaje >= 60) return "Requiere mejora";
+  return "Acción inmediata";
+}
+
+// Solo escala_5, si_no, y opciones-con-puntajes-definidos cuentan para el
+// puntaje final -- texto, número, y opciones sin puntajes configurados son
+// informativos y se ignoran. Preguntas sin responder tampoco cuentan (no se
+// penaliza por dejar algo en blanco en un checklist opcional).
+export function calcularPuntajeChecklist(
+  secciones: SeccionChecklist[],
+  respuestas: RespuestasChecklist
+): { porcentaje: number | null; clasificacion: ClasificacionChecklist | null } {
+  let suma = 0;
+  let cantidad = 0;
+
+  secciones.forEach((s) => {
+    s.items.forEach((it) => {
+      const valor = respuestas[s.clave]?.[it.clave];
+      if (valor === null || valor === undefined || valor === "") return;
+
+      if (it.tipo === "escala_5" && typeof valor === "number") {
+        suma += (valor / 5) * 100;
+        cantidad++;
+      } else if (it.tipo === "si_no") {
+        const esSi = valor === "true";
+        const bueno = it.siNoBueno === "no" ? !esSi : esSi;
+        suma += bueno ? 100 : 0;
+        cantidad++;
+      } else if (it.tipo === "opciones" && it.puntajes && typeof valor === "string") {
+        const puntaje = it.puntajes[valor];
+        if (puntaje !== undefined) {
+          suma += puntaje;
+          cantidad++;
+        }
+      }
+    });
+  });
+
+  if (cantidad === 0) return { porcentaje: null, clasificacion: null };
+  const porcentaje = Math.round(suma / cantidad);
+  return { porcentaje, clasificacion: clasificarPorcentaje(porcentaje) };
+}
 
 async function exigirRolConChecklist() {
   const sesion = await obtenerSesion();
@@ -56,7 +112,13 @@ export async function obtenerPlantillaChecklistVisita(): Promise<SeccionChecklis
   return (data?.secciones as unknown as SeccionChecklist[]) ?? [];
 }
 
-export type ResultadoChecklist = { exito: boolean; mensaje?: string; id?: string };
+export type ResultadoChecklist = {
+  exito: boolean;
+  mensaje?: string;
+  id?: string;
+  porcentaje?: number | null;
+  clasificacion?: ClasificacionChecklist | null;
+};
 
 export async function guardarChecklistVisita(
   tiendaId: string,
@@ -69,6 +131,9 @@ export async function guardarChecklistVisita(
     return { exito: false, mensaje: "Selecciona la tienda y la fecha." };
   }
 
+  const secciones = await obtenerPlantillaChecklistVisita();
+  const { porcentaje, clasificacion } = calcularPuntajeChecklist(secciones, respuestas);
+
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
@@ -79,13 +144,15 @@ export async function guardarChecklistVisita(
       rol: sesion.rol,
       fecha,
       respuestas,
+      porcentaje,
+      clasificacion,
     })
     .select("id")
     .single();
 
   if (error || !data) return { exito: false, mensaje: "No se pudo guardar el checklist." };
 
-  return { exito: true, id: data.id };
+  return { exito: true, id: data.id, porcentaje, clasificacion };
 }
 
 export type ChecklistVisitaResumen = {
@@ -95,6 +162,8 @@ export type ChecklistVisitaResumen = {
   usuarioNombre: string;
   rol: string;
   fecha: string;
+  porcentaje: number | null;
+  clasificacion: ClasificacionChecklist | null;
 };
 
 export async function obtenerChecklistsVisita(
@@ -107,7 +176,7 @@ export async function obtenerChecklistsVisita(
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, tienda_id, usuario_nombre, rol, fecha, tiendas(nombre)")
+    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, tiendas(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false });
@@ -121,6 +190,8 @@ export async function obtenerChecklistsVisita(
     usuarioNombre: c.usuario_nombre,
     rol: c.rol,
     fecha: c.fecha,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
   }));
 }
 
@@ -131,6 +202,8 @@ export type ChecklistVisitaDetalle = {
   rol: string;
   fecha: string;
   respuestas: RespuestasChecklist;
+  porcentaje: number | null;
+  clasificacion: ClasificacionChecklist | null;
 };
 
 export type PromedioCajaPorTienda = { tiendaNombre: string; promedio: number };
@@ -138,6 +211,7 @@ export type DistribucionOpcion = { opcion: string; cantidad: number };
 
 export type AgregadosChecklistVisita = {
   resumen: ChecklistVisitaResumen[];
+  promedioGeneralPorTienda: PromedioCajaPorTienda[];
   promedioCajaPorTienda: PromedioCajaPorTienda[];
   distribucionNeveras: DistribucionOpcion[];
 };
@@ -156,7 +230,7 @@ export async function obtenerAgregadosChecklistVisita(
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, tiendas(nombre)")
+    .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false });
@@ -171,7 +245,23 @@ export async function obtenerAgregadosChecklistVisita(
     usuarioNombre: c.usuario_nombre,
     rol: c.rol,
     fecha: c.fecha,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
   }));
+
+  const generalPorTienda = new Map<string, { suma: number; n: number }>();
+  filas.forEach((c) => {
+    if (c.porcentaje === null || c.porcentaje === undefined) return;
+    const nombre = c.tiendas?.nombre ?? "—";
+    const actual = generalPorTienda.get(nombre) ?? { suma: 0, n: 0 };
+    generalPorTienda.set(nombre, { suma: actual.suma + c.porcentaje, n: actual.n + 1 });
+  });
+  const promedioGeneralPorTienda = Array.from(generalPorTienda.entries())
+    .map(([tiendaNombre, { suma, n }]) => ({
+      tiendaNombre,
+      promedio: Math.round(suma / n),
+    }))
+    .sort((a, b) => b.promedio - a.promedio);
 
   const cajaPorTienda = new Map<string, { suma: number; n: number }>();
   filas.forEach((c) => {
@@ -204,7 +294,7 @@ export async function obtenerAgregadosChecklistVisita(
     cantidad,
   }));
 
-  return { resumen, promedioCajaPorTienda, distribucionNeveras };
+  return { resumen, promedioGeneralPorTienda, promedioCajaPorTienda, distribucionNeveras };
 }
 
 export async function obtenerDetalleChecklistVisita(id: string): Promise<ChecklistVisitaDetalle> {
@@ -214,7 +304,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -227,5 +317,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     rol: data.rol,
     fecha: data.fecha,
     respuestas: data.respuestas as unknown as RespuestasChecklist,
+    porcentaje: data.porcentaje,
+    clasificacion: data.clasificacion as ClasificacionChecklist | null,
   };
 }

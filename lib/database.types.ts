@@ -275,9 +275,11 @@ export type Database = {
       }
       checklists_visita: {
         Row: {
+          clasificacion: string | null
           created_at: string
           fecha: string
           id: string
+          porcentaje: number | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -285,9 +287,11 @@ export type Database = {
           usuario_nombre: string
         }
         Insert: {
+          clasificacion?: string | null
           created_at?: string
           fecha: string
           id?: string
+          porcentaje?: number | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -295,9 +299,11 @@ export type Database = {
           usuario_nombre: string
         }
         Update: {
+          clasificacion?: string | null
           created_at?: string
           fecha?: string
           id?: string
+          porcentaje?: number | null
           respuestas?: Json
           rol?: string
           tienda_id?: string

@@ -7,6 +7,7 @@ import {
   type SeccionChecklist,
   type ItemChecklist,
   type RespuestasChecklist,
+  type ClasificacionChecklist,
 } from "./checklist-visita-actions";
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
@@ -14,6 +15,19 @@ import { hoyPeru } from "@/lib/fechas";
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
+
+function claseColorClasificacion(clasificacion: ClasificacionChecklist | null): string {
+  switch (clasificacion) {
+    case "Excelente":
+      return "text-emerald-400";
+    case "Bueno":
+      return "text-sky-400";
+    case "Requiere mejora":
+      return "text-amber-400";
+    default:
+      return "text-marca-rojoclaro";
+  }
+}
 
 function BotonOpcion({
   activo,
@@ -145,6 +159,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
+  const [resultado, setResultado] = useState<{
+    porcentaje: number | null;
+    clasificacion: ClasificacionChecklist | null;
+  } | null>(null);
 
   useEffect(() => {
     Promise.all([obtenerPlantillaChecklistVisita(), obtenerTodasLasTiendas()])
@@ -166,6 +184,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   function handleNuevo() {
     setRespuestas({});
     setGuardado(false);
+    setResultado(null);
     setError(null);
   }
 
@@ -176,12 +195,13 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     }
     setGuardando(true);
     setError(null);
-    const resultado = await guardarChecklistVisita(tiendaId, fecha, respuestas);
+    const resp = await guardarChecklistVisita(tiendaId, fecha, respuestas);
     setGuardando(false);
-    if (resultado.exito) {
+    if (resp.exito) {
       setGuardado(true);
+      setResultado({ porcentaje: resp.porcentaje ?? null, clasificacion: resp.clasificacion ?? null });
     } else {
-      setError(resultado.mensaje || "No se pudo guardar el checklist.");
+      setError(resp.mensaje || "No se pudo guardar el checklist.");
     }
   }
 
@@ -201,6 +221,8 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
       usuarioNombre: nombreUsuario,
       rol,
       secciones: seccionesPdf,
+      porcentaje: resultado?.porcentaje ?? null,
+      clasificacion: resultado?.clasificacion ?? null,
     });
   }
 
@@ -276,6 +298,12 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           <p className="text-emerald-400 text-xs font-bold text-center">
             ✓ Checklist guardado — ya se puede ver en Central Analítica.
           </p>
+          {resultado?.porcentaje !== null && resultado?.porcentaje !== undefined && (
+            <p className={`text-center font-display text-2xl font-bold ${claseColorClasificacion(resultado.clasificacion)}`}>
+              {resultado.porcentaje}%{" "}
+              <span className="text-sm font-bold">({resultado.clasificacion})</span>
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"
