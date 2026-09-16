@@ -86,6 +86,10 @@ export default function PanelShell({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1.5 bg-marca-rojo/10 border border-marca-rojoclaro/40 text-marca-rojoclaro text-[11px] font-bold tracking-wide px-2.5 py-1.5 rounded-[3px] truncate max-w-[150px] sm:max-w-[220px]">
+            <span className="shrink-0">{seccionActiva?.icono}</span>
+            <span className="truncate">{seccionActiva?.etiqueta}</span>
+          </span>
           <span className="hidden sm:inline text-marca-tenue text-[11px] truncate max-w-[220px]">
             Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
           </span>
