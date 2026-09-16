@@ -1,7 +1,21 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 import {
   obtenerAgregadosChecklistVisita,
   obtenerDetalleChecklistVisita,
@@ -204,6 +218,7 @@ export default function ChecklistVisitaAnalitica({
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(resaltarId ?? null);
   const [busquedaTienda, setBusquedaTienda] = useState("");
   const [filtroClasificacion, setFiltroClasificacion] = useState<string>("todos");
+  const [tiendaEvolucion, setTiendaEvolucion] = useState<string>("");
   const colores = useColoresGrafico();
 
   useEffect(() => {
@@ -229,6 +244,22 @@ export default function ChecklistVisitaAnalitica({
     if (filtroClasificacion === "sin_puntaje") return c.clasificacion === null;
     return c.clasificacion === filtroClasificacion;
   });
+
+  const tiendasConChecklist = Array.from(new Set(datos.resumen.map((c) => c.tiendaNombre))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const tiendaSeleccionada = tiendasConChecklist.includes(tiendaEvolucion)
+    ? tiendaEvolucion
+    : tiendasConChecklist[0] ?? "";
+  const historialTienda = datos.resumen
+    .filter((c) => c.tiendaNombre === tiendaSeleccionada && c.porcentaje !== null)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const primerPuntoTienda = historialTienda[0] ?? null;
+  const ultimoPuntoTienda = historialTienda[historialTienda.length - 1] ?? null;
+  const deltaTienda =
+    primerPuntoTienda && ultimoPuntoTienda && primerPuntoTienda.id !== ultimoPuntoTienda.id
+      ? (ultimoPuntoTienda.porcentaje as number) - (primerPuntoTienda.porcentaje as number)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -297,6 +328,89 @@ export default function ChecklistVisitaAnalitica({
               <Bar dataKey="cantidad" name="Checklists" fill="#e23744" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue">📈 EVOLUCIÓN DE UNA TIENDA</h3>
+          {tiendasConChecklist.length > 0 && (
+            <select
+              value={tiendaSeleccionada}
+              onChange={(e) => setTiendaEvolucion(e.target.value)}
+              className="p-2 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro"
+            >
+              {tiendasConChecklist.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <p className="text-marca-tenue text-[11px] mb-4">
+          Puntaje de cada checklist enviado a esa tienda en el rango, en orden — así se ve si va
+          mejorando o empeorando, sin importar cada cuánto se le hace.
+        </p>
+        {historialTienda.length === 0 ? (
+          <p className="text-marca-tenue text-sm italic py-6 text-center">
+            Esta tienda no tiene checklists con puntaje calculable en este rango.
+          </p>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={historialTienda} margin={{ left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
+                <XAxis
+                  dataKey="fecha"
+                  stroke={colores.eje}
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => formatearFechaLegible(v).slice(0, 12)}
+                />
+                <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+                <Tooltip
+                  contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
+                  labelFormatter={(v) => formatearFechaLegible(String(v))}
+                  formatter={(v: any, _n: any, item: any) => [
+                    `${v}% (${item.payload.usuarioNombre})`,
+                    "Puntaje",
+                  ]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="porcentaje"
+                  stroke="#e23744"
+                  strokeWidth={2}
+                  dot={(props: any) => {
+                    const { cx, cy, payload, key } = props;
+                    return (
+                      <circle
+                        key={key}
+                        cx={cx}
+                        cy={cy}
+                        r={5}
+                        fill={colorBarraPorcentaje(payload.porcentaje)}
+                        stroke={colores.superficie}
+                        strokeWidth={1.5}
+                      />
+                    );
+                  }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            {deltaTienda !== null && (
+              <div className="mt-3 bg-marca-superficie2 border border-marca-borde rounded-[3px] px-3.5 py-2.5 text-[12.5px] text-marca-tenue leading-relaxed">
+                <span className="text-marca-textofuerte font-semibold">{tiendaSeleccionada}</span>{" "}
+                {deltaTienda >= 0 ? "subió" : "bajó"}{" "}
+                <span className={deltaTienda >= 0 ? "text-emerald-400 font-semibold" : "text-marca-rojoclaro font-semibold"}>
+                  {Math.abs(deltaTienda)} puntos
+                </span>{" "}
+                desde su primer checklist en el rango ({formatearFechaLegible(primerPuntoTienda!.fecha)},{" "}
+                {primerPuntoTienda!.porcentaje}%) hasta el más reciente ({formatearFechaLegible(ultimoPuntoTienda!.fecha)}
+                , {ultimoPuntoTienda!.porcentaje}%).
+              </div>
+            )}
+          </>
         )}
       </div>
 
