@@ -36,6 +36,13 @@ const ESTILOS: Record<
     texto: "text-violet-300",
     etiqueta: "Licencia",
   },
+  MISION_ESPECIAL: {
+    emoji: "🚀",
+    borde: "border-fuchsia-600/50",
+    fondo: "bg-fuchsia-950/20",
+    texto: "text-fuchsia-300",
+    etiqueta: "Misión especial",
+  },
 };
 
 export default function EstadoPersonalHoy() {

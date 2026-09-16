@@ -14,13 +14,14 @@ import {
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import SelectorGrid from "./selector-grid";
 
-const TIPOS = ["Vacaciones", "Permiso", "Descanso Semanal", "Licencia"] as const;
+const TIPOS = ["Vacaciones", "Permiso", "Descanso Semanal", "Licencia", "Misión Especial"] as const;
 
 const ESTILOS_TIPO: Record<string, string> = {
   Vacaciones: "text-sky-400 border-sky-500/40 bg-sky-950/20",
   Permiso: "text-amber-400 border-amber-500/40 bg-amber-950/20",
   "Descanso Semanal": "text-orange-400 border-orange-500/40 bg-orange-950/20",
   Licencia: "text-violet-400 border-violet-500/40 bg-violet-950/20",
+  "Misión Especial": "text-fuchsia-400 border-fuchsia-500/40 bg-fuchsia-950/20",
 };
 
 const estadoInicial: ResultadoAccion = { exito: false };

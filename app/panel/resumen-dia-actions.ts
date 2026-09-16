@@ -78,8 +78,9 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeAlerta)
       .lte("fecha", hoy),
-    // Vacaciones, permisos, descanso semanal o licencia — esos días no
-    // deben contar como tardanza ni salida faltante (ver lib/puntualidad.ts).
+    // Vacaciones, permisos, descanso semanal, licencia o misión especial —
+    // esos días no deben contar como tardanza ni salida faltante (ver
+    // lib/puntualidad.ts).
     supabase
       .from("asignaciones_especiales")
       .select("fecha_inicio, fecha_fin")

@@ -23,6 +23,7 @@ const ICONO: Record<TipoEventoCalendario, string> = {
   permiso: "📄",
   descanso_semanal_especial: "🛌",
   licencia: "📃",
+  mision_especial: "🚀",
   evento: "📣",
 };
 
@@ -32,6 +33,7 @@ const ETIQUETA: Record<TipoEventoCalendario, string> = {
   permiso: "Permiso",
   descanso_semanal_especial: "Descanso semanal",
   licencia: "Licencia",
+  mision_especial: "Misión especial",
   evento: "Evento",
 };
 
@@ -39,8 +41,9 @@ const CLASE_CHIP: Record<TipoEventoCalendario, string> = {
   ruta: "bg-marca-rojo/85",
   vacaciones: "bg-sky-600",
   permiso: "bg-amber-600",
-  descanso_semanal_especial: "bg-fuchsia-600",
-  licencia: "bg-orange-600",
+  descanso_semanal_especial: "bg-orange-600",
+  licencia: "bg-violet-600",
+  mision_especial: "bg-fuchsia-600",
   evento: "bg-indigo-500",
 };
 

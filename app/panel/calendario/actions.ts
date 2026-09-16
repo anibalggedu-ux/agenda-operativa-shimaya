@@ -9,6 +9,7 @@ export type TipoEventoCalendario =
   | "permiso"
   | "descanso_semanal_especial"
   | "licencia"
+  | "mision_especial"
   | "evento";
 
 export type EventoCalendario = {
@@ -36,6 +37,7 @@ const TIPO_ASIGNACION: Record<string, TipoEventoCalendario> = {
   Permiso: "permiso",
   "Descanso Semanal": "descanso_semanal_especial",
   Licencia: "licencia",
+  "Misión Especial": "mision_especial",
 };
 
 function rangoMes(anio: number, mes: number): { inicio: string; fin: string } {

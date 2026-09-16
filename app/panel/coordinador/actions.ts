@@ -524,7 +524,8 @@ export type TipoAsignacionEspecial =
   | "Vacaciones"
   | "Permiso"
   | "Descanso Semanal"
-  | "Licencia";
+  | "Licencia"
+  | "Misión Especial";
 
 export type AsignacionEspecial = {
   id: string;
@@ -1241,7 +1242,7 @@ export type EstadoPersonalHoy = {
   usuarioId: string;
   usuarioNombre: string;
   rol: string;
-  estado: "DESCANSO_SEMANAL" | "VACACIONES" | "PERMISO" | "LICENCIA" | null;
+  estado: "DESCANSO_SEMANAL" | "VACACIONES" | "PERMISO" | "LICENCIA" | "MISION_ESPECIAL" | null;
   detalle: string | null;
 };
 
@@ -1275,6 +1276,7 @@ export async function obtenerEstadoPersonalHoy(): Promise<EstadoPersonalHoy[]> {
     Permiso: "PERMISO",
     "Descanso Semanal": "DESCANSO_SEMANAL",
     Licencia: "LICENCIA",
+    "Misión Especial": "MISION_ESPECIAL",
   };
 
   return (usuarios ?? []).map((u: any) => {
