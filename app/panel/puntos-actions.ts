@@ -128,7 +128,7 @@ export type PuntosUsuario = {
 async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const supabase = supabaseServer();
 
-  const [usuariosRes, asistenciaRes, reportesRes, tiendasProvinciaRes] = await Promise.all([
+  const [usuariosRes, asistenciaRes, reportesRes, rutasActivasRes, tiendasProvinciaRes] = await Promise.all([
     supabase
       .from("usuarios")
       .select(
@@ -140,17 +140,29 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
       .not("hora_ingreso", "is", null),
     supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
+    // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
+    // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
+    // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
+    // que se asigna, no desde que se reporta, así que se incluyen acá.
+    supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
     supabase.from("tiendas").select("id").eq("es_provincia", true),
   ]);
 
-  if (usuariosRes.error || asistenciaRes.error || reportesRes.error || tiendasProvinciaRes.error) {
+  if (
+    usuariosRes.error ||
+    asistenciaRes.error ||
+    reportesRes.error ||
+    rutasActivasRes.error ||
+    tiendasProvinciaRes.error
+  ) {
     throw new Error("No se pudo calcular los puntos.");
   }
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
 
-  // Fechas reportadas en tienda de provincia, agrupadas por usuario+tienda —
-  // sirven para contar "viajes" (más abajo), no reportes sueltos.
+  // Fechas asignadas o reportadas en tienda de provincia (rutas_activas +
+  // rutas_diarias — una fecha nunca está en ambas, ver guardarReporte),
+  // agrupadas por usuario+tienda para contar "viajes" (más abajo).
   const fechasProvinciaPorUsuarioYTienda = new Map<string, string[]>();
 
   const puntosPorUsuario = new Map<string, number>();
@@ -182,6 +194,18 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       const clave = `${r.usuario_id}|${r.tienda_id}`;
       const fechas = fechasProvinciaPorUsuarioYTienda.get(clave) ?? [];
       fechas.push(r.fecha);
+      fechasProvinciaPorUsuarioYTienda.set(clave, fechas);
+    }
+  });
+
+  // Rutas asignadas pero aún no reportadas: no dan los 10 pts (eso es solo
+  // por reporte enviado), pero sí cuentan para el viaje — la copa no espera
+  // a que termine de reportar todos los días de su viaje.
+  (rutasActivasRes.data ?? []).forEach((r: any) => {
+    if (tiendasProvinciaIds.has(r.tienda_id)) {
+      const clave = `${r.usuario_id}|${r.tienda_id}`;
+      const fechas = fechasProvinciaPorUsuarioYTienda.get(clave) ?? [];
+      fechas.push(r.fecha_planificada);
       fechasProvinciaPorUsuarioYTienda.set(clave, fechas);
     }
   });
