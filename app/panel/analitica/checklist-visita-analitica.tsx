@@ -159,6 +159,20 @@ function DetalleChecklist({
   );
 }
 
+const FILTROS_CLASIFICACION = ["Excelente", "Bueno", "Requiere mejora", "Acción inmediata"] as const;
+
+function Kpi({ label, valor, sub, bien }: { label: string; valor: string; sub: string; bien?: boolean }) {
+  return (
+    <div className="bg-marca-superficie p-4">
+      <p className="text-marca-tenue text-[10px] uppercase font-bold mb-2">{label}</p>
+      <p className={`font-display text-2xl font-semibold tabular-nums ${bien ? "text-emerald-500" : "text-marca-textofuerte"}`}>
+        {valor}
+      </p>
+      <p className="text-marca-tenue text-[11px] mt-1">{sub}</p>
+    </div>
+  );
+}
+
 export default function ChecklistVisitaAnalitica({
   desde,
   hasta,
@@ -173,6 +187,9 @@ export default function ChecklistVisitaAnalitica({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(resaltarId ?? null);
+  const [preguntaTorta, setPreguntaTorta] = useState<string>("neveras.limpieza");
+  const [busquedaTienda, setBusquedaTienda] = useState("");
+  const [filtroClasificacion, setFiltroClasificacion] = useState<string>("todos");
   const colores = useColoresGrafico();
 
   useEffect(() => {
@@ -191,100 +208,197 @@ export default function ChecklistVisitaAnalitica({
   if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   if (!datos) return null;
 
+  const preguntaValida = datos.preguntasOpciones.some((p) => p.clave === preguntaTorta)
+    ? preguntaTorta
+    : datos.preguntasOpciones[0]?.clave ?? "";
+  const distribucionActual = datos.distribucionPorPregunta[preguntaValida] ?? [];
+
+  const filas = datos.resumen.filter((c) => {
+    const coincideTienda = c.tiendaNombre.toLowerCase().includes(busquedaTienda.trim().toLowerCase());
+    if (!coincideTienda) return false;
+    if (filtroClasificacion === "todos") return true;
+    if (filtroClasificacion === "sin_puntaje") return c.clasificacion === null;
+    return c.clasificacion === filtroClasificacion;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-marca-borde border border-marca-borde rounded-[3px] overflow-hidden">
+        <Kpi label="Checklists" valor={String(datos.totalChecklists)} sub="enviados en el rango" />
+        <Kpi
+          label="Promedio general"
+          valor={datos.promedioGeneral === null ? "—" : `${datos.promedioGeneral}%`}
+          sub="de la red"
+          bien={datos.promedioGeneral !== null && datos.promedioGeneral >= 75}
+        />
+        <Kpi label="Acción inmediata" valor={String(datos.totalAccionInmediata)} sub="checklists críticos" />
+        <Kpi
+          label="Tienda líder"
+          valor={datos.tiendaLider ? datos.tiendaLider.tiendaNombre : "—"}
+          sub={datos.tiendaLider ? `${datos.tiendaLider.promedio}% de promedio` : "sin puntaje"}
+        />
+      </div>
+
+      {datos.alertasCriticas.length > 0 && (
+        <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-5">
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+            🚨 ALERTAS CRÍTICAS — CHECKLISTS EN ACCIÓN INMEDIATA
+          </h3>
+          <p className="text-marca-tenue text-[11px] mb-4">
+            Menos del 60% de puntaje — conviene revisar estas tiendas cuanto antes.
+          </p>
+          <div className="space-y-2">
+            {datos.alertasCriticas.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between flex-wrap gap-2 bg-marca-fondo border border-marca-rojo/30 rounded-[3px] p-3"
+              >
+                <div>
+                  <p className="text-marca-textofuerte font-semibold text-sm">{a.tiendaNombre}</p>
+                  <p className="text-marca-tenue text-[11px] capitalize">
+                    {formatearFechaLegible(a.fecha)} · {a.usuarioNombre}
+                  </p>
+                </div>
+                <span className="text-marca-rojoclaro font-black text-sm shrink-0">{a.porcentaje}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
         <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-          🎯 PUNTAJE GENERAL POR TIENDA
+          📈 CHECKLISTS POR DÍA
         </h3>
-        <p className="text-marca-tenue text-[11px] mb-4">
-          Promedio de todos los checklists enviados en el rango, en base a las preguntas que sí
-          cuentan para el puntaje (las de texto libre y algunas de opción no puntúan).
-        </p>
-        {datos.promedioGeneralPorTienda.length === 0 ? (
+        <p className="text-marca-tenue text-[11px] mb-4">Actividad en el rango seleccionado, en toda la red.</p>
+        {datos.checklistsPorDia.length === 0 ? (
           <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists con puntaje calculable en este rango.
+            No hay checklists enviados en este rango de fechas.
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={datos.promedioGeneralPorTienda} margin={{ left: -10 }}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={datos.checklistsPorDia}>
               <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
-              <XAxis
-                dataKey="tiendaNombre"
-                stroke={colores.eje}
-                tick={{ fontSize: 9.5 }}
-                interval={0}
-                angle={-20}
-                textAnchor="end"
-                height={55}
-              />
-              <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+              <XAxis dataKey="fecha" stroke={colores.eje} tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
-                formatter={(v) => [`${v}%`, "Promedio"] as [string, string]}
+                labelFormatter={(v) => formatearFechaLegible(String(v))}
               />
-              <Bar dataKey="promedio" radius={[4, 4, 0, 0]}>
-                {datos.promedioGeneralPorTienda.map((d, i) => (
-                  <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
-                ))}
-              </Bar>
+              <Bar dataKey="cantidad" name="Checklists" fill="#e23744" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-          📊 PROMEDIO DE CAJA POR TIENDA
-        </h3>
-        <p className="text-marca-tenue text-[11px] mb-4">
-          Promedio de orden + limpieza + organización (escala 1 a 5), de los checklists enviados en el
-          rango.
-        </p>
-        {datos.promedioCajaPorTienda.length === 0 ? (
-          <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists con la sección de Caja llenada en este rango.
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+            🎯 PUNTAJE GENERAL POR TIENDA
+          </h3>
+          <p className="text-marca-tenue text-[11px] mb-4">
+            Promedio de todos los checklists enviados en el rango, en base a las preguntas que sí
+            cuentan para el puntaje.
           </p>
-        ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={datos.promedioCajaPorTienda} margin={{ left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
-              <XAxis
-                dataKey="tiendaNombre"
-                stroke={colores.eje}
-                tick={{ fontSize: 9.5 }}
-                interval={0}
-                angle={-20}
-                textAnchor="end"
-                height={55}
-              />
-              <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 5]} />
-              <Tooltip
-                contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
-                formatter={(v) => [`${v}/5`, "Promedio"] as [string, string]}
-              />
-              <Bar dataKey="promedio" fill="#e23744" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+          {datos.promedioGeneralPorTienda.length === 0 ? (
+            <p className="text-marca-tenue text-sm italic py-6 text-center">
+              No hay checklists con puntaje calculable en este rango.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={datos.promedioGeneralPorTienda} margin={{ left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
+                <XAxis
+                  dataKey="tiendaNombre"
+                  stroke={colores.eje}
+                  tick={{ fontSize: 9.5 }}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={55}
+                />
+                <YAxis stroke={colores.eje} tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+                <Tooltip
+                  contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
+                  formatter={(v) => [`${v}%`, "Promedio"] as [string, string]}
+                />
+                <Bar dataKey="promedio" radius={[4, 4, 0, 0]}>
+                  {datos.promedioGeneralPorTienda.map((d, i) => (
+                    <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
+            🧩 PROMEDIO POR SECCIÓN
+          </h3>
+          <p className="text-marca-tenue text-[11px] mb-4">
+            Qué área del negocio está mejor o peor, en toda la red, en el rango seleccionado.
+          </p>
+          {datos.promedioPorSeccion.length === 0 ? (
+            <p className="text-marca-tenue text-sm italic py-6 text-center">
+              No hay preguntas puntuables respondidas en este rango.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={datos.promedioPorSeccion} layout="vertical" margin={{ left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
+                <XAxis type="number" domain={[0, 100]} unit="%" stroke={colores.eje} tick={{ fontSize: 10 }} />
+                <YAxis
+                  type="category"
+                  dataKey="seccion"
+                  stroke={colores.eje}
+                  tick={{ fontSize: 10 }}
+                  width={140}
+                />
+                <Tooltip
+                  contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
+                  formatter={(v) => [`${v}%`, "Promedio"] as [string, string]}
+                />
+                <Bar dataKey="promedio" radius={[0, 4, 4, 0]}>
+                  {datos.promedioPorSeccion.map((d, i) => (
+                    <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-          🥧 ESTADO DE LIMPIEZA DE NEVERAS
-        </h3>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue">🥧 DISTRIBUCIÓN POR PREGUNTA</h3>
+          {datos.preguntasOpciones.length > 0 && (
+            <select
+              value={preguntaValida}
+              onChange={(e) => setPreguntaTorta(e.target.value)}
+              className="p-2 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro max-w-full"
+            >
+              {datos.preguntasOpciones.map((p) => (
+                <option key={p.clave} value={p.clave}>
+                  {p.etiqueta}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <p className="text-marca-tenue text-[11px] mb-4">
-          De todos los checklists enviados en el rango, en toda la red.
+          De todos los checklists enviados en el rango, en toda la red. Elige la pregunta que quieras ver.
         </p>
-        {datos.distribucionNeveras.length === 0 ? (
+        {distribucionActual.length === 0 ? (
           <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists con la sección de Neveras llenada en este rango.
+            Nadie respondió esta pregunta en este rango de fechas.
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
-                data={datos.distribucionNeveras}
+                data={distribucionActual}
                 dataKey="cantidad"
                 nameKey="opcion"
                 cx="50%"
@@ -292,7 +406,7 @@ export default function ChecklistVisitaAnalitica({
                 outerRadius={80}
                 label={(d: any) => `${d.opcion} (${d.cantidad})`}
               >
-                {datos.distribucionNeveras.map((_, i) => (
+                {distribucionActual.map((_, i) => (
                   <Cell key={i} fill={PALETA[i % PALETA.length]} />
                 ))}
               </Pie>
@@ -307,9 +421,52 @@ export default function ChecklistVisitaAnalitica({
         <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
           📋 CHECKLISTS ENVIADOS
         </h3>
-        {datos.resumen.length === 0 ? (
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input
+            value={busquedaTienda}
+            onChange={(e) => setBusquedaTienda(e.target.value)}
+            placeholder="Buscar tienda..."
+            className="p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro flex-1 min-w-[180px]"
+          />
+          <button
+            onClick={() => setFiltroClasificacion("todos")}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase transition ${
+              filtroClasificacion === "todos"
+                ? "bg-marca-rojo text-marca-textofuerte"
+                : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
+            }`}
+          >
+            Todos
+          </button>
+          {FILTROS_CLASIFICACION.map((c) => (
+            <button
+              key={c}
+              onClick={() => setFiltroClasificacion(c)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase transition ${
+                filtroClasificacion === c
+                  ? "bg-marca-rojo text-marca-textofuerte"
+                  : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+          <button
+            onClick={() => setFiltroClasificacion("sin_puntaje")}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase transition ${
+              filtroClasificacion === "sin_puntaje"
+                ? "bg-marca-rojo text-marca-textofuerte"
+                : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
+            }`}
+          >
+            Sin puntaje
+          </button>
+        </div>
+
+        {filas.length === 0 ? (
           <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists enviados en este rango de fechas.
+            No hay checklists que coincidan en este rango de fechas.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -332,7 +489,7 @@ export default function ChecklistVisitaAnalitica({
                 </tr>
               </thead>
               <tbody>
-                {datos.resumen.map((c) => (
+                {filas.map((c) => (
                   <Fragment key={c.id}>
                     <tr className="border-b border-marca-borde/60 hover:bg-marca-superficie2 transition">
                       <td className="py-2.5 pr-3 font-data text-[12.5px] whitespace-nowrap">

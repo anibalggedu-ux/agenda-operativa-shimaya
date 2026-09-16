@@ -49,6 +49,25 @@ function clasificarPorcentaje(porcentaje: number): ClasificacionChecklist {
   return "Acción inmediata";
 }
 
+// Puntaje 0-100 de una sola respuesta, o null si el tipo de pregunta no
+// puntúa (texto, número, opciones sin puntajes configurados) o si no se
+// respondió. Punto único de esta regla -- lo usan tanto el puntaje general
+// de un checklist como el promedio por sección en Central Analítica.
+function puntajeItem(it: ItemChecklist, valor: string | number | null | undefined): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (it.tipo === "escala_5" && typeof valor === "number") return (valor / 5) * 100;
+  if (it.tipo === "si_no") {
+    const esSi = valor === "true";
+    const bueno = it.siNoBueno === "no" ? !esSi : esSi;
+    return bueno ? 100 : 0;
+  }
+  if (it.tipo === "opciones" && it.puntajes && typeof valor === "string") {
+    const p = it.puntajes[valor];
+    return p !== undefined ? p : null;
+  }
+  return null;
+}
+
 // Solo escala_5, si_no, y opciones-con-puntajes-definidos cuentan para el
 // puntaje final -- texto, número, y opciones sin puntajes configurados son
 // informativos y se ignoran. Preguntas sin responder tampoco cuentan (no se
@@ -62,23 +81,10 @@ export async function calcularPuntajeChecklist(
 
   secciones.forEach((s) => {
     s.items.forEach((it) => {
-      const valor = respuestas[s.clave]?.[it.clave];
-      if (valor === null || valor === undefined || valor === "") return;
-
-      if (it.tipo === "escala_5" && typeof valor === "number") {
-        suma += (valor / 5) * 100;
+      const puntaje = puntajeItem(it, respuestas[s.clave]?.[it.clave]);
+      if (puntaje !== null) {
+        suma += puntaje;
         cantidad++;
-      } else if (it.tipo === "si_no") {
-        const esSi = valor === "true";
-        const bueno = it.siNoBueno === "no" ? !esSi : esSi;
-        suma += bueno ? 100 : 0;
-        cantidad++;
-      } else if (it.tipo === "opciones" && it.puntajes && typeof valor === "string") {
-        const puntaje = it.puntajes[valor];
-        if (puntaje !== undefined) {
-          suma += puntaje;
-          cantidad++;
-        }
       }
     });
   });
@@ -274,20 +280,33 @@ export type ChecklistVisitaDetalle = {
   clasificacion: ClasificacionChecklist | null;
 };
 
-export type PromedioCajaPorTienda = { tiendaNombre: string; promedio: number };
+export type PromedioTienda = { tiendaNombre: string; promedio: number };
 export type DistribucionOpcion = { opcion: string; cantidad: number };
+export type PromedioSeccion = { seccion: string; promedio: number };
+export type ChecklistsPorDia = { fecha: string; cantidad: number };
+export type AlertaChecklistCritica = {
+  id: string;
+  tiendaNombre: string;
+  fecha: string;
+  usuarioNombre: string;
+  porcentaje: number;
+};
+export type PreguntaOpciones = { clave: string; etiqueta: string };
 
 export type AgregadosChecklistVisita = {
   resumen: ChecklistVisitaResumen[];
-  promedioGeneralPorTienda: PromedioCajaPorTienda[];
-  promedioCajaPorTienda: PromedioCajaPorTienda[];
-  distribucionNeveras: DistribucionOpcion[];
+  totalChecklists: number;
+  promedioGeneral: number | null;
+  totalAccionInmediata: number;
+  tiendaLider: PromedioTienda | null;
+  alertasCriticas: AlertaChecklistCritica[];
+  checklistsPorDia: ChecklistsPorDia[];
+  promedioGeneralPorTienda: PromedioTienda[];
+  promedioPorSeccion: PromedioSeccion[];
+  preguntasOpciones: PreguntaOpciones[];
+  distribucionPorPregunta: Record<string, DistribucionOpcion[]>;
 };
 
-// Los dos gráficos de arranque (Central Analítica): promedio de Caja por
-// tienda y distribución del estado de Neveras. Se leen directo de las claves
-// del checklist original ("caja"/"neveras") -- si algún día se necesitan más
-// gráficos específicos, se agregan aquí de la misma forma sin tocar lo demás.
 export async function obtenerAgregadosChecklistVisita(
   desde: string,
   hasta: string
@@ -296,12 +315,15 @@ export async function obtenerAgregadosChecklistVisita(
   if (!sesion) throw new Error("No autorizado.");
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("checklists_visita")
-    .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
-    .gte("fecha", desde)
-    .lte("fecha", hasta)
-    .order("fecha", { ascending: false });
+  const [{ data, error }, secciones] = await Promise.all([
+    supabase
+      .from("checklists_visita")
+      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: false }),
+    obtenerPlantillaChecklistVisita(),
+  ]);
 
   if (error) throw new Error("No se pudo cargar los checklists.");
   const filas = (data ?? []) as any[];
@@ -317,6 +339,15 @@ export async function obtenerAgregadosChecklistVisita(
     clasificacion: c.clasificacion,
   }));
 
+  // ---- KPIs ----
+  const conPuntaje = filas.filter((c) => c.porcentaje !== null && c.porcentaje !== undefined);
+  const promedioGeneral =
+    conPuntaje.length === 0
+      ? null
+      : Math.round(conPuntaje.reduce((s, c) => s + c.porcentaje, 0) / conPuntaje.length);
+  const totalAccionInmediata = filas.filter((c) => c.clasificacion === "Acción inmediata").length;
+
+  // ---- Promedio general por tienda (para el gráfico y la tienda líder) ----
   const generalPorTienda = new Map<string, { suma: number; n: number }>();
   filas.forEach((c) => {
     if (c.porcentaje === null || c.porcentaje === undefined) return;
@@ -330,39 +361,90 @@ export async function obtenerAgregadosChecklistVisita(
       promedio: Math.round(suma / n),
     }))
     .sort((a, b) => b.promedio - a.promedio);
+  const tiendaLider = promedioGeneralPorTienda[0] ?? null;
 
-  const cajaPorTienda = new Map<string, { suma: number; n: number }>();
-  filas.forEach((c) => {
-    const caja = c.respuestas?.caja;
-    if (!caja) return;
-    const valores = [caja.orden, caja.limpieza, caja.organizacion].filter(
-      (v) => typeof v === "number"
-    ) as number[];
-    if (valores.length === 0) return;
-    const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
-    const nombre = c.tiendas?.nombre ?? "—";
-    const actual = cajaPorTienda.get(nombre) ?? { suma: 0, n: 0 };
-    cajaPorTienda.set(nombre, { suma: actual.suma + promedio, n: actual.n + 1 });
-  });
-  const promedioCajaPorTienda = Array.from(cajaPorTienda.entries())
-    .map(([tiendaNombre, { suma, n }]) => ({
-      tiendaNombre,
-      promedio: Math.round((suma / n) * 10) / 10,
+  // ---- Alertas críticas: checklists en "Acción inmediata" ----
+  const alertasCriticas: AlertaChecklistCritica[] = filas
+    .filter((c) => c.clasificacion === "Acción inmediata")
+    .map((c) => ({
+      id: c.id,
+      tiendaNombre: c.tiendas?.nombre ?? "—",
+      fecha: c.fecha,
+      usuarioNombre: c.usuario_nombre,
+      porcentaje: c.porcentaje,
     }))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  // ---- Checklists por día (actividad) ----
+  const porDiaMap = new Map<string, number>();
+  filas.forEach((c) => porDiaMap.set(c.fecha, (porDiaMap.get(c.fecha) ?? 0) + 1));
+  const checklistsPorDia = Array.from(porDiaMap.entries())
+    .map(([fecha, cantidad]) => ({ fecha, cantidad }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  // ---- Promedio por sección: para cada checklist se calcula su propio
+  // sub-puntaje de esa sección (si respondió algo puntuable ahí), y luego se
+  // promedian esos sub-puntajes entre checklists -- mismo criterio que el
+  // puntaje general (cada checklist pesa igual, no cada pregunta suelta). ----
+  const seccionAcum = new Map<string, { suma: number; n: number }>();
+  filas.forEach((c) => {
+    secciones.forEach((s) => {
+      let suma = 0;
+      let cantidad = 0;
+      s.items.forEach((it) => {
+        const puntaje = puntajeItem(it, c.respuestas?.[s.clave]?.[it.clave]);
+        if (puntaje !== null) {
+          suma += puntaje;
+          cantidad++;
+        }
+      });
+      if (cantidad === 0) return;
+      const subPuntaje = suma / cantidad;
+      const actual = seccionAcum.get(s.titulo) ?? { suma: 0, n: 0 };
+      seccionAcum.set(s.titulo, { suma: actual.suma + subPuntaje, n: actual.n + 1 });
+    });
+  });
+  const promedioPorSeccion = Array.from(seccionAcum.entries())
+    .map(([seccion, { suma, n }]) => ({ seccion, promedio: Math.round(suma / n) }))
     .sort((a, b) => b.promedio - a.promedio);
 
-  const distribucionMap = new Map<string, number>();
-  filas.forEach((c) => {
-    const valor = c.respuestas?.neveras?.limpieza;
-    if (!valor) return;
-    distribucionMap.set(valor, (distribucionMap.get(valor) ?? 0) + 1);
-  });
-  const distribucionNeveras = Array.from(distribucionMap.entries()).map(([opcion, cantidad]) => ({
-    opcion,
-    cantidad,
-  }));
+  // ---- Distribución por pregunta de opción múltiple: cualquier pregunta
+  // tipo "opciones" (tenga o no puntajes configurados) queda disponible para
+  // que Central Analítica arme una torta con la que elija el usuario. ----
+  const preguntasOpciones: PreguntaOpciones[] = [];
+  const distribucionPorPregunta: Record<string, DistribucionOpcion[]> = {};
+  secciones.forEach((s) => {
+    s.items.forEach((it) => {
+      if (it.tipo !== "opciones") return;
+      const clave = `${s.clave}.${it.clave}`;
+      preguntasOpciones.push({ clave, etiqueta: `${s.titulo} — ${it.etiqueta}` });
 
-  return { resumen, promedioGeneralPorTienda, promedioCajaPorTienda, distribucionNeveras };
+      const conteo = new Map<string, number>();
+      filas.forEach((c) => {
+        const valor = c.respuestas?.[s.clave]?.[it.clave];
+        if (!valor) return;
+        conteo.set(valor, (conteo.get(valor) ?? 0) + 1);
+      });
+      distribucionPorPregunta[clave] = Array.from(conteo.entries()).map(([opcion, cantidad]) => ({
+        opcion,
+        cantidad,
+      }));
+    });
+  });
+
+  return {
+    resumen,
+    totalChecklists: filas.length,
+    promedioGeneral,
+    totalAccionInmediata,
+    tiendaLider,
+    alertasCriticas,
+    checklistsPorDia,
+    promedioGeneralPorTienda,
+    promedioPorSeccion,
+    preguntasOpciones,
+    distribucionPorPregunta,
+  };
 }
 
 export async function obtenerDetalleChecklistVisita(id: string): Promise<ChecklistVisitaDetalle> {
