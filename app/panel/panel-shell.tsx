@@ -140,6 +140,13 @@ export default function PanelShell({
           Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
         </div>
 
+        <div className="mb-4 flex items-center gap-3 bg-marca-superficie2 border border-marca-borde border-l-4 border-l-marca-rojoclaro rounded-[3px] px-4 py-3">
+          <span className="text-2xl shrink-0">{seccionActiva?.icono}</span>
+          <p className="font-display text-lg sm:text-xl font-bold text-marca-textofuerte truncate">
+            {seccionActiva?.etiqueta}
+          </p>
+        </div>
+
         {encabezado}
 
         <div className="flex flex-col lg:flex-row border border-marca-borde rounded-[3px] overflow-hidden">
@@ -153,9 +160,6 @@ export default function PanelShell({
 
           <div className="flex-1 min-w-0 flex flex-col bg-marca-fondo">
             <div className="flex-1 p-4 sm:p-6">
-              <h2 className="font-display text-xl font-semibold text-marca-textofuerte mb-4 flex items-center gap-2">
-                <span>{seccionActiva?.icono}</span> {seccionActiva?.etiqueta}
-              </h2>
               {seccionActiva?.contenido}
             </div>
           </div>
