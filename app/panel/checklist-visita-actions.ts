@@ -51,10 +51,10 @@ function clasificarPorcentaje(porcentaje: number): ClasificacionChecklist {
 // puntaje final -- texto, número, y opciones sin puntajes configurados son
 // informativos y se ignoran. Preguntas sin responder tampoco cuentan (no se
 // penaliza por dejar algo en blanco en un checklist opcional).
-export function calcularPuntajeChecklist(
+export async function calcularPuntajeChecklist(
   secciones: SeccionChecklist[],
   respuestas: RespuestasChecklist
-): { porcentaje: number | null; clasificacion: ClasificacionChecklist | null } {
+): Promise<{ porcentaje: number | null; clasificacion: ClasificacionChecklist | null }> {
   let suma = 0;
   let cantidad = 0;
 
@@ -132,7 +132,7 @@ export async function guardarChecklistVisita(
   }
 
   const secciones = await obtenerPlantillaChecklistVisita();
-  const { porcentaje, clasificacion } = calcularPuntajeChecklist(secciones, respuestas);
+  const { porcentaje, clasificacion } = await calcularPuntajeChecklist(secciones, respuestas);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
