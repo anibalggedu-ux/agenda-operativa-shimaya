@@ -7,8 +7,8 @@ export type TipoEventoCalendario =
   | "ruta"
   | "vacaciones"
   | "permiso"
-  | "descanso_medico"
-  | "mision_especial"
+  | "descanso_semanal_especial"
+  | "licencia"
   | "evento";
 
 export type EventoCalendario = {
@@ -34,8 +34,8 @@ export type DatosCalendario = {
 const TIPO_ASIGNACION: Record<string, TipoEventoCalendario> = {
   Vacaciones: "vacaciones",
   Permiso: "permiso",
-  "Descanso Médico": "descanso_medico",
-  "Misión Especial": "mision_especial",
+  "Descanso Semanal": "descanso_semanal_especial",
+  Licencia: "licencia",
 };
 
 function rangoMes(anio: number, mes: number): { inicio: string; fin: string } {

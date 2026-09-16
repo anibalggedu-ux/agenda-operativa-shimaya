@@ -523,8 +523,8 @@ export async function eliminarRutaActiva(id: string): Promise<ResultadoAccion> {
 export type TipoAsignacionEspecial =
   | "Vacaciones"
   | "Permiso"
-  | "Descanso Médico"
-  | "Misión Especial";
+  | "Descanso Semanal"
+  | "Licencia";
 
 export type AsignacionEspecial = {
   id: string;
@@ -1241,7 +1241,7 @@ export type EstadoPersonalHoy = {
   usuarioId: string;
   usuarioNombre: string;
   rol: string;
-  estado: "DESCANSO_SEMANAL" | "VACACIONES" | "PERMISO" | "DESCANSO_MEDICO" | "MISION_ESPECIAL" | null;
+  estado: "DESCANSO_SEMANAL" | "VACACIONES" | "PERMISO" | "LICENCIA" | null;
   detalle: string | null;
 };
 
@@ -1273,8 +1273,8 @@ export async function obtenerEstadoPersonalHoy(): Promise<EstadoPersonalHoy[]> {
   const tipoAEstado: Record<string, EstadoPersonalHoy["estado"]> = {
     Vacaciones: "VACACIONES",
     Permiso: "PERMISO",
-    "Descanso Médico": "DESCANSO_MEDICO",
-    "Misión Especial": "MISION_ESPECIAL",
+    "Descanso Semanal": "DESCANSO_SEMANAL",
+    Licencia: "LICENCIA",
   };
 
   return (usuarios ?? []).map((u: any) => {

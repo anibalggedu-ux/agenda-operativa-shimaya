@@ -14,13 +14,13 @@ import {
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import SelectorGrid from "./selector-grid";
 
-const TIPOS = ["Vacaciones", "Permiso", "Descanso Médico", "Misión Especial"] as const;
+const TIPOS = ["Vacaciones", "Permiso", "Descanso Semanal", "Licencia"] as const;
 
 const ESTILOS_TIPO: Record<string, string> = {
   Vacaciones: "text-sky-400 border-sky-500/40 bg-sky-950/20",
   Permiso: "text-amber-400 border-amber-500/40 bg-amber-950/20",
-  "Descanso Médico": "text-orange-400 border-orange-500/40 bg-orange-950/20",
-  "Misión Especial": "text-violet-400 border-violet-500/40 bg-violet-950/20",
+  "Descanso Semanal": "text-orange-400 border-orange-500/40 bg-orange-950/20",
+  Licencia: "text-violet-400 border-violet-500/40 bg-violet-950/20",
 };
 
 const estadoInicial: ResultadoAccion = { exito: false };
@@ -98,7 +98,7 @@ export default function AsignacionesEspeciales() {
         className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
       >
         <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          NUEVA ASIGNACIÓN ESPECIAL
+          (PERMISOS, DESCANSOS SEMANALES, VACACIONES, LICENCIAS)
         </h3>
 
         <input type="hidden" name="usuarioId" value={usuarioId ?? ""} />

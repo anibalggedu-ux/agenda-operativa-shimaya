@@ -29,19 +29,12 @@ const ESTILOS: Record<
     texto: "text-amber-300",
     etiqueta: "Permiso",
   },
-  DESCANSO_MEDICO: {
-    emoji: "🟠",
-    borde: "border-orange-600/50",
-    fondo: "bg-orange-950/20",
-    texto: "text-orange-300",
-    etiqueta: "Descanso médico",
-  },
-  MISION_ESPECIAL: {
+  LICENCIA: {
     emoji: "🟣",
     borde: "border-violet-600/50",
     fondo: "bg-violet-950/20",
     texto: "text-violet-300",
-    etiqueta: "Misión especial",
+    etiqueta: "Licencia",
   },
 };
 
