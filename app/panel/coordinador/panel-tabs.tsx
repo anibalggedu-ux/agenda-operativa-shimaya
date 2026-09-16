@@ -3,6 +3,7 @@
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
+import ChecklistVisita from "../checklist-visita";
 import PerfilBanner from "../perfil-banner";
 import { obtenerPerfilCoordinador } from "./actions";
 import AsignarRutas from "./asignar-rutas";
@@ -48,6 +49,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
           <MisPuntosWidget />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
+          <ChecklistVisita nombreUsuario={nombre} rol={rol} />
         </div>
       ),
     },

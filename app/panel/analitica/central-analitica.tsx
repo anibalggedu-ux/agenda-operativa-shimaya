@@ -26,15 +26,17 @@ import DashboardTiendasVista from "./dashboard-tiendas";
 import KilometrosVista from "../kilometros-vista";
 import TendenciasTiendas from "./tendencias-tiendas";
 import KilometrosDelMes from "./kilometros-del-mes";
+import ChecklistVisitaAnalitica from "./checklist-visita-analitica";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
-type Pestana = "resumen" | "asistencia" | "tiendas" | "personas";
+type Pestana = "resumen" | "asistencia" | "tiendas" | "personas" | "checklist";
 
 const PESTANAS: { id: Pestana; etiqueta: string }[] = [
   { id: "resumen", etiqueta: "Resumen" },
   { id: "asistencia", etiqueta: "Asistencia" },
   { id: "tiendas", etiqueta: "Tiendas" },
   { id: "personas", etiqueta: "Personas" },
+  { id: "checklist", etiqueta: "Checklist de rutina" },
 ];
 
 function TarjetaVacia({ children }: { children: React.ReactNode }) {
@@ -523,6 +525,8 @@ export default function CentralAnalitica() {
               </section>
             </div>
           )}
+
+          {pestana === "checklist" && <ChecklistVisitaAnalitica desde={desde} hasta={hasta} />}
         </>
       )}
     </div>

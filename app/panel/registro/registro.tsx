@@ -25,6 +25,7 @@ import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
 import HistorialCambios from "./historial-cambios";
 import ActividadUsuarios from "./actividad-usuarios";
+import ChecklistVisitaAdmin from "./checklist-visita-admin";
 
 const ROLES = ["capacitador", "supervisor", "coordinador", "gerente"] as const;
 
@@ -433,6 +434,14 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
           descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
         >
           <PlantillaAuditoria />
+        </SeccionColapsable>
+
+        <SeccionColapsable
+          titulo="Checklist de rutina de visita"
+          icono="📋"
+          descripcion="Preguntas del checklist opcional que llenan capacitadores, supervisores y coordinadores al visitar una tienda."
+        >
+          <ChecklistVisitaAdmin />
         </SeccionColapsable>
       </div>
 

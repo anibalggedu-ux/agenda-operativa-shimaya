@@ -11,6 +11,7 @@ import { obtenerMiPerfil } from "./actions";
 import TiendasFijas from "./tiendas-fijas";
 import MisSolicitudes from "./mis-solicitudes";
 import MisMarcaciones from "./mis-marcaciones";
+import ChecklistVisita from "../checklist-visita";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import {
@@ -54,6 +55,7 @@ export default async function PanelSupervisor() {
           <TiendasFijas />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
+          <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />
         </div>
       ),
     },

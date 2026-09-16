@@ -273,6 +273,54 @@ export type Database = {
           },
         ]
       }
+      checklists_visita: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          respuestas: Json
+          rol: string
+          tienda_id: string
+          usuario_id: string
+          usuario_nombre: string
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          id?: string
+          respuestas: Json
+          rol: string
+          tienda_id: string
+          usuario_id: string
+          usuario_nombre: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          respuestas?: Json
+          rol?: string
+          tienda_id?: string
+          usuario_id?: string
+          usuario_nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklists_visita_tienda_id_fkey"
+            columns: ["tienda_id"]
+            isOneToOne: false
+            referencedRelation: "tiendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_visita_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comunicados: {
         Row: {
           autor: string | null
@@ -408,6 +456,24 @@ export type Database = {
           id?: string
           item?: string
           orden?: number
+        }
+        Relationships: []
+      }
+      plantilla_checklist_visita: {
+        Row: {
+          actualizado_en: string
+          id: string
+          secciones: Json
+        }
+        Insert: {
+          actualizado_en?: string
+          id?: string
+          secciones: Json
+        }
+        Update: {
+          actualizado_en?: string
+          id?: string
+          secciones?: Json
         }
         Relationships: []
       }

@@ -1055,3 +1055,114 @@ export async function generarPdfAuditoria(datos: DatosAuditoriaPdf) {
     "auditoria_" + datos.tiendaNombre.replace(/\s+/g, "_") + "_" + datos.fecha + ".pdf";
   doc.save(nombreArchivo);
 }
+
+// ---------- Checklist de rutina de visita ----------
+//
+// Igual que la auditoría, pensado para entregarse (impreso o en digital) al
+// encargado de la tienda -- de ahí las líneas de firma al final.
+
+export type ItemChecklistVisitaPdf = {
+  etiqueta: string;
+  tipo: "escala_5" | "si_no" | "opciones" | "texto" | "numero";
+  valor: string | number | boolean | null;
+};
+
+export type SeccionChecklistVisitaPdf = {
+  titulo: string;
+  items: ItemChecklistVisitaPdf[];
+};
+
+export type DatosChecklistVisitaPdf = {
+  tiendaNombre: string;
+  fecha: string;
+  usuarioNombre: string;
+  rol: string;
+  secciones: SeccionChecklistVisitaPdf[];
+};
+
+function formatearValorChecklist(item: ItemChecklistVisitaPdf): string {
+  const { tipo, valor } = item;
+  if (valor === null || valor === undefined || valor === "") return "—";
+  if (tipo === "escala_5") return `${valor}/5`;
+  if (tipo === "si_no") return valor === true || valor === "true" ? "Sí" : "No";
+  return String(valor);
+}
+
+export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf): Promise<void> {
+  const doc = new jsPDF();
+  await dibujarEncabezado(doc, "Checklist de rutina de visita");
+
+  let y = 40;
+  y = campo(doc, "Tienda:", datos.tiendaNombre, y);
+  y = campo(doc, "Fecha:", formatearFechaLegible(datos.fecha), y);
+  y = campo(doc, "Realizado por:", `${datos.usuarioNombre} (${datos.rol})`, y);
+  y += 3;
+
+  datos.secciones.forEach((seccion) => {
+    const itemsConValor = seccion.items.filter(
+      (it) => it.valor !== null && it.valor !== undefined && it.valor !== ""
+    );
+    if (itemsConValor.length === 0) return;
+
+    if (y + 12 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(seccion.titulo, 14, y);
+    y += 6;
+
+    itemsConValor.forEach((item) => {
+      if (item.tipo === "texto") {
+        const lineas = doc.splitTextToSize(`${item.etiqueta}: ${formatearValorChecklist(item)}`, ANCHO_UTIL - 4);
+        if (y + lineas.length * 5 > ALTO_PAGINA) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.text(lineas, 18, y);
+        y += lineas.length * 5;
+        return;
+      }
+
+      if (y + 5.5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text(item.etiqueta, 18, y);
+      doc.setFont("helvetica", "bold");
+      doc.text(formatearValorChecklist(item), 175, y, { align: "right" });
+      y += 5.5;
+    });
+
+    y += 4;
+  });
+
+  // Pensado para entregarse al encargado de la tienda -- dos líneas de
+  // firma al final, en una página nueva si no queda espacio decente.
+  if (y + 40 > ALTO_PAGINA) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y += 14;
+  }
+
+  const anchoFirma = 78;
+  doc.setDrawColor(0, 0, 0);
+  doc.line(14, y, 14 + anchoFirma, y);
+  doc.line(210 - 14 - anchoFirma, y, 210 - 14, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text("Firma — realizó el checklist", 14, y);
+  doc.text("Firma — encargado de tienda", 210 - 14 - anchoFirma, y);
+
+  const nombreArchivo =
+    "checklist_visita_" + datos.tiendaNombre.replace(/\s+/g, "_") + "_" + datos.fecha + ".pdf";
+  doc.save(nombreArchivo);
+}
