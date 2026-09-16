@@ -28,6 +28,23 @@ function colorBarraPorcentaje(promedio: number): string {
   return "#e23744";
 }
 
+// Paleta de colores distintos por tienda para la torta -- a diferencia de las
+// barras (donde el color por umbral de puntaje tiene sentido porque cada
+// tienda ya tiene su propia etiqueta en el eje), en una torta dos tiendas con
+// puntaje parecido terminarían del mismo color y serían indistinguibles.
+const PALETA_TIENDAS = [
+  "#e23744",
+  "#38bdf8",
+  "#fbbf24",
+  "#34d399",
+  "#a78bfa",
+  "#f472b6",
+  "#fb923c",
+  "#22d3ee",
+  "#a3e635",
+  "#f43f5e",
+];
+
 function claseBadgeClasificacion(clasificacion: string | null): string {
   switch (clasificacion) {
     case "Excelente":
@@ -365,9 +382,8 @@ export default function ChecklistVisitaAnalitica({
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
         <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">🥧 PUNTAJE POR TIENDA</h3>
         <p className="text-marca-tenue text-[11px] mb-4">
-          Cada porción es una tienda — de tamaño según su puntaje promedio en el rango, coloreada
-          igual que las barras (verde Excelente, celeste Bueno, ámbar Requiere mejora, rojo Acción
-          inmediata).
+          Cada porción es una tienda, de tamaño según su puntaje promedio en el rango — un color
+          distinto por tienda para diferenciarlas de un vistazo.
         </p>
         {datos.promedioGeneralPorTienda.length === 0 ? (
           <p className="text-marca-tenue text-sm italic py-6 text-center">
@@ -386,7 +402,7 @@ export default function ChecklistVisitaAnalitica({
                 label={(d: any) => `${d.tiendaNombre} (${d.promedio}%)`}
               >
                 {datos.promedioGeneralPorTienda.map((d, i) => (
-                  <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
+                  <Cell key={i} fill={PALETA_TIENDAS[i % PALETA_TIENDAS.length]} />
                 ))}
               </Pie>
               <Tooltip
