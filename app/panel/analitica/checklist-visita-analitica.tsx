@@ -14,8 +14,6 @@ import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib
 import { formatearFechaLegible } from "@/lib/fechas";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
-const PALETA = ["#e23744", "#38bdf8", "#fbbf24", "#34d399", "#a78bfa", "#f472b6"];
-
 function formatearValor(tipo: string, valor: any): string {
   if (valor === null || valor === undefined || valor === "") return "—";
   if (tipo === "escala_5") return `${valor}/5`;
@@ -187,7 +185,6 @@ export default function ChecklistVisitaAnalitica({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(resaltarId ?? null);
-  const [preguntaTorta, setPreguntaTorta] = useState<string>("neveras.limpieza");
   const [busquedaTienda, setBusquedaTienda] = useState("");
   const [filtroClasificacion, setFiltroClasificacion] = useState<string>("todos");
   const colores = useColoresGrafico();
@@ -207,11 +204,6 @@ export default function ChecklistVisitaAnalitica({
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando checklist de rutina...</p>;
   if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   if (!datos) return null;
-
-  const preguntaValida = datos.preguntasOpciones.some((p) => p.clave === preguntaTorta)
-    ? preguntaTorta
-    : datos.preguntasOpciones[0]?.clave ?? "";
-  const distribucionActual = datos.distribucionPorPregunta[preguntaValida] ?? [];
 
   const filas = datos.resumen.filter((c) => {
     const coincideTienda = c.tiendaNombre.toLowerCase().includes(busquedaTienda.trim().toLowerCase());
@@ -371,46 +363,36 @@ export default function ChecklistVisitaAnalitica({
       </div>
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
-          <h3 className="text-xs font-black tracking-widest text-marca-tenue">🥧 DISTRIBUCIÓN POR PREGUNTA</h3>
-          {datos.preguntasOpciones.length > 0 && (
-            <select
-              value={preguntaValida}
-              onChange={(e) => setPreguntaTorta(e.target.value)}
-              className="p-2 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro max-w-full"
-            >
-              {datos.preguntasOpciones.map((p) => (
-                <option key={p.clave} value={p.clave}>
-                  {p.etiqueta}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">🥧 PUNTAJE POR TIENDA</h3>
         <p className="text-marca-tenue text-[11px] mb-4">
-          De todos los checklists enviados en el rango, en toda la red. Elige la pregunta que quieras ver.
+          Cada porción es una tienda — de tamaño según su puntaje promedio en el rango, coloreada
+          igual que las barras (verde Excelente, celeste Bueno, ámbar Requiere mejora, rojo Acción
+          inmediata).
         </p>
-        {distribucionActual.length === 0 ? (
+        {datos.promedioGeneralPorTienda.length === 0 ? (
           <p className="text-marca-tenue text-sm italic py-6 text-center">
-            Nadie respondió esta pregunta en este rango de fechas.
+            No hay checklists con puntaje calculable en este rango.
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
-                data={distribucionActual}
-                dataKey="cantidad"
-                nameKey="opcion"
+                data={datos.promedioGeneralPorTienda}
+                dataKey="promedio"
+                nameKey="tiendaNombre"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
-                label={(d: any) => `${d.opcion} (${d.cantidad})`}
+                outerRadius={110}
+                label={(d: any) => `${d.tiendaNombre} (${d.promedio}%)`}
               >
-                {distribucionActual.map((_, i) => (
-                  <Cell key={i} fill={PALETA[i % PALETA.length]} />
+                {datos.promedioGeneralPorTienda.map((d, i) => (
+                  <Cell key={i} fill={colorBarraPorcentaje(d.promedio)} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }} />
+              <Tooltip
+                contentStyle={{ background: colores.superficie, border: `1px solid ${colores.grilla}` }}
+                formatter={(v) => [`${v}%`, "Puntaje"] as [string, string]}
+              />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>

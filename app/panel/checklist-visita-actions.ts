@@ -281,7 +281,6 @@ export type ChecklistVisitaDetalle = {
 };
 
 export type PromedioTienda = { tiendaNombre: string; promedio: number };
-export type DistribucionOpcion = { opcion: string; cantidad: number };
 export type PromedioSeccion = { seccion: string; promedio: number };
 export type ChecklistsPorDia = { fecha: string; cantidad: number };
 export type AlertaChecklistCritica = {
@@ -291,7 +290,6 @@ export type AlertaChecklistCritica = {
   usuarioNombre: string;
   porcentaje: number;
 };
-export type PreguntaOpciones = { clave: string; etiqueta: string };
 
 export type AgregadosChecklistVisita = {
   resumen: ChecklistVisitaResumen[];
@@ -303,8 +301,6 @@ export type AgregadosChecklistVisita = {
   checklistsPorDia: ChecklistsPorDia[];
   promedioGeneralPorTienda: PromedioTienda[];
   promedioPorSeccion: PromedioSeccion[];
-  preguntasOpciones: PreguntaOpciones[];
-  distribucionPorPregunta: Record<string, DistribucionOpcion[]>;
 };
 
 export async function obtenerAgregadosChecklistVisita(
@@ -408,30 +404,6 @@ export async function obtenerAgregadosChecklistVisita(
     .map(([seccion, { suma, n }]) => ({ seccion, promedio: Math.round(suma / n) }))
     .sort((a, b) => b.promedio - a.promedio);
 
-  // ---- Distribución por pregunta de opción múltiple: cualquier pregunta
-  // tipo "opciones" (tenga o no puntajes configurados) queda disponible para
-  // que Central Analítica arme una torta con la que elija el usuario. ----
-  const preguntasOpciones: PreguntaOpciones[] = [];
-  const distribucionPorPregunta: Record<string, DistribucionOpcion[]> = {};
-  secciones.forEach((s) => {
-    s.items.forEach((it) => {
-      if (it.tipo !== "opciones") return;
-      const clave = `${s.clave}.${it.clave}`;
-      preguntasOpciones.push({ clave, etiqueta: `${s.titulo} — ${it.etiqueta}` });
-
-      const conteo = new Map<string, number>();
-      filas.forEach((c) => {
-        const valor = c.respuestas?.[s.clave]?.[it.clave];
-        if (!valor) return;
-        conteo.set(valor, (conteo.get(valor) ?? 0) + 1);
-      });
-      distribucionPorPregunta[clave] = Array.from(conteo.entries()).map(([opcion, cantidad]) => ({
-        opcion,
-        cantidad,
-      }));
-    });
-  });
-
   return {
     resumen,
     totalChecklists: filas.length,
@@ -442,8 +414,6 @@ export async function obtenerAgregadosChecklistVisita(
     checklistsPorDia,
     promedioGeneralPorTienda,
     promedioPorSeccion,
-    preguntasOpciones,
-    distribucionPorPregunta,
   };
 }
 
