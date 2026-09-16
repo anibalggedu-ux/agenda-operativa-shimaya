@@ -1269,6 +1269,97 @@ export async function marcarObservacionLeida(reporteId: string): Promise<Resulta
   return { exito: true };
 }
 
+// ---------------------------------------------------------------------
+// Checklists de rutina de visita llenados en tus tiendas fijas -- mismo
+// patrón que las observaciones de arriba: excluye lo que llenaste tú
+// mismo, y solo muestra lo no leído todavía.
+// ---------------------------------------------------------------------
+
+export type ChecklistTiendaFija = {
+  id: string;
+  fecha: string;
+  tiendaNombre: string;
+  usuarioNombre: string;
+  rol: string;
+  porcentaje: number | null;
+  clasificacion: string | null;
+};
+
+export async function obtenerChecklistsTiendasFijas(
+  desde: string,
+  hasta: string
+): Promise<ChecklistTiendaFija[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+
+  const { data: fijas, error: errorFijas } = await supabase
+    .from("tiendas_permanentes")
+    .select("tienda_id")
+    .eq("usuario_id", sesion.id);
+
+  if (errorFijas) throw new Error("No se pudo cargar tus tiendas fijas.");
+
+  const tiendaIds = (fijas ?? []).map((f) => f.tienda_id);
+  if (tiendaIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("checklists_visita")
+    .select("id, fecha, usuario_nombre, rol, porcentaje, clasificacion, tiendas(nombre)")
+    .in("tienda_id", tiendaIds)
+    .neq("usuario_id", sesion.id)
+    .or("leido.is.null,leido.eq.false")
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar los checklists.");
+
+  return (data ?? []).map((c: any) => ({
+    id: c.id,
+    fecha: c.fecha,
+    tiendaNombre: c.tiendas?.nombre ?? "—",
+    usuarioNombre: c.usuario_nombre,
+    rol: c.rol,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
+  }));
+}
+
+export async function marcarChecklistTiendaFijaLeido(checklistId: string): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  const supabase = supabaseServer();
+
+  const { data: checklist, error: errorChecklist } = await supabase
+    .from("checklists_visita")
+    .select("tienda_id")
+    .eq("id", checklistId)
+    .maybeSingle();
+
+  if (errorChecklist || !checklist) {
+    return { exito: false, mensaje: "No se encontró el checklist." };
+  }
+
+  const { data: fija } = await supabase
+    .from("tiendas_permanentes")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("tienda_id", checklist.tienda_id)
+    .maybeSingle();
+
+  if (!fija) {
+    return { exito: false, mensaje: "Solo puedes marcar como leídos checklists de tus tiendas fijas." };
+  }
+
+  const { error } = await supabase.from("checklists_visita").update({ leido: true }).eq("id", checklistId);
+  if (error) return { exito: false, mensaje: "No se pudo marcar como leído." };
+  return { exito: true };
+}
+
 // ---------- Historial de marcaciones GPS propias ----------
 
 export type MiMarcacion = {

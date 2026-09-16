@@ -2,6 +2,8 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
+import { enviarCorreo, URL_APP } from "@/lib/email";
+import { formatearFechaLegible } from "@/lib/fechas";
 
 // ---------------------------------------------------------------------
 // Checklist de rutina de visita: formulario opcional que capacitadores,
@@ -120,6 +122,62 @@ export type ResultadoChecklist = {
   clasificacion?: ClasificacionChecklist | null;
 };
 
+const ENLACE_CHECKLIST = (id: string) => `${URL_APP}/panel/supervisor?seccion=analitica&checklist=${id}`;
+
+// Avisa al/a los supervisor(es) encargado(s) fijo(s) de la tienda (tabla
+// tiendas_permanentes) que se llenó un checklist -- igual que ya se hace con
+// las observaciones de tiendas fijas. Si el mismo encargado fue quien llenó
+// el checklist, no se le avisa a sí mismo. Nunca debe romper el guardado si
+// falla el correo.
+async function notificarEncargadoChecklist(
+  tiendaId: string,
+  usuarioIdQueLleno: string,
+  checklistId: string,
+  porcentaje: number | null,
+  clasificacion: ClasificacionChecklist | null,
+  usuarioNombre: string,
+  fecha: string
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle();
+
+    const { data: fijas } = await supabase
+      .from("tiendas_permanentes")
+      .select("usuarios(id, nombre, email, activo)")
+      .eq("tienda_id", tiendaId);
+
+    const encargados = (fijas ?? [])
+      .map((f: any) => f.usuarios)
+      .filter((u: any) => u && u.activo && u.id !== usuarioIdQueLleno);
+
+    if (encargados.length === 0) return;
+
+    const correos = encargados.map((u: any) => u.email).filter((e: string | null): e is string => !!e);
+    if (correos.length === 0) return;
+
+    const tiendaNombre = tienda?.nombre ?? "—";
+    const textoPuntaje =
+      porcentaje !== null ? `${porcentaje}% (${clasificacion})` : "sin puntaje calculable";
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "📋",
+      asunto: `Nuevo checklist de rutina en ${tiendaNombre} — ${textoPuntaje}`,
+      cuerpoHtml: `
+        <p><strong>${usuarioNombre}</strong> llenó el checklist de rutina de visita en tu tienda fija
+        <strong>${tiendaNombre}</strong> el ${formatearFechaLegible(fecha)}.</p>
+        <p style="margin:0 0 16px;"><strong>Puntaje:</strong> ${textoPuntaje}</p>
+        <p style="margin:0 0 16px;">
+          <a href="${ENLACE_CHECKLIST(checklistId)}" style="color:#e23744; font-weight:700;">Ver los resultados completos →</a>
+        </p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar el checklist al encargado:", error);
+  }
+}
+
 export async function guardarChecklistVisita(
   tiendaId: string,
   fecha: string,
@@ -151,6 +209,16 @@ export async function guardarChecklistVisita(
     .single();
 
   if (error || !data) return { exito: false, mensaje: "No se pudo guardar el checklist." };
+
+  await notificarEncargadoChecklist(
+    tiendaId,
+    sesion.id,
+    data.id,
+    porcentaje,
+    clasificacion,
+    sesion.nombre,
+    fecha
+  );
 
   return { exito: true, id: data.id, porcentaje, clasificacion };
 }

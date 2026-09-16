@@ -7,9 +7,12 @@ import {
   obtenerObservacionesTiendasFijas,
   responderObservacionTiendaFija,
   marcarObservacionLeida,
+  obtenerChecklistsTiendasFijas,
+  marcarChecklistTiendaFijaLeido,
   type TiendaFija,
   type ObservacionTiendaFija,
   type ResultadoReporte,
+  type ChecklistTiendaFija,
 } from "./actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -143,13 +146,96 @@ function ObservacionItem({
   );
 }
 
+function claseBadgePuntaje(clasificacion: string | null): string {
+  switch (clasificacion) {
+    case "Excelente":
+      return "bg-emerald-950/30 border-emerald-700/40 text-emerald-300";
+    case "Bueno":
+      return "bg-sky-950/30 border-sky-700/40 text-sky-300";
+    case "Requiere mejora":
+      return "bg-amber-950/30 border-amber-700/40 text-amber-300";
+    case "Acción inmediata":
+      return "bg-marca-rojo/15 border-marca-rojo/40 text-marca-rojoclaro";
+    default:
+      return "border-dashed border-marca-borde text-marca-tenue";
+  }
+}
+
+function ChecklistItem({
+  checklist,
+  onLeido,
+}: {
+  checklist: ChecklistTiendaFija;
+  onLeido: () => void;
+}) {
+  const [marcando, setMarcando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleMarcarLeido() {
+    setMarcando(true);
+    setError(null);
+    const resultado = await marcarChecklistTiendaFijaLeido(checklist.id);
+    setMarcando(false);
+    if (resultado.exito) onLeido();
+    else setError(resultado.mensaje || "No se pudo marcar como leído.");
+  }
+
+  return (
+    <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
+      <div className="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <p className="text-marca-textofuerte font-bold text-sm">
+            {checklist.tiendaNombre} — {checklist.usuarioNombre}{" "}
+            <span className="text-marca-tenue font-normal text-[11px] uppercase">({checklist.rol})</span>
+          </p>
+          <p className="text-marca-tenue text-[11px] capitalize mt-1">
+            {formatearFechaLegible(checklist.fecha)}
+          </p>
+        </div>
+        {checklist.porcentaje !== null ? (
+          <span
+            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${claseBadgePuntaje(
+              checklist.clasificacion
+            )}`}
+          >
+            {checklist.porcentaje}% · {checklist.clasificacion}
+          </span>
+        ) : (
+          <span className="text-[11px] text-marca-tenue border border-dashed border-marca-borde px-2.5 py-1 rounded-full">
+            Sin puntaje
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-4 mt-3">
+        <a
+          href={`/panel/supervisor?seccion=analitica&checklist=${checklist.id}`}
+          className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase tracking-widest"
+        >
+          Ver resultados completos →
+        </a>
+        <button
+          type="button"
+          onClick={handleMarcarLeido}
+          disabled={marcando}
+          className="text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
+        >
+          {marcando ? "Marcando..." : "✓ Marcar como leído"}
+        </button>
+      </div>
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mt-2">{error}</p>}
+    </div>
+  );
+}
+
 const AYER = sumarDias(hoyPeru(), -1);
 
 export default function TiendasFijas() {
   const [tiendas, setTiendas] = useState<TiendaFija[]>([]);
   const [observaciones, setObservaciones] = useState<ObservacionTiendaFija[]>([]);
+  const [checklists, setChecklists] = useState<ChecklistTiendaFija[]>([]);
   const [cargando, setCargando] = useState(true);
   const [cargandoObs, setCargandoObs] = useState(true);
+  const [cargandoChecklists, setCargandoChecklists] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [desde, setDesde] = useState(AYER);
   const [hasta, setHasta] = useState(AYER);
@@ -169,8 +255,17 @@ export default function TiendasFijas() {
       .finally(() => setCargandoObs(false));
   }
 
+  function cargarChecklists() {
+    setCargandoChecklists(true);
+    obtenerChecklistsTiendasFijas(desde, hasta)
+      .then(setChecklists)
+      .catch((e) => setError(e.message || "Error al cargar los checklists."))
+      .finally(() => setCargandoChecklists(false));
+  }
+
   useEffect(() => {
     cargarObservaciones();
+    cargarChecklists();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desde, hasta]);
 
@@ -222,6 +317,27 @@ export default function TiendasFijas() {
           <div className="space-y-2">
             {observaciones.map((o) => (
               <ObservacionItem key={o.id} obs={o} onRespondida={cargarObservaciones} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
+          📋 CHECKLISTS EN TUS TIENDAS FIJAS ({checklists.length})
+        </h3>
+        <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+
+        {cargandoChecklists ? (
+          <p className="text-marca-tenue text-sm animate-pulse">Cargando checklists...</p>
+        ) : checklists.length === 0 ? (
+          <p className="text-marca-tenue text-sm italic">
+            Nadie más llenó un checklist de rutina en tus tiendas fijas en este rango de fechas.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {checklists.map((c) => (
+              <ChecklistItem key={c.id} checklist={c} onLeido={cargarChecklists} />
             ))}
           </div>
         )}

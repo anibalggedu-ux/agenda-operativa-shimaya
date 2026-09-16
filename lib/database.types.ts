@@ -279,6 +279,7 @@ export type Database = {
           created_at: string
           fecha: string
           id: string
+          leido: boolean | null
           porcentaje: number | null
           respuestas: Json
           rol: string
@@ -291,6 +292,7 @@ export type Database = {
           created_at?: string
           fecha: string
           id?: string
+          leido?: boolean | null
           porcentaje?: number | null
           respuestas: Json
           rol: string
@@ -303,6 +305,7 @@ export type Database = {
           created_at?: string
           fecha?: string
           id?: string
+          leido?: boolean | null
           porcentaje?: number | null
           respuestas?: Json
           rol?: string

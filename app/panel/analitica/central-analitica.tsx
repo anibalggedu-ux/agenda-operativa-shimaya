@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
   obtenerReportesPorDia,
@@ -122,11 +123,17 @@ function Kpi({
 }
 
 export default function CentralAnalitica() {
-  const [desde, setDesde] = useState<string>(sumarDias(hoyPeru(), -30));
+  // Enlace directo desde el correo de "nuevo checklist" (?checklist=<id>):
+  // abre de una vez la pestaña de checklist con un rango amplio, para que el
+  // checklist puntual aparezca aunque tenga más de 30 días.
+  const parametros = useSearchParams();
+  const checklistId = parametros.get("checklist");
+
+  const [desde, setDesde] = useState<string>(() => sumarDias(hoyPeru(), checklistId ? -180 : -30));
   const [hasta, setHasta] = useState<string>(hoyPeru());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pestana, setPestana] = useState<Pestana>("resumen");
+  const [pestana, setPestana] = useState<Pestana>(() => (checklistId ? "checklist" : "resumen"));
   const [vistaAsistencia, setVistaAsistencia] = useState<"puntual" | "tarde">("puntual");
   const colores = useColoresGrafico();
 
@@ -526,7 +533,9 @@ export default function CentralAnalitica() {
             </div>
           )}
 
-          {pestana === "checklist" && <ChecklistVisitaAnalitica desde={desde} hasta={hasta} />}
+          {pestana === "checklist" && (
+            <ChecklistVisitaAnalitica desde={desde} hasta={hasta} resaltarId={checklistId} />
+          )}
         </>
       )}
     </div>

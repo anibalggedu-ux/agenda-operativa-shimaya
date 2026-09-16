@@ -159,12 +159,20 @@ function DetalleChecklist({
   );
 }
 
-export default function ChecklistVisitaAnalitica({ desde, hasta }: { desde: string; hasta: string }) {
+export default function ChecklistVisitaAnalitica({
+  desde,
+  hasta,
+  resaltarId,
+}: {
+  desde: string;
+  hasta: string;
+  resaltarId?: string | null;
+}) {
   const [datos, setDatos] = useState<AgregadosChecklistVisita | null>(null);
   const [secciones, setSecciones] = useState<SeccionChecklist[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
+  const [detalleAbierto, setDetalleAbierto] = useState<string | null>(resaltarId ?? null);
   const colores = useColoresGrafico();
 
   useEffect(() => {
