@@ -21,6 +21,26 @@ const RACHA_TRAMO = 5;
 const BONO_POR_TRAMO = 5;
 const TOPE_DIAS_HACIA_ATRAS = 1095; // ~3 años, por seguridad ante datos raros
 
+// Cuenta "viajes" a partir de fechas de reporte a una tienda de provincia:
+// un viaje es un tramo de fechas cercanas entre sí (se viaja en avión y se
+// hospeda varios días seguidos), sin importar cuánto dure. Un hueco de hasta
+// 2 días sin reporte (ej. su descanso semanal en medio del viaje) no corta
+// el viaje; un hueco mayor sí — ahí ya volvió y luego viajó de nuevo.
+const MAX_HUECO_DIAS_MISMO_VIAJE = 3;
+
+function contarViajesProvincia(fechas: string[]): number {
+  const ordenadas = Array.from(new Set(fechas)).sort();
+  let viajes = 0;
+  let anterior: string | null = null;
+  for (const fecha of ordenadas) {
+    if (anterior === null || diasEntreFechas(anterior, fecha) > MAX_HUECO_DIAS_MISMO_VIAJE) {
+      viajes += 1;
+    }
+    anterior = fecha;
+  }
+  return viajes;
+}
+
 function minutosDesdeMedianoche(horaHHMMSS: string): number {
   const [h, m] = horaHHMMSS.split(":").map(Number);
   return h * 60 + m;
@@ -98,8 +118,10 @@ export type PuntosUsuario = {
   rol: string;
   puntos: number;
   rachaActual: number;
-  // Cuántas veces reportó una tienda de provincia (viaje aéreo) — cada una
-  // suma una "copa" en la Vitrina de Trofeos, aparte del sistema de puntos.
+  // Cuántos viajes (tramos de días seguidos, con o sin huecos cortos) hizo a
+  // una tienda de provincia — cada viaje completo suma una "copa" en la
+  // Vitrina de Trofeos, sin importar cuántos días haya durado, aparte del
+  // sistema de puntos (ver contarViajesProvincia).
   viajesProvincia: number;
 };
 
@@ -117,7 +139,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       .from("asistencia")
       .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
       .not("hora_ingreso", "is", null),
-    supabase.from("rutas_diarias").select("usuario_id, tienda_id"),
+    supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
     supabase.from("tiendas").select("id").eq("es_provincia", true),
   ]);
 
@@ -126,7 +148,10 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   }
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
-  const viajesProvinciaPorUsuario = new Map<string, number>();
+
+  // Fechas reportadas en tienda de provincia, agrupadas por usuario+tienda —
+  // sirven para contar "viajes" (más abajo), no reportes sueltos.
+  const fechasProvinciaPorUsuarioYTienda = new Map<string, string[]>();
 
   const puntosPorUsuario = new Map<string, number>();
   const asistenciaPorUsuario = new Map<string, Map<string, string>>();
@@ -154,8 +179,18 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       (puntosPorUsuario.get(r.usuario_id) ?? 0) + PUNTOS_POR_REPORTE
     );
     if (tiendasProvinciaIds.has(r.tienda_id)) {
-      viajesProvinciaPorUsuario.set(r.usuario_id, (viajesProvinciaPorUsuario.get(r.usuario_id) ?? 0) + 1);
+      const clave = `${r.usuario_id}|${r.tienda_id}`;
+      const fechas = fechasProvinciaPorUsuarioYTienda.get(clave) ?? [];
+      fechas.push(r.fecha);
+      fechasProvinciaPorUsuarioYTienda.set(clave, fechas);
     }
+  });
+
+  const viajesProvinciaPorUsuario = new Map<string, number>();
+  fechasProvinciaPorUsuarioYTienda.forEach((fechas, clave) => {
+    const usuarioId = clave.split("|")[0];
+    const viajes = contarViajesProvincia(fechas);
+    viajesProvinciaPorUsuario.set(usuarioId, (viajesProvinciaPorUsuario.get(usuarioId) ?? 0) + viajes);
   });
 
   const hoy = hoyPeru();

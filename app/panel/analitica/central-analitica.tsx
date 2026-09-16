@@ -67,7 +67,7 @@ function FilaVitrinaPersona({ fila }: { fila: FilaVitrina }) {
           {fila.viajesProvincia > 0 && (
             <span
               className="text-xs font-bold text-marca-tenue whitespace-nowrap"
-              title="Copas de provincia — una por cada visita a una tienda fuera de Lima"
+              title="Copas de provincia — una por cada viaje a una tienda fuera de Lima, sin importar cuántos días dure"
             >
               🏆×{fila.viajesProvincia}
             </span>

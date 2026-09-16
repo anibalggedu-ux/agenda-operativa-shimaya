@@ -48,7 +48,7 @@ export default function MisPuntosWidget() {
           </div>
         ))}
         {viajesProvincia > 0 && (
-          <div className="flex items-center gap-1" title="Copas de provincia — una por cada visita a una tienda fuera de Lima">
+          <div className="flex items-center gap-1" title="Copas de provincia — una por cada viaje a una tienda fuera de Lima, sin importar cuántos días dure">
             <span className="text-2xl leading-none">🏆</span>
             <span className="text-marca-texto font-black text-sm">×{viajesProvincia}</span>
           </div>
