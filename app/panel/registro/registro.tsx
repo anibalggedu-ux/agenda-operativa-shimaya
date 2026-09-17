@@ -7,6 +7,7 @@ import {
   obtenerUsuariosConAcceso,
   actualizarAccesoRegistro,
   actualizarEstadoUsuario,
+  actualizarDatosUsuario,
   type ResultadoRegistro,
   type UsuarioConAcceso,
 } from "./actions";
@@ -19,6 +20,8 @@ import {
   BloqueAsignacionesEspeciales,
   BloqueComunicados,
   BloqueAuditorias,
+  BloqueChecklistsVisita,
+  BloqueTiendas,
   BloqueKilometros,
 } from "./mantenimiento";
 import HorarioPersonalizado from "./horario-personalizado";
@@ -251,6 +254,141 @@ function FormularioNuevoUsuario() {
   );
 }
 
+type EdicionUsuario = {
+  nombre: string;
+  rol: string;
+  nuevoPin: string;
+  fechaNacimiento: string;
+  fechaIngreso: string;
+  puntosHeredados: string;
+};
+
+function FilaEdicion({
+  usuario,
+  onGuardado,
+  onCancelar,
+}: {
+  usuario: UsuarioConAcceso;
+  onGuardado: () => void;
+  onCancelar: () => void;
+}) {
+  const [edicion, setEdicion] = useState<EdicionUsuario>({
+    nombre: usuario.nombre,
+    rol: usuario.rol,
+    nuevoPin: "",
+    fechaNacimiento: usuario.fechaNacimiento ?? "",
+    fechaIngreso: usuario.fechaIngreso ?? "",
+    puntosHeredados: String(usuario.puntosHeredados),
+  });
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+
+  function set<K extends keyof EdicionUsuario>(campo: K, valor: EdicionUsuario[K]) {
+    setEdicion((prev) => ({ ...prev, [campo]: valor }));
+  }
+
+  async function handleGuardar() {
+    setGuardando(true);
+    setMensaje(null);
+    const resultado = await actualizarDatosUsuario(usuario.id, edicion);
+    setGuardando(false);
+    if (resultado.exito) {
+      onGuardado();
+    } else {
+      setMensaje({ texto: resultado.mensaje || "No se pudo guardar.", exito: false });
+    }
+  }
+
+  const inputClase =
+    "w-full p-2 bg-marca-superficie2 border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro";
+  const labelClase = "block text-marca-tenue text-[9px] uppercase font-bold mb-1";
+
+  return (
+    <div className="border-t border-marca-borde mt-3 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label className={labelClase}>Nombre</label>
+        <input
+          value={edicion.nombre}
+          onChange={(e) => set("nombre", e.target.value)}
+          className={inputClase}
+        />
+      </div>
+      <div>
+        <label className={labelClase}>Rol</label>
+        <select value={edicion.rol} onChange={(e) => set("rol", e.target.value)} className={inputClase}>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={labelClase}>Nuevo PIN (opcional)</label>
+        <input
+          type="password"
+          value={edicion.nuevoPin}
+          onChange={(e) => set("nuevoPin", e.target.value)}
+          placeholder="Dejar en blanco = no cambia"
+          className={inputClase}
+        />
+      </div>
+      <div>
+        <label className={labelClase}>Fecha de nacimiento</label>
+        <input
+          type="date"
+          value={edicion.fechaNacimiento}
+          onChange={(e) => set("fechaNacimiento", e.target.value)}
+          className={inputClase}
+        />
+      </div>
+      <div>
+        <label className={labelClase}>Fecha de ingreso</label>
+        <input
+          type="date"
+          value={edicion.fechaIngreso}
+          onChange={(e) => set("fechaIngreso", e.target.value)}
+          className={inputClase}
+        />
+      </div>
+      <div>
+        <label className={labelClase}>Puntos heredados</label>
+        <input
+          type="number"
+          min={0}
+          value={edicion.puntosHeredados}
+          onChange={(e) => set("puntosHeredados", e.target.value)}
+          className={inputClase}
+        />
+      </div>
+
+      <div className="sm:col-span-3 flex items-center justify-end gap-2">
+        {mensaje && (
+          <p className={`text-[11px] font-bold mr-auto ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+            {mensaje.texto}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onCancelar}
+          disabled={guardando}
+          className="border border-marca-borde text-marca-tenue hover:text-marca-texto disabled:opacity-50 font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleGuardar}
+          disabled={guardando}
+          className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+        >
+          {guardando ? "Guardando..." : "Guardar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function GestionAccesos() {
   const [usuarios, setUsuarios] = useState<UsuarioConAcceso[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -258,6 +396,7 @@ function GestionAccesos() {
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   function cargar() {
     setCargando(true);
@@ -322,47 +461,71 @@ function GestionAccesos() {
           {usuarios.map((u) => (
             <div
               key={u.id}
-              className={`flex flex-wrap items-center justify-between gap-3 bg-marca-fondo border rounded-[3px] px-4 py-3 ${
+              className={`bg-marca-fondo border rounded-[3px] px-4 py-3 ${
                 u.activo ? "border-marca-borde" : "border-marca-rojo/30 opacity-60"
-              }`}
+              } ${editandoId === u.id ? "border-marca-rojoclaro/50" : ""}`}
             >
-              <span>
-                <span className="text-marca-textofuerte font-bold text-sm">{u.nombre}</span>{" "}
-                <span className="text-marca-tenue text-[11px] uppercase">({u.rol})</span>
-                {!u.activo && (
-                  <span className="ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-                    De baja
-                  </span>
-                )}
-              </span>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => handleCambiarEstado(u)}
-                  disabled={cambiandoEstadoId === u.id}
-                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[3px] border transition disabled:opacity-50 ${
-                    u.activo
-                      ? "border-marca-rojo/40 text-marca-rojoclaro hover:bg-marca-rojo/10"
-                      : "border-marca-borde text-marca-tenue hover:text-marca-texto"
-                  }`}
-                >
-                  {u.activo ? "Dar de baja" : "Reactivar"}
-                </button>
-                {u.rol !== "capacitador" && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <span className="text-marca-tenue text-[10px] uppercase font-bold">
-                      Puede registrar
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  <span className="text-marca-textofuerte font-bold text-sm">{u.nombre}</span>{" "}
+                  <span className="text-marca-tenue text-[11px] uppercase">({u.rol})</span>
+                  {!u.activo && (
+                    <span className="ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+                      De baja
                     </span>
-                    <input
-                      type="checkbox"
-                      checked={u.puedeRegistrar}
-                      disabled={guardandoId === u.id}
-                      onChange={() => handleToggle(u)}
-                      className="w-4 h-4 accent-marca-rojo"
-                    />
-                  </label>
-                )}
+                  )}
+                </span>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditandoId(editandoId === u.id ? null : u.id)}
+                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[3px] border transition ${
+                      editandoId === u.id
+                        ? "border-marca-rojoclaro bg-marca-rojo/15 text-marca-rojoclaro"
+                        : "border-marca-rojoclaro/40 text-marca-rojoclaro hover:bg-marca-rojo/10"
+                    }`}
+                  >
+                    {editandoId === u.id ? "Editar ▲" : "Editar ▾"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarEstado(u)}
+                    disabled={cambiandoEstadoId === u.id}
+                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[3px] border transition disabled:opacity-50 ${
+                      u.activo
+                        ? "border-marca-rojo/40 text-marca-rojoclaro hover:bg-marca-rojo/10"
+                        : "border-marca-borde text-marca-tenue hover:text-marca-texto"
+                    }`}
+                  >
+                    {u.activo ? "Dar de baja" : "Reactivar"}
+                  </button>
+                  {u.rol !== "capacitador" && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-marca-tenue text-[10px] uppercase font-bold">
+                        Puede registrar
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={u.puedeRegistrar}
+                        disabled={guardandoId === u.id}
+                        onChange={() => handleToggle(u)}
+                        className="w-4 h-4 accent-marca-rojo"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
+
+              {editandoId === u.id && (
+                <FilaEdicion
+                  usuario={u}
+                  onCancelar={() => setEditandoId(null)}
+                  onGuardado={() => {
+                    setEditandoId(null);
+                    cargar();
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -416,6 +579,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
         <Categoria icono="🏬" titulo="Tiendas y ubicaciones" />
 
         <BloqueUbicacionTiendas />
+        <BloqueTiendas />
         <BloqueDireccionColaboradores />
         <BloqueKilometros />
       </div>
@@ -456,6 +620,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
         <BloqueAsignacionesEspeciales />
         <BloqueComunicados />
         <BloqueAuditorias />
+        <BloqueChecklistsVisita />
       </div>
 
       <div className="space-y-3">

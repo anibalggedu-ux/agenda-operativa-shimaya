@@ -159,6 +159,9 @@ export type UsuarioConAcceso = {
   rol: string;
   puedeRegistrar: boolean;
   activo: boolean;
+  fechaNacimiento: string | null;
+  fechaIngreso: string | null;
+  puntosHeredados: number;
 };
 
 export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
@@ -171,7 +174,7 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
   // darse de baja/reactivarse (suspensiones, renuncias con vuelta, etc.).
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, puede_registrar, activo")
+    .select("id, nombre, rol, puede_registrar, activo, fecha_nacimiento, fecha_ingreso, puntos_heredados")
     .not("rol", "in", "(coordinador)")
     .order("nombre");
 
@@ -183,7 +186,106 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
     rol: u.rol,
     puedeRegistrar: !!u.puede_registrar,
     activo: u.activo !== false,
+    fechaNacimiento: u.fecha_nacimiento,
+    fechaIngreso: u.fecha_ingreso,
+    puntosHeredados: u.puntos_heredados ?? 0,
   }));
+}
+
+// Edita los datos que solo se cargaban al crear al usuario y después
+// quedaban fijos para siempre: nombre, rol, PIN, fecha de nacimiento, fecha
+// de ingreso y puntos heredados (para alguien que llega con historial de
+// otra sede). El PIN es el único campo realmente sensible: si viene vacío
+// no se toca, así no hace falta conocer ni reescribir el actual para
+// cambiar cualquier otro dato.
+export async function actualizarDatosUsuario(
+  usuarioId: string,
+  datos: {
+    nombre: string;
+    rol: string;
+    nuevoPin: string;
+    fechaNacimiento: string;
+    fechaIngreso: string;
+    puntosHeredados: string;
+  }
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirCoordinador();
+
+  const nombre = datos.nombre.trim();
+  const rol = datos.rol;
+  const nuevoPin = datos.nuevoPin.trim();
+  const puntosHeredados = datos.puntosHeredados.trim() ? Number(datos.puntosHeredados) : 0;
+
+  if (!nombre || !rol) {
+    return { exito: false, mensaje: "Completa nombre y rol." };
+  }
+  if (!ROLES_VALIDOS.includes(rol)) {
+    return { exito: false, mensaje: "Rol inválido." };
+  }
+  if (Number.isNaN(puntosHeredados) || puntosHeredados < 0) {
+    return { exito: false, mensaje: "Los puntos heredados deben ser un número válido." };
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("usuarios")
+    .select("nombre, rol")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  const { data: nombreEnUso } = await supabase
+    .from("usuarios")
+    .select("id")
+    .ilike("nombre", nombre)
+    .neq("id", usuarioId)
+    .maybeSingle();
+
+  if (nombreEnUso) {
+    return { exito: false, mensaje: "Ya existe otro usuario registrado con ese nombre." };
+  }
+
+  const cambios: {
+    nombre: string;
+    rol: string;
+    fecha_nacimiento: string | null;
+    fecha_ingreso: string | null;
+    puntos_heredados: number;
+    clave_hash?: string;
+  } = {
+    nombre,
+    rol,
+    fecha_nacimiento: datos.fechaNacimiento || null,
+    fecha_ingreso: datos.fechaIngreso || null,
+    puntos_heredados: puntosHeredados,
+  };
+
+  if (nuevoPin) {
+    const claveHash = hashPassword(nuevoPin);
+    const { data: pinEnUso } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("clave_hash", claveHash)
+      .neq("id", usuarioId)
+      .maybeSingle();
+
+    if (pinEnUso) {
+      return { exito: false, mensaje: "Ese PIN ya está en uso por otro usuario. Elige uno distinto." };
+    }
+    cambios.clave_hash = claveHash;
+  }
+
+  const { error } = await supabase.from("usuarios").update(cambios).eq("id", usuarioId);
+  if (error) return { exito: false, mensaje: "No se pudo guardar los cambios." };
+
+  const detalle =
+    antes && (antes.nombre !== nombre || antes.rol !== rol)
+      ? `${antes.nombre} (${antes.rol}) → ${nombre} (${rol})${nuevoPin ? " · PIN restablecido" : ""}`
+      : `${nombre}${nuevoPin ? " · PIN restablecido" : ""}`;
+
+  await registrarCambio(sesion, "Editó los datos de un colaborador", detalle);
+
+  return { exito: true, mensaje: "Datos actualizados correctamente." };
 }
 
 export async function actualizarAccesoRegistro(
@@ -609,6 +711,60 @@ export async function eliminarAuditoriaRegistro(id: string, motivo?: string): Pr
   return { exito: true };
 }
 
+export type ChecklistVisitaCorregible = {
+  id: string;
+  usuarioNombre: string;
+  tiendaNombre: string;
+  fecha: string;
+  porcentaje: number | null;
+  clasificacion: string | null;
+};
+
+export async function obtenerChecklistsVisitaParaCorregir(): Promise<ChecklistVisitaCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("checklists_visita")
+    .select("id, fecha, usuario_nombre, porcentaje, clasificacion, tiendas(nombre)")
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar los checklists de visita.");
+
+  return (data ?? []).map((c: any) => ({
+    id: c.id,
+    usuarioNombre: c.usuario_nombre,
+    tiendaNombre: c.tiendas?.nombre ?? "—",
+    fecha: c.fecha,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
+  }));
+}
+
+export async function eliminarChecklistVisitaRegistro(id: string, motivo?: string): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("checklists_visita")
+    .select("fecha, usuario_nombre, porcentaje, clasificacion, tiendas(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("checklists_visita").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar el checklist." };
+
+  const tienda = (antes as any)?.tiendas?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó un checklist de rutina de visita",
+    `${antes?.usuario_nombre ?? "?"} — ${tienda} (${antes?.fecha ?? "?"}, ${antes?.porcentaje ?? "?"}% ${antes?.clasificacion ?? ""})`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
 // ---------------------------------------------------------------------
 // Auditorías: quién puede llenarlas (activación puntual, sin fecha fija) y
 // la plantilla del checklist (editable por si hay que ampliarla).
@@ -907,6 +1063,64 @@ export async function actualizarUbicacionTienda(
   await registrarCambio(sesion, "Actualizó la ubicación manual de una tienda", tienda?.nombre ?? id);
 
   return { exito: true };
+}
+
+export async function actualizarNombreTienda(id: string, nombre: string): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+
+  const nombreLimpio = nombre.trim().toUpperCase();
+  if (!nombreLimpio) {
+    return { exito: false, mensaje: "El nombre de la tienda es obligatorio." };
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase.from("tiendas").select("nombre").eq("id", id).maybeSingle();
+
+  const { data: enUso } = await supabase
+    .from("tiendas")
+    .select("id")
+    .ilike("nombre", nombreLimpio)
+    .neq("id", id)
+    .maybeSingle();
+  if (enUso) {
+    return { exito: false, mensaje: "Ya existe otra tienda con ese nombre." };
+  }
+
+  const { error } = await supabase.from("tiendas").update({ nombre: nombreLimpio }).eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo renombrar la tienda." };
+
+  await registrarCambio(sesion, "Renombró una tienda", `${antes?.nombre ?? id} → ${nombreLimpio}`);
+
+  return { exito: true, mensaje: "Tienda renombrada correctamente." };
+}
+
+// Solo se puede eliminar una tienda que nunca se usó (sin reportes, rutas,
+// auditorías ni checklists) — la base de datos lo garantiza con una llave
+// foránea que bloquea el borrado (error 23503) en vez de arrastrar consigo
+// historial real de visitas. Para una tienda que cerró pero sí tiene
+// historial, la opción es no volver a asignarle rutas, no eliminarla.
+export async function eliminarTienda(id: string): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("tiendas").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        exito: false,
+        mensaje:
+          "No se puede eliminar: esta tienda ya tiene reportes, rutas, auditorías o checklists registrados. Solo se pueden eliminar tiendas que nunca se usaron.",
+      };
+    }
+    return { exito: false, mensaje: "No se pudo eliminar la tienda." };
+  }
+
+  await registrarCambio(sesion, "Eliminó una tienda", tienda?.nombre ?? id);
+
+  return { exito: true, mensaje: "Tienda eliminada correctamente." };
 }
 
 // Busca la dirección escrita con Nominatim (OpenStreetMap) y guarda las

@@ -15,9 +15,13 @@ import {
   eliminarComunicado,
   obtenerAuditoriasParaCorregir,
   eliminarAuditoriaRegistro,
+  obtenerChecklistsVisitaParaCorregir,
+  eliminarChecklistVisitaRegistro,
   crearTienda,
   obtenerTiendasConUbicacion,
   actualizarUbicacionTienda,
+  actualizarNombreTienda,
+  eliminarTienda,
   actualizarEsProvincia,
   geocodificarUbicacionTienda,
   obtenerColaboradoresConDireccion,
@@ -28,6 +32,7 @@ import {
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
   type AuditoriaCorregible,
+  type ChecklistVisitaCorregible,
   type TiendaUbicacion,
   type ColaboradorDireccion,
 } from "./actions";
@@ -627,6 +632,70 @@ function SeccionAuditorias() {
   );
 }
 
+function SeccionChecklistsVisita() {
+  const [filas, setFilas] = useState<ChecklistVisitaCorregible[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function cargar() {
+    setCargando(true);
+    obtenerChecklistsVisitaParaCorregir()
+      .then(setFilas)
+      .catch((e) => setError(e.message || "Error al cargar los checklists."))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, []);
+
+  async function handleEliminar(id: string, etiqueta: string) {
+    if (!window.confirm(`¿Eliminar el checklist "${etiqueta}"? No se puede deshacer.`)) return;
+    const motivo = window.prompt("Motivo (opcional):") ?? undefined;
+    setEliminandoId(id);
+    setError(null);
+    const resultado = await eliminarChecklistVisitaRegistro(id, motivo);
+    setEliminandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo eliminar.");
+  }
+
+  if (cargando) {
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando checklists...</p>;
+  }
+
+  return (
+    <>
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {filas.length === 0 ? (
+        <p className="text-marca-tenue text-sm italic">No hay checklists de visita registrados.</p>
+      ) : (
+        <div className="space-y-2">
+          {filas.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-center justify-between flex-wrap gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+            >
+              <div>
+                <p className="text-marca-textofuerte font-bold text-sm">
+                  {f.tiendaNombre} — {f.usuarioNombre}
+                </p>
+                <p className="text-marca-tenue text-[11px] font-data">
+                  {formatearFechaLegible(f.fecha)}
+                  {f.porcentaje !== null ? ` · ${f.porcentaje}% · ${f.clasificacion}` : ""}
+                </p>
+              </div>
+              <BotonEliminar
+                onClick={() => handleEliminar(f.id, `${f.tiendaNombre} — ${f.usuarioNombre}`)}
+                cargando={eliminandoId === f.id}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function NuevaTienda({ onCreada }: { onCreada: () => void }) {
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -958,6 +1027,100 @@ function SeccionDireccionColaboradores() {
   );
 }
 
+function SeccionTiendas() {
+  const [tiendas, setTiendas] = useState<TiendaUbicacion[]>([]);
+  const [nombres, setNombres] = useState<Record<string, string>>({});
+  const [cargando, setCargando] = useState(true);
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [mensajes, setMensajes] = useState<Record<string, string>>({});
+  const [errores, setErrores] = useState<Record<string, string>>({});
+
+  function cargar() {
+    setCargando(true);
+    obtenerTiendasConUbicacion()
+      .then((filas) => {
+        setTiendas(filas);
+        const n: Record<string, string> = {};
+        filas.forEach((t) => (n[t.id] = t.nombre));
+        setNombres(n);
+      })
+      .catch((e) => setErrores({ _global: e.message || "Error al cargar las tiendas." }))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, []);
+
+  async function handleRenombrar(id: string) {
+    setGuardandoId(id);
+    setErrores((prev) => ({ ...prev, [id]: "" }));
+    setMensajes((prev) => ({ ...prev, [id]: "" }));
+    const resultado = await actualizarNombreTienda(id, nombres[id] ?? "");
+    setGuardandoId(null);
+    if (resultado.exito) {
+      setMensajes((prev) => ({ ...prev, [id]: "Renombrada." }));
+      cargar();
+    } else {
+      setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo renombrar." }));
+    }
+  }
+
+  async function handleEliminar(id: string, nombre: string) {
+    if (
+      !window.confirm(
+        `¿Eliminar la tienda "${nombre}"? Solo funciona si nunca tuvo reportes, rutas ni auditorías. No se puede deshacer.`
+      )
+    )
+      return;
+    setEliminandoId(id);
+    setErrores((prev) => ({ ...prev, [id]: "" }));
+    const resultado = await eliminarTienda(id);
+    setEliminandoId(null);
+    if (resultado.exito) cargar();
+    else setErrores((prev) => ({ ...prev, [id]: resultado.mensaje || "No se pudo eliminar." }));
+  }
+
+  if (cargando) {
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tiendas...</p>;
+  }
+
+  return (
+    <>
+      {errores._global && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{errores._global}</p>}
+      <div className="space-y-2">
+        {tiendas.map((t) => (
+          <div
+            key={t.id}
+            className="flex flex-wrap items-end gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+          >
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Nombre</label>
+              <input
+                value={nombres[t.id] ?? ""}
+                onChange={(e) => setNombres((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                className={clasesInputChico + " w-full"}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => handleRenombrar(t.id)}
+              disabled={guardandoId === t.id}
+              className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+            >
+              {guardandoId === t.id ? "..." : "Guardar"}
+            </button>
+            <BotonEliminar onClick={() => handleEliminar(t.id, t.nombre)} cargando={eliminandoId === t.id} />
+            {mensajes[t.id] && <span className="text-emerald-400 text-[11px] font-bold">{mensajes[t.id]}</span>}
+            {errores[t.id] && (
+              <span className="text-marca-rojoclaro text-[11px] font-bold w-full">{errores[t.id]}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function SeccionKilometros() {
   const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
   const [hasta, setHasta] = useState(hoyPeru());
@@ -1060,6 +1223,18 @@ export function BloqueComunicados() {
   );
 }
 
+export function BloqueTiendas() {
+  return (
+    <SeccionColapsable
+      titulo="Tiendas (nombre)"
+      icono="🏬"
+      descripcion="Corrige el nombre de una tienda, o elimina una que nunca se usó."
+    >
+      <SeccionTiendas />
+    </SeccionColapsable>
+  );
+}
+
 export function BloqueAuditorias() {
   return (
     <SeccionColapsable
@@ -1068,6 +1243,18 @@ export function BloqueAuditorias() {
       descripcion="Elimina auditorías cargadas de prueba."
     >
       <SeccionAuditorias />
+    </SeccionColapsable>
+  );
+}
+
+export function BloqueChecklistsVisita() {
+  return (
+    <SeccionColapsable
+      titulo="Checklists de rutina de visita"
+      icono="📋"
+      descripcion="Elimina checklists de rutina de visita cargados de prueba."
+    >
+      <SeccionChecklistsVisita />
     </SeccionColapsable>
   );
 }
