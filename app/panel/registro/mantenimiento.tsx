@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car } from "lucide-react";
 import {
   obtenerUsuariosBasicos,
   obtenerAsistenciaParaCorregir,
@@ -1159,7 +1160,7 @@ export function BloqueUbicacionTiendas() {
   return (
     <SeccionColapsable
       titulo="Ubicación de tiendas (clima)"
-      icono="⛅"
+      icono={<CloudSun />}
       descripcion="Dirección/coordenadas por tienda para que aparezca el pronóstico del clima."
     >
       <SeccionUbicacionTiendas />
@@ -1171,7 +1172,7 @@ export function BloqueDireccionColaboradores() {
   return (
     <SeccionColapsable
       titulo="Dirección de colaboradores"
-      icono="🏠"
+      icono={<Home />}
       descripcion="Dirección de vivienda de cada colaborador, para el futuro contador de kilómetros."
     >
       <SeccionDireccionColaboradores />
@@ -1183,7 +1184,7 @@ export function BloqueAsistencia() {
   return (
     <SeccionColapsable
       titulo="Asistencia (marcaciones GPS)"
-      icono="⏱"
+      icono={<Timer />}
       descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
     >
       <SeccionAsistencia />
@@ -1195,7 +1196,7 @@ export function BloqueReportes() {
   return (
     <SeccionColapsable
       titulo="Reportes de bitácora"
-      icono="📝"
+      icono={<FileText />}
       descripcion="Corrige la observación/actividad de un reporte, o elimínalo."
     >
       <SeccionReportes />
@@ -1207,7 +1208,7 @@ export function BloqueAsignacionesEspeciales() {
   return (
     <SeccionColapsable
       titulo="Asignaciones especiales"
-      icono="🌴"
+      icono={<TreePalm />}
       descripcion="Elimina asignaciones especiales cargadas de prueba."
     >
       <SeccionAsignacionesEspeciales />
@@ -1217,7 +1218,7 @@ export function BloqueAsignacionesEspeciales() {
 
 export function BloqueComunicados() {
   return (
-    <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
+    <SeccionColapsable titulo="Comunicados" icono={<Megaphone />} descripcion="Elimina publicaciones de prueba.">
       <SeccionComunicados />
     </SeccionColapsable>
   );
@@ -1227,7 +1228,7 @@ export function BloqueTiendas() {
   return (
     <SeccionColapsable
       titulo="Tiendas (nombre)"
-      icono="🏬"
+      icono={<Store />}
       descripcion="Corrige el nombre de una tienda, o elimina una que nunca se usó."
     >
       <SeccionTiendas />
@@ -1239,7 +1240,7 @@ export function BloqueAuditorias() {
   return (
     <SeccionColapsable
       titulo="Auditorías"
-      icono="🔍"
+      icono={<Search />}
       descripcion="Elimina auditorías cargadas de prueba."
     >
       <SeccionAuditorias />
@@ -1251,7 +1252,7 @@ export function BloqueChecklistsVisita() {
   return (
     <SeccionColapsable
       titulo="Checklists de rutina de visita"
-      icono="📋"
+      icono={<ClipboardList />}
       descripcion="Elimina checklists de rutina de visita cargados de prueba."
     >
       <SeccionChecklistsVisita />
@@ -1263,7 +1264,7 @@ export function BloqueKilometros() {
   return (
     <SeccionColapsable
       titulo="Kilómetros recorridos"
-      icono="🚗"
+      icono={<Car />}
       descripcion="Distancia y tiempo real por calles entre cada colaborador y las tiendas que visitó, por trayecto — útil para reembolsos de movilidad."
     >
       <SeccionKilometros />

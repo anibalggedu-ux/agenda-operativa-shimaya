@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Users, UserPlus, UserCog, Search, Store, Settings, Clock, Receipt, ClipboardList, Wrench, History, Activity, FileClock } from "lucide-react";
 import {
   crearUsuario,
   obtenerUsuariosConAcceso,
@@ -534,10 +535,10 @@ function GestionAccesos() {
   );
 }
 
-function Categoria({ icono, titulo }: { icono: string; titulo: string }) {
+function Categoria({ icono, titulo }: { icono: ReactNode; titulo: string }) {
   return (
     <div className="flex items-center gap-2 px-1">
-      <span className="text-xs">{icono}</span>
+      <span className="text-marca-rojoclaro [&>svg]:w-3.5 [&>svg]:h-3.5">{icono}</span>
       <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
         {titulo}
       </p>
@@ -550,16 +551,16 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <Categoria icono="👤" titulo="Personas y accesos" />
+        <Categoria icono={<Users />} titulo="Personas y accesos" />
 
-        <SeccionColapsable titulo="Nuevo usuario" icono="👤" descripcion="Registra un nuevo colaborador.">
+        <SeccionColapsable titulo="Nuevo usuario" icono={<UserPlus />} descripcion="Registra un nuevo colaborador.">
           <FormularioNuevoUsuario />
         </SeccionColapsable>
 
         {esCoordinador && (
           <SeccionColapsable
             titulo="Personal y acceso a Registro"
-            icono="👥"
+            icono={<UserCog />}
             descripcion="Quién más puede registrar usuarios, o dar de baja a alguien."
           >
             <GestionAccesos />
@@ -568,7 +569,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
         <SeccionColapsable
           titulo="Acceso a auditorías"
-          icono="🔍"
+          icono={<Search />}
           descripcion="Activa o desactiva quién puede llenar una auditoría."
         >
           <AccesoAuditoria />
@@ -576,7 +577,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
       </div>
 
       <div className="space-y-3">
-        <Categoria icono="🏬" titulo="Tiendas y ubicaciones" />
+        <Categoria icono={<Store />} titulo="Tiendas y ubicaciones" />
 
         <BloqueUbicacionTiendas />
         <BloqueTiendas />
@@ -585,11 +586,11 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
       </div>
 
       <div className="space-y-3">
-        <Categoria icono="⚙️" titulo="Configuración" />
+        <Categoria icono={<Settings />} titulo="Configuración" />
 
         <SeccionColapsable
           titulo="Horario de ingreso personalizado"
-          icono="⏰"
+          icono={<Clock />}
           descripcion="Configura una hora límite propia para quien tenga un turno diferido del resto."
         >
           <HorarioPersonalizado />
@@ -597,7 +598,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
         <SeccionColapsable
           titulo="Plantilla del checklist de auditoría"
-          icono="🧾"
+          icono={<Receipt />}
           descripcion="Ítems que ve el supervisor al llenar una auditoría, agrupados por categoría."
         >
           <PlantillaAuditoria />
@@ -605,7 +606,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
         <SeccionColapsable
           titulo="Checklist de rutina de visita"
-          icono="📋"
+          icono={<ClipboardList />}
           descripcion="Preguntas del checklist opcional que llenan capacitadores, supervisores y coordinadores al visitar una tienda."
         >
           <ChecklistVisitaAdmin />
@@ -613,7 +614,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
       </div>
 
       <div className="space-y-3">
-        <Categoria icono="🧹" titulo="Corrección de datos" />
+        <Categoria icono={<Wrench />} titulo="Corrección de datos" />
 
         <BloqueAsistencia />
         <BloqueReportes />
@@ -624,11 +625,11 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
       </div>
 
       <div className="space-y-3">
-        <Categoria icono="🕵️" titulo="Historial" />
+        <Categoria icono={<History />} titulo="Historial" />
 
         <SeccionColapsable
           titulo="Actividad de usuarios"
-          icono="📊"
+          icono={<Activity />}
           descripcion="Quién entra al sistema y genera reportes, con fecha y hora — y quién no."
         >
           <ActividadUsuarios />
@@ -636,7 +637,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
         <SeccionColapsable
           titulo="Historial de cambios (auditoría)"
-          icono="🕵️"
+          icono={<FileClock />}
           descripcion="Quién corrigió o eliminó qué desde Registro, y cuándo — por transparencia."
         >
           <HistorialCambios />

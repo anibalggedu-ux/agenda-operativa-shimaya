@@ -11,7 +11,7 @@ export default function SeccionColapsable({
 }: {
   titulo: string;
   descripcion?: string;
-  icono?: string;
+  icono?: ReactNode;
   children: ReactNode;
   abiertoPorDefecto?: boolean;
 }) {
@@ -31,7 +31,9 @@ export default function SeccionColapsable({
         className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-marca-superficie2 transition"
       >
         <span className="flex items-center gap-2.5 min-w-0">
-          {icono && <span className="text-sm shrink-0">{icono}</span>}
+          {icono && (
+            <span className="shrink-0 text-marca-rojoclaro [&>svg]:w-4 [&>svg]:h-4">{icono}</span>
+          )}
           <span className="text-xs font-black tracking-widest text-marca-tenue truncate">{titulo}</span>
         </span>
         <span
