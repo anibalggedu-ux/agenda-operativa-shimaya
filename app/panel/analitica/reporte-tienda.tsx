@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FileDown, RotateCw } from "lucide-react";
 import {
   obtenerTiendasBasicas,
   obtenerHistorialTiendaAnalitica,
@@ -124,9 +125,9 @@ export default function ReporteTienda() {
             </div>
             <button
               onClick={() => generarPdfHistorialTienda({ ...historial, desde, hasta })}
-              className="bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              className="flex items-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
-              📄 Descargar PDF
+              <FileDown className="w-3.5 h-3.5" /> Descargar PDF
             </button>
           </div>
 
@@ -153,8 +154,8 @@ export default function ReporteTienda() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">
-              🔄 ROTACIÓN DE ENCARGADOS
+            <h4 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-2">
+              <RotateCw className="w-3.5 h-3.5 text-marca-rojoclaro" /> ROTACIÓN DE ENCARGADOS
             </h4>
             {rotacion.length === 0 ? (
               <p className="text-marca-tenue text-sm italic">

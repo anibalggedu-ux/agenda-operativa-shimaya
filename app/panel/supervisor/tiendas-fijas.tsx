@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Store, ClipboardList, Check } from "lucide-react";
 import {
   obtenerMisTiendasFijas,
   obtenerObservacionesTiendasFijas,
@@ -131,9 +132,15 @@ function ObservacionItem({
               type="button"
               onClick={handleMarcarLeido}
               disabled={marcando}
-              className="text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
+              className="inline-flex items-center gap-1 text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
             >
-              {marcando ? "Marcando..." : "✓ Marcar como leído"}
+              {marcando ? (
+                "Marcando..."
+              ) : (
+                <>
+                  <Check className="w-3 h-3" /> Marcar como leído
+                </>
+              )}
             </button>
           </div>
           {estado.mensaje && !estado.exito && (
@@ -217,9 +224,15 @@ function ChecklistItem({
           type="button"
           onClick={handleMarcarLeido}
           disabled={marcando}
-          className="text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
+          className="inline-flex items-center gap-1 text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[11px] font-bold uppercase tracking-widest"
         >
-          {marcando ? "Marcando..." : "✓ Marcar como leído"}
+          {marcando ? (
+            "Marcando..."
+          ) : (
+            <>
+              <Check className="w-3 h-3" /> Marcar como leído
+            </>
+          )}
         </button>
       </div>
       {error && <p className="text-marca-rojoclaro text-xs font-bold mt-2">{error}</p>}
@@ -280,8 +293,8 @@ export default function TiendasFijas() {
   return (
     <div className="space-y-4">
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          🏬 MIS TIENDAS FIJAS
+        <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+          <Store className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS TIENDAS FIJAS
         </h3>
         {tiendas.length === 0 ? (
           <p className="text-marca-tenue text-sm italic">
@@ -323,8 +336,9 @@ export default function TiendasFijas() {
       </div>
 
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          📋 CHECKLISTS EN TUS TIENDAS FIJAS ({checklists.length})
+        <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+          <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> CHECKLISTS EN TUS TIENDAS FIJAS (
+          {checklists.length})
         </h3>
         <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
 

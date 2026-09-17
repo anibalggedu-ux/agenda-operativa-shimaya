@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Sun, Moon } from "lucide-react";
 
 const CLAVE = "shimaya-tema";
 
@@ -29,11 +30,11 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={alternar}
-      className="bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:text-marca-texto w-9 h-9 rounded-[3px] text-sm shrink-0 transition"
+      className="bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:text-marca-texto w-9 h-9 rounded-[3px] shrink-0 transition flex items-center justify-center"
       aria-label={tema === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
       title={tema === "dark" ? "Modo claro" : "Modo oscuro"}
     >
-      {tema === "dark" ? "☀️" : "🌙"}
+      {tema === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
   );
 }

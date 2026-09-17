@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap } from "lucide-react";
 import {
   obtenerUsuariosYTiendas,
   obtenerRutasActivas,
@@ -64,8 +65,8 @@ function Marcacion({
         <span className="text-marca-texto">{formatearHora(hora)}</span>
       )}
       {fotoUrl && (
-        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1" title="Ver foto">
-          📷
+        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex" title="Ver foto">
+          <Camera className="w-3 h-3" />
         </a>
       )}
     </>
@@ -302,9 +303,10 @@ export default function AsignarRutas() {
             onSeleccionar={setUsuarioId}
           />
           {usuarioEnDescanso && usuarioSeleccionado && (
-            <p className="mt-2 text-amber-400 text-xs font-bold">
-              ⚠ {usuarioSeleccionado.nombre} tiene descanso fijo los {diaSemanaSeleccionado.toLowerCase()} — se
-              pedirá confirmación extra antes de asignar.
+            <p className="flex items-start gap-1.5 mt-2 text-amber-400 text-xs font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {usuarioSeleccionado.nombre} tiene
+              descanso fijo los {diaSemanaSeleccionado.toLowerCase()} — se pedirá confirmación extra antes
+              de asignar.
             </p>
           )}
         </div>
@@ -325,8 +327,11 @@ export default function AsignarRutas() {
 
         {ancla ? (
           <div className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
-            <h4 className="text-marca-tenue text-[10px] uppercase font-bold mb-2">
-              📍 {ancla === "tienda" ? "Colaboradores más cercanos a esta tienda" : "Tiendas más cercanas a este colaborador"}
+            <h4 className="flex items-center gap-1.5 text-marca-tenue text-[10px] uppercase font-bold mb-2">
+              <MapPin className="w-3 h-3" />{" "}
+              {ancla === "tienda"
+                ? "Colaboradores más cercanos a esta tienda"
+                : "Tiendas más cercanas a este colaborador"}
             </h4>
             {cargandoCercania ? (
               <p className="text-marca-tenue text-xs animate-pulse">Calculando distancias reales por calle...</p>
@@ -354,8 +359,8 @@ export default function AsignarRutas() {
                         {c.usuarioNombre}{" "}
                         <span className="text-marca-tenue uppercase text-[10px]">({c.rol})</span>
                         {usuarioId === c.usuarioId && (
-                          <span className="text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
-                            ✓ elegido
+                          <span className="inline-flex items-center gap-0.5 text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
+                            <Check className="w-3 h-3" /> elegido
                           </span>
                         )}
                       </span>
@@ -387,8 +392,8 @@ export default function AsignarRutas() {
                       <span className="text-marca-tenue font-mono mr-1.5">{i + 1}.</span>
                       {t.tiendaNombre}
                       {tiendaId === t.tiendaId && (
-                        <span className="text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
-                          ✓ elegida
+                        <span className="inline-flex items-center gap-0.5 text-marca-rojoclaro text-[10px] font-black uppercase ml-1.5">
+                          <Check className="w-3 h-3" /> elegida
                         </span>
                       )}
                     </span>
@@ -407,8 +412,8 @@ export default function AsignarRutas() {
             {cargandoDistancia ? (
               <p className="text-marca-tenue text-xs animate-pulse">Calculando distancia...</p>
             ) : distanciaSeleccion ? (
-              <p className="text-xs text-marca-texto">
-                📏 Esta asignación queda a{" "}
+              <p className="flex items-center gap-1.5 text-xs text-marca-texto">
+                <Ruler className="w-3.5 h-3.5 shrink-0" /> Esta asignación queda a{" "}
                 <span className="text-marca-rojoclaro font-black">{distanciaSeleccion.km} km</span>{" "}
                 (≈ {formatearMinutos(distanciaSeleccion.minutos)} manejando) desde el domicilio del
                 colaborador.
@@ -485,8 +490,8 @@ export default function AsignarRutas() {
                   <p className="text-marca-textofuerte font-bold text-sm truncate">
                     {r.usuarioNombre} → {r.tiendaNombre}
                     {r.autoasignada && (
-                      <span className="ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-                        ⚡ Auto-asignada
+                      <span className="inline-flex items-center gap-0.5 ml-2 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+                        <Zap className="w-3 h-3" /> Auto-asignada
                       </span>
                     )}
                   </p>

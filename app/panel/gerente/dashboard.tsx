@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle, BedDouble, ClipboardList } from "lucide-react";
 import { obtenerDashboardGerente, type DashboardGerente } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
@@ -74,8 +75,9 @@ export default function Dashboard() {
       </div>
 
       <div>
-        <h2 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
-          🚨 ALERTAS CRÍTICAS — REPORTES ATRASADOS
+        <h2 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
+          <AlertTriangle className="w-3.5 h-3.5 text-marca-rojoclaro" /> ALERTAS CRÍTICAS — REPORTES
+          ATRASADOS
         </h2>
         {datos.alertasAtrasadas.length === 0 ? (
           <p className="text-marca-tenue text-sm italic">
@@ -107,8 +109,8 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h2 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
-            🛌 PERSONAL DESCANSANDO HOY
+          <h2 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
+            <BedDouble className="w-3.5 h-3.5 text-marca-rojoclaro" /> PERSONAL DESCANSANDO HOY
           </h2>
           {datos.personalDescansandoHoy.length === 0 ? (
             <p className="text-marca-tenue text-sm italic">Nadie tiene descanso fijo hoy.</p>
@@ -128,8 +130,8 @@ export default function Dashboard() {
         </div>
 
         <div>
-          <h2 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
-            📋 VACACIONES / PERMISOS VIGENTES
+          <h2 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
+            <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> VACACIONES / PERMISOS VIGENTES
           </h2>
           {datos.personalConAsignacionEspecial.length === 0 ? (
             <p className="text-marca-tenue text-sm italic">

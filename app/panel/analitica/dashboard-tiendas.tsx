@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { AlertTriangle } from "lucide-react";
 import {
   obtenerDashboardTiendas,
   type ResumenTiendaDashboard,
@@ -276,7 +277,13 @@ export default function DashboardTiendasVista({ desde, hasta }: { desde: string;
                       )}
                     </td>
                     <td className="py-2.5 text-marca-rojoclaro font-bold text-[12.5px]">
-                      {t.alertasCriticas > 0 ? `🚨 ${t.alertasCriticas}` : "—"}
+                      {t.alertasCriticas > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> {t.alertasCriticas}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}

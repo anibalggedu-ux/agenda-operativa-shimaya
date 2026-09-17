@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ClipboardList, Check, FileDown } from "lucide-react";
 import {
   obtenerPlantillaChecklistVisita,
   guardarChecklistVisita,
@@ -231,8 +232,8 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
       <div>
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          📋 CHECKLIST DE RUTINA DE VISITA
+        <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+          <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> CHECKLIST DE RUTINA DE VISITA
         </h3>
         <p className="text-marca-tenue text-[11px] mt-1">
           Opcional — aparte de tu reporte normal. Se puede descargar en PDF para dejárselo al
@@ -295,8 +296,8 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         </button>
       ) : (
         <div className="space-y-2">
-          <p className="text-emerald-400 text-xs font-bold text-center">
-            ✓ Checklist guardado — ya se puede ver en Central Analítica.
+          <p className="flex items-center justify-center gap-1.5 text-emerald-400 text-xs font-bold text-center">
+            <Check className="w-3.5 h-3.5" /> Checklist guardado — ya se puede ver en Central Analítica.
           </p>
           {resultado?.porcentaje !== null && resultado?.porcentaje !== undefined && (
             <p className={`text-center font-display text-2xl font-bold ${claseColorClasificacion(resultado.clasificacion)}`}>
@@ -308,9 +309,9 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             <button
               type="button"
               onClick={handleDescargarPdf}
-              className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
-              📄 Descargar PDF
+              <FileDown className="w-3.5 h-3.5" /> Descargar PDF
             </button>
             <button
               type="button"

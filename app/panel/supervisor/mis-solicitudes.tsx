@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { BedDouble, FileText, TreePalm, ClipboardList } from "lucide-react";
 import MiDescanso from "./mi-descanso";
 import MiPermiso from "./mi-permiso";
 
 type Pestana = "descanso" | "permiso" | "vacaciones";
 
-const PESTANAS: { id: Pestana; etiqueta: string }[] = [
-  { id: "descanso", etiqueta: "🛌 Descanso" },
-  { id: "permiso", etiqueta: "📝 Permiso" },
-  { id: "vacaciones", etiqueta: "🏖️ Vacaciones" },
+const PESTANAS: { id: Pestana; icono: ReactNode; etiqueta: string }[] = [
+  { id: "descanso", icono: <BedDouble className="w-3 h-3" />, etiqueta: "Descanso" },
+  { id: "permiso", icono: <FileText className="w-3 h-3" />, etiqueta: "Permiso" },
+  { id: "vacaciones", icono: <TreePalm className="w-3 h-3" />, etiqueta: "Vacaciones" },
 ];
 
 // Une las 3 solicitudes que antes eran tarjetas separadas (descanso semanal,
@@ -31,20 +32,22 @@ export default function MisSolicitudes() {
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">📋 MIS SOLICITUDES</h3>
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS SOLICITUDES
+      </h3>
 
       <div className="flex gap-2 flex-wrap">
         {PESTANAS.map((p) => (
           <button
             key={p.id}
             onClick={() => setPestana(p.id)}
-            className={`relative px-3 py-1.5 rounded-[3px] text-[11px] font-black tracking-widest uppercase transition ${
+            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-[11px] font-black tracking-widest uppercase transition ${
               pestana === p.id
                 ? "bg-marca-rojo text-marca-textofuerte"
                 : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
             }`}
           >
-            {p.etiqueta}
+            {p.icono} {p.etiqueta}
             {pendientes[p.id] && (
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-marca-superficie" />
             )}

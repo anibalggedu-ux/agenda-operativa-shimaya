@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trophy } from "lucide-react";
 import { obtenerVitrinaTrofeos, type FilaVitrina } from "../puntos-actions";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 
@@ -18,8 +19,8 @@ export default function RankingCapacitadores() {
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-        🏆 RANKING DE CAPACITADORES
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> RANKING DE CAPACITADORES
       </h3>
       <p className="text-marca-tenue text-[11px]">
         Puntos acumulados de por vida — puntualidad + reportes enviados.

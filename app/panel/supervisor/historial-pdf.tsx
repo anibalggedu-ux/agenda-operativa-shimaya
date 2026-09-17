@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText, Eye } from "lucide-react";
 import {
   obtenerHistorialReportes,
   obtenerHistorialMarcaciones,
@@ -80,8 +81,8 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-        📄 HISTORIAL EN PDF
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <FileText className="w-3.5 h-3.5 text-marca-rojoclaro" /> HISTORIAL EN PDF
       </h3>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -115,9 +116,15 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
       <button
         onClick={() => handleGenerar("vista_previa")}
         disabled={!!generando}
-        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
+        className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
       >
-        {generando === "vista_previa" ? "Abriendo..." : "👁️ Ver / Descargar Historial"}
+        {generando === "vista_previa" ? (
+          "Abriendo..."
+        ) : (
+          <>
+            <Eye className="w-4 h-4" /> Ver / Descargar Historial
+          </>
+        )}
       </button>
       <p className="text-marca-tenue text-[10px] text-center -mt-2">
         Se abre en una pestaña nueva — desde ahí también lo puedes descargar o imprimir.

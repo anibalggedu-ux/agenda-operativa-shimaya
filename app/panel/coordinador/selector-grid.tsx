@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertTriangle, Check } from "lucide-react";
+
 export type OpcionGrid = {
   id: string;
   titulo: string;
@@ -58,10 +60,14 @@ export default function SelectorGrid({
               <p className="text-[10px] text-marca-tenue uppercase mt-0.5 truncate">{o.subtitulo}</p>
             )}
             {o.advertencia && o.etiquetaAdvertencia && (
-              <p className="text-[10px] text-amber-400 font-bold mt-1">⚠ {o.etiquetaAdvertencia}</p>
+              <p className="flex items-center gap-1 text-[10px] text-amber-400 font-bold mt-1">
+                <AlertTriangle className="w-3 h-3" /> {o.etiquetaAdvertencia}
+              </p>
             )}
             {!o.advertencia && o.destacado && o.etiquetaDestacado && (
-              <p className="text-[10px] text-emerald-400 font-bold mt-1">✓ {o.etiquetaDestacado}</p>
+              <p className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold mt-1">
+                <Check className="w-3 h-3" /> {o.etiquetaDestacado}
+              </p>
             )}
           </button>
         );

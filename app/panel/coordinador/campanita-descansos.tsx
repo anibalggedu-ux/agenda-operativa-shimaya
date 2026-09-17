@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Bell } from "lucide-react";
 import {
   contarSolicitudesDescansoPendientes,
   obtenerSolicitudesDescansoPendientes,
@@ -84,10 +85,10 @@ export default function CampanitaDescansos() {
       <button
         type="button"
         onClick={abrir}
-        className="relative border border-marca-borde text-marca-tenue hover:text-marca-texto px-3 py-2 rounded-[3px] text-xs transition"
+        className="relative border border-marca-borde text-marca-tenue hover:text-marca-texto px-3 py-2 rounded-[3px] text-xs transition flex items-center justify-center"
         aria-label="Solicitudes pendientes (descanso y permisos)"
       >
-        🔔
+        <Bell className="w-4 h-4" />
         {conteo > 0 && (
           <span className="absolute -top-1.5 -right-1.5 bg-marca-rojo text-marca-textofuerte text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
             {conteo > 9 ? "9+" : conteo}

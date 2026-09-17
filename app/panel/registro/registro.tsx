@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Users, UserPlus, UserCog, Search, Store, Settings, Clock, Receipt, ClipboardList, Wrench, History, Activity, FileClock } from "lucide-react";
+import { Users, UserPlus, UserCog, Search, Store, Settings, Clock, Receipt, ClipboardList, Wrench, History, Activity, FileClock, Shuffle } from "lucide-react";
 import {
   crearUsuario,
   obtenerUsuariosConAcceso,
@@ -194,9 +194,15 @@ function FormularioNuevoUsuario() {
         <button
           type="button"
           onClick={() => setHorarioMixtoAbierto((v) => !v)}
-          className="mt-2 text-marca-tenue hover:text-marca-texto text-[10px] font-black uppercase tracking-widest transition"
+          className="mt-2 inline-flex items-center gap-1 text-marca-tenue hover:text-marca-texto text-[10px] font-black uppercase tracking-widest transition"
         >
-          {horarioMixtoAbierto ? "▲ Ocultar horario mixto por día" : "▼ 🔀 ¿Horario mixto por día?"}
+          {horarioMixtoAbierto ? (
+            "▲ Ocultar horario mixto por día"
+          ) : (
+            <>
+              <Shuffle className="w-3 h-3" /> ¿Horario mixto por día?
+            </>
+          )}
         </button>
 
         {horarioMixtoAbierto && (

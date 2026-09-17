@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -36,8 +36,8 @@ export default async function PanelCapacitador() {
           <MisPuntosWidget />
           <RankingCapacitadores />
           <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
-            <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-              🚗 KILÓMETROS DEL MES — CAPACITADORES
+            <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+              <Car className="w-3.5 h-3.5 text-marca-rojoclaro" /> KILÓMETROS DEL MES — CAPACITADORES
             </h3>
             <p className="text-marca-tenue text-[11px]">
               Quién recorrió más distancia este mes, solo entre capacitadores.

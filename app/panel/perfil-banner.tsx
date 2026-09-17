@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BedDouble, Calendar, PartyPopper } from "lucide-react";
 import { formatearFechaLegible } from "@/lib/fechas";
 
 // Forma mínima que necesita este banner — coordinador y cada portal de
@@ -37,22 +38,22 @@ export default function PerfilBanner({ cargarPerfil }: { cargarPerfil: () => Pro
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
-        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-          🛌 Descanso semanal
+        <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+          <BedDouble className="w-3 h-3" /> Descanso semanal
         </p>
         <p className="text-marca-textofuerte text-sm font-bold mt-1">{textoDescanso}</p>
       </div>
 
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
-        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-          📅 Antigüedad
+        <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+          <Calendar className="w-3 h-3" /> Antigüedad
         </p>
         <p className="text-marca-textofuerte text-sm font-bold mt-1">{textoAntiguedad}</p>
       </div>
 
       <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] px-4 py-3">
-        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-          🎉 Próximo aniversario
+        <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+          <PartyPopper className="w-3 h-3" /> Próximo aniversario
         </p>
         {perfil.proximoAniversario ? (
           <p className="text-marca-textofuerte text-sm font-bold mt-1 capitalize">

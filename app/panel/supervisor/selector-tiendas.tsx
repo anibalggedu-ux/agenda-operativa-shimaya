@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble } from "lucide-react";
 import {
   obtenerTiendasClasificadas,
   enviarReporte,
@@ -26,31 +27,31 @@ import { reproducirSonidoExito } from "@/lib/sonido";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
-  { emoji: string; borde: string; fondo: string; texto: string; etiqueta: string }
+  { icono: ReactNode; borde: string; fondo: string; texto: string; etiqueta: string }
 > = {
   HOY: {
-    emoji: "🟢",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-emerald-500",
     fondo: "bg-emerald-950/30",
     texto: "text-emerald-400",
     etiqueta: "HOY",
   },
   MANANA: {
-    emoji: "🟡",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-amber-500/60",
     fondo: "bg-amber-950/20",
     texto: "text-amber-400",
     etiqueta: "MAÑANA",
   },
   AYER: {
-    emoji: "⚠️",
+    icono: <AlertTriangle className="w-3 h-3" />,
     borde: "border-marca-borde",
     fondo: "bg-marca-superficie2",
     texto: "text-marca-tenue",
     etiqueta: "AYER",
   },
   ANTES_DE_AYER: {
-    emoji: "🚨",
+    icono: <AlertTriangle className="w-3 h-3" />,
     borde: "border-marca-rojo",
     fondo: "bg-marca-rojo/15",
     texto: "text-marca-rojoclaro",
@@ -117,9 +118,9 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest hover:text-marca-rojo transition"
+        className="inline-flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest hover:text-marca-rojo transition"
       >
-        ⚡ ¿Te cambiaron la ruta de último momento? Asígnate una tienda
+        <Zap className="w-3 h-3" /> ¿Te cambiaron la ruta de último momento? Asígnate una tienda
       </button>
     );
   }
@@ -133,7 +134,9 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
       </p>
       {errorTiendas ? (
         <div className="bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3 space-y-2">
-          <p className="text-marca-rojoclaro text-xs font-bold">⚠️ {errorTiendas}</p>
+          <p className="flex items-center gap-1.5 text-marca-rojoclaro text-xs font-bold">
+            <AlertTriangle className="w-3.5 h-3.5" /> {errorTiendas}
+          </p>
           <div className="flex gap-2">
             <button
               onClick={cargarTiendas}
@@ -328,8 +331,8 @@ function MarcadoVisitaTienda({
       />
 
       {tienda.horaLlegada ? (
-        <p className="text-[10.5px] text-marca-tenue">
-          📍 Llegada:{" "}
+        <p className="flex items-center gap-1 text-[10.5px] text-marca-tenue">
+          <MapPin className="w-3 h-3" /> Llegada:{" "}
           {tienda.ubicacionLlegada ? (
             <a
               href={tienda.ubicacionLlegada}
@@ -343,8 +346,8 @@ function MarcadoVisitaTienda({
             <span className="text-marca-texto font-bold">{formatearHora(tienda.horaLlegada)}</span>
           )}
           {tienda.fotoLlegadaUrl && (
-            <a href={tienda.fotoLlegadaUrl} target="_blank" rel="noopener noreferrer" className="ml-1">
-              📷
+            <a href={tienda.fotoLlegadaUrl} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex">
+              <Camera className="w-3 h-3" />
             </a>
           )}
         </p>
@@ -355,7 +358,13 @@ function MarcadoVisitaTienda({
           disabled={ocupado}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] px-4 transition"
         >
-          {paso ? ETIQUETA_PASO[paso] : "📷 Marcar llegada a esta tienda"}
+          {paso ? (
+            ETIQUETA_PASO[paso]
+          ) : (
+            <>
+              <Camera className="w-4 h-4" /> Marcar llegada a esta tienda
+            </>
+          )}
         </button>
       )}
 
@@ -366,13 +375,19 @@ function MarcadoVisitaTienda({
           disabled={ocupado}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 border border-marca-rojo/50 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-60 font-black text-sm rounded-[3px] px-4 transition"
         >
-          {paso ? ETIQUETA_PASO[paso] : "📷 Marcar salida de la tienda"}
+          {paso ? (
+            ETIQUETA_PASO[paso]
+          ) : (
+            <>
+              <Camera className="w-4 h-4" /> Marcar salida de la tienda
+            </>
+          )}
         </button>
       )}
 
       {tienda.horaSalidaTienda && (
-        <p className="text-[10.5px] text-marca-tenue">
-          🚪 Salida:{" "}
+        <p className="flex items-center gap-1 text-[10.5px] text-marca-tenue">
+          <DoorOpen className="w-3 h-3" /> Salida:{" "}
           {tienda.ubicacionSalidaTienda ? (
             <a
               href={tienda.ubicacionSalidaTienda}
@@ -386,8 +401,8 @@ function MarcadoVisitaTienda({
             <span className="text-marca-texto font-bold">{formatearHora(tienda.horaSalidaTienda)}</span>
           )}
           {tienda.fotoSalidaTiendaUrl && (
-            <a href={tienda.fotoSalidaTiendaUrl} target="_blank" rel="noopener noreferrer" className="ml-1">
-              📷
+            <a href={tienda.fotoSalidaTiendaUrl} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex">
+              <Camera className="w-3 h-3" />
             </a>
           )}
         </p>
@@ -395,7 +410,9 @@ function MarcadoVisitaTienda({
 
       {mensaje && (
         <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3 space-y-2">
-          <p className="text-marca-rojoclaro text-xs font-bold">⚠️ {mensaje}</p>
+          <p className="flex items-center gap-1.5 text-marca-rojoclaro text-xs font-bold">
+            <AlertTriangle className="w-3.5 h-3.5" /> {mensaje}
+          </p>
           {pendiente && !ocupado && (
             <>
               <p className="text-marca-tenue text-[11px]">
@@ -502,8 +519,9 @@ export default function SelectorTiendas({
   return (
     <div className="space-y-6">
       {mostrarDescansoFijo && diaDescanso && diaDescanso.length > 0 && (
-        <div className="bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] px-4 py-2 text-marca-rojoclaro text-xs font-bold">
-          🛌 Tu{diaDescanso.length > 1 ? "s días de descanso fijos" : " día de descanso fijo"}:{" "}
+        <div className="flex items-center gap-1.5 bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] px-4 py-2 text-marca-rojoclaro text-xs font-bold">
+          <BedDouble className="w-3.5 h-3.5 shrink-0" /> Tu
+          {diaDescanso.length > 1 ? "s días de descanso fijos" : " día de descanso fijo"}:{" "}
           {diaDescanso.join(" y ")}
         </div>
       )}
@@ -514,8 +532,8 @@ export default function SelectorTiendas({
         const estilo = ESTILOS_URGENCIA[grupo.urgencia];
         return (
           <div key={grupo.urgencia}>
-            <h3 className={`text-xs font-black tracking-widest mb-2 ${estilo.texto}`}>
-              {estilo.emoji} {estilo.etiqueta}
+            <h3 className={`flex items-center gap-1.5 text-xs font-black tracking-widest mb-2 ${estilo.texto}`}>
+              {estilo.icono} {estilo.etiqueta}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {grupo.items.map((tienda) => {
@@ -544,7 +562,9 @@ export default function SelectorTiendas({
                         {formatearFechaLegible(tienda.fechaPlanificada)}
                       </p>
                       {tienda.autoasignada && (
-                        <p className="text-[10.5px] text-marca-rojoclaro font-bold mt-1">⚡ Auto-asignada</p>
+                        <p className="flex items-center gap-1 text-[10.5px] text-marca-rojoclaro font-bold mt-1">
+                          <Zap className="w-3 h-3" /> Auto-asignada
+                        </p>
                       )}
                       {tienda.area && (
                         <p className="text-[11px] text-marca-tenue mt-1">
@@ -576,16 +596,17 @@ export default function SelectorTiendas({
                         </div>
                       )}
                       {tienda.reporteId && (
-                        <p className="text-[11px] text-emerald-400 font-bold mt-2">
-                          ✅ Reportado — toca para editar
+                        <p className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold mt-2">
+                          <CircleCheck className="w-3.5 h-3.5" /> Reportado — toca para editar
                         </p>
                       )}
                     </button>
 
                     {bloqueada ? (
-                      <p className="mt-2 pt-2 border-t border-marca-borde/60 text-[10.5px] text-marca-tenue">
-                        🔒 Pasaron 48 horas desde que se asignó esta ruta — ya no se puede reportar ni
-                        marcar llegada. Queda solo como referencia de qué tienda tenías asignada.
+                      <p className="flex items-start gap-1.5 mt-2 pt-2 border-t border-marca-borde/60 text-[10.5px] text-marca-tenue">
+                        <Lock className="w-3 h-3 mt-0.5 shrink-0" /> Pasaron 48 horas desde que se asignó
+                        esta ruta — ya no se puede reportar ni marcar llegada. Queda solo como referencia
+                        de qué tienda tenías asignada.
                       </p>
                     ) : (
                       <MarcadoVisitaTienda tienda={tienda} onMarcado={cargar} />

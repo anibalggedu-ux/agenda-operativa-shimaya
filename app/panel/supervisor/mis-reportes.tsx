@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Check, MessageSquare, FolderOpen } from "lucide-react";
 import { obtenerMisReportesRecientes, editarReporte, type MiReporte, type ResultadoReporte } from "./actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -132,8 +133,8 @@ function FilaReporte({ reporte }: { reporte: MiReporte }) {
               · {formatearFechaLegible(version.fecha)}
             </span>
             {version.leido && (
-              <span className="ml-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest align-middle">
-                ✓ Leído
+              <span className="ml-2 inline-flex items-center gap-1 text-emerald-400 text-[10px] font-black uppercase tracking-widest align-middle">
+                <Check className="w-3 h-3" /> Leído
               </span>
             )}
           </p>
@@ -178,8 +179,9 @@ function FilaReporte({ reporte }: { reporte: MiReporte }) {
 
       {version.respuesta && (
         <div className="mt-2 bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-2.5">
-          <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
-            💬 Respuesta{version.respuestaPor ? " de " + version.respuestaPor : ""}
+          <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+            <MessageSquare className="w-3 h-3" /> Respuesta
+            {version.respuestaPor ? " de " + version.respuestaPor : ""}
           </p>
           <p className="text-marca-textofuerte text-sm mt-1">{version.respuesta}</p>
         </div>
@@ -211,8 +213,8 @@ export default function MisReportes() {
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-4 space-y-2.5">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          🗂️ MIS REGISTROS DE OBSERVACIONES
+        <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+          <FolderOpen className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS REGISTROS DE OBSERVACIONES
         </h3>
         <div className="flex gap-1.5">
           {[

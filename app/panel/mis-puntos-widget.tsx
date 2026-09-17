@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trophy } from "lucide-react";
 import { obtenerMisPuntos, type MisPuntos } from "./puntos-actions";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 
@@ -29,7 +30,9 @@ export default function MisPuntosWidget() {
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5 space-y-3">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">🏆 MIS PUNTOS</h3>
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS PUNTOS
+      </h3>
 
       <div className="flex items-end justify-between flex-wrap gap-2">
         <p className="font-display text-2xl text-marca-textofuerte">{puntos} pts</p>

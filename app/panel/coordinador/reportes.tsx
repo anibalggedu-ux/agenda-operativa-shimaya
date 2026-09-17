@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { FileDown } from "lucide-react";
 import {
   obtenerReportesRecientes,
   responderReporte,
@@ -277,9 +278,9 @@ function TabPorTienda() {
             </div>
             <button
               onClick={() => generarPdfHistorialTienda({ ...historial, desde, hasta })}
-              className="bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              className="flex items-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
-              📄 Descargar PDF
+              <FileDown className="w-3.5 h-3.5" /> Descargar PDF
             </button>
           </div>
 
@@ -405,9 +406,9 @@ function TabPorPersona() {
             </div>
             <button
               onClick={() => generarPdfHistorialPersona({ ...historial, desde, hasta })}
-              className="bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              className="flex items-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
-              📄 Descargar PDF
+              <FileDown className="w-3.5 h-3.5" /> Descargar PDF
             </button>
           </div>
 

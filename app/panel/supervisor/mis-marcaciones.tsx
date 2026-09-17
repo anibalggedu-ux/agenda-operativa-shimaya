@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Camera, MapPin } from "lucide-react";
 import { obtenerMisMarcaciones, type MiMarcacion } from "./actions";
 import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -29,8 +30,8 @@ function Marcacion({
         <span>{formatearHora(hora)}</span>
       )}
       {fotoUrl && (
-        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1" title="Ver foto">
-          📷
+        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex" title="Ver foto">
+          <Camera className="w-3 h-3" />
         </a>
       )}
     </>
@@ -55,8 +56,8 @@ export default function MisMarcaciones() {
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-        📍 MIS MARCACIONES GPS
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <MapPin className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS MARCACIONES GPS
       </h3>
       <p className="text-marca-tenue text-[11px]">
         Se calcula solo con las marcaciones que haces en la Bitácora de Campo: el ingreso es tu

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { obtenerResumenKilometros, type ResumenKilometros } from "./kilometros-actions";
 import { formatearMinutos } from "@/lib/distancia";
 
@@ -70,9 +71,10 @@ export default function KilometrosVista({
       ))}
 
       {totalSinCalcular > 0 && (
-        <p className="text-amber-400 text-[11px]">
-          ⚠️ {totalSinCalcular} visita{totalSinCalcular === 1 ? "" : "s"} no se pudo calcular por
-          falta de dirección (del colaborador o de la tienda) — cárgalas en Registro.
+        <p className="flex items-center gap-1.5 text-amber-400 text-[11px]">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {totalSinCalcular} visita
+          {totalSinCalcular === 1 ? "" : "s"} no se pudo calcular por falta de dirección (del
+          colaborador o de la tienda) — cárgalas en Registro.
         </p>
       )}
 

@@ -1,43 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Circle, Rocket } from "lucide-react";
 import { obtenerEstadoPersonalHoy, type EstadoPersonalHoy } from "./actions";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 
 const ESTILOS: Record<
   NonNullable<EstadoPersonalHoy["estado"]>,
-  { emoji: string; borde: string; fondo: string; texto: string; etiqueta: string }
+  { icono: ReactNode; borde: string; fondo: string; texto: string; etiqueta: string }
 > = {
   DESCANSO_SEMANAL: {
-    emoji: "🟢",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-emerald-600/50",
     fondo: "bg-emerald-950/20",
     texto: "text-emerald-300",
     etiqueta: "Descansa hoy",
   },
   VACACIONES: {
-    emoji: "🔵",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-sky-600/50",
     fondo: "bg-sky-950/20",
     texto: "text-sky-300",
     etiqueta: "Vacaciones",
   },
   PERMISO: {
-    emoji: "🟡",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-amber-600/50",
     fondo: "bg-amber-950/20",
     texto: "text-amber-300",
     etiqueta: "Permiso",
   },
   LICENCIA: {
-    emoji: "🟣",
+    icono: <Circle className="w-3 h-3 fill-current" />,
     borde: "border-violet-600/50",
     fondo: "bg-violet-950/20",
     texto: "text-violet-300",
     etiqueta: "Licencia",
   },
   MISION_ESPECIAL: {
-    emoji: "🚀",
+    icono: <Rocket className="w-3 h-3" />,
     borde: "border-fuchsia-600/50",
     fondo: "bg-fuchsia-950/20",
     texto: "text-fuchsia-300",
@@ -89,8 +90,8 @@ export default function EstadoPersonalHoy() {
                   <p className="text-marca-textofuerte font-bold text-sm truncate">{f.usuarioNombre}</p>
                   <p className="text-marca-tenue text-[10px] uppercase">{f.rol}</p>
                 </div>
-                <span className={`text-[11px] font-black shrink-0 ml-2 ${estilo.texto}`}>
-                  {estilo.emoji} {estilo.etiqueta}
+                <span className={`flex items-center gap-1 text-[11px] font-black shrink-0 ml-2 ${estilo.texto}`}>
+                  {estilo.icono} {estilo.etiqueta}
                 </span>
               </div>
             );

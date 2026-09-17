@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Shuffle } from "lucide-react";
 import {
   obtenerUsuariosConHorario,
   actualizarHoraLimiteIngreso,
@@ -110,7 +111,7 @@ export default function HorarioPersonalizado() {
       </p>
       <p className="text-marca-tenue text-xs leading-relaxed">
         <strong className="text-marca-texto">¿Horario mixto?</strong> Si alguien entra a horas distintas según
-        el día (ej. 12pm miércoles y jueves, 1pm viernes), usa "🔀 Horario mixto por día" en su tarjeta — ese
+        el día (ej. 12pm miércoles y jueves, 1pm viernes), usa "Horario mixto por día" en su tarjeta — ese
         valor manda sobre la hora plana de arriba, día por día.
       </p>
       {usuarios.length === 0 ? (
@@ -133,8 +134,8 @@ export default function HorarioPersonalizado() {
                       ({u.rol} · defecto {HORA_LIMITE_DEFECTO[u.rol] ?? "—"})
                     </span>
                     {tieneMixto && (
-                      <span className="ml-2 text-amber-400 text-[10px] font-black uppercase tracking-widest">
-                        🔀 horario mixto activo
+                      <span className="inline-flex items-center gap-1 ml-2 text-amber-400 text-[10px] font-black uppercase tracking-widest">
+                        <Shuffle className="w-3 h-3" /> horario mixto activo
                       </span>
                     )}
                   </span>
@@ -159,9 +160,15 @@ export default function HorarioPersonalizado() {
                 <button
                   type="button"
                   onClick={() => setExpandidoId(expandido ? null : u.id)}
-                  className="text-marca-tenue hover:text-marca-texto text-[10px] font-black uppercase tracking-widest transition"
+                  className="inline-flex items-center gap-1 text-marca-tenue hover:text-marca-texto text-[10px] font-black uppercase tracking-widest transition"
                 >
-                  {expandido ? "▲ Ocultar horario mixto por día" : "▼ 🔀 Horario mixto por día"}
+                  {expandido ? (
+                    "▲ Ocultar horario mixto por día"
+                  ) : (
+                    <>
+                      <Shuffle className="w-3 h-3" /> Horario mixto por día
+                    </>
+                  )}
                 </button>
 
                 {expandido && (

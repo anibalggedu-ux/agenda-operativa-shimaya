@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Trophy, Ban } from "lucide-react";
 import {
   obtenerVisitasTiendaDetalle,
   type RankingTiendasCompleto,
@@ -17,7 +18,7 @@ function CuadroRanking({
   onSeleccionar,
   vacio,
 }: {
-  titulo: string;
+  titulo: ReactNode;
   filas: RankingTiendaCompleto[];
   offset: number;
   tiendaSeleccionada: string | null;
@@ -26,7 +27,7 @@ function CuadroRanking({
 }) {
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
-      <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
+      <h4 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
         {titulo} ({filas.length})
       </h4>
       {filas.length === 0 ? (
@@ -93,7 +94,11 @@ export default function RankingTiendas({
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <CuadroRanking
-          titulo="🥇 TOP 20"
+          titulo={
+            <>
+              <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> TOP 20
+            </>
+          }
           filas={ranking.top20}
           offset={0}
           tiendaSeleccionada={tiendaId}
@@ -109,7 +114,11 @@ export default function RankingTiendas({
           vacio="No hay más tiendas visitadas."
         />
         <CuadroRanking
-          titulo="🚫 SIN VISITAS"
+          titulo={
+            <>
+              <Ban className="w-3.5 h-3.5 text-marca-rojoclaro" /> SIN VISITAS
+            </>
+          }
           filas={ranking.sinVisitas}
           offset={0}
           tiendaSeleccionada={tiendaId}
