@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Calendar, MapPin } from "lucide-react";
 import {
   obtenerAnunciosRecientes,
   obtenerProximosCumpleanos,
@@ -77,8 +78,8 @@ export default function AnunciosWidget() {
               </p>
               <p className="text-marca-texto text-sm mt-1">{c.mensaje}</p>
               {c.fechaEvento && (
-                <p className="text-marca-textofuerte text-[11px] font-bold mt-2">
-                  📅 Evento: {formatearFechaLegible(c.fechaEvento)}
+                <p className="text-marca-textofuerte text-[11px] font-bold mt-2 flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3" /> Evento: {formatearFechaLegible(c.fechaEvento)}
                 </p>
               )}
               {c.ubicacion && (
@@ -86,9 +87,9 @@ export default function AnunciosWidget() {
                   href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block text-marca-tenue hover:text-marca-textofuerte underline text-[11px] font-bold mt-1"
+                  className="inline-flex items-center gap-1.5 text-marca-tenue hover:text-marca-textofuerte underline text-[11px] font-bold mt-1"
                 >
-                  📍 {c.ubicacion} — Ver en Maps
+                  <MapPin className="w-3 h-3" /> {c.ubicacion} — Ver en Maps
                 </a>
               )}
               <p className="text-marca-tenue text-[11px] capitalize mt-2">

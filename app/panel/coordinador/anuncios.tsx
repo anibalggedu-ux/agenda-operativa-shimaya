@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Users, GraduationCap, Calendar, MapPin, Target } from "lucide-react";
 import {
   obtenerComunicados,
   crearComunicado,
@@ -65,16 +66,16 @@ function SelectorDestinatarios({
         <button
           type="button"
           onClick={() => alternarRol(supervisores.map((u) => u.id))}
-          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition"
+          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition flex items-center gap-1.5"
         >
-          👤 Todos los supervisores
+          <Users className="w-3 h-3" /> Todos los supervisores
         </button>
         <button
           type="button"
           onClick={() => alternarRol(capacitadores.map((u) => u.id))}
-          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition"
+          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition flex items-center gap-1.5"
         >
-          🎓 Todos los capacitadores
+          <GraduationCap className="w-3 h-3" /> Todos los capacitadores
         </button>
         {seleccionados.size > 0 && (
           <button
@@ -151,8 +152,8 @@ function TarjetaAnuncio({
         </p>
         <p className="text-marca-textofuerte text-sm mt-1">{c.mensaje}</p>
         {c.fechaEvento && (
-          <p className="text-marca-textofuerte text-[11px] font-bold mt-2">
-            📅 Evento: {formatearFechaLegible(c.fechaEvento)}
+          <p className="text-marca-textofuerte text-[11px] font-bold mt-2 flex items-center gap-1.5">
+            <Calendar className="w-3 h-3" /> Evento: {formatearFechaLegible(c.fechaEvento)}
           </p>
         )}
         {c.ubicacion && (
@@ -160,14 +161,14 @@ function TarjetaAnuncio({
             href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-marca-tenue hover:text-marca-textofuerte underline text-[11px] font-bold mt-1"
+            className="inline-flex items-center gap-1.5 text-marca-tenue hover:text-marca-textofuerte underline text-[11px] font-bold mt-1"
           >
-            📍 {c.ubicacion} — Ver en Maps
+            <MapPin className="w-3 h-3" /> {c.ubicacion} — Ver en Maps
           </a>
         )}
         {nombresDestino.length > 0 && (
-          <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mt-2">
-            🎯 Solo para: {nombresDestino.join(", ")}
+          <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5">
+            <Target className="w-3 h-3" /> Solo para: {nombresDestino.join(", ")}
           </p>
         )}
         <p className="text-marca-tenue text-[11px] capitalize mt-2">

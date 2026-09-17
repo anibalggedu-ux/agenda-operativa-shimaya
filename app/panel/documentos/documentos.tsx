@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { Paperclip, Check, Pencil, Trash2, Download } from "lucide-react";
 import {
   obtenerDocumentos,
   obtenerUrlDescarga,
@@ -223,8 +224,8 @@ function ModalEditar({
           <p className="text-marca-tenue text-xs">
             Archivo actual: <strong className="text-marca-texto font-data">{doc.nombre}.{doc.extension}</strong>
           </p>
-          <label className="inline-flex items-center gap-2 text-xs font-bold text-marca-rojoclaro cursor-pointer">
-            📎 Reemplazar archivo
+          <label className="inline-flex items-center gap-1.5 text-xs font-bold text-marca-rojoclaro cursor-pointer">
+            <Paperclip className="w-3.5 h-3.5" /> Reemplazar archivo
             <input
               type="file"
               accept=".pdf,.doc,.docx,.xls,.xlsx"
@@ -233,8 +234,8 @@ function ModalEditar({
             />
           </label>
           {archivo && (
-            <p className="text-emerald-400 text-[11px] font-data">
-              ✓ {archivo.name} — se guardará al confirmar
+            <p className="text-emerald-400 text-[11px] font-data flex items-center gap-1">
+              <Check className="w-3 h-3" /> {archivo.name} — se guardará al confirmar
             </p>
           )}
         </div>
@@ -412,7 +413,7 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
                             aria-label={`Editar ${doc.nombre}`}
                             className="w-8 h-8 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-texto transition flex items-center justify-center"
                           >
-                            ✎
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleEliminar(doc)}
@@ -421,16 +422,22 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
                             aria-label={`Eliminar ${doc.nombre}`}
                             className="w-8 h-8 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-rojoclaro hover:border-marca-rojo/50 transition flex items-center justify-center disabled:opacity-50"
                           >
-                            🗑
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
                       <button
                         onClick={() => handleDescargar(doc)}
                         disabled={descargandoId === doc.id}
-                        className="bg-marca-rojo/15 border border-marca-rojo/40 text-marca-textofuerte px-3 py-1.5 rounded-[3px] text-xs font-bold hover:bg-marca-rojo hover:text-marca-textofuerte transition disabled:opacity-50 whitespace-nowrap"
+                        className="bg-marca-rojo/15 border border-marca-rojo/40 text-marca-textofuerte px-3 py-1.5 rounded-[3px] text-xs font-bold hover:bg-marca-rojo hover:text-marca-textofuerte transition disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
                       >
-                        {descargandoId === doc.id ? "..." : "⬇ Descargar"}
+                        {descargandoId === doc.id ? (
+                          "..."
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" /> Descargar
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
