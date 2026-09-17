@@ -64,7 +64,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     obtenerMisPuntos(),
     supabase
       .from("comunicados")
-      .select("tipo, created_at")
+      .select("tipo, created_at, usuarios_destino")
       .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
       .order("created_at", { ascending: false }),
     supabase
@@ -88,6 +88,13 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", hoy),
   ]);
+
+  // Mismo filtro por destinatario que obtenerAnunciosRecientes — este
+  // resumen no debe adelantar en el conteo/preview un comunicado dirigido a
+  // otra persona.
+  const comunicadosVisibles = (comunicados ?? []).filter(
+    (c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)
+  );
 
   const asistenciaPorFecha = new Map<string, RegistroAsistencia>();
   (asistenciaPropia ?? []).forEach((a) => {
@@ -178,14 +185,17 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   // hay, el próximo día de descanso fijo.
   let proximoEvento: { etiqueta: string; fecha: string } | null = null;
 
-  const { data: proximoComunicado } = await supabase
+  const { data: proximosComunicados } = await supabase
     .from("comunicados")
-    .select("tipo, fecha_evento")
+    .select("tipo, fecha_evento, usuarios_destino")
     .not("fecha_evento", "is", null)
     .gte("fecha_evento", hoy)
     .order("fecha_evento", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(10);
+
+  const proximoComunicado = (proximosComunicados ?? []).find(
+    (c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)
+  );
 
   if (proximoComunicado?.fecha_evento) {
     proximoEvento = { etiqueta: proximoComunicado.tipo, fecha: proximoComunicado.fecha_evento };
@@ -227,8 +237,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     rutaHoyExtra,
     reportesEditables,
     rachaActual: misPuntos.rachaActual,
-    comunicadosRecientes: comunicados?.length ?? 0,
-    ultimoComunicadoTipo: comunicados?.[0]?.tipo ?? null,
+    comunicadosRecientes: comunicadosVisibles.length,
+    ultimoComunicadoTipo: comunicadosVisibles[0]?.tipo ?? null,
     proximoEvento,
     climaActual,
     alertaPuntualidad,
