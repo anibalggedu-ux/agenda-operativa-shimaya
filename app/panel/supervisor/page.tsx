@@ -37,7 +37,7 @@ export default async function PanelSupervisor() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: Home,
+      icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
@@ -50,7 +50,7 @@ export default async function PanelSupervisor() {
     {
       id: "bitacora",
       etiqueta: "Bitácora de Campo",
-      icono: MapPin,
+      icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <TiendasFijas />
@@ -63,7 +63,7 @@ export default async function PanelSupervisor() {
     {
       id: "reportes",
       etiqueta: "Mis Reportes",
-      icono: ClipboardList,
+      icono: <ClipboardList className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <MisReportes />
@@ -74,19 +74,19 @@ export default async function PanelSupervisor() {
     {
       id: "analitica",
       etiqueta: "Central Analítica",
-      icono: BarChart3,
+      icono: <BarChart3 className="w-4 h-4" />,
       contenido: <CentralAnalitica />,
     },
     {
       id: "documentos",
       etiqueta: "Documentos",
-      icono: File,
+      icono: <File className="w-4 h-4" />,
       contenido: <Documentos esAdmin={accesoRegistro} />,
     },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: Calendar,
+      icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
     },
   ];
@@ -95,7 +95,7 @@ export default async function PanelSupervisor() {
     items.push({
       id: "auditorias",
       etiqueta: "Auditoría",
-      icono: Search,
+      icono: <Search className="w-4 h-4" />,
       contenido: <AuditoriasPanel esAdmin={false} puedeAuditar={true} />,
     });
   }
@@ -104,7 +104,7 @@ export default async function PanelSupervisor() {
     items.push({
       id: "registro",
       etiqueta: "Registro",
-      icono: Settings,
+      icono: <Settings className="w-4 h-4" />,
       contenido: <Registro esCoordinador={false} />,
     });
   }

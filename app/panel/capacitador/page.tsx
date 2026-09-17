@@ -28,7 +28,7 @@ export default async function PanelCapacitador() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: Home,
+      icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
@@ -51,7 +51,7 @@ export default async function PanelCapacitador() {
     {
       id: "bitacora",
       etiqueta: "Bitácora de Campo",
-      icono: MapPin,
+      icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
@@ -63,7 +63,7 @@ export default async function PanelCapacitador() {
     {
       id: "reportes",
       etiqueta: "Mis Reportes",
-      icono: ClipboardList,
+      icono: <ClipboardList className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <MisReportes />
@@ -74,7 +74,7 @@ export default async function PanelCapacitador() {
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: Calendar,
+      icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
     },
   ];

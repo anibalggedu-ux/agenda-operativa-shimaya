@@ -33,7 +33,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "rutas",
       etiqueta: "Rutas",
-      icono: Truck,
+      icono: <Truck className="w-4 h-4" />,
       contenido: (
         <div className="space-y-8">
           <AsignarRutas />
@@ -44,7 +44,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "mi-ruta",
       etiqueta: "Mi Ruta",
-      icono: MapPin,
+      icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
@@ -57,7 +57,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "reportes",
       etiqueta: "Reportes",
-      icono: ClipboardList,
+      icono: <ClipboardList className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <Reportes />
@@ -68,7 +68,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "personal",
       etiqueta: "Personal",
-      icono: Users,
+      icono: <Users className="w-4 h-4" />,
       contenido: (
         <div className="space-y-8">
           <EstadoPersonalHoy />
@@ -77,18 +77,18 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
         </div>
       ),
     },
-    { id: "anuncios", etiqueta: "Anuncios", icono: Megaphone, contenido: <Anuncios /> },
-    { id: "historial", etiqueta: "Historial y Monitoreo", icono: History, contenido: <HistorialMonitoreo /> },
-    { id: "analitica", etiqueta: "Central Analítica", icono: BarChart3, contenido: <CentralAnalitica /> },
-    { id: "registro", etiqueta: "Registro", icono: Settings, contenido: <Registro esCoordinador={true} /> },
-    { id: "documentos", etiqueta: "Documentos", icono: File, contenido: <Documentos esAdmin={true} /> },
+    { id: "anuncios", etiqueta: "Anuncios", icono: <Megaphone className="w-4 h-4" />, contenido: <Anuncios /> },
+    { id: "historial", etiqueta: "Historial y Monitoreo", icono: <History className="w-4 h-4" />, contenido: <HistorialMonitoreo /> },
+    { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica /> },
+    { id: "registro", etiqueta: "Registro", icono: <Settings className="w-4 h-4" />, contenido: <Registro esCoordinador={true} /> },
+    { id: "documentos", etiqueta: "Documentos", icono: <File className="w-4 h-4" />, contenido: <Documentos esAdmin={true} /> },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: Calendar,
+      icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
-    { id: "auditorias", etiqueta: "Auditorías", icono: Search, contenido: <HistorialAuditorias modo="todas" /> },
+    { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <HistorialAuditorias modo="todas" /> },
   ];
 
   return (

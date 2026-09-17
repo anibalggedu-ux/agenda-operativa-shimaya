@@ -3,14 +3,17 @@
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Menu, X, RefreshCw } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 
 export type ItemMenuPanel = {
   id: string;
   etiqueta: string;
-  icono: LucideIcon;
+  // Ya renderizado (ej. <Home className="w-4 h-4" />), no la referencia al
+  // componente — algunas páginas que arman `items` son Server Components, y
+  // pasar el componente en sí (en vez de un elemento) a PanelShell (cliente)
+  // rompe la serialización de React Server Components.
+  icono: ReactNode;
   contenido: ReactNode;
 };
 
@@ -23,7 +26,6 @@ function BotonItem({
   activo: boolean;
   onClick: () => void;
 }) {
-  const Icono = item.icono;
   return (
     <button
       onClick={onClick}
@@ -33,7 +35,7 @@ function BotonItem({
           : "text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2"
       }`}
     >
-      <Icono className="w-4 h-4 shrink-0" strokeWidth={2.25} />
+      <span className="shrink-0">{item.icono}</span>
       <span className="truncate">{item.etiqueta}</span>
     </button>
   );
@@ -144,9 +146,7 @@ export default function PanelShell({
         </div>
 
         <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde border-r-4 border-r-marca-rojoclaro rounded-lg px-4 py-3">
-          {seccionActiva && (
-            <seccionActiva.icono className="w-6 h-6 shrink-0 text-marca-rojoclaro" strokeWidth={2} />
-          )}
+          <span className="shrink-0 text-marca-rojoclaro [&>svg]:w-5 [&>svg]:h-5">{seccionActiva?.icono}</span>
           <p className="font-display text-lg sm:text-xl font-bold text-marca-textofuerte truncate">
             {seccionActiva?.etiqueta}
           </p>

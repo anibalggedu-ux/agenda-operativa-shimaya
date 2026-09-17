@@ -28,7 +28,7 @@ export default async function PanelGerente() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: Home,
+      icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
           <Dashboard />
@@ -39,31 +39,31 @@ export default async function PanelGerente() {
     {
       id: "mapa",
       etiqueta: "Mapa",
-      icono: Map,
+      icono: <Map className="w-4 h-4" />,
       contenido: <MapaOperativo />,
     },
     {
       id: "analitica",
       etiqueta: "Central Analítica",
-      icono: BarChart3,
+      icono: <BarChart3 className="w-4 h-4" />,
       contenido: <CentralAnalitica />,
     },
     {
       id: "documentos",
       etiqueta: "Documentos",
-      icono: File,
+      icono: <File className="w-4 h-4" />,
       contenido: <Documentos esAdmin={accesoRegistro} />,
     },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: Calendar,
+      icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
     {
       id: "auditorias",
       etiqueta: "Auditorías",
-      icono: Search,
+      icono: <Search className="w-4 h-4" />,
       contenido: <HistorialAuditorias modo="todas" />,
     },
   ];
@@ -72,7 +72,7 @@ export default async function PanelGerente() {
     items.push({
       id: "registro",
       etiqueta: "Registro",
-      icono: Settings,
+      icono: <Settings className="w-4 h-4" />,
       contenido: <Registro esCoordinador={false} />,
     });
   }
