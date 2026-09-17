@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { LineChart, Trophy, Car, Target, AlertTriangle, Store, LayoutDashboard, TrendingUp, FileText, User } from "lucide-react";
 import {
   obtenerReportesPorDia,
   obtenerDesempenoPorPersona,
@@ -275,9 +276,7 @@ export default function CentralAnalitica() {
           {pestana === "resumen" && (
             <div className="space-y-6">
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  📈 REPORTES POR DÍA
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><LineChart /> REPORTES POR DÍA</h3>
                 {reportesPorDia.length === 0 ? (
                   <TarjetaVacia>No hay reportes en este rango de fechas.</TarjetaVacia>
                 ) : (
@@ -302,9 +301,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  🏆 TOP 3 DE PUNTOS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Trophy /> TOP 3 DE PUNTOS</h3>
                 {cargandoVitrina ? (
                   <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>
                 ) : errorVitrina ? (
@@ -327,9 +324,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                  🚗 KILÓMETROS DEL MES
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Car /> KILÓMETROS DEL MES</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Quién recorrió más distancia este mes — útil para premios e incentivos mensuales.
                 </p>
@@ -372,9 +367,7 @@ export default function CentralAnalitica() {
 
                 {vistaAsistencia === "puntual" ? (
                   <>
-                    <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                      🎯 RANKING DE ASISTENCIA PUNTUAL
-                    </h3>
+                    <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Target /> RANKING DE ASISTENCIA PUNTUAL</h3>
                     <p className="text-marca-tenue text-[11px] mb-4">
                       Cantidad de veces que marcó ingreso a tiempo — capacitador antes de las
                       11:00am, supervisor antes de las 12:00pm.
@@ -388,9 +381,7 @@ export default function CentralAnalitica() {
                   </>
                 ) : (
                   <>
-                    <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                      🚨 RANKING DE TARDANZAS
-                    </h3>
+                    <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><AlertTriangle /> RANKING DE TARDANZAS</h3>
                     <p className="text-marca-tenue text-[11px] mb-4">
                       Capacitador: tardanza después de las 11:00am · Supervisor: tardanza después
                       de las 12:00pm.
@@ -420,9 +411,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                  🏪 TIENDAS POR TARDANZAS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Store /> TIENDAS POR TARDANZAS</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Toca el número de visitas o de colaboradores tarde para ver el detalle.
                 </p>
@@ -434,16 +423,12 @@ export default function CentralAnalitica() {
           {pestana === "tiendas" && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  📊 DASHBOARD GENERAL DE TIENDAS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><LayoutDashboard /> DASHBOARD GENERAL DE TIENDAS</h3>
                 <DashboardTiendasVista desde={desde} hasta={hasta} />
               </div>
 
               <section className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                  📈 TENDENCIAS POR TIENDA
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><TrendingUp /> TENDENCIAS POR TIENDA</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Panorama semana a semana en vez de solo el estado de hoy — detecta patrones antes
                   de que se conviertan en un problema.
@@ -452,9 +437,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  🏬 RANKING DE TIENDAS MÁS VISITADAS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Store /> RANKING DE TIENDAS MÁS VISITADAS</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Cuenta cada persona por separado: si 3 supervisores y 1 capacitador van a la misma
                   tienda el mismo día, son 4 visitas.
@@ -465,9 +448,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  🏬 RANKING DE TIENDAS — CONTROLADAS POR DÍA
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Store /> RANKING DE TIENDAS — CONTROLADAS POR DÍA</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Sin importar cuánta gente fue, ni si dejaron o no observación o foto: la misma
                   tienda el mismo día cuenta como UNA sola visita.
@@ -478,9 +459,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  📄 REPORTE DE TIENDA
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><FileText /> REPORTE DE TIENDA</h3>
                 <ReporteTienda />
               </section>
             </div>
@@ -489,9 +468,7 @@ export default function CentralAnalitica() {
           {pestana === "personas" && (
             <div className="space-y-6">
               <section className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                  🏆 VITRINA DE TROFEOS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Trophy /> VITRINA DE TROFEOS</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Puntos acumulados de por vida — puntualidad (10 a 30 pts según cuánto antes marcó
                   ingreso) + 10 pts por reporte enviado. 🥉 250 · 🥈 600 · 🥇 1200 · 🌟 2000
@@ -509,9 +486,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-                  👤 REPORTES ENVIADOS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><User /> REPORTES ENVIADOS</h3>
                 <RankingPorRol
                   supervisores={desempenoSupervisores}
                   capacitadores={desempenoCapacitadores}
@@ -521,9 +496,7 @@ export default function CentralAnalitica() {
               </section>
 
               <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-                  🚗 KILÓMETROS RECORRIDOS
-                </h3>
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Car /> KILÓMETROS RECORRIDOS</h3>
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Distancia real por calles (como en auto) entre la dirección de cada colaborador y
                   las tiendas que visitó en el rango, según sus reportes enviados.
