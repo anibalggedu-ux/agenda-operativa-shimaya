@@ -348,18 +348,20 @@ function GestionAccesos() {
                 >
                   {u.activo ? "Dar de baja" : "Reactivar"}
                 </button>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-marca-tenue text-[10px] uppercase font-bold">
-                    Puede registrar
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={u.puedeRegistrar}
-                    disabled={guardandoId === u.id}
-                    onChange={() => handleToggle(u)}
-                    className="w-4 h-4 accent-marca-rojo"
-                  />
-                </label>
+                {u.rol !== "capacitador" && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-marca-tenue text-[10px] uppercase font-bold">
+                      Puede registrar
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={u.puedeRegistrar}
+                      disabled={guardandoId === u.id}
+                      onChange={() => handleToggle(u)}
+                      className="w-4 h-4 accent-marca-rojo"
+                    />
+                  </label>
+                )}
               </div>
             </div>
           ))}
