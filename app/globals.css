@@ -32,6 +32,21 @@ body {
   background-color: rgb(var(--marca-fondo));
 }
 
+/* "Vidrio Shimaya": las ~150 tarjetas que ya usan bg-marca-superficie en
+   toda la app pasan a paneles translúcidos con desenfoque, sin tener que
+   tocar cada archivo uno por uno — se engancha directo al nombre de clase
+   que Tailwind ya genera para esa utilidad. superficie2 (inputs, pastillas
+   pequeñas) se deja sólido a propósito, para no perder legibilidad al
+   escribir. */
+.bg-marca-superficie {
+  background-color: rgb(var(--marca-superficie) / 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+:root[data-theme="light"] .bg-marca-superficie {
+  background-color: rgb(var(--marca-superficie) / 0.72);
+}
+
 /* Animación de entrada del login: la mascota aparece un instante ANTES que
    el logo oficial, se superpone encima, "aterriza" con un rebote y un sello
    rojo pulsa detrás suyo — y después se desvanece, dejando ver el logo de

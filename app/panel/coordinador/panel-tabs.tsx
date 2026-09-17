@@ -1,5 +1,6 @@
 "use client";
 
+import { Truck, MapPin, ClipboardList, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -32,7 +33,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "rutas",
       etiqueta: "Rutas",
-      icono: "🚚",
+      icono: Truck,
       contenido: (
         <div className="space-y-8">
           <AsignarRutas />
@@ -43,7 +44,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "mi-ruta",
       etiqueta: "Mi Ruta",
-      icono: "📍",
+      icono: MapPin,
       contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
@@ -56,7 +57,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "reportes",
       etiqueta: "Reportes",
-      icono: "📝",
+      icono: ClipboardList,
       contenido: (
         <div className="space-y-6">
           <Reportes />
@@ -67,7 +68,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
     {
       id: "personal",
       etiqueta: "Personal",
-      icono: "👥",
+      icono: Users,
       contenido: (
         <div className="space-y-8">
           <EstadoPersonalHoy />
@@ -76,18 +77,18 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
         </div>
       ),
     },
-    { id: "anuncios", etiqueta: "Anuncios", icono: "📣", contenido: <Anuncios /> },
-    { id: "historial", etiqueta: "Historial y Monitoreo", icono: "🗂", contenido: <HistorialMonitoreo /> },
-    { id: "analitica", etiqueta: "Central Analítica", icono: "📊", contenido: <CentralAnalitica /> },
-    { id: "registro", etiqueta: "Registro", icono: "📝", contenido: <Registro esCoordinador={true} /> },
-    { id: "documentos", etiqueta: "Documentos", icono: "📄", contenido: <Documentos esAdmin={true} /> },
+    { id: "anuncios", etiqueta: "Anuncios", icono: Megaphone, contenido: <Anuncios /> },
+    { id: "historial", etiqueta: "Historial y Monitoreo", icono: History, contenido: <HistorialMonitoreo /> },
+    { id: "analitica", etiqueta: "Central Analítica", icono: BarChart3, contenido: <CentralAnalitica /> },
+    { id: "registro", etiqueta: "Registro", icono: Settings, contenido: <Registro esCoordinador={true} /> },
+    { id: "documentos", etiqueta: "Documentos", icono: File, contenido: <Documentos esAdmin={true} /> },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: "📅",
+      icono: Calendar,
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
-    { id: "auditorias", etiqueta: "Auditorías", icono: "🔍", contenido: <HistorialAuditorias modo="todas" /> },
+    { id: "auditorias", etiqueta: "Auditorías", icono: Search, contenido: <HistorialAuditorias modo="todas" /> },
   ];
 
   return (

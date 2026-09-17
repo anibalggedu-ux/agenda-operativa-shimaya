@@ -1,5 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { Home, MapPin, ClipboardList, Calendar } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -27,7 +28,7 @@ export default async function PanelCapacitador() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: "🏠",
+      icono: Home,
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
@@ -50,7 +51,7 @@ export default async function PanelCapacitador() {
     {
       id: "bitacora",
       etiqueta: "Bitácora de Campo",
-      icono: "📍",
+      icono: MapPin,
       contenido: (
         <div className="space-y-6">
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
@@ -62,7 +63,7 @@ export default async function PanelCapacitador() {
     {
       id: "reportes",
       etiqueta: "Mis Reportes",
-      icono: "📝",
+      icono: ClipboardList,
       contenido: (
         <div className="space-y-6">
           <MisReportes />
@@ -73,7 +74,7 @@ export default async function PanelCapacitador() {
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: "📅",
+      icono: Calendar,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
     },
   ];

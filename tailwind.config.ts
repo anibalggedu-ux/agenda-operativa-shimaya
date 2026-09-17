@@ -24,7 +24,7 @@ const config: Config = {
       // Nombres propios (no "sans"/"mono") para no cambiar de golpe la
       // tipografía de los paneles que todavía no se han rediseñado.
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
         data: ["var(--font-data)", "ui-monospace", "monospace"],
       },

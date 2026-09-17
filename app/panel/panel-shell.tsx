@@ -2,13 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import { Menu, X, RefreshCw } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 
 export type ItemMenuPanel = {
   id: string;
   etiqueta: string;
-  icono: string;
+  icono: LucideIcon;
   contenido: ReactNode;
 };
 
@@ -21,16 +23,17 @@ function BotonItem({
   activo: boolean;
   onClick: () => void;
 }) {
+  const Icono = item.icono;
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold tracking-wide transition border-l-2 ${
+      className={`w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold tracking-wide transition rounded-lg ${
         activo
-          ? "border-marca-rojoclaro text-marca-rojoclaro bg-marca-rojo/10"
-          : "border-transparent text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2"
+          ? "text-marca-rojoclaro bg-marca-rojo/15"
+          : "text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2"
       }`}
     >
-      <span className="text-sm shrink-0">{item.icono}</span>
+      <Icono className="w-4 h-4 shrink-0" strokeWidth={2.25} />
       <span className="truncate">{item.etiqueta}</span>
     </button>
   );
@@ -71,15 +74,19 @@ export default function PanelShell({
   }
 
   return (
-    <div className="min-h-screen bg-marca-fondo text-marca-texto font-body">
+    <div className="relative min-h-screen bg-marca-fondo text-marca-texto font-body">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -top-24 left-1/2 -translate-x-1/2 w-[420px] h-[300px] rounded-full bg-marca-rojo/10 blur-[90px] z-0"
+      />
       <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-marca-borde bg-marca-superficie px-4 sm:px-6 py-3">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => setDrawerAbierto(true)}
-            className="lg:hidden bg-marca-superficie2 border border-marca-borde text-marca-texto w-9 h-9 rounded-[3px] shrink-0"
+            className="lg:hidden bg-marca-superficie2 border border-marca-borde text-marca-texto w-9 h-9 rounded-[3px] shrink-0 flex items-center justify-center"
             aria-label="Abrir menú"
           >
-            ☰
+            <Menu className="w-4 h-4" />
           </button>
           <p className="font-display text-sm sm:text-base font-semibold text-marca-textofuerte truncate">
             Shimaya <span className="text-marca-tenue font-body font-normal text-[11px]">· {tituloPortal}</span>
@@ -93,11 +100,11 @@ export default function PanelShell({
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="bg-marca-superficie2 border border-marca-borde text-marca-tenue w-9 h-9 rounded-[3px] hover:text-marca-texto transition shrink-0"
+            className="bg-marca-superficie2 border border-marca-borde text-marca-tenue w-9 h-9 rounded-[3px] hover:text-marca-texto transition shrink-0 flex items-center justify-center"
             aria-label="Recargar página"
             title="Recargar página"
           >
-            🔄
+            <RefreshCw className="w-4 h-4" />
           </button>
           <ThemeToggle />
           <form action={cerrarSesionAction}>
@@ -116,10 +123,10 @@ export default function PanelShell({
               <p className="font-display text-lg font-semibold text-marca-textofuerte">{tituloPortal}</p>
               <button
                 onClick={() => setDrawerAbierto(false)}
-                className="text-marca-tenue text-xl leading-none"
+                className="text-marca-tenue leading-none"
                 aria-label="Cerrar menú"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
             <nav className="flex-1 py-2 overflow-y-auto">
@@ -131,13 +138,15 @@ export default function PanelShell({
         </div>
       )}
 
-      <div className="p-4 sm:p-6">
+      <div className="relative z-10 p-4 sm:p-6">
         <div className="sm:hidden mb-3 text-marca-tenue text-[11px]">
           Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
         </div>
 
-        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie2 border border-marca-borde border-r-4 border-r-marca-rojoclaro rounded-[3px] px-4 py-3">
-          <span className="text-2xl shrink-0">{seccionActiva?.icono}</span>
+        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde border-r-4 border-r-marca-rojoclaro rounded-lg px-4 py-3">
+          {seccionActiva && (
+            <seccionActiva.icono className="w-6 h-6 shrink-0 text-marca-rojoclaro" strokeWidth={2} />
+          )}
           <p className="font-display text-lg sm:text-xl font-bold text-marca-textofuerte truncate">
             {seccionActiva?.etiqueta}
           </p>

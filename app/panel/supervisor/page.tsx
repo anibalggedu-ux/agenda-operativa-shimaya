@@ -1,5 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -36,7 +37,7 @@ export default async function PanelSupervisor() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: "🏠",
+      icono: Home,
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
@@ -49,7 +50,7 @@ export default async function PanelSupervisor() {
     {
       id: "bitacora",
       etiqueta: "Bitácora de Campo",
-      icono: "📍",
+      icono: MapPin,
       contenido: (
         <div className="space-y-6">
           <TiendasFijas />
@@ -62,7 +63,7 @@ export default async function PanelSupervisor() {
     {
       id: "reportes",
       etiqueta: "Mis Reportes",
-      icono: "📝",
+      icono: ClipboardList,
       contenido: (
         <div className="space-y-6">
           <MisReportes />
@@ -73,19 +74,19 @@ export default async function PanelSupervisor() {
     {
       id: "analitica",
       etiqueta: "Central Analítica",
-      icono: "📊",
+      icono: BarChart3,
       contenido: <CentralAnalitica />,
     },
     {
       id: "documentos",
       etiqueta: "Documentos",
-      icono: "📄",
+      icono: File,
       contenido: <Documentos esAdmin={accesoRegistro} />,
     },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: "📅",
+      icono: Calendar,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
     },
   ];
@@ -94,7 +95,7 @@ export default async function PanelSupervisor() {
     items.push({
       id: "auditorias",
       etiqueta: "Auditoría",
-      icono: "🔍",
+      icono: Search,
       contenido: <AuditoriasPanel esAdmin={false} puedeAuditar={true} />,
     });
   }
@@ -103,7 +104,7 @@ export default async function PanelSupervisor() {
     items.push({
       id: "registro",
       etiqueta: "Registro",
-      icono: "📝",
+      icono: Settings,
       contenido: <Registro esCoordinador={false} />,
     });
   }

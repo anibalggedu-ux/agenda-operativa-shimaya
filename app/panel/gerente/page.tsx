@@ -1,5 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
@@ -27,7 +28,7 @@ export default async function PanelGerente() {
     {
       id: "inicio",
       etiqueta: "Inicio",
-      icono: "🏠",
+      icono: Home,
       contenido: (
         <div className="space-y-6">
           <Dashboard />
@@ -38,31 +39,31 @@ export default async function PanelGerente() {
     {
       id: "mapa",
       etiqueta: "Mapa",
-      icono: "🗺️",
+      icono: Map,
       contenido: <MapaOperativo />,
     },
     {
       id: "analitica",
       etiqueta: "Central Analítica",
-      icono: "📊",
+      icono: BarChart3,
       contenido: <CentralAnalitica />,
     },
     {
       id: "documentos",
       etiqueta: "Documentos",
-      icono: "📄",
+      icono: File,
       contenido: <Documentos esAdmin={accesoRegistro} />,
     },
     {
       id: "calendario",
       etiqueta: "Calendario",
-      icono: "📅",
+      icono: Calendar,
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
     {
       id: "auditorias",
       etiqueta: "Auditorías",
-      icono: "🔍",
+      icono: Search,
       contenido: <HistorialAuditorias modo="todas" />,
     },
   ];
@@ -71,7 +72,7 @@ export default async function PanelGerente() {
     items.push({
       id: "registro",
       etiqueta: "Registro",
-      icono: "📝",
+      icono: Settings,
       contenido: <Registro esCoordinador={false} />,
     });
   }
