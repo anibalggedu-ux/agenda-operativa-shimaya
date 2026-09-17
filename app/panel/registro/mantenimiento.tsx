@@ -13,6 +13,8 @@ import {
   eliminarAsignacionEspecialRegistro,
   obtenerComunicadosParaCorregir,
   eliminarComunicado,
+  obtenerAuditoriasParaCorregir,
+  eliminarAuditoriaRegistro,
   crearTienda,
   obtenerTiendasConUbicacion,
   actualizarUbicacionTienda,
@@ -25,6 +27,7 @@ import {
   type ReporteCorregible,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
+  type AuditoriaCorregible,
   type TiendaUbicacion,
   type ColaboradorDireccion,
 } from "./actions";
@@ -561,6 +564,69 @@ function SeccionComunicados() {
   );
 }
 
+function SeccionAuditorias() {
+  const [filas, setFilas] = useState<AuditoriaCorregible[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function cargar() {
+    setCargando(true);
+    obtenerAuditoriasParaCorregir()
+      .then(setFilas)
+      .catch((e) => setError(e.message || "Error al cargar las auditorías."))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, []);
+
+  async function handleEliminar(id: string, etiqueta: string) {
+    if (!window.confirm(`¿Eliminar la auditoría "${etiqueta}"? No se puede deshacer.`)) return;
+    const motivo = window.prompt("Motivo (opcional):") ?? undefined;
+    setEliminandoId(id);
+    setError(null);
+    const resultado = await eliminarAuditoriaRegistro(id, motivo);
+    setEliminandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo eliminar.");
+  }
+
+  if (cargando) {
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando auditorías...</p>;
+  }
+
+  return (
+    <>
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {filas.length === 0 ? (
+        <p className="text-marca-tenue text-sm italic">No hay auditorías registradas.</p>
+      ) : (
+        <div className="space-y-2">
+          {filas.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-center justify-between flex-wrap gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+            >
+              <div>
+                <p className="text-marca-textofuerte font-bold text-sm">
+                  {f.tiendaNombre} — {f.supervisorNombre}
+                </p>
+                <p className="text-marca-tenue text-[11px] font-data">
+                  {formatearFechaLegible(f.fecha)} · {f.porcentaje}% · {f.clasificacion}
+                </p>
+              </div>
+              <BotonEliminar
+                onClick={() => handleEliminar(f.id, `${f.tiendaNombre} — ${f.supervisorNombre}`)}
+                cargando={eliminandoId === f.id}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function NuevaTienda({ onCreada }: { onCreada: () => void }) {
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -990,6 +1056,18 @@ export function BloqueComunicados() {
   return (
     <SeccionColapsable titulo="Comunicados" icono="📣" descripcion="Elimina publicaciones de prueba.">
       <SeccionComunicados />
+    </SeccionColapsable>
+  );
+}
+
+export function BloqueAuditorias() {
+  return (
+    <SeccionColapsable
+      titulo="Auditorías"
+      icono="🔍"
+      descripcion="Elimina auditorías cargadas de prueba."
+    >
+      <SeccionAuditorias />
     </SeccionColapsable>
   );
 }

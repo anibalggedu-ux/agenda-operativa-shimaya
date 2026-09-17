@@ -18,6 +18,7 @@ import {
   BloqueReportes,
   BloqueAsignacionesEspeciales,
   BloqueComunicados,
+  BloqueAuditorias,
   BloqueKilometros,
 } from "./mantenimiento";
 import HorarioPersonalizado from "./horario-personalizado";
@@ -452,6 +453,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
         <BloqueReportes />
         <BloqueAsignacionesEspeciales />
         <BloqueComunicados />
+        <BloqueAuditorias />
       </div>
 
       <div className="space-y-3">

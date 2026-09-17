@@ -554,6 +554,60 @@ export async function eliminarReporteRegistro(id: string, motivo?: string): Prom
   return { exito: true };
 }
 
+export type AuditoriaCorregible = {
+  id: string;
+  supervisorNombre: string;
+  tiendaNombre: string;
+  fecha: string;
+  porcentaje: number;
+  clasificacion: string;
+};
+
+export async function obtenerAuditoriasParaCorregir(): Promise<AuditoriaCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("auditorias")
+    .select("id, fecha, supervisor_nombre, porcentaje, clasificacion, tiendas(nombre)")
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar las auditorías.");
+
+  return (data ?? []).map((a: any) => ({
+    id: a.id,
+    supervisorNombre: a.supervisor_nombre,
+    tiendaNombre: a.tiendas?.nombre ?? "—",
+    fecha: a.fecha,
+    porcentaje: a.porcentaje,
+    clasificacion: a.clasificacion,
+  }));
+}
+
+export async function eliminarAuditoriaRegistro(id: string, motivo?: string): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("auditorias")
+    .select("fecha, supervisor_nombre, porcentaje, clasificacion, tiendas(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("auditorias").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar la auditoría." };
+
+  const tienda = (antes as any)?.tiendas?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó una auditoría",
+    `${antes?.supervisor_nombre ?? "?"} — ${tienda} (${antes?.fecha ?? "?"}, ${antes?.porcentaje ?? "?"}% ${antes?.clasificacion ?? ""})`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
 // ---------------------------------------------------------------------
 // Auditorías: quién puede llenarlas (activación puntual, sin fecha fija) y
 // la plantilla del checklist (editable por si hay que ampliarla).
