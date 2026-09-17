@@ -6,7 +6,9 @@ import {
   obtenerComunicados,
   crearComunicado,
   eliminarComunicado,
+  obtenerUsuariosYTiendas,
   type Comunicado,
+  type UsuarioBasico,
   type ResultadoAccion,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
@@ -26,13 +28,117 @@ function BotonPublicar() {
   );
 }
 
+// Botones para restringir a quién le llega el anuncio: "Todos los
+// supervisores"/"Todos los capacitadores" seleccionan o quitan de golpe a
+// todo ese rol, y cada persona se puede además prender/apagar suelta —
+// mismo mecanismo para "por rol" y "por persona", sin dos sistemas
+// distintos. Vacío = sin restricción (le llega a todos, como siempre).
+function SelectorDestinatarios({
+  usuarios,
+  seleccionados,
+  onCambiar,
+}: {
+  usuarios: UsuarioBasico[];
+  seleccionados: Set<string>;
+  onCambiar: (siguiente: Set<string>) => void;
+}) {
+  const supervisores = usuarios.filter((u) => u.rol === "supervisor");
+  const capacitadores = usuarios.filter((u) => u.rol === "capacitador");
+
+  function alternarPersona(id: string) {
+    const siguiente = new Set(seleccionados);
+    if (siguiente.has(id)) siguiente.delete(id);
+    else siguiente.add(id);
+    onCambiar(siguiente);
+  }
+
+  function alternarRol(idsDelRol: string[]) {
+    const todosYaIncluidos = idsDelRol.length > 0 && idsDelRol.every((id) => seleccionados.has(id));
+    const siguiente = new Set(seleccionados);
+    idsDelRol.forEach((id) => (todosYaIncluidos ? siguiente.delete(id) : siguiente.add(id)));
+    onCambiar(siguiente);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => alternarRol(supervisores.map((u) => u.id))}
+          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition"
+        >
+          👤 Todos los supervisores
+        </button>
+        <button
+          type="button"
+          onClick={() => alternarRol(capacitadores.map((u) => u.id))}
+          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border border-marca-borde bg-marca-fondo text-marca-tenue hover:border-marca-rojoclaro hover:text-marca-texto transition"
+        >
+          🎓 Todos los capacitadores
+        </button>
+        {seleccionados.size > 0 && (
+          <button
+            type="button"
+            onClick={() => onCambiar(new Set())}
+            className="text-[11px] font-bold uppercase tracking-wide text-marca-tenue hover:text-marca-rojoclaro underline"
+          >
+            Quitar selección — enviar a todos
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1">
+        {[...supervisores, ...capacitadores].map((u) => {
+          const activo = seleccionados.has(u.id);
+          return (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => alternarPersona(u.id)}
+              className={`text-left rounded-[3px] border p-2.5 transition ${
+                activo
+                  ? "border-marca-rojo bg-marca-rojo/15"
+                  : "border-marca-borde bg-marca-fondo hover:brightness-125"
+              }`}
+            >
+              <p
+                className={`font-bold text-xs truncate ${
+                  activo ? "text-marca-textofuerte" : "text-marca-texto"
+                }`}
+              >
+                {u.nombre}
+              </p>
+              <p className="text-[9px] uppercase text-marca-tenue mt-0.5">{u.rol}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {Array.from(seleccionados).map((id) => (
+        <input key={id} type="hidden" name="usuariosDestino" value={id} />
+      ))}
+
+      <p className="text-marca-tenue text-[10px]">
+        {seleccionados.size === 0
+          ? "Sin nadie elegido: el anuncio llega a todos."
+          : `Llegará solo a ${seleccionados.size} persona(s) elegida(s).`}
+      </p>
+    </div>
+  );
+}
+
 function TarjetaAnuncio({
   c,
+  usuariosPorId,
   onEliminar,
 }: {
   c: Comunicado;
+  usuariosPorId: Map<string, UsuarioBasico>;
   onEliminar: (id: string) => void;
 }) {
+  const destino = c.usuariosDestino ?? [];
+  const nombresDestino = destino.map((id) => usuariosPorId.get(id)?.nombre ?? "—");
+
   return (
     <div
       className={`flex items-start justify-between bg-marca-superficie border rounded-[3px] p-4 ${
@@ -59,6 +165,11 @@ function TarjetaAnuncio({
             📍 {c.ubicacion} — Ver en Maps
           </a>
         )}
+        {nombresDestino.length > 0 && (
+          <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mt-2">
+            🎯 Solo para: {nombresDestino.join(", ")}
+          </p>
+        )}
         <p className="text-marca-tenue text-[11px] capitalize mt-2">
           {formatearFechaLegible(c.fecha)}
           {c.autor ? " · " + c.autor : ""}
@@ -76,9 +187,11 @@ function TarjetaAnuncio({
 
 export default function Anuncios() {
   const [comunicados, setComunicados] = useState<Comunicado[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [verHistorico, setVerHistorico] = useState(false);
+  const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set());
 
   const [estado, formAction] = useFormState(crearComunicado, estadoInicial);
 
@@ -92,10 +205,18 @@ export default function Anuncios() {
 
   useEffect(() => {
     cargar();
+    obtenerUsuariosYTiendas()
+      .then(({ usuarios: todos }) =>
+        setUsuarios(todos.filter((u) => u.rol === "supervisor" || u.rol === "capacitador"))
+      )
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (estado.exito) cargar();
+    if (estado.exito) {
+      cargar();
+      setDestinatarios(new Set());
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
@@ -118,6 +239,7 @@ export default function Anuncios() {
     return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
+  const usuariosPorId = new Map(usuarios.map((u) => [u.id, u]));
   const vigentes = comunicados.filter((c) => c.vigente);
   const historicos = comunicados.filter((c) => !c.vigente);
 
@@ -187,6 +309,17 @@ export default function Anuncios() {
           </div>
         </div>
 
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
+            Destinatarios (opcional)
+          </label>
+          <SelectorDestinatarios
+            usuarios={usuarios}
+            seleccionados={destinatarios}
+            onCambiar={setDestinatarios}
+          />
+        </div>
+
         <BotonPublicar />
 
         {estado.mensaje && (
@@ -209,7 +342,7 @@ export default function Anuncios() {
         ) : (
           <div className="space-y-2">
             {vigentes.map((c) => (
-              <TarjetaAnuncio key={c.id} c={c} onEliminar={handleEliminar} />
+              <TarjetaAnuncio key={c.id} c={c} usuariosPorId={usuariosPorId} onEliminar={handleEliminar} />
             ))}
           </div>
         )}
@@ -226,7 +359,7 @@ export default function Anuncios() {
           {verHistorico && (
             <div className="space-y-2">
               {historicos.map((c) => (
-                <TarjetaAnuncio key={c.id} c={c} onEliminar={handleEliminar} />
+                <TarjetaAnuncio key={c.id} c={c} usuariosPorId={usuariosPorId} onEliminar={handleEliminar} />
               ))}
             </div>
           )}

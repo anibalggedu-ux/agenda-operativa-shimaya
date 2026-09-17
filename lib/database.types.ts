@@ -340,6 +340,7 @@ export type Database = {
           mensaje: string
           tipo: string
           ubicacion: string | null
+          usuarios_destino: string[] | null
         }
         Insert: {
           autor?: string | null
@@ -350,6 +351,7 @@ export type Database = {
           mensaje: string
           tipo: string
           ubicacion?: string | null
+          usuarios_destino?: string[] | null
         }
         Update: {
           autor?: string | null
@@ -360,6 +362,7 @@ export type Database = {
           mensaje?: string
           tipo?: string
           ubicacion?: string | null
+          usuarios_destino?: string[] | null
         }
         Relationships: []
       }

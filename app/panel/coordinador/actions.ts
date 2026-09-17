@@ -637,6 +637,8 @@ export type Comunicado = {
   fechaEvento: string | null;
   ubicacion: string | null;
   vigente: boolean;
+  // null/vacío = sin restricción, visible para todos.
+  usuariosDestino: string[] | null;
 };
 
 export async function obtenerComunicados(): Promise<Comunicado[]> {
@@ -646,7 +648,7 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
 
   const { data, error } = await supabase
     .from("comunicados")
-    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion")
+    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino")
     .order("fecha", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar los anuncios.");
@@ -660,6 +662,7 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
     fechaEvento: c.fecha_evento,
     ubicacion: c.ubicacion,
     vigente: !c.fecha_evento || c.fecha_evento >= hoy,
+    usuariosDestino: c.usuarios_destino,
   }));
 }
 
@@ -673,6 +676,7 @@ export async function crearComunicado(
   const mensaje = String(formData.get("mensaje") || "").trim();
   const fechaEvento = String(formData.get("fechaEvento") || "").trim();
   const ubicacion = String(formData.get("ubicacion") || "").trim();
+  const usuariosDestino = formData.getAll("usuariosDestino").map(String).filter(Boolean);
 
   if (!tipo || !mensaje) {
     return { exito: false, mensaje: "Completa el tipo y el mensaje del anuncio." };
@@ -686,18 +690,28 @@ export async function crearComunicado(
     autor: sesion.nombre,
     fecha_evento: fechaEvento || null,
     ubicacion: ubicacion || null,
+    usuarios_destino: usuariosDestino.length > 0 ? usuariosDestino : null,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo publicar el anuncio." };
 
   await notificarPorCorreo(async () => {
+    let consultaDestinatarios = supabase
+      .from("usuarios")
+      .select("email")
+      .eq("activo", true)
+      .not("email", "is", null);
+
+    // Sin destinatarios específicos: el público de siempre (supervisores y
+    // capacitadores). Con destinatarios elegidos, solo a esas personas —
+    // sin importar su rol, por si algún día se elige a alguien más.
+    consultaDestinatarios =
+      usuariosDestino.length > 0
+        ? consultaDestinatarios.in("id", usuariosDestino)
+        : consultaDestinatarios.in("rol", ["supervisor", "capacitador"]);
+
     const [{ data: destinatarios }, responderA] = await Promise.all([
-      supabase
-        .from("usuarios")
-        .select("email")
-        .in("rol", ["supervisor", "capacitador"])
-        .eq("activo", true)
-        .not("email", "is", null),
+      consultaDestinatarios,
       obtenerReplyTo(supabase, sesion),
     ]);
     const correos = (destinatarios ?? []).map((u) => u.email).filter((e): e is string => !!e);

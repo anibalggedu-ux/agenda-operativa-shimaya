@@ -21,6 +21,10 @@ export type ComunicadoPublico = {
 // está restringido a Coordinador. Solo muestra los vigentes: si tienen
 // fecha de evento, desaparecen de aquí al día siguiente del evento (pero
 // el registro se conserva en la base de datos para historial).
+//
+// También filtra por destinatario: si el comunicado tiene usuarios_destino,
+// solo lo ve quien esté en esa lista — sin restricción (null/vacío), lo ve
+// cualquiera, que es el comportamiento de siempre.
 export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
@@ -28,24 +32,30 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
   const supabase = supabaseServer();
   const hoy = hoyPeru();
 
+  // Se piden más de los 10 que se muestran porque algunos se descartan acá
+  // mismo por destinatario — filtrar antes en SQL con array-contains sobre
+  // una columna nullable es más frágil que filtrar los pocos que trae esto.
   const { data, error } = await supabase
     .from("comunicados")
-    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion")
+    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino")
     .or(`fecha_evento.is.null,fecha_evento.gte.${hoy}`)
     .order("fecha", { ascending: false })
-    .limit(10);
+    .limit(30);
 
   if (error) throw new Error("No se pudo cargar los anuncios.");
 
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    fecha: c.fecha,
-    tipo: c.tipo,
-    mensaje: c.mensaje,
-    autor: c.autor,
-    fechaEvento: c.fecha_evento,
-    ubicacion: c.ubicacion,
-  }));
+  return (data ?? [])
+    .filter((c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id))
+    .slice(0, 10)
+    .map((c) => ({
+      id: c.id,
+      fecha: c.fecha,
+      tipo: c.tipo,
+      mensaje: c.mensaje,
+      autor: c.autor,
+      fechaEvento: c.fecha_evento,
+      ubicacion: c.ubicacion,
+    }));
 }
 
 export type ProximoCumpleanos = {
