@@ -5,6 +5,7 @@ export const AREAS_RUTA = [
   "Supervisión General",
   "Auditoría",
   "Administración",
+  "Inducción",
 ] as const;
 
 export const MAX_TIENDAS_PERMANENTES = 3;
