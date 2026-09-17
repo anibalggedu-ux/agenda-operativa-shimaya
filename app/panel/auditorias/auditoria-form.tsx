@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { RotateCcw, Check } from "lucide-react";
 import {
   crearAuditoria,
   obtenerPlantillaParaFormulario,
@@ -158,8 +159,8 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
     <form ref={formRef} action={formAction} onChange={guardarBorrador} className="space-y-6">
       {borradorRestaurado && (
         <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-marca-tenue text-xs">
-            📝 Se recuperó lo que habías cargado antes de salir.
+          <p className="text-marca-tenue text-xs flex items-center gap-1.5">
+            <RotateCcw className="w-3.5 h-3.5" /> Se recuperó lo que habías cargado antes de salir.
           </p>
           <button
             type="button"
@@ -351,7 +352,9 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
               Falta{faltan === 1 ? "" : "n"} {faltan}
             </span>
           ) : (
-            <span className="text-emerald-400 font-bold">Checklist completo ✓</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              Checklist completo <Check className="w-3.5 h-3.5" />
+            </span>
           )}
         </div>
         <div className="h-1.5 bg-marca-fondo border border-marca-borde rounded-full overflow-hidden">

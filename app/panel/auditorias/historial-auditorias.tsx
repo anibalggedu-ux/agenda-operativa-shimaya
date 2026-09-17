@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AlertTriangle, FileDown } from "lucide-react";
 import {
   obtenerTodasLasAuditorias,
   obtenerMisAuditorias,
@@ -120,8 +121,9 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
                   {formatearFechaLegible(f.fecha)} · {f.supervisorNombre}
                 </p>
                 {f.alertas.length > 0 && (
-                  <p className="text-marca-rojoclaro text-[11px] font-bold mt-1">
-                    🚨 {f.alertas.length} alerta{f.alertas.length === 1 ? "" : "s"} crítica
+                  <p className="text-marca-rojoclaro text-[11px] font-bold mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> {f.alertas.length} alerta
+                    {f.alertas.length === 1 ? "" : "s"} crítica
                     {f.alertas.length === 1 ? "" : "s"}
                   </p>
                 )}
@@ -170,8 +172,8 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
 
                 {detalle.alertas.length > 0 && (
                   <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3">
-                    <p className="text-marca-rojoclaro text-xs font-black uppercase mb-1">
-                      🚨 Alertas críticas
+                    <p className="text-marca-rojoclaro text-xs font-black uppercase mb-1 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Alertas críticas
                     </p>
                     {detalle.alertas.map((a) => (
                       <p key={a} className="text-marca-texto text-sm">
@@ -249,9 +251,15 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
                   <button
                     onClick={descargarPdf}
                     disabled={generandoPdf}
-                    className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte py-2.5 rounded-[3px] text-xs font-black uppercase tracking-widest transition"
+                    className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte py-2.5 rounded-[3px] text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5"
                   >
-                    {generandoPdf ? "Generando..." : "📄 Descargar PDF"}
+                    {generandoPdf ? (
+                      "Generando..."
+                    ) : (
+                      <>
+                        <FileDown className="w-3.5 h-3.5" /> Descargar PDF
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => setDetalle(null)}

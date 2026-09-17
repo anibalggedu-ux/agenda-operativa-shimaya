@@ -17,6 +17,16 @@ import {
   Legend,
 } from "recharts";
 import {
+  FileDown,
+  AlertTriangle,
+  BarChart3,
+  LineChart as LineChartIcon,
+  Target,
+  Puzzle,
+  PieChart as PieChartIcon,
+  ClipboardList,
+} from "lucide-react";
+import {
   obtenerAgregadosChecklistVisita,
   obtenerDetalleChecklistVisita,
   obtenerPlantillaChecklistVisita,
@@ -143,9 +153,9 @@ function DetalleChecklist({
             <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={handleDescargar}
-                className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase"
+                className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase flex items-center gap-1"
               >
-                📄 Descargar PDF
+                <FileDown className="w-3.5 h-3.5" /> Descargar PDF
               </button>
               <button
                 onClick={onCerrar}
@@ -281,8 +291,9 @@ export default function ChecklistVisitaAnalitica({
 
       {datos.alertasCriticas.length > 0 && (
         <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-5">
-          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-            🚨 ALERTAS CRÍTICAS — CHECKLISTS EN ACCIÓN INMEDIATA
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-marca-rojoclaro" /> ALERTAS CRÍTICAS — CHECKLISTS EN
+            ACCIÓN INMEDIATA
           </h3>
           <p className="text-marca-tenue text-[11px] mb-4">
             Menos del 60% de puntaje — conviene revisar estas tiendas cuanto antes.
@@ -307,8 +318,8 @@ export default function ChecklistVisitaAnalitica({
       )}
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-          📈 CHECKLISTS POR DÍA
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5">
+          <BarChart3 className="w-3.5 h-3.5 text-marca-rojoclaro" /> CHECKLISTS POR DÍA
         </h3>
         <p className="text-marca-tenue text-[11px] mb-4">Actividad en el rango seleccionado, en toda la red.</p>
         {datos.checklistsPorDia.length === 0 ? (
@@ -333,7 +344,9 @@ export default function ChecklistVisitaAnalitica({
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
-          <h3 className="text-xs font-black tracking-widest text-marca-tenue">📈 EVOLUCIÓN DE UNA TIENDA</h3>
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue flex items-center gap-1.5">
+            <LineChartIcon className="w-3.5 h-3.5 text-marca-rojoclaro" /> EVOLUCIÓN DE UNA TIENDA
+          </h3>
           {tiendasConChecklist.length > 0 && (
             <select
               value={tiendaSeleccionada}
@@ -416,8 +429,8 @@ export default function ChecklistVisitaAnalitica({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
-          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-            🎯 PUNTAJE GENERAL POR TIENDA
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-marca-rojoclaro" /> PUNTAJE GENERAL POR TIENDA
           </h3>
           <p className="text-marca-tenue text-[11px] mb-4">
             Promedio de todos los checklists enviados en el rango, en base a las preguntas que sí
@@ -456,8 +469,8 @@ export default function ChecklistVisitaAnalitica({
         </div>
 
         <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">
-            🧩 PROMEDIO POR SECCIÓN
+          <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5">
+            <Puzzle className="w-3.5 h-3.5 text-marca-rojoclaro" /> PROMEDIO POR SECCIÓN
           </h3>
           <p className="text-marca-tenue text-[11px] mb-4">
             Qué área del negocio está mejor o peor, en toda la red, en el rango seleccionado.
@@ -494,7 +507,9 @@ export default function ChecklistVisitaAnalitica({
       </div>
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">🥧 PUNTAJE POR TIENDA</h3>
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5">
+          <PieChartIcon className="w-3.5 h-3.5 text-marca-rojoclaro" /> PUNTAJE POR TIENDA
+        </h3>
         <p className="text-marca-tenue text-[11px] mb-4">
           Cada porción es una tienda, de tamaño según su puntaje promedio en el rango — un color
           distinto por tienda para diferenciarlas de un vistazo.
@@ -530,8 +545,8 @@ export default function ChecklistVisitaAnalitica({
       </div>
 
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-          📋 CHECKLISTS ENVIADOS
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5">
+          <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> CHECKLISTS ENVIADOS
         </h3>
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
