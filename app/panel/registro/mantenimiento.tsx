@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car } from "lucide-react";
+import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car, MapPin } from "lucide-react";
 import {
   obtenerUsuariosBasicos,
   obtenerAsistenciaParaCorregir,
@@ -10,6 +10,8 @@ import {
   obtenerReportesParaCorregir,
   actualizarReporteRegistro,
   eliminarReporteRegistro,
+  obtenerMarcacionesTiendaParaCorregir,
+  liberarMarcacionTienda,
   obtenerAsignacionesEspecialesParaCorregir,
   eliminarAsignacionEspecialRegistro,
   obtenerComunicadosParaCorregir,
@@ -30,6 +32,7 @@ import {
   type UsuarioBasicoRegistro,
   type AsistenciaCorregible,
   type ReporteCorregible,
+  type MarcacionTiendaCorregible,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
   type AuditoriaCorregible,
@@ -433,6 +436,161 @@ function SeccionReportes() {
                 className={clasesInput}
                 placeholder="Motivo del cambio (opcional)"
               />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// Distinta de SeccionAsistencia: esa corrige el ingreso/salida GENERAL del
+// día; esta libera la marcación de llegada/salida a UNA tienda puntual (con
+// su foto), sin borrar la asignación ni el reporte con su observación --
+// para cuando alguien marcó la tienda equivocada (ej. debía haber usado la
+// tarjeta de "Eventos de hoy" en vez de su tienda asignada).
+function SeccionMarcacionesTienda() {
+  const [usuarios, setUsuarios] = useState<UsuarioBasicoRegistro[]>([]);
+  const [usuarioId, setUsuarioId] = useState("");
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -7));
+  const [hasta, setHasta] = useState(hoyPeru());
+  const [marcaciones, setMarcaciones] = useState<MarcacionTiendaCorregible[]>([]);
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
+  const [cargando, setCargando] = useState(false);
+  const [liberandoClave, setLiberandoClave] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerUsuariosBasicos()
+      .then(setUsuarios)
+      .catch((e) => setError(e.message || "No se pudo cargar la lista de personas."));
+  }, []);
+
+  function cargar() {
+    if (!usuarioId) {
+      setMarcaciones([]);
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    obtenerMarcacionesTiendaParaCorregir(usuarioId, desde, hasta)
+      .then(setMarcaciones)
+      .catch((e) => setError(e.message || "Error al cargar las marcaciones."))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, [usuarioId, desde, hasta]);
+
+  async function handleLiberar(m: MarcacionTiendaCorregible, parte: "llegada" | "salida") {
+    const etiquetaParte = parte === "llegada" ? "llegada" : "salida";
+    if (
+      !window.confirm(
+        `¿Liberar la marcación de ${etiquetaParte} en ${m.tiendaNombre} del ${formatearFechaLegible(
+          m.fecha
+        )}? La foto de esa marcación se pierde; la ${
+          m.estado === "Reportado" ? "observación del reporte" : "asignación"
+        } no se toca.`
+      )
+    )
+      return;
+    const clave = `${m.id}-${parte}`;
+    setLiberandoClave(clave);
+    setError(null);
+    const resultado = await liberarMarcacionTienda(m.tabla, m.id, parte, motivos[m.id]);
+    setLiberandoClave(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo liberar la marcación.");
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+            Persona
+          </label>
+          <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className={clasesInput}>
+            <option value="">Selecciona...</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre} ({u.rol})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
+          <input
+            type="date"
+            value={desde}
+            max={hasta}
+            onChange={(e) => setDesde(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
+          <input
+            type="date"
+            value={hasta}
+            min={desde}
+            max={hoyPeru()}
+            onChange={(e) => setHasta(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {cargando && <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>}
+
+      {!cargando && usuarioId && marcaciones.length === 0 && (
+        <p className="text-marca-tenue text-sm italic">Sin marcaciones de tienda en ese rango.</p>
+      )}
+      {!usuarioId && <p className="text-marca-tenue text-sm italic">Selecciona una persona.</p>}
+
+      {!cargando && marcaciones.length > 0 && (
+        <div className="space-y-2">
+          {marcaciones.map((m) => (
+            <div
+              key={m.id}
+              className="flex flex-wrap items-end gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+            >
+              <div className="min-w-[160px]">
+                <p className="text-marca-textofuerte text-xs font-bold capitalize">
+                  {m.tiendaNombre} · {formatearFechaLegible(m.fecha)}
+                </p>
+                <p className="text-marca-tenue text-[10px] uppercase">{m.estado}</p>
+              </div>
+              {m.horaLlegada && (
+                <button
+                  type="button"
+                  onClick={() => handleLiberar(m, "llegada")}
+                  disabled={liberandoClave === `${m.id}-llegada`}
+                  className="border border-marca-rojo/40 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-50 font-black py-1.5 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+                >
+                  {liberandoClave === `${m.id}-llegada` ? "..." : `Liberar llegada (${m.horaLlegada.slice(0, 5)})`}
+                </button>
+              )}
+              {m.horaSalida && (
+                <button
+                  type="button"
+                  onClick={() => handleLiberar(m, "salida")}
+                  disabled={liberandoClave === `${m.id}-salida`}
+                  className="border border-marca-rojo/40 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-50 font-black py-1.5 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+                >
+                  {liberandoClave === `${m.id}-salida` ? "..." : `Liberar salida (${m.horaSalida.slice(0, 5)})`}
+                </button>
+              )}
+              <div className="min-w-[160px] flex-1">
+                <input
+                  type="text"
+                  value={motivos[m.id] ?? ""}
+                  onChange={(e) => setMotivos((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                  placeholder="Motivo (opcional)"
+                  className={clasesInputChico + " w-full"}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -1200,6 +1358,18 @@ export function BloqueReportes() {
       descripcion="Corrige la observación/actividad de un reporte, o elimínalo."
     >
       <SeccionReportes />
+    </SeccionColapsable>
+  );
+}
+
+export function BloqueMarcacionesTienda() {
+  return (
+    <SeccionColapsable
+      titulo="Marcaciones de llegada/salida a tienda"
+      icono={<MapPin />}
+      descripcion="Libera la marcación (con foto) de una tienda puntual, sin borrar la asignación ni el reporte — para cuando se marcó la tienda equivocada."
+    >
+      <SeccionMarcacionesTienda />
     </SeccionColapsable>
   );
 }

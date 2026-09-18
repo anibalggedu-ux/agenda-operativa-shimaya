@@ -657,6 +657,118 @@ export async function eliminarReporteRegistro(id: string, motivo?: string): Prom
   return { exito: true };
 }
 
+// ---------------------------------------------------------------------
+// Marcación de llegada/salida a UNA tienda en particular (foto + GPS) —
+// distinta de "Asistencia (marcaciones GPS)", que corrige el ingreso/salida
+// GENERAL del día. Vive en rutas_activas (todavía pendiente de reportar) o
+// rutas_diarias (ya reportada), según el caso — se listan ambas juntas.
+// "Liberar" borra solo esa marcación puntual (con su foto), dejando intacta
+// la asignación o el reporte con su observación, para que la persona pueda
+// volver a marcar bien (o, como con los eventos, dejar de aparecer marcado
+// en una tienda donde en realidad no estuvo).
+// ---------------------------------------------------------------------
+
+export type MarcacionTiendaCorregible = {
+  id: string;
+  tabla: "rutas_activas" | "rutas_diarias";
+  fecha: string;
+  tiendaNombre: string;
+  estado: "Pendiente" | "Reportado";
+  horaLlegada: string | null;
+  horaSalida: string | null;
+};
+
+export async function obtenerMarcacionesTiendaParaCorregir(
+  usuarioId: string,
+  desde: string,
+  hasta: string
+): Promise<MarcacionTiendaCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const [{ data: activas, error: errorActivas }, { data: diarias, error: errorDiarias }] = await Promise.all([
+    supabase
+      .from("rutas_activas")
+      .select("id, fecha_planificada, hora_llegada, hora_salida, tiendas!tienda_id(nombre)")
+      .eq("usuario_id", usuarioId)
+      .gte("fecha_planificada", desde)
+      .lte("fecha_planificada", hasta),
+    supabase
+      .from("rutas_diarias")
+      .select("id, fecha, hora_llegada, hora_salida, tiendas!tienda_id(nombre)")
+      .eq("usuario_id", usuarioId)
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+  ]);
+
+  if (errorActivas || errorDiarias) throw new Error("No se pudo cargar las marcaciones.");
+
+  const filas: MarcacionTiendaCorregible[] = [
+    ...(activas ?? []).map((r: any) => ({
+      id: r.id,
+      tabla: "rutas_activas" as const,
+      fecha: r.fecha_planificada,
+      tiendaNombre: r.tiendas?.nombre ?? "—",
+      estado: "Pendiente" as const,
+      horaLlegada: r.hora_llegada,
+      horaSalida: r.hora_salida,
+    })),
+    ...(diarias ?? []).map((r: any) => ({
+      id: r.id,
+      tabla: "rutas_diarias" as const,
+      fecha: r.fecha,
+      tiendaNombre: r.tiendas?.nombre ?? "—",
+      estado: "Reportado" as const,
+      horaLlegada: r.hora_llegada,
+      horaSalida: r.hora_salida,
+    })),
+  ]
+    // Solo interesan acá las que tienen algo marcado que se pueda liberar.
+    .filter((f) => f.horaLlegada || f.horaSalida);
+
+  return filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+export async function liberarMarcacionTienda(
+  tabla: "rutas_activas" | "rutas_diarias",
+  id: string,
+  parte: "llegada" | "salida",
+  motivo?: string
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  if (tabla !== "rutas_activas" && tabla !== "rutas_diarias") {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+
+  const supabase = supabaseServer();
+  const columnaFecha = tabla === "rutas_activas" ? "fecha_planificada" : "fecha";
+
+  const { data: antes } = await (supabase.from(tabla) as any)
+    .select(`${columnaFecha}, usuarios(nombre), tiendas!tienda_id(nombre)`)
+    .eq("id", id)
+    .maybeSingle();
+
+  const cambios =
+    parte === "llegada"
+      ? { hora_llegada: null, ubicacion_llegada: null, foto_llegada_blob: null }
+      : { hora_salida: null, ubicacion_salida: null, foto_salida_blob: null };
+
+  const { error } = await (supabase.from(tabla) as any).update(cambios).eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo liberar la marcación." };
+
+  const nombre = antes?.usuarios?.nombre ?? "—";
+  const tienda = antes?.tiendas?.nombre ?? "—";
+  const fecha = antes?.[columnaFecha] ?? "?";
+  await registrarCambio(
+    sesion,
+    `Liberó la marcación de ${parte} de una tienda`,
+    `${nombre} — ${tienda} (${fecha})`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
 export type AuditoriaCorregible = {
   id: string;
   supervisorNombre: string;

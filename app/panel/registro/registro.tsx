@@ -18,6 +18,7 @@ import {
   BloqueDireccionColaboradores,
   BloqueAsistencia,
   BloqueReportes,
+  BloqueMarcacionesTienda,
   BloqueAsignacionesEspeciales,
   BloqueComunicados,
   BloqueAuditorias,
@@ -624,6 +625,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
 
         <BloqueAsistencia />
         <BloqueReportes />
+        <BloqueMarcacionesTienda />
         <BloqueAsignacionesEspeciales />
         <BloqueComunicados />
         <BloqueAuditorias />
