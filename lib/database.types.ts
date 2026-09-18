@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      accesos_sistema: {
+        Row: {
+          created_at: string
+          id: string
+          rol: string
+          usuario_id: string | null
+          usuario_nombre: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rol: string
+          usuario_id?: string | null
+          usuario_nombre: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rol?: string
+          usuario_id?: string | null
+          usuario_nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accesos_sistema_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_puntualidad_atendidas: {
         Row: {
           atendido_por_nombre: string
@@ -80,38 +112,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "asignaciones_especiales_usuario_id_fkey"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "usuarios"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      accesos_sistema: {
-        Row: {
-          created_at: string
-          id: string
-          rol: string
-          usuario_id: string | null
-          usuario_nombre: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          rol: string
-          usuario_id?: string | null
-          usuario_nombre: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          rol?: string
-          usuario_id?: string | null
-          usuario_nombre?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "accesos_sistema_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
@@ -664,6 +664,7 @@ export type Database = {
           estado: string
           fecha_deseada: string | null
           id: string
+          motivo: string | null
           respondido_en: string | null
           respondido_por: string | null
           usuario_id: string
@@ -675,6 +676,7 @@ export type Database = {
           estado?: string
           fecha_deseada?: string | null
           id?: string
+          motivo?: string | null
           respondido_en?: string | null
           respondido_por?: string | null
           usuario_id: string
@@ -686,6 +688,7 @@ export type Database = {
           estado?: string
           fecha_deseada?: string | null
           id?: string
+          motivo?: string | null
           respondido_en?: string | null
           respondido_por?: string | null
           usuario_id?: string

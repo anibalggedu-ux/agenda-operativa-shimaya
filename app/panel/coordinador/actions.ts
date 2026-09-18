@@ -1026,6 +1026,7 @@ export type SolicitudDescansoPendiente = {
   diasActuales: string[];
   diasSolicitados: string[];
   fechaDeseada: string | null;
+  motivo: string | null;
   createdAt: string;
 };
 
@@ -1048,7 +1049,7 @@ export async function obtenerSolicitudesDescansoPendientes(): Promise<SolicitudD
 
   const { data, error } = await supabase
     .from("solicitudes_descanso")
-    .select("id, usuario_id, dias_actuales, dias_solicitados, fecha_deseada, created_at, usuarios(nombre)")
+    .select("id, usuario_id, dias_actuales, dias_solicitados, fecha_deseada, motivo, created_at, usuarios(nombre)")
     .eq("estado", "pendiente")
     .order("created_at", { ascending: true });
 
@@ -1061,6 +1062,7 @@ export async function obtenerSolicitudesDescansoPendientes(): Promise<SolicitudD
     diasActuales: s.dias_actuales ?? [],
     diasSolicitados: s.dias_solicitados ?? [],
     fechaDeseada: s.fecha_deseada,
+    motivo: s.motivo,
     createdAt: s.created_at,
   }));
 }

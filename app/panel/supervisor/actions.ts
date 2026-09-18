@@ -813,7 +813,8 @@ async function notificarCoordinadoresSolicitudDescanso(
   nombreUsuario: string,
   diasActuales: string[],
   diasSolicitados: string[],
-  fechaDeseada: string
+  fechaDeseada: string,
+  motivo: string | null
 ): Promise<void> {
   try {
     const supabase = supabaseServer();
@@ -836,6 +837,7 @@ async function notificarCoordinadoresSolicitudDescanso(
           <li><strong>Actual:</strong> ${diasActuales.length > 0 ? diasActuales.join(" y ") : "sin descanso fijo"}</li>
           <li><strong>Solicitado:</strong> ${diasSolicitados.join(" y ") || "sin días"}</li>
           <li><strong>Desde:</strong> ${formatearFechaLegible(fechaDeseada)}</li>
+          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
         </ul>
         <p style="margin:0 0 16px;">
           <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
@@ -896,6 +898,7 @@ export type SolicitudDescansoPropia = {
   id: string;
   diasSolicitados: string[];
   fechaDeseada: string | null;
+  motivo: string | null;
   createdAt: string;
 };
 
@@ -906,7 +909,7 @@ export async function obtenerMiSolicitudDescansoPendiente(): Promise<SolicitudDe
   const supabase = supabaseServer();
   const { data } = await supabase
     .from("solicitudes_descanso")
-    .select("id, dias_solicitados, fecha_deseada, created_at")
+    .select("id, dias_solicitados, fecha_deseada, motivo, created_at")
     .eq("usuario_id", sesion.id)
     .eq("estado", "pendiente")
     .order("created_at", { ascending: false })
@@ -918,13 +921,15 @@ export async function obtenerMiSolicitudDescansoPendiente(): Promise<SolicitudDe
     id: data.id,
     diasSolicitados: data.dias_solicitados ?? [],
     fechaDeseada: data.fecha_deseada,
+    motivo: data.motivo,
     createdAt: data.created_at,
   };
 }
 
 export async function solicitarCambioDescanso(
   dias: string[],
-  fechaDeseada: string
+  fechaDeseada: string,
+  motivo: string
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "No autorizado." };
@@ -941,6 +946,8 @@ export async function solicitarCambioDescanso(
   if (fechaDeseada < hoyPeru()) {
     return { exito: false, mensaje: "La fecha no puede ser anterior a hoy." };
   }
+
+  const motivoLimpio = motivo.trim() || null;
 
   const supabase = supabaseServer();
 
@@ -971,11 +978,12 @@ export async function solicitarCambioDescanso(
         dias_actuales: actuales,
         dias_solicitados: dias,
         fecha_deseada: fechaDeseada,
+        motivo: motivoLimpio,
         created_at: new Date().toISOString(),
       })
       .eq("id", pendiente.id);
     if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
-    await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada);
+    await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada, motivoLimpio);
     return { exito: true, mensaje: "Solicitud actualizada — pendiente de aprobación del coordinador." };
   }
 
@@ -984,9 +992,10 @@ export async function solicitarCambioDescanso(
     dias_actuales: actuales,
     dias_solicitados: dias,
     fecha_deseada: fechaDeseada,
+    motivo: motivoLimpio,
   });
   if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
-  await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada);
+  await notificarCoordinadoresSolicitudDescanso(sesion.nombre, actuales, dias, fechaDeseada, motivoLimpio);
   return { exito: true, mensaje: "Solicitud enviada — queda pendiente de aprobación del coordinador." };
 }
 

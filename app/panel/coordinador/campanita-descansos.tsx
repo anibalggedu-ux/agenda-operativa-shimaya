@@ -132,6 +132,7 @@ export default function CampanitaDescansos() {
                         {item.datos.fechaDeseada && (
                           <> desde el {formatearFechaLegible(item.datos.fechaDeseada)}</>
                         )}
+                        {item.datos.motivo && <> — {item.datos.motivo}</>}
                       </p>
                     ) : (
                       <p className="text-[11px] text-marca-tenue mt-1">
