@@ -32,6 +32,9 @@ export type ResumenPersonal = {
   rutaHoyNombre: string | null;
   rutaHoyEstado: "pendiente" | "reportado" | null;
   rutaHoyExtra: number;
+  // Solo viene con valor cuando hay ETA que mostrar (pendiente, sin llegada
+  // marcada aún) — se usa para pedir el recálculo con ubicación en vivo.
+  rutaHoyTiendaId: string | null;
   rutaHoyEtaMinutos: number | null;
   rutaHoyEtaKm: number | null;
   rutaHoyGoogleMapsUrl: string | null;
@@ -129,6 +132,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   let rutaHoyNombre: string | null = null;
   let rutaHoyEstado: "pendiente" | "reportado" | null = null;
   let rutaHoyExtra = 0;
+  let rutaHoyTiendaId: string | null = null;
   let rutaHoyEtaMinutos: number | null = null;
   let rutaHoyEtaKm: number | null = null;
   let rutaHoyGoogleMapsUrl: string | null = null;
@@ -141,6 +145,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     // Ya marcó llegada a esta tienda: "camino a..." ya no dice nada útil,
     // aunque el reporte siga pendiente de enviar.
     if (!pendientesHoy[0].horaLlegada) {
+      rutaHoyTiendaId = pendientesHoy[0].tiendaId;
       rutaHoyEtaMinutos = pendientesHoy[0].etaMinutos;
       rutaHoyEtaKm = pendientesHoy[0].etaKm;
       rutaHoyGoogleMapsUrl = pendientesHoy[0].googleMapsUrl;
@@ -252,6 +257,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   return {
     rutaHoyNombre,
     rutaHoyEstado,
+    rutaHoyTiendaId,
     rutaHoyEtaMinutos,
     rutaHoyEtaKm,
     rutaHoyGoogleMapsUrl,

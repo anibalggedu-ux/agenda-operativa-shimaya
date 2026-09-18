@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation } from "lucide-react";
+import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation, LocateFixed } from "lucide-react";
 import {
   obtenerTiendasClasificadas,
   enviarReporte,
@@ -11,6 +11,7 @@ import {
   autoasignarTienda,
   marcarLlegadaTienda,
   marcarSalidaTienda,
+  recalcularEtaConUbicacion,
   type TiendaClasificada,
   type ResultadoReporte,
   type TiendaBasicaBitacora,
@@ -431,6 +432,34 @@ export default function SelectorTiendas({
   const [observacion, setObservacion] = useState("");
   const [actividad, setActividad] = useState("");
 
+  // ETA recalculada con el GPS actual (a pedido, con el botón "Actualizar
+  // con mi ubicación") — reemplaza en pantalla, solo para esa tarjeta, el
+  // valor por defecto que viene calculado desde el domicilio.
+  type EtaEnVivo = { minutos: number | null; km: number | null; cargando: boolean; error: string | null };
+  const [etaEnVivo, setEtaEnVivo] = useState<Record<string, EtaEnVivo>>({});
+
+  async function actualizarEtaConUbicacion(tienda: TiendaClasificada) {
+    setEtaEnVivo((prev) => ({ ...prev, [tienda.id]: { minutos: null, km: null, cargando: true, error: null } }));
+    try {
+      const coords = await obtenerUbicacionActual();
+      const resultado = await recalcularEtaConUbicacion(tienda.tiendaId, coords.lat, coords.lng);
+      setEtaEnVivo((prev) => ({
+        ...prev,
+        [tienda.id]: {
+          minutos: resultado.etaMinutos,
+          km: resultado.etaKm,
+          cargando: false,
+          error: resultado.etaMinutos === null ? "No se pudo calcular desde tu ubicación." : null,
+        },
+      }));
+    } catch (err: any) {
+      setEtaEnVivo((prev) => ({
+        ...prev,
+        [tienda.id]: { minutos: null, km: null, cargando: false, error: err?.message || "No se pudo obtener tu ubicación." },
+      }));
+    }
+  }
+
   const [estadoNuevo, formActionNuevo] = useFormState(enviarReporte, estadoInicialReporte);
   const [estadoEditar, formActionEditar] = useFormState(editarReporte, estadoInicialReporte);
 
@@ -582,17 +611,48 @@ export default function SelectorTiendas({
                       )}
                     </button>
 
-                    {tienda.etaMinutos !== null && (
-                      <div className="flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border border-marca-rojo/30 bg-marca-rojo/5">
-                        <Navigation className="w-3.5 h-3.5 text-marca-rojoclaro shrink-0" />
-                        <p className="text-[10.5px] font-bold text-marca-texto">
-                          <span className="font-mono text-marca-textofuerte">{tienda.etaMinutos} min</span>
-                          {tienda.etaKm !== null && (
-                            <span className="text-marca-tenue font-normal"> · {tienda.etaKm} km</span>
-                          )}
-                          <span className="text-marca-tenue font-normal"> — estimado con tráfico</span>
-                        </p>
-                      </div>
+                    {(() => {
+                      const enVivo = etaEnVivo[tienda.id];
+                      if (!enVivo && tienda.etaMinutos === null) return null;
+                      return (
+                        <div className="flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border border-marca-rojo/30 bg-marca-rojo/5">
+                          <Navigation className="w-3.5 h-3.5 text-marca-rojoclaro shrink-0" />
+                          <p className="text-[10.5px] font-bold text-marca-texto">
+                            {enVivo?.cargando ? (
+                              <span className="text-marca-tenue font-normal">Calculando desde tu ubicación...</span>
+                            ) : enVivo?.minutos !== null && enVivo?.minutos !== undefined ? (
+                              <>
+                                <span className="font-mono text-marca-textofuerte">{enVivo.minutos} min</span>
+                                {enVivo.km !== null && (
+                                  <span className="text-marca-tenue font-normal"> · {enVivo.km} km</span>
+                                )}
+                                <span className="text-marca-tenue font-normal"> — desde tu ubicación actual</span>
+                              </>
+                            ) : enVivo?.error ? (
+                              <span className="text-marca-rojoclaro font-normal">{enVivo.error}</span>
+                            ) : (
+                              <>
+                                <span className="font-mono text-marca-textofuerte">{tienda.etaMinutos} min</span>
+                                {tienda.etaKm !== null && (
+                                  <span className="text-marca-tenue font-normal"> · {tienda.etaKm} km</span>
+                                )}
+                                <span className="text-marca-tenue font-normal"> — estimado con tráfico desde tu domicilio</span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {tienda.urgencia === "HOY" && !tienda.horaLlegada && (
+                      <button
+                        type="button"
+                        onClick={() => actualizarEtaConUbicacion(tienda)}
+                        disabled={etaEnVivo[tienda.id]?.cargando}
+                        className="flex items-center gap-1.5 mt-1.5 text-[10.5px] text-marca-rojoclaro font-bold uppercase tracking-wide hover:text-marca-rojo transition disabled:opacity-60"
+                      >
+                        <LocateFixed className="w-3 h-3" />
+                        {etaEnVivo[tienda.id]?.cargando ? "Ubicando..." : "Actualizar con mi ubicación"}
+                      </button>
                     )}
                     <div className="flex gap-2 mt-2">
                       <a

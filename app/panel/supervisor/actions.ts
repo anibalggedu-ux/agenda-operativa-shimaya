@@ -290,6 +290,37 @@ export async function obtenerTiendasClasificadas(): Promise<{
   return { tiendas: tiendasFinal, diaDescansoFijo: usuario?.dias_descanso ?? null };
 }
 
+// Recalcula el tiempo/distancia estimados usando la ubicación GPS actual del
+// celular como origen, en vez del domicilio registrado — se pide aparte (con
+// un botón "Actualizar con mi ubicación"), no automáticamente al cargar la
+// pantalla, para no pedir permiso de GPS solo por mirar la tarjeta.
+export async function recalcularEtaConUbicacion(
+  tiendaId: string,
+  lat: number,
+  lon: number
+): Promise<{ etaMinutos: number | null; etaKm: number | null }> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    throw new Error("No autorizado.");
+  }
+
+  const supabase = supabaseServer();
+  const { data: tienda } = await supabase
+    .from("tiendas")
+    .select("lat, lon")
+    .eq("id", tiendaId)
+    .maybeSingle();
+
+  const destLat = tienda?.lat === null || tienda?.lat === undefined ? null : Number(tienda.lat);
+  const destLon = tienda?.lon === null || tienda?.lon === undefined ? null : Number(tienda.lon);
+  if (destLat === null || destLon === null) {
+    return { etaMinutos: null, etaKm: null };
+  }
+
+  const ruta = await calcularRutaAuto(lat, lon, destLat, destLon, undefined, 0);
+  return { etaMinutos: ruta?.minutos ?? null, etaKm: ruta?.km ?? null };
+}
+
 export type ResultadoReporte = { exito: boolean; mensaje?: string };
 
 // ---------- Auto-asignación (cuando el coordinador cambió la ruta a último

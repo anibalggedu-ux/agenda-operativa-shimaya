@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock, Navigation } from "lucide-react";
+import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock, Navigation, LocateFixed } from "lucide-react";
 import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
@@ -9,6 +9,8 @@ import {
   type ResumenPersonal,
   type ResumenOperativo,
 } from "./resumen-dia-actions";
+import { recalcularEtaConUbicacion } from "./supervisor/actions";
+import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
@@ -117,6 +119,28 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
 
   function alternarCuadro(cuadro: CuadroExpandible) {
     setCuadroAbierto((actual) => (actual === cuadro ? null : cuadro));
+  }
+
+  // ETA recalculada con el GPS actual (a pedido, botón "Actualizar con mi
+  // ubicación") — reemplaza en pantalla el valor por defecto calculado desde
+  // el domicilio, sin pedir permiso de ubicación solo por abrir Inicio.
+  const [etaEnVivo, setEtaEnVivo] = useState<{ minutos: number | null; km: number | null; cargando: boolean; error: string | null } | null>(null);
+
+  async function actualizarEtaConUbicacion() {
+    if (!personal?.rutaHoyTiendaId) return;
+    setEtaEnVivo({ minutos: null, km: null, cargando: true, error: null });
+    try {
+      const coords = await obtenerUbicacionActual();
+      const resultado = await recalcularEtaConUbicacion(personal.rutaHoyTiendaId, coords.lat, coords.lng);
+      setEtaEnVivo({
+        minutos: resultado.etaMinutos,
+        km: resultado.etaKm,
+        cargando: false,
+        error: resultado.etaMinutos === null ? "No se pudo calcular desde tu ubicación." : null,
+      });
+    } catch (err: any) {
+      setEtaEnVivo({ minutos: null, km: null, cargando: false, error: err?.message || "No se pudo obtener tu ubicación." });
+    }
   }
 
   useEffect(() => {
@@ -468,22 +492,50 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
               <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-[160px]">
                   <Navigation className="w-4 h-4 text-marca-rojoclaro shrink-0" />
-                  <p className="text-xs">
-                    <span className="text-marca-tenue">Camino a </span>
-                    <span className="text-marca-textofuerte font-bold">{personal.rutaHoyNombre}</span>
-                    {personal.rutaHoyEtaMinutos !== null && (
-                      <>
-                        <span className="text-marca-tenue"> — </span>
-                        <span className="font-mono text-marca-textofuerte font-semibold">
-                          {personal.rutaHoyEtaMinutos} min
-                        </span>
-                        {personal.rutaHoyEtaKm !== null && (
-                          <span className="text-marca-tenue"> · {personal.rutaHoyEtaKm} km</span>
-                        )}
-                        <span className="text-marca-tenue text-[10.5px]"> (tráfico en tiempo real)</span>
-                      </>
+                  <div>
+                    <p className="text-xs">
+                      <span className="text-marca-tenue">Camino a </span>
+                      <span className="text-marca-textofuerte font-bold">{personal.rutaHoyNombre}</span>
+                      {etaEnVivo?.cargando ? (
+                        <span className="text-marca-tenue text-[10.5px]"> — calculando desde tu ubicación...</span>
+                      ) : etaEnVivo?.minutos !== null && etaEnVivo?.minutos !== undefined ? (
+                        <>
+                          <span className="text-marca-tenue"> — </span>
+                          <span className="font-mono text-marca-textofuerte font-semibold">{etaEnVivo.minutos} min</span>
+                          {etaEnVivo.km !== null && (
+                            <span className="text-marca-tenue"> · {etaEnVivo.km} km</span>
+                          )}
+                          <span className="text-marca-tenue text-[10.5px]"> (desde tu ubicación actual)</span>
+                        </>
+                      ) : etaEnVivo?.error ? (
+                        <span className="text-marca-rojoclaro text-[10.5px]"> — {etaEnVivo.error}</span>
+                      ) : (
+                        personal.rutaHoyEtaMinutos !== null && (
+                          <>
+                            <span className="text-marca-tenue"> — </span>
+                            <span className="font-mono text-marca-textofuerte font-semibold">
+                              {personal.rutaHoyEtaMinutos} min
+                            </span>
+                            {personal.rutaHoyEtaKm !== null && (
+                              <span className="text-marca-tenue"> · {personal.rutaHoyEtaKm} km</span>
+                            )}
+                            <span className="text-marca-tenue text-[10.5px]"> (tráfico en tiempo real desde tu domicilio)</span>
+                          </>
+                        )
+                      )}
+                    </p>
+                    {personal.rutaHoyTiendaId && (
+                      <button
+                        type="button"
+                        onClick={actualizarEtaConUbicacion}
+                        disabled={etaEnVivo?.cargando}
+                        className="flex items-center gap-1.5 mt-1 text-[10.5px] text-marca-rojoclaro font-bold uppercase tracking-wide hover:text-marca-rojo transition disabled:opacity-60"
+                      >
+                        <LocateFixed className="w-3 h-3" />
+                        {etaEnVivo?.cargando ? "Ubicando..." : "Actualizar con mi ubicación"}
+                      </button>
                     )}
-                  </p>
+                  </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <a
