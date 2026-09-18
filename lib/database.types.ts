@@ -163,6 +163,73 @@ export type Database = {
           },
         ]
       }
+      asistencia_eventos: {
+        Row: {
+          comunicado_id: string
+          created_at: string
+          fecha: string
+          foto_llegada_blob: string | null
+          foto_salida_blob: string | null
+          hora_llegada: string | null
+          hora_salida: string | null
+          id: string
+          origen_tienda_id: string | null
+          ubicacion_llegada: string | null
+          ubicacion_salida: string | null
+          usuario_id: string
+        }
+        Insert: {
+          comunicado_id: string
+          created_at?: string
+          fecha: string
+          foto_llegada_blob?: string | null
+          foto_salida_blob?: string | null
+          hora_llegada?: string | null
+          hora_salida?: string | null
+          id?: string
+          origen_tienda_id?: string | null
+          ubicacion_llegada?: string | null
+          ubicacion_salida?: string | null
+          usuario_id: string
+        }
+        Update: {
+          comunicado_id?: string
+          created_at?: string
+          fecha?: string
+          foto_llegada_blob?: string | null
+          foto_salida_blob?: string | null
+          hora_llegada?: string | null
+          hora_salida?: string | null
+          id?: string
+          origen_tienda_id?: string | null
+          ubicacion_llegada?: string | null
+          ubicacion_salida?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asistencia_eventos_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "comunicados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asistencia_eventos_origen_tienda_id_fkey"
+            columns: ["origen_tienda_id"]
+            isOneToOne: false
+            referencedRelation: "tiendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asistencia_eventos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auditoria_cambios: {
         Row: {
           accion: string
@@ -337,6 +404,8 @@ export type Database = {
           fecha: string
           fecha_evento: string | null
           id: string
+          lat: number | null
+          lon: number | null
           mensaje: string
           tipo: string
           ubicacion: string | null
@@ -348,6 +417,8 @@ export type Database = {
           fecha?: string
           fecha_evento?: string | null
           id?: string
+          lat?: number | null
+          lon?: number | null
           mensaje: string
           tipo: string
           ubicacion?: string | null
@@ -359,6 +430,8 @@ export type Database = {
           fecha?: string
           fecha_evento?: string | null
           id?: string
+          lat?: number | null
+          lon?: number | null
           mensaje?: string
           tipo?: string
           ubicacion?: string | null

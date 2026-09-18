@@ -24,6 +24,7 @@ import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
 import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { geocodificarDireccion } from "@/lib/geocodificar";
 
 
 // ---------- Notificaciones por correo ----------
@@ -684,6 +685,20 @@ export async function crearComunicado(
     return { exito: false, mensaje: "Completa el tipo y el mensaje del anuncio." };
   }
 
+  // Geocodificar la ubicación (si se dio) para poder mostrar el evento en el
+  // mapa y, sobre todo, para que la tarjeta de "marcar entrada/salida al
+  // evento" (ver app/panel/eventos-hoy.tsx) pueda sumar kilómetros — si
+  // falla, el anuncio igual se publica, solo sin coordenadas.
+  let lat: number | null = null;
+  let lon: number | null = null;
+  if (ubicacion) {
+    const resultado = await geocodificarDireccion(ubicacion);
+    if (resultado) {
+      lat = resultado.lat;
+      lon = resultado.lon;
+    }
+  }
+
   const supabase = supabaseServer();
   const { error } = await supabase.from("comunicados").insert({
     fecha: hoyPeru(),
@@ -692,6 +707,8 @@ export async function crearComunicado(
     autor: sesion.nombre,
     fecha_evento: fechaEvento || null,
     ubicacion: ubicacion || null,
+    lat,
+    lon,
     usuarios_destino: usuariosDestino.length > 0 ? usuariosDestino : null,
   });
 

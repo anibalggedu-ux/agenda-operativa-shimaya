@@ -77,7 +77,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
   // El corte de madrugada (diaLaboralPeru) es solo para decidir a qué turno
   // pertenece una MARCACIÓN que se hace entre medianoche y las 6am — eso
   // sigue aplicando más abajo, en autoasignarTienda/enviarReporte/
-  // sincronizarAsistenciaDesdeTienda. Mezclar ambos acá hacía que una ruta
+  // sincronizarAsistenciaGeneral. Mezclar ambos acá hacía que una ruta
   // recién asignada para hoy apareciera como "Mañana" si alguien la miraba
   // antes de las 6am.
   const hoy = hoyPeru();
@@ -472,14 +472,14 @@ export async function enviarReporte(
 // ubicación. Vive en rutas_activas mientras no se reporta la visita, y se
 // traslada a rutas_diarias al enviar el reporte (ver enviarReporte).
 //
-// De esta marcación por tienda se deriva también la asistencia general del
-// día (antes era un botón aparte): la llegada a la PRIMERA tienda del día
-// cuenta como el ingreso general (no se pisa si ya había uno), y cada
-// salida de tienda va actualizando la salida general — así la última
-// salida del día queda como la salida definitiva, sin tener que adivinar
-// de antemano cuál será.
+// De esta marcación por tienda (o por evento, ver app/panel/anuncios-actions.ts)
+// se deriva también la asistencia general del día (antes era un botón
+// aparte): la primera llegada del día cuenta como el ingreso general (no se
+// pisa si ya había uno), y cada salida va actualizando la salida general —
+// así la última salida del día queda como la salida definitiva, sin tener
+// que adivinar de antemano cuál será.
 
-async function sincronizarAsistenciaDesdeTienda(
+export async function sincronizarAsistenciaGeneral(
   supabase: ReturnType<typeof supabaseServer>,
   sesion: { id: string; rol: string },
   tipo: "llegada" | "salida",
@@ -598,7 +598,7 @@ export async function marcarLlegadaTienda(
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la llegada." };
 
-  await sincronizarAsistenciaDesdeTienda(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
+  await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
 
   return { exito: true, mensaje: "Llegada registrada con foto." };
 }
@@ -636,7 +636,7 @@ export async function marcarSalidaTienda(
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la salida." };
 
-  await sincronizarAsistenciaDesdeTienda(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
+  await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
 
   return { exito: true, mensaje: "Salida registrada con foto." };
 }

@@ -24,6 +24,7 @@ import {
 } from "@/lib/fechas";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoExito } from "@/lib/sonido";
+import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -192,27 +193,6 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
       )}
     </div>
   );
-}
-
-function obtenerUbicacionActual(): Promise<{ lat: number; lng: number }> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Tu navegador no soporta ubicación."));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (posicion) => resolve({ lat: posicion.coords.latitude, lng: posicion.coords.longitude }),
-      () =>
-        reject(
-          new Error(
-            "No se pudo obtener tu ubicación. Revisa los permisos del navegador o muévete a un lugar con mejor señal."
-          )
-        ),
-      // 20s en vez de 10: dentro de una tienda el GPS suele tardar más, y al
-      // vencerse se perdía la foto que el supervisor ya había tomado.
-      { enableHighAccuracy: true, timeout: 20000 }
-    );
-  });
 }
 
 // Marcación de llegada/salida a UNA tienda en particular (con foto y

@@ -1,8 +1,10 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { obtenerSesion } from "@/lib/session";
-import { hoyPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+import { obtenerSesion, tieneBitacora } from "@/lib/session";
+import { hoyPeru, diaLaboralPeru, horaPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { sincronizarAsistenciaGeneral } from "./supervisor/actions";
 
 const DIAS_ANTICIPACION_CUMPLEANOS = 2;
 
@@ -102,4 +104,231 @@ export async function obtenerProximosCumpleanos(): Promise<ProximoCumpleanos[]> 
   });
 
   return proximos.sort((a, b) => a.diasFaltantes - b.diasFaltantes);
+}
+
+// ---------------------------------------------------------------------
+// Marcar entrada/salida a un ANUNCIO/EVENTO (ej. una reunión en una sede
+// distinta), como tarjeta independiente de la bitácora de tiendas -- para
+// que asistir a un evento no obligue a marcar la llegada en la tienda que
+// sí tenías asignada ese día (esa asignación queda intacta). Vive en
+// asistencia_eventos, una fila por (comunicado, usuario), creada recién al
+// marcar la primera llegada. También cuenta para la asistencia general del
+// día (mismo mecanismo que las tiendas) y para el cálculo de kilómetros
+// (ver app/panel/kilometros-actions.ts), usando el lat/lon geocodificado de
+// comunicados.ubicacion al publicar el anuncio.
+// ---------------------------------------------------------------------
+
+export type EventoDeHoy = {
+  comunicadoId: string;
+  tipo: string;
+  mensaje: string;
+  ubicacion: string;
+  horaLlegada: string | null;
+  ubicacionLlegadaMapa: string | null;
+  fotoLlegadaUrl: string | null;
+  horaSalida: string | null;
+  ubicacionSalidaMapa: string | null;
+  fotoSalidaUrl: string | null;
+};
+
+export async function obtenerEventosDeHoyParaMi(): Promise<EventoDeHoy[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) return [];
+
+  const supabase = supabaseServer();
+  const hoy = hoyPeru();
+
+  const { data: comunicados, error } = await supabase
+    .from("comunicados")
+    .select("id, tipo, mensaje, ubicacion, usuarios_destino")
+    .eq("fecha_evento", hoy)
+    .not("ubicacion", "is", null);
+
+  if (error) throw new Error("No se pudo cargar los eventos de hoy.");
+
+  const relevantes = (comunicados ?? []).filter(
+    (c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)
+  );
+  if (relevantes.length === 0) return [];
+
+  const { data: asistencias } = await supabase
+    .from("asistencia_eventos")
+    .select(
+      "comunicado_id, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob"
+    )
+    .eq("usuario_id", sesion.id)
+    .in(
+      "comunicado_id",
+      relevantes.map((c) => c.id)
+    );
+
+  const mapaAsistencia = new Map((asistencias ?? []).map((a) => [a.comunicado_id, a]));
+
+  return Promise.all(
+    relevantes.map(async (c) => {
+      const a = mapaAsistencia.get(c.id);
+      const [fotoLlegadaUrl, fotoSalidaUrl] = await Promise.all([
+        obtenerUrlTemporalFoto(a?.foto_llegada_blob ?? null),
+        obtenerUrlTemporalFoto(a?.foto_salida_blob ?? null),
+      ]);
+      return {
+        comunicadoId: c.id,
+        tipo: c.tipo,
+        mensaje: c.mensaje,
+        ubicacion: c.ubicacion as string,
+        horaLlegada: a?.hora_llegada ?? null,
+        ubicacionLlegadaMapa: a?.ubicacion_llegada ?? null,
+        fotoLlegadaUrl,
+        horaSalida: a?.hora_salida ?? null,
+        ubicacionSalidaMapa: a?.ubicacion_salida ?? null,
+        fotoSalidaUrl,
+      };
+    })
+  );
+}
+
+export type ResultadoAsistenciaEvento = { exito: boolean; mensaje?: string };
+
+// Un comunicado es válido para marcar asistencia si existe, tiene ubicación,
+// y (sin destinatarios específicos, o la sesión está entre ellos) -- mismo
+// criterio que obtenerEventosDeHoyParaMi, para que nadie marque asistencia a
+// un evento que no le corresponde solo por conocer su id.
+async function validarEventoParaUsuario(
+  supabase: ReturnType<typeof supabaseServer>,
+  comunicadoId: string,
+  usuarioId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("comunicados")
+    .select("ubicacion, usuarios_destino")
+    .eq("id", comunicadoId)
+    .maybeSingle();
+  if (!data || !data.ubicacion) return false;
+  return !data.usuarios_destino || data.usuarios_destino.length === 0 || data.usuarios_destino.includes(usuarioId);
+}
+
+// Mismo criterio de origen que autoasignarTienda (ver supervisor/actions.ts):
+// si ya estás parado en una tienda (llegada sin salida hoy), el viaje al
+// evento sale de ahí -- si no, el cálculo de km usará tu domicilio.
+async function inferirOrigenTienda(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string,
+  fecha: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("rutas_activas")
+    .select("tienda_id")
+    .eq("usuario_id", usuarioId)
+    .eq("fecha_planificada", fecha)
+    .not("hora_llegada", "is", null)
+    .is("hora_salida", null)
+    .order("hora_llegada", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.tienda_id ?? null;
+}
+
+export async function marcarLlegadaEvento(
+  comunicadoId: string,
+  lat: number,
+  lng: number,
+  fotoBase64: string
+): Promise<ResultadoAsistenciaEvento> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
+  if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar la llegada." };
+
+  const supabase = supabaseServer();
+  const valido = await validarEventoParaUsuario(supabase, comunicadoId, sesion.id);
+  if (!valido) return { exito: false, mensaje: "No se encontró el evento." };
+
+  const fecha = diaLaboralPeru();
+  const origenTiendaId = await inferirOrigenTienda(supabase, sesion.id, fecha);
+
+  const hora = horaPeru();
+  const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
+  const fotoBlob = `${sesion.id}/evento-${comunicadoId}-llegada-${Date.now()}.jpg`;
+
+  try {
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de llegada al evento:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
+
+  const { data: existente } = await supabase
+    .from("asistencia_eventos")
+    .select("id")
+    .eq("comunicado_id", comunicadoId)
+    .eq("usuario_id", sesion.id)
+    .maybeSingle();
+
+  const { error } = existente
+    ? await supabase
+        .from("asistencia_eventos")
+        .update({
+          hora_llegada: hora,
+          ubicacion_llegada: ubicacion,
+          foto_llegada_blob: fotoBlob,
+          origen_tienda_id: origenTiendaId,
+        })
+        .eq("id", existente.id)
+    : await supabase.from("asistencia_eventos").insert({
+        comunicado_id: comunicadoId,
+        usuario_id: sesion.id,
+        fecha,
+        origen_tienda_id: origenTiendaId,
+        hora_llegada: hora,
+        ubicacion_llegada: ubicacion,
+        foto_llegada_blob: fotoBlob,
+      });
+
+  if (error) return { exito: false, mensaje: "No se pudo registrar la llegada al evento." };
+
+  await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
+
+  return { exito: true, mensaje: "Llegada al evento registrada." };
+}
+
+export async function marcarSalidaEvento(
+  comunicadoId: string,
+  lat: number,
+  lng: number,
+  fotoBase64: string
+): Promise<ResultadoAsistenciaEvento> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
+  if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar la salida." };
+
+  const supabase = supabaseServer();
+
+  const { data: existente } = await supabase
+    .from("asistencia_eventos")
+    .select("id")
+    .eq("comunicado_id", comunicadoId)
+    .eq("usuario_id", sesion.id)
+    .maybeSingle();
+  if (!existente) return { exito: false, mensaje: "Primero marca la llegada al evento." };
+
+  const hora = horaPeru();
+  const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
+  const fotoBlob = `${sesion.id}/evento-${comunicadoId}-salida-${Date.now()}.jpg`;
+
+  try {
+    await subirFotoMarcacion(fotoBlob, fotoBase64);
+  } catch (error) {
+    console.error("No se pudo subir la foto de salida del evento:", error);
+    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+  }
+
+  const { error } = await supabase
+    .from("asistencia_eventos")
+    .update({ hora_salida: hora, ubicacion_salida: ubicacion, foto_salida_blob: fotoBlob })
+    .eq("id", existente.id);
+
+  if (error) return { exito: false, mensaje: "No se pudo registrar la salida del evento." };
+
+  await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
+
+  return { exito: true, mensaje: "Salida del evento registrada." };
 }

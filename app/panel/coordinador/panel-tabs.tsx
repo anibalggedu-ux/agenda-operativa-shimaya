@@ -16,6 +16,7 @@ import Anuncios from "./anuncios";
 import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
+import EventosDeHoy from "../eventos-hoy";
 import {
   LazyRegistro as Registro,
   LazyDocumentos as Documentos,
@@ -55,6 +56,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
       contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
+          <EventosDeHoy />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
           <ChecklistVisita nombreUsuario={nombre} rol={rol} />

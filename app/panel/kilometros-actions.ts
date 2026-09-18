@@ -65,19 +65,52 @@ export async function obtenerResumenKilometros(
   let consultaUsuarios = supabase.from("usuarios").select("id, nombre, rol, lat, lon");
   if (soloUsuarioId) consultaUsuarios = consultaUsuarios.eq("id", soloUsuarioId);
 
-  const [{ data: usuarios, error: errorUsuarios }, visitasCompletas, { data: tiendas, error: errorTiendas }] =
-    await Promise.all([
-      consultaUsuarios,
-      obtenerVisitasEnRangoAnalitica(desde, hasta),
-      supabase.from("tiendas").select("id, nombre, lat, lon, es_provincia"),
-    ]);
+  const [
+    { data: usuarios, error: errorUsuarios },
+    visitasCompletas,
+    { data: tiendas, error: errorTiendas },
+    { data: eventosRaw, error: errorEventos },
+  ] = await Promise.all([
+    consultaUsuarios,
+    obtenerVisitasEnRangoAnalitica(desde, hasta),
+    supabase.from("tiendas").select("id, nombre, lat, lon, es_provincia"),
+    // Entradas/salidas a anuncios/eventos (ver app/panel/anuncios-actions.ts)
+    // suman kilómetros por su cuenta, como si el evento fuera una "tienda"
+    // más -- se tratan como un destino aparte (clave "evento:<id>") con las
+    // coordenadas geocodificadas de comunicados.ubicacion, sin mezclarse con
+    // obtenerVisitasEnRangoAnalitica (que alimenta rankings/checklists por
+    // tienda real, donde un evento no encaja).
+    supabase
+      .from("asistencia_eventos")
+      .select("usuario_id, fecha, origen_tienda_id, comunicado_id, comunicados(mensaje, lat, lon)")
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+  ]);
 
-  if (errorUsuarios || errorTiendas) throw new Error("No se pudo cargar los datos de kilómetros.");
+  if (errorUsuarios || errorTiendas || errorEventos) throw new Error("No se pudo cargar los datos de kilómetros.");
 
-  const visitas = soloUsuarioId ? visitasCompletas.filter((v) => v.usuarioId === soloUsuarioId) : visitasCompletas;
+  const visitasEventos = (eventosRaw ?? []).map((e: any) => ({
+    usuarioId: e.usuario_id,
+    tiendaId: `evento:${e.comunicado_id}`,
+    origenTiendaId: e.origen_tienda_id ?? null,
+  }));
+  const visitasTodas = [...visitasCompletas, ...visitasEventos];
+  const visitas = soloUsuarioId ? visitasTodas.filter((v) => v.usuarioId === soloUsuarioId) : visitasTodas;
 
   const mapaUsuarios = new Map((usuarios ?? []).map((u) => [u.id, u]));
   const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
+  (eventosRaw ?? []).forEach((e: any) => {
+    const clave = `evento:${e.comunicado_id}`;
+    if (mapaTiendas.has(clave)) return;
+    const mensaje: string = e.comunicados?.mensaje ?? "Evento";
+    mapaTiendas.set(clave, {
+      id: clave,
+      nombre: `Evento: ${mensaje.length > 40 ? mensaje.slice(0, 40) + "…" : mensaje}`,
+      lat: e.comunicados?.lat ?? null,
+      lon: e.comunicados?.lon ?? null,
+      es_provincia: false,
+    });
+  });
 
   // Cada visita ya viene deduplicada por usuario+tienda+fecha (mismo criterio
   // que el resto del sistema: cuenta cada asignación, tenga o no observación

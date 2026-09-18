@@ -13,6 +13,7 @@ import TiendasFijas from "./tiendas-fijas";
 import MisSolicitudes from "./mis-solicitudes";
 import MisMarcaciones from "./mis-marcaciones";
 import ChecklistVisita from "../checklist-visita";
+import EventosDeHoy from "../eventos-hoy";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import {
@@ -54,6 +55,7 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <TiendasFijas />
+          <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
           <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />

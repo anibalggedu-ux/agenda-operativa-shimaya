@@ -11,6 +11,7 @@ import { obtenerMiPerfil } from "../supervisor/actions";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import ChecklistVisita from "../checklist-visita";
+import EventosDeHoy from "../eventos-hoy";
 import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
@@ -54,6 +55,7 @@ export default async function PanelCapacitador() {
       icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
           <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />
