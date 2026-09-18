@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -16,7 +16,7 @@ import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
-import { LazyCalendario as Calendario } from "../panel-lazy";
+import { LazyCalendario as Calendario, LazyConsultorioIA as ConsultorioIA } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +78,12 @@ export default async function PanelCapacitador() {
       etiqueta: "Calendario",
       icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
+    },
+    {
+      id: "consultorio",
+      etiqueta: "Consultorio IA",
+      icono: <Sparkles className="w-4 h-4" />,
+      contenido: <ConsultorioIA />,
     },
   ];
 

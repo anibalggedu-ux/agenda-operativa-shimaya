@@ -45,3 +45,8 @@ export const LazyMapaOperativo = dynamic(() => import("./gerente/mapa-operativo"
   ssr: false,
   loading: cargando,
 });
+
+export const LazyConsultorioIA = dynamic(() => import("./consultorio/consultorio-ia"), {
+  ssr: false,
+  loading: cargando,
+});

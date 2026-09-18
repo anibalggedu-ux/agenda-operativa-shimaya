@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
@@ -13,6 +13,7 @@ import {
   LazyRegistro as Registro,
   LazyHistorialAuditorias as HistorialAuditorias,
   LazyMapaOperativo as MapaOperativo,
+  LazyConsultorioIA as ConsultorioIA,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -65,6 +66,12 @@ export default async function PanelGerente() {
       etiqueta: "Auditorías",
       icono: <Search className="w-4 h-4" />,
       contenido: <HistorialAuditorias modo="todas" />,
+    },
+    {
+      id: "consultorio",
+      etiqueta: "Consultorio IA",
+      icono: <Sparkles className="w-4 h-4" />,
+      contenido: <ConsultorioIA />,
     },
   ];
 

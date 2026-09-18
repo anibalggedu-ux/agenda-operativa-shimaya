@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileDown, RotateCw } from "lucide-react";
+import { FileDown, RotateCw, Sparkles } from "lucide-react";
 import {
   obtenerTiendasBasicas,
   obtenerHistorialTiendaAnalitica,
@@ -10,6 +10,7 @@ import {
   type HistorialTiendaAnalitica,
   type EncargadoRotacion,
 } from "./actions";
+import { procesarObservacionesConIA } from "./ia-actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
 import { generarPdfHistorialTienda } from "@/lib/generar-pdf";
 
@@ -59,6 +60,9 @@ export default function ReporteTienda() {
   const [rotacion, setRotacion] = useState<EncargadoRotacion[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resumenIA, setResumenIA] = useState<string | null>(null);
+  const [procesandoIA, setProcesandoIA] = useState(false);
+  const [errorIA, setErrorIA] = useState<string | null>(null);
 
   useEffect(() => {
     obtenerTiendasBasicas().then(setTiendas);
@@ -72,6 +76,8 @@ export default function ReporteTienda() {
     }
     setCargando(true);
     setError(null);
+    setResumenIA(null);
+    setErrorIA(null);
     Promise.all([
       obtenerHistorialTiendaAnalitica(tiendaId, desde, hasta),
       obtenerRotacionTienda(tiendaId),
@@ -83,6 +89,25 @@ export default function ReporteTienda() {
       .catch((e) => setError(e.message || "Error al cargar el historial."))
       .finally(() => setCargando(false));
   }, [tiendaId, desde, hasta]);
+
+  async function handleProcesarIA() {
+    if (!historial) return;
+    setProcesandoIA(true);
+    setErrorIA(null);
+    try {
+      const resumen = await procesarObservacionesConIA(
+        historial.tiendaNombre,
+        desde,
+        hasta,
+        historial.observaciones
+      );
+      setResumenIA(resumen);
+    } catch (e: any) {
+      setErrorIA(e?.message || "No se pudo procesar con IA.");
+    } finally {
+      setProcesandoIA(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -123,13 +148,39 @@ export default function ReporteTienda() {
                 {historial.totalVisitas} visita(s) en el rango seleccionado
               </p>
             </div>
-            <button
-              onClick={() => generarPdfHistorialTienda({ ...historial, desde, hasta })}
-              className="flex items-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
-            >
-              <FileDown className="w-3.5 h-3.5" /> Descargar PDF
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              {historial.observaciones.length > 0 && (
+                <button
+                  onClick={handleProcesarIA}
+                  disabled={procesandoIA}
+                  className="flex items-center gap-1.5 border border-marca-rojo/50 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-50 font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {procesandoIA ? "Procesando..." : resumenIA ? "Regenerar con IA" : "Procesar con IA"}
+                </button>
+              )}
+              <button
+                onClick={() => generarPdfHistorialTienda({ ...historial, desde, hasta, resumenIA })}
+                className="flex items-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              >
+                <FileDown className="w-3.5 h-3.5" /> Descargar PDF
+              </button>
+            </div>
           </div>
+
+          {errorIA && <p className="text-marca-rojoclaro text-xs font-bold">{errorIA}</p>}
+
+          {resumenIA && (
+            <div className="bg-marca-rojo/5 border border-marca-rojo/30 rounded-[3px] p-4 space-y-2">
+              <h4 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-rojoclaro">
+                <Sparkles className="w-3.5 h-3.5" /> RESUMEN GENERADO CON IA
+              </h4>
+              <p className="text-marca-texto text-sm whitespace-pre-wrap leading-relaxed">{resumenIA}</p>
+              <p className="text-marca-tenue text-[10px] italic">
+                Se incluye automáticamente al descargar el PDF — revísalo antes de compartirlo.
+              </p>
+            </div>
+          )}
 
           <div>
             <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-2">

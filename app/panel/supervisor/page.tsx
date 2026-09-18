@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings } from "lucide-react";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -22,6 +22,7 @@ import {
   LazyCalendario as Calendario,
   LazyRegistro as Registro,
   LazyAuditoriasPanel as AuditoriasPanel,
+  LazyConsultorioIA as ConsultorioIA,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -90,6 +91,12 @@ export default async function PanelSupervisor() {
       etiqueta: "Calendario",
       icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
+    },
+    {
+      id: "consultorio",
+      etiqueta: "Consultorio IA",
+      icono: <Sparkles className="w-4 h-4" />,
+      contenido: <ConsultorioIA />,
     },
   ];
 

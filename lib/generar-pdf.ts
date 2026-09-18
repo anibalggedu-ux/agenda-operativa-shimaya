@@ -630,6 +630,10 @@ export type DatosHistorialTienda = {
   }[];
   visitantes: { usuarioNombre: string; rol: string; visitas: number }[];
   supervisoresPermanentes: { usuarioNombre: string; rol: string }[];
+  // Resumen ejecutivo generado con IA (opcional) -- se agrega al PDF entre
+  // los datos generales y el detalle de observaciones, cuando quien exporta
+  // lo pidió expresamente desde "Procesar con IA".
+  resumenIA?: string | null;
 };
 
 export async function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
@@ -654,6 +658,29 @@ export async function generarPdfHistorialTienda(datos: DatosHistorialTienda) {
     y
   );
   y += 4;
+
+  if (datos.resumenIA) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Resumen (generado con IA):", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const lineasResumen = doc.splitTextToSize(datos.resumenIA, ANCHO_UTIL);
+    lineasResumen.forEach((linea: string) => {
+      if (y > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(linea, 14, y);
+      y += 5;
+    });
+    y += 2;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.text("Generado automáticamente a partir de las observaciones -- revisar antes de compartir.", 14, y);
+    y += 10;
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
