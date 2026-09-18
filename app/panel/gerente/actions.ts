@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { exigirGerente } from "@/lib/session";
+import { exigirGerente, exigirGerenteOCoordinador } from "@/lib/session";
 import { hoyPeru, diaSemanaPeru } from "@/lib/fechas";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
 
@@ -143,7 +143,7 @@ export type MapaOperativoHoy = {
 };
 
 export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
-  await exigirGerente();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const hoy = hoyPeru();
 

@@ -79,3 +79,11 @@ export async function exigirGerente(): Promise<SesionUsuario> {
   }
   return sesion;
 }
+
+export async function exigirGerenteOCoordinador(): Promise<SesionUsuario> {
+  const sesion = await obtenerSesion();
+  if (!sesion || (sesion.rol !== "gerente" && sesion.rol !== "coordinador")) {
+    throw new Error("No autorizado.");
+  }
+  return sesion;
+}
