@@ -46,6 +46,18 @@ export async function subirFotoMarcacion(blobPath: string, dataUrl: string): Pro
   await blockBlob.uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
 }
 
+// Borrado real e irreversible del archivo -- usado solo por la depuración
+// manual de fotos antiguas desde Registro (ver app/panel/registro/actions.ts).
+// deleteIfExists no falla si el blob ya no existe (ej. una segunda corrida
+// sobre el mismo rango, o una referencia que ya estaba huérfana).
+export async function eliminarFotoMarcacion(blobPath: string): Promise<void> {
+  const connectionString = obtenerConnectionString();
+  const cliente = BlobServiceClient.fromConnectionString(connectionString);
+  const contenedor = cliente.getContainerClient(obtenerNombreContenedor());
+  const blockBlob = contenedor.getBlockBlobClient(blobPath);
+  await blockBlob.deleteIfExists();
+}
+
 export async function obtenerUrlTemporalFoto(
   blobPath: string | null,
   minutos = 120

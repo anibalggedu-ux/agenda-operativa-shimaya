@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car, MapPin } from "lucide-react";
+import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car, MapPin, Trash2 } from "lucide-react";
 import {
   obtenerUsuariosBasicos,
   obtenerAsistenciaParaCorregir,
@@ -12,6 +12,8 @@ import {
   eliminarReporteRegistro,
   obtenerMarcacionesTiendaParaCorregir,
   liberarMarcacionTienda,
+  obtenerResumenDepuracionFotos,
+  depurarFotosMarcacion,
   obtenerAsignacionesEspecialesParaCorregir,
   eliminarAsignacionEspecialRegistro,
   obtenerComunicadosParaCorregir,
@@ -33,6 +35,7 @@ import {
   type AsistenciaCorregible,
   type ReporteCorregible,
   type MarcacionTiendaCorregible,
+  type ResumenDepuracionFotos,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
   type AuditoriaCorregible,
@@ -594,6 +597,110 @@ function SeccionMarcacionesTienda() {
             </div>
           ))}
         </div>
+      )}
+    </>
+  );
+}
+
+// Depuración irreversible de fotos de marcación (Azure) anteriores a una
+// fecha de corte -- primero muestra cuántas se van a borrar (obtenerResumen...)
+// antes de dejar tocar el botón, y si el lote fue muy grande, avisa cuántas
+// quedan pendientes para volver a tocarlo.
+function SeccionDepuracionFotos() {
+  const [hasta, setHasta] = useState(sumarDias(hoyPeru(), -180));
+  const [resumen, setResumen] = useState<ResumenDepuracionFotos | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [cargandoResumen, setCargandoResumen] = useState(false);
+  const [depurando, setDepurando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function consultar() {
+    setCargandoResumen(true);
+    setError(null);
+    obtenerResumenDepuracionFotos(hasta)
+      .then(setResumen)
+      .catch((e) => setError(e.message || "No se pudo calcular el resumen."))
+      .finally(() => setCargandoResumen(false));
+  }
+
+  useEffect(consultar, [hasta]);
+
+  async function handleDepurar() {
+    if (!resumen || resumen.totalFotos === 0) return;
+    if (
+      !window.confirm(
+        `¿Borrar ${resumen.totalFotos} foto(s) de marcación anteriores al ${formatearFechaLegible(
+          hasta
+        )}? Esto NO se puede deshacer — las fotos se pierden para siempre. La hora, ubicación y el reporte/asignación no se tocan.`
+      )
+    )
+      return;
+    setDepurando(true);
+    setMensaje(null);
+    setError(null);
+    const resultado = await depurarFotosMarcacion(hasta, motivo);
+    setDepurando(false);
+    if (resultado.exito) {
+      setMensaje({ texto: resultado.mensaje || "Listo.", exito: true });
+      setMotivo("");
+      consultar();
+    } else {
+      setError(resultado.mensaje || "No se pudo depurar.");
+    }
+  }
+
+  return (
+    <>
+      <div>
+        <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+          Borrar fotos anteriores a
+        </label>
+        <input
+          type="date"
+          value={hasta}
+          max={hoyPeru()}
+          onChange={(e) => setHasta(e.target.value)}
+          className={clasesInput + " sm:w-56"}
+        />
+      </div>
+
+      {cargandoResumen && <p className="text-marca-tenue text-sm animate-pulse mt-2">Calculando...</p>}
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mt-2">{error}</p>}
+
+      {!cargandoResumen && resumen && (
+        <p className="text-marca-textofuerte text-sm mt-2">
+          {resumen.totalFotos === 0 ? (
+            "No hay fotos que depurar en ese rango."
+          ) : (
+            <>
+              Se van a borrar <strong>{resumen.totalFotos}</strong> foto(s).
+            </>
+          )}
+        </p>
+      )}
+
+      <input
+        type="text"
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        placeholder="Motivo (opcional)"
+        className={clasesInput + " mt-2"}
+      />
+
+      <button
+        type="button"
+        onClick={handleDepurar}
+        disabled={depurando || !resumen || resumen.totalFotos === 0}
+        className="mt-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+      >
+        {depurando ? "Depurando..." : "Depurar fotos"}
+      </button>
+
+      {mensaje && (
+        <p className={`text-xs font-bold mt-2 ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+          {mensaje.texto}
+        </p>
       )}
     </>
   );
@@ -1370,6 +1477,18 @@ export function BloqueMarcacionesTienda() {
       descripcion="Libera la marcación (con foto) de una tienda puntual, sin borrar la asignación ni el reporte — para cuando se marcó la tienda equivocada."
     >
       <SeccionMarcacionesTienda />
+    </SeccionColapsable>
+  );
+}
+
+export function BloqueDepuracionFotos() {
+  return (
+    <SeccionColapsable
+      titulo="Depurar fotos de marcación antiguas"
+      icono={<Trash2 />}
+      descripcion="Borra del almacenamiento (Azure) las fotos de llegada/salida anteriores a una fecha, para liberar espacio — irreversible, no toca horas ni reportes."
+    >
+      <SeccionDepuracionFotos />
     </SeccionColapsable>
   );
 }

@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
+import { eliminarFotoMarcacion } from "@/lib/azure-storage";
 
 export async function exigirAccesoRegistro() {
   const sesion = await obtenerSesion();
@@ -767,6 +768,131 @@ export async function liberarMarcacionTienda(
   );
 
   return { exito: true };
+}
+
+// ---------------------------------------------------------------------
+// Depuración de fotos de marcación (Azure) anteriores a una fecha de corte.
+// Borra el archivo real en Azure y limpia SOLO la columna de la foto en
+// cada fila que lo referencia -- la hora, la ubicación (link de Maps) y
+// todo lo demás del reporte/asignación quedan intactos, así como la
+// asistencia general del día. El mismo archivo puede estar referenciado a
+// la vez en "asistencia" (si fue la primera llegada o la última salida del
+// día) y en la tabla de la tienda o el evento -- se limpia en todas donde
+// aparezca. Es IRREVERSIBLE: una vez borrado de Azure no se puede
+// recuperar, por eso existe obtenerResumenDepuracionFotos para ver antes
+// cuántas fotos se van a borrar.
+// ---------------------------------------------------------------------
+
+const LOTE_DEPURACION_FOTOS = 200; // tope por click, para no toparse con el timeout de la función
+
+type TablaConFoto = "asistencia" | "rutas_activas" | "rutas_diarias" | "asistencia_eventos";
+type FilaConFoto = { tabla: TablaConFoto; id: string; columna: "foto_ingreso_blob" | "foto_llegada_blob" | "foto_salida_blob"; blob: string };
+
+async function listarFotosAntesDe(
+  supabase: ReturnType<typeof supabaseServer>,
+  hasta: string
+): Promise<FilaConFoto[]> {
+  const [asis, activas, diarias, eventos] = await Promise.all([
+    supabase.from("asistencia").select("id, fecha, foto_ingreso_blob, foto_salida_blob").lt("fecha", hasta),
+    supabase
+      .from("rutas_activas")
+      .select("id, fecha_planificada, foto_llegada_blob, foto_salida_blob")
+      .lt("fecha_planificada", hasta),
+    supabase.from("rutas_diarias").select("id, fecha, foto_llegada_blob, foto_salida_blob").lt("fecha", hasta),
+    supabase.from("asistencia_eventos").select("id, fecha, foto_llegada_blob, foto_salida_blob").lt("fecha", hasta),
+  ]);
+
+  const filas: FilaConFoto[] = [];
+  (asis.data ?? []).forEach((r: any) => {
+    if (r.foto_ingreso_blob) filas.push({ tabla: "asistencia", id: r.id, columna: "foto_ingreso_blob", blob: r.foto_ingreso_blob });
+    if (r.foto_salida_blob) filas.push({ tabla: "asistencia", id: r.id, columna: "foto_salida_blob", blob: r.foto_salida_blob });
+  });
+  (activas.data ?? []).forEach((r: any) => {
+    if (r.foto_llegada_blob) filas.push({ tabla: "rutas_activas", id: r.id, columna: "foto_llegada_blob", blob: r.foto_llegada_blob });
+    if (r.foto_salida_blob) filas.push({ tabla: "rutas_activas", id: r.id, columna: "foto_salida_blob", blob: r.foto_salida_blob });
+  });
+  (diarias.data ?? []).forEach((r: any) => {
+    if (r.foto_llegada_blob) filas.push({ tabla: "rutas_diarias", id: r.id, columna: "foto_llegada_blob", blob: r.foto_llegada_blob });
+    if (r.foto_salida_blob) filas.push({ tabla: "rutas_diarias", id: r.id, columna: "foto_salida_blob", blob: r.foto_salida_blob });
+  });
+  (eventos.data ?? []).forEach((r: any) => {
+    if (r.foto_llegada_blob) filas.push({ tabla: "asistencia_eventos", id: r.id, columna: "foto_llegada_blob", blob: r.foto_llegada_blob });
+    if (r.foto_salida_blob) filas.push({ tabla: "asistencia_eventos", id: r.id, columna: "foto_salida_blob", blob: r.foto_salida_blob });
+  });
+
+  return filas;
+}
+
+export type ResumenDepuracionFotos = { totalFotos: number };
+
+export async function obtenerResumenDepuracionFotos(hasta: string): Promise<ResumenDepuracionFotos> {
+  await exigirAccesoRegistro();
+  if (!hasta) return { totalFotos: 0 };
+  const supabase = supabaseServer();
+  const filas = await listarFotosAntesDe(supabase, hasta);
+  return { totalFotos: new Set(filas.map((f) => f.blob)).size };
+}
+
+export type ResultadoDepuracionFotos = ResultadoRegistro & { borradas?: number; pendientes?: number };
+
+export async function depurarFotosMarcacion(hasta: string, motivo?: string): Promise<ResultadoDepuracionFotos> {
+  const sesion = await exigirAccesoRegistro();
+  if (!hasta) return { exito: false, mensaje: "Indica la fecha de corte." };
+
+  const supabase = supabaseServer();
+  const filas = await listarFotosAntesDe(supabase, hasta);
+
+  const blobsUnicos = Array.from(new Set(filas.map((f) => f.blob)));
+  const loteBlobs = blobsUnicos.slice(0, LOTE_DEPURACION_FOTOS);
+  const loteSet = new Set(loteBlobs);
+
+  // Se borra cada archivo de Azure -- si uno falla (ej. error de red
+  // puntual), se sigue con el resto en vez de abortar todo el lote.
+  let borradas = 0;
+  for (const blob of loteBlobs) {
+    try {
+      await eliminarFotoMarcacion(blob);
+      borradas++;
+    } catch (error) {
+      console.error(`No se pudo borrar la foto ${blob} de Azure:`, error);
+    }
+  }
+
+  // Solo se limpia en la base de datos lo que realmente se intentó borrar
+  // en este lote (loteSet), agrupado por tabla+columna para actualizar con
+  // un solo UPDATE por grupo en vez de uno por fila.
+  const porTablaColumna = new Map<string, string[]>();
+  filas
+    .filter((f) => loteSet.has(f.blob))
+    .forEach((f) => {
+      const clave = `${f.tabla}|${f.columna}`;
+      const lista = porTablaColumna.get(clave) ?? [];
+      lista.push(f.id);
+      porTablaColumna.set(clave, lista);
+    });
+
+  for (const [clave, ids] of porTablaColumna.entries()) {
+    const [tabla, columna] = clave.split("|") as [TablaConFoto, FilaConFoto["columna"]];
+    await (supabase.from(tabla) as any).update({ [columna]: null }).in("id", ids);
+  }
+
+  const pendientes = blobsUnicos.length - loteBlobs.length;
+  await registrarCambio(
+    sesion,
+    "Depuró fotos de marcación antiguas",
+    `${borradas} foto(s) anteriores a ${hasta}${pendientes > 0 ? ` (quedan ${pendientes} pendientes)` : ""}`,
+    motivo
+  );
+
+  return {
+    exito: true,
+    mensaje:
+      pendientes > 0
+        ? `Se borraron ${borradas} foto(s). Quedan ${pendientes} más — vuelve a tocar "Depurar" para seguir.`
+        : `Se borraron ${borradas} foto(s).`,
+    borradas,
+    pendientes,
+  };
 }
 
 export type AuditoriaCorregible = {
