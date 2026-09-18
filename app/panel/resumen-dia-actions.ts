@@ -32,6 +32,10 @@ export type ResumenPersonal = {
   rutaHoyNombre: string | null;
   rutaHoyEstado: "pendiente" | "reportado" | null;
   rutaHoyExtra: number;
+  rutaHoyEtaMinutos: number | null;
+  rutaHoyEtaKm: number | null;
+  rutaHoyGoogleMapsUrl: string | null;
+  rutaHoyWazeUrl: string | null;
   reportesEditables: number;
   rachaActual: number;
   comunicadosRecientes: number;
@@ -125,15 +129,27 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   let rutaHoyNombre: string | null = null;
   let rutaHoyEstado: "pendiente" | "reportado" | null = null;
   let rutaHoyExtra = 0;
+  let rutaHoyEtaMinutos: number | null = null;
+  let rutaHoyEtaKm: number | null = null;
+  let rutaHoyGoogleMapsUrl: string | null = null;
+  let rutaHoyWazeUrl: string | null = null;
 
   if (pendientesHoy.length > 0) {
     rutaHoyNombre = pendientesHoy[0].tiendaNombre;
     rutaHoyEstado = "pendiente";
     rutaHoyExtra = pendientesHoy.length - 1 + reportadosHoy.length;
+    rutaHoyEtaMinutos = pendientesHoy[0].etaMinutos;
+    rutaHoyEtaKm = pendientesHoy[0].etaKm;
+    rutaHoyGoogleMapsUrl = pendientesHoy[0].googleMapsUrl;
+    rutaHoyWazeUrl = pendientesHoy[0].wazeUrl;
   } else if (reportadosHoy.length > 0) {
     rutaHoyNombre = reportadosHoy[0].tiendaNombre;
     rutaHoyEstado = "reportado";
     rutaHoyExtra = reportadosHoy.length - 1;
+    rutaHoyEtaMinutos = reportadosHoy[0].etaMinutos;
+    rutaHoyEtaKm = reportadosHoy[0].etaKm;
+    rutaHoyGoogleMapsUrl = reportadosHoy[0].googleMapsUrl;
+    rutaHoyWazeUrl = reportadosHoy[0].wazeUrl;
   }
 
   const reportesEditables = tiendas.filter((t) => t.reporteId).length;
@@ -234,6 +250,10 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   return {
     rutaHoyNombre,
     rutaHoyEstado,
+    rutaHoyEtaMinutos,
+    rutaHoyEtaKm,
+    rutaHoyGoogleMapsUrl,
+    rutaHoyWazeUrl,
     rutaHoyExtra,
     reportesEditables,
     rachaActual: misPuntos.rachaActual,

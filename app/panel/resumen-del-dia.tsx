@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock } from "lucide-react";
+import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock, Navigation } from "lucide-react";
 import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
@@ -464,6 +464,49 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
               valor={String(personal.comunicadosRecientes)}
               extra={personal.ultimoComunicadoTipo ?? "sin novedades"}
             />
+            {personal.rutaHoyGoogleMapsUrl && (
+              <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                  <Navigation className="w-4 h-4 text-marca-rojoclaro shrink-0" />
+                  <p className="text-xs">
+                    <span className="text-marca-tenue">Camino a </span>
+                    <span className="text-marca-textofuerte font-bold">{personal.rutaHoyNombre}</span>
+                    {personal.rutaHoyEtaMinutos !== null && (
+                      <>
+                        <span className="text-marca-tenue"> — </span>
+                        <span className="font-mono text-marca-textofuerte font-semibold">
+                          {personal.rutaHoyEtaMinutos} min
+                        </span>
+                        {personal.rutaHoyEtaKm !== null && (
+                          <span className="text-marca-tenue"> · {personal.rutaHoyEtaKm} km</span>
+                        )}
+                        <span className="text-marca-tenue text-[10.5px]"> (tráfico en tiempo real)</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <a
+                    href={personal.rutaHoyGoogleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 border border-marca-borde hover:border-marca-rojoclaro/50 text-marca-tenue hover:text-marca-texto text-[10.5px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-[3px] transition"
+                  >
+                    <MapPin className="w-3 h-3" /> Google Maps
+                  </a>
+                  {personal.rutaHoyWazeUrl && (
+                    <a
+                      href={personal.rutaHoyWazeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 border border-marca-borde hover:border-marca-rojoclaro/50 text-marca-tenue hover:text-marca-texto text-[10.5px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-[3px] transition"
+                    >
+                      <MapPin className="w-3 h-3" /> Waze
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
             {personal.proximoEvento && (
               <TarjetaAncha
                 icono={<Calendar className="w-4 h-4" />}
