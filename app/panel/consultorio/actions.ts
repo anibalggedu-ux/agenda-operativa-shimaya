@@ -178,9 +178,6 @@ export async function preguntarConsultorioIA(
       return { exito: false, mensaje: "Se alcanzó el límite de uso de la IA por ahora, intenta en un momento." };
     }
     if (err?.message?.includes("API key")) return { exito: false, mensaje: err.message };
-    // Log temporal para diagnosticar el primer fallo real en producción --
-    // sin esto, el mensaje genérico de más abajo no dice nada de la causa.
-    console.error("Consultorio IA - error no reconocido:", err?.name, err?.status, err?.message, err?.stack);
     return { exito: false, mensaje: "No se pudo conectar con la IA. Intenta de nuevo." };
   }
 }
