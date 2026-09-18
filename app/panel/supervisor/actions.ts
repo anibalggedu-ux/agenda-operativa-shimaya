@@ -16,6 +16,7 @@ import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo, URL_APP } from "@/lib/email";
 import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/azure-storage";
+import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -51,6 +52,15 @@ export type TiendaClasificada = {
   horaSalidaTienda: string | null;
   ubicacionSalidaTienda: string | null;
   fotoSalidaTiendaUrl: string | null;
+  // Tiempo/distancia estimados en auto desde el domicilio del colaborador
+  // (con tráfico en tiempo real, vía Mapbox) -- solo se calcula para HOY, y
+  // null si falta la dirección del colaborador o de la tienda, o si Mapbox
+  // no respondió. Los enlaces sirven igual aunque no haya ETA (usan el
+  // nombre de la tienda como respaldo si no hay coordenadas).
+  etaMinutos: number | null;
+  etaKm: number | null;
+  googleMapsUrl: string;
+  wazeUrl: string;
 };
 
 function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
@@ -58,6 +68,23 @@ function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: st
   if (fecha === manana) return "MANANA";
   if (fecha === ayer) return "AYER";
   return "ANTES_DE_AYER";
+}
+
+// Enlaces para abrir la navegación en la app elegida, con la ruta trazada
+// desde la ubicación actual del celular (ninguna de las dos requiere API key,
+// son enlaces públicos que cada app resuelve por su cuenta). Si la tienda no
+// tiene coordenadas cargadas, se cae a buscar por nombre en vez de no
+// mostrar nada.
+function construirUrlGoogleMaps(lat: number | null, lon: number | null, tiendaNombre: string): string {
+  const destino = lat !== null && lon !== null ? `${lat},${lon}` : tiendaNombre;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+}
+
+function construirUrlWaze(lat: number | null, lon: number | null, tiendaNombre: string): string {
+  if (lat !== null && lon !== null) {
+    return `https://waze.com/ul?ll=${lat}%2C${lon}&navigate=yes`;
+  }
+  return `https://waze.com/ul?q=${encodeURIComponent(tiendaNombre)}&navigate=yes`;
 }
 
 export async function obtenerTiendasClasificadas(): Promise<{
@@ -90,7 +117,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     { data: activas, error: errorActivas },
     { data: reportes, error: errorReportes },
   ] = await Promise.all([
-    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase.from("usuarios").select("dias_descanso, lat, lon").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("rutas_activas")
       .select(
@@ -142,6 +169,10 @@ export async function obtenerTiendasClasificadas(): Promise<{
     horaSalidaTienda: r.hora_salida ?? null,
     ubicacionSalidaTienda: r.ubicacion_salida ?? null,
     fotoSalidaTiendaUrl: null,
+    etaMinutos: null,
+    etaKm: null,
+    googleMapsUrl: "",
+    wazeUrl: "",
     _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
     _fotoSalidaBlob: r.foto_salida_blob ?? null,
     _lat: r.tiendas.lat === null ? null : Number(r.tiendas.lat),
@@ -176,6 +207,10 @@ export async function obtenerTiendasClasificadas(): Promise<{
       horaSalidaTienda: r.hora_salida ?? null,
       ubicacionSalidaTienda: r.ubicacion_salida ?? null,
       fotoSalidaTiendaUrl: null,
+      etaMinutos: null,
+      etaKm: null,
+      googleMapsUrl: "",
+      wazeUrl: "",
       _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
       _fotoSalidaBlob: r.foto_salida_blob ?? null,
       _lat: r.tiendas?.lat === null || r.tiendas?.lat === undefined ? null : Number(r.tiendas.lat),
@@ -203,9 +238,35 @@ export async function obtenerTiendasClasificadas(): Promise<{
     })
   );
 
+  // El tiempo estimado de llegada solo tiene sentido para HOY (nadie
+  // necesita saber cuánto se demora a una tienda de ayer o de mañana), y
+  // sale desde el domicilio del colaborador -- mismo origen que ya usa el
+  // cálculo de kilómetros para la primera visita del día. Sin dirección
+  // propia cargada, queda sin ETA (los botones de navegación igual
+  // funcionan, ver construirUrlGoogleMaps/construirUrlWaze).
+  const etaPorUbicacion = new Map<string, { km: number; minutos: number } | null>();
+  const origenLat = usuario?.lat === null || usuario?.lat === undefined ? null : Number(usuario.lat);
+  const origenLon = usuario?.lon === null || usuario?.lon === undefined ? null : Number(usuario.lon);
+  if (origenLat !== null && origenLon !== null) {
+    const ubicacionesHoy = new Map<string, { lat: number; lon: number }>();
+    todas.forEach((t) => {
+      if (t.urgencia === "HOY" && t._lat !== null && t._lon !== null) {
+        ubicacionesHoy.set(`${t._lat},${t._lon}`, { lat: t._lat, lon: t._lon });
+      }
+    });
+    await calcularRutasEnLotes(Array.from(ubicacionesHoy.entries()), async ([clave, { lat, lon }]) => {
+      const ruta = await calcularRutaAuto(origenLat, origenLon, lat, lon);
+      etaPorUbicacion.set(clave, ruta);
+    });
+  }
+
   const tiendasFinal: TiendaClasificada[] = await Promise.all(
     todas.map(async ({ _lat, _lon, _fotoLlegadaBlob, _fotoSalidaBlob, ...t }) => {
       const resumen = _lat !== null && _lon !== null ? climaPorUbicacion.get(`${_lat},${_lon}`) : undefined;
+      const eta =
+        t.urgencia === "HOY" && _lat !== null && _lon !== null
+          ? etaPorUbicacion.get(`${_lat},${_lon}`) ?? null
+          : null;
       const [fotoLlegadaUrl, fotoSalidaTiendaUrl] = await Promise.all([
         obtenerUrlTemporalFoto(_fotoLlegadaBlob),
         obtenerUrlTemporalFoto(_fotoSalidaBlob),
@@ -215,6 +276,10 @@ export async function obtenerTiendasClasificadas(): Promise<{
         clima: resumen?.get(t.fechaPlanificada) ?? null,
         fotoLlegadaUrl,
         fotoSalidaTiendaUrl,
+        etaMinutos: eta?.minutos ?? null,
+        etaKm: eta?.km ?? null,
+        googleMapsUrl: construirUrlGoogleMaps(_lat, _lon, t.tiendaNombre),
+        wazeUrl: construirUrlWaze(_lat, _lon, t.tiendaNombre),
       };
     })
   );

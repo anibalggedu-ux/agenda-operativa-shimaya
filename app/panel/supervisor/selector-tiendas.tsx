@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble } from "lucide-react";
+import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation } from "lucide-react";
 import {
   obtenerTiendasClasificadas,
   enviarReporte,
@@ -581,6 +581,37 @@ export default function SelectorTiendas({
                         </p>
                       )}
                     </button>
+
+                    {tienda.etaMinutos !== null && (
+                      <div className="flex items-center gap-2 mt-2 rounded-[3px] px-2.5 py-1.5 border border-marca-rojo/30 bg-marca-rojo/5">
+                        <Navigation className="w-3.5 h-3.5 text-marca-rojoclaro shrink-0" />
+                        <p className="text-[10.5px] font-bold text-marca-texto">
+                          <span className="font-mono text-marca-textofuerte">{tienda.etaMinutos} min</span>
+                          {tienda.etaKm !== null && (
+                            <span className="text-marca-tenue font-normal"> · {tienda.etaKm} km</span>
+                          )}
+                          <span className="text-marca-tenue font-normal"> — estimado con tráfico</span>
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      <a
+                        href={tienda.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-1.5 border border-marca-borde hover:border-marca-rojoclaro/50 text-marca-tenue hover:text-marca-texto text-[10.5px] font-bold uppercase tracking-wide py-2 rounded-[3px] transition"
+                      >
+                        <MapPin className="w-3 h-3" /> Google Maps
+                      </a>
+                      <a
+                        href={tienda.wazeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-1.5 border border-marca-borde hover:border-marca-rojoclaro/50 text-marca-tenue hover:text-marca-texto text-[10.5px] font-bold uppercase tracking-wide py-2 rounded-[3px] transition"
+                      >
+                        <MapPin className="w-3 h-3" /> Waze
+                      </a>
+                    </div>
 
                     {bloqueada ? (
                       <p className="flex items-start gap-1.5 mt-2 pt-2 border-t border-marca-borde/60 text-[10.5px] text-marca-tenue">
