@@ -31,8 +31,12 @@ export default function ConsultorioIA() {
     setPregunta("");
     setEnviando(true);
     try {
-      const respuesta = await preguntarConsultorioIA(limpio, historialPrevio);
-      setMensajes((prev) => [...prev, { rol: "assistant", texto: respuesta }]);
+      const resultado = await preguntarConsultorioIA(limpio, historialPrevio);
+      if (resultado.exito && resultado.texto) {
+        setMensajes((prev) => [...prev, { rol: "assistant", texto: resultado.texto! }]);
+      } else {
+        setError(resultado.mensaje || "No se pudo conectar con la IA.");
+      }
     } catch (e: any) {
       setError(e?.message || "No se pudo conectar con la IA.");
     } finally {

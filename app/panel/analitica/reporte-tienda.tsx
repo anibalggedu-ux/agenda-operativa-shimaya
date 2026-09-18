@@ -95,13 +95,17 @@ export default function ReporteTienda() {
     setProcesandoIA(true);
     setErrorIA(null);
     try {
-      const resumen = await procesarObservacionesConIA(
+      const resultado = await procesarObservacionesConIA(
         historial.tiendaNombre,
         desde,
         hasta,
         historial.observaciones
       );
-      setResumenIA(resumen);
+      if (resultado.exito && resultado.texto) {
+        setResumenIA(resultado.texto);
+      } else {
+        setErrorIA(resultado.mensaje || "No se pudo procesar con IA.");
+      }
     } catch (e: any) {
       setErrorIA(e?.message || "No se pudo procesar con IA.");
     } finally {

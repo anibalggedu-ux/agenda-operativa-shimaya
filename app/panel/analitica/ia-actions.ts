@@ -17,16 +17,23 @@ export type ObservacionParaIA = {
 // celular, con errores de tipeo) y les pide a Claude un resumen ejecutivo
 // -- no un resumen robótico línea por línea, sino algo que suene como lo
 // redactaría alguien de operaciones que ya leyó todo el historial.
+//
+// Nunca lanza (throw): Next.js reemplaza el mensaje de cualquier error
+// lanzado desde una acción de servidor por uno genérico en producción, así
+// que el mensaje real nunca llegaría a la pantalla -- se devuelve siempre
+// un resultado con exito/mensaje, igual que el resto de acciones de la app.
+export type ResultadoObservacionesIA = { exito: boolean; texto?: string; mensaje?: string };
+
 export async function procesarObservacionesConIA(
   tiendaNombre: string,
   desde: string,
   hasta: string,
   observaciones: ObservacionParaIA[]
-): Promise<string> {
+): Promise<ResultadoObservacionesIA> {
   await exigirSesion();
 
   if (observaciones.length === 0) {
-    throw new Error("No hay observaciones en este rango para procesar.");
+    return { exito: false, mensaje: "No hay observaciones en este rango para procesar." };
   }
 
   const bloques = observaciones
@@ -67,16 +74,16 @@ export async function procesarObservacionesConIA(
     const bloqueTexto = respuesta.content.find(
       (b): b is Anthropic.TextBlock => b.type === "text"
     );
-    if (!bloqueTexto) throw new Error("La IA no devolvió una respuesta de texto.");
-    return bloqueTexto.text.trim();
+    if (!bloqueTexto) return { exito: false, mensaje: "La IA no devolvió una respuesta de texto." };
+    return { exito: true, texto: bloqueTexto.text.trim() };
   } catch (err: any) {
     if (err instanceof Anthropic.AuthenticationError) {
-      throw new Error("La API key de Anthropic no es válida.");
+      return { exito: false, mensaje: "La API key de Anthropic no es válida." };
     }
     if (err instanceof Anthropic.RateLimitError) {
-      throw new Error("Se alcanzó el límite de uso de la IA por ahora, intenta en un momento.");
+      return { exito: false, mensaje: "Se alcanzó el límite de uso de la IA por ahora, intenta en un momento." };
     }
-    if (err?.message?.includes("API key")) throw err;
-    throw new Error("No se pudo conectar con la IA. Intenta de nuevo.");
+    if (err?.message?.includes("API key")) return { exito: false, mensaje: err.message };
+    return { exito: false, mensaje: "No se pudo conectar con la IA. Intenta de nuevo." };
   }
 }
