@@ -84,6 +84,7 @@ export async function procesarObservacionesConIA(
       return { exito: false, mensaje: "Se alcanzó el límite de uso de la IA por ahora, intenta en un momento." };
     }
     if (err?.message?.includes("API key")) return { exito: false, mensaje: err.message };
+    console.error("Reporte de Tienda IA - error no reconocido:", err?.name, err?.status, err?.message, err?.stack);
     return { exito: false, mensaje: "No se pudo conectar con la IA. Intenta de nuevo." };
   }
 }
