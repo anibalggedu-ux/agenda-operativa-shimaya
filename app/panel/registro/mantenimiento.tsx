@@ -136,7 +136,11 @@ function SeccionAsistencia() {
   async function handleEliminar(id: string, fecha: string) {
     if (
       !window.confirm(
-        `¿Eliminar por completo la marcación del ${formatearFechaLegible(fecha)}? No se puede deshacer.`
+        `¿Eliminar por completo la marcación del ${formatearFechaLegible(fecha)}?\n\n` +
+          `Esto borra el ingreso Y la salida de ese día. Si la persona vuelve a marcar (en una tienda ` +
+          `o un evento), esa nueva marcación se toma como su primera entrada del día — aunque sea más ` +
+          `tarde que la que tenía, y aunque ya hubiera marcado a tiempo antes. Si solo quieres corregir ` +
+          `la hora, usa "Guardar" en vez de "Eliminar".\n\nNo se puede deshacer.`
       )
     )
       return;
