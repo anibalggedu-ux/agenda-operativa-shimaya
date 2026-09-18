@@ -138,18 +138,20 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     rutaHoyNombre = pendientesHoy[0].tiendaNombre;
     rutaHoyEstado = "pendiente";
     rutaHoyExtra = pendientesHoy.length - 1 + reportadosHoy.length;
-    rutaHoyEtaMinutos = pendientesHoy[0].etaMinutos;
-    rutaHoyEtaKm = pendientesHoy[0].etaKm;
-    rutaHoyGoogleMapsUrl = pendientesHoy[0].googleMapsUrl;
-    rutaHoyWazeUrl = pendientesHoy[0].wazeUrl;
+    // Ya marcó llegada a esta tienda: "camino a..." ya no dice nada útil,
+    // aunque el reporte siga pendiente de enviar.
+    if (!pendientesHoy[0].horaLlegada) {
+      rutaHoyEtaMinutos = pendientesHoy[0].etaMinutos;
+      rutaHoyEtaKm = pendientesHoy[0].etaKm;
+      rutaHoyGoogleMapsUrl = pendientesHoy[0].googleMapsUrl;
+      rutaHoyWazeUrl = pendientesHoy[0].wazeUrl;
+    }
   } else if (reportadosHoy.length > 0) {
+    // Ya se envió el reporte de esta visita -- la tarea de "llegar" ya
+    // quedó atrás, así que no tiene sentido mostrarle cómo llegar.
     rutaHoyNombre = reportadosHoy[0].tiendaNombre;
     rutaHoyEstado = "reportado";
     rutaHoyExtra = reportadosHoy.length - 1;
-    rutaHoyEtaMinutos = reportadosHoy[0].etaMinutos;
-    rutaHoyEtaKm = reportadosHoy[0].etaKm;
-    rutaHoyGoogleMapsUrl = reportadosHoy[0].googleMapsUrl;
-    rutaHoyWazeUrl = reportadosHoy[0].wazeUrl;
   }
 
   const reportesEditables = tiendas.filter((t) => t.reporteId).length;

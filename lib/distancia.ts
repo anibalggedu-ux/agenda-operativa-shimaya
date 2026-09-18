@@ -17,7 +17,14 @@ export async function calcularRutaAuto(
   // la hora límite de ingreso de la persona, el día que le toca esa ruta) —
   // sin esto, Mapbox calcula el tráfico de AHORA MISMO, que no sirve de
   // nada si se está asignando de noche una ruta para mañana en la mañana.
-  horaSalida?: Date
+  horaSalida?: Date,
+  // Segundos que se cachea la respuesta antes de volver a consultar a
+  // Mapbox -- 1 hora por defecto (cálculos que no necesitan ser al segundo,
+  // como kilómetros del mes o el correo de una ruta nueva). El tiempo
+  // estimado de "Ruta de hoy", que la persona puede mirar varias veces en
+  // el día y espera que refleje el tráfico de ESE momento, pasa 0 (sin
+  // caché) desde obtenerTiendasClasificadas.
+  revalidateSegundos = 60 * 60
 ): Promise<RutaAuto | null> {
   const token = process.env.MAPBOX_ACCESS_TOKEN;
   if (!token) return null;
@@ -35,7 +42,7 @@ export async function calcularRutaAuto(
     // entera. Preferimos quedarnos sin el dato de distancia (la vista lo
     // maneja como "sin calcular") antes que tumbar la pantalla.
     const res = await fetch(url, {
-      next: { revalidate: 60 * 60 },
+      next: { revalidate: revalidateSegundos },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;

@@ -238,24 +238,27 @@ export async function obtenerTiendasClasificadas(): Promise<{
     })
   );
 
-  // El tiempo estimado de llegada solo tiene sentido para HOY (nadie
-  // necesita saber cuánto se demora a una tienda de ayer o de mañana), y
-  // sale desde el domicilio del colaborador -- mismo origen que ya usa el
-  // cálculo de kilómetros para la primera visita del día. Sin dirección
-  // propia cargada, queda sin ETA (los botones de navegación igual
-  // funcionan, ver construirUrlGoogleMaps/construirUrlWaze).
+  // El tiempo estimado de llegada solo tiene sentido para HOY, sin haber
+  // marcado ya la llegada a esa tienda (si ya estás ahí, "camino a..." no
+  // dice nada útil), y sale desde el domicilio del colaborador -- mismo
+  // origen que ya usa el cálculo de kilómetros para la primera visita del
+  // día. Sin dirección propia cargada, queda sin ETA (los botones de
+  // navegación igual funcionan, ver construirUrlGoogleMaps/construirUrlWaze).
+  // Sin caché (revalidateSegundos: 0): a diferencia de kilómetros/correo de
+  // ruta nueva, esto se muestra en pantalla y se espera que refleje el
+  // tráfico de cada momento en que se abre la app, no el de hace rato.
   const etaPorUbicacion = new Map<string, { km: number; minutos: number } | null>();
   const origenLat = usuario?.lat === null || usuario?.lat === undefined ? null : Number(usuario.lat);
   const origenLon = usuario?.lon === null || usuario?.lon === undefined ? null : Number(usuario.lon);
   if (origenLat !== null && origenLon !== null) {
     const ubicacionesHoy = new Map<string, { lat: number; lon: number }>();
     todas.forEach((t) => {
-      if (t.urgencia === "HOY" && t._lat !== null && t._lon !== null) {
+      if (t.urgencia === "HOY" && !t.horaLlegada && t._lat !== null && t._lon !== null) {
         ubicacionesHoy.set(`${t._lat},${t._lon}`, { lat: t._lat, lon: t._lon });
       }
     });
     await calcularRutasEnLotes(Array.from(ubicacionesHoy.entries()), async ([clave, { lat, lon }]) => {
-      const ruta = await calcularRutaAuto(origenLat, origenLon, lat, lon);
+      const ruta = await calcularRutaAuto(origenLat, origenLon, lat, lon, undefined, 0);
       etaPorUbicacion.set(clave, ruta);
     });
   }
@@ -264,7 +267,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     todas.map(async ({ _lat, _lon, _fotoLlegadaBlob, _fotoSalidaBlob, ...t }) => {
       const resumen = _lat !== null && _lon !== null ? climaPorUbicacion.get(`${_lat},${_lon}`) : undefined;
       const eta =
-        t.urgencia === "HOY" && _lat !== null && _lon !== null
+        t.urgencia === "HOY" && !t.horaLlegada && _lat !== null && _lon !== null
           ? etaPorUbicacion.get(`${_lat},${_lon}`) ?? null
           : null;
       const [fotoLlegadaUrl, fotoSalidaTiendaUrl] = await Promise.all([
