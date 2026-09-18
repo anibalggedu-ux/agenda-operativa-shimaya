@@ -529,6 +529,7 @@ export type TipoAsignacionEspecial =
 
 export type AsignacionEspecial = {
   id: string;
+  usuarioId: string;
   usuarioNombre: string;
   tipo: TipoAsignacionEspecial;
   fechaInicio: string;
@@ -542,7 +543,7 @@ export async function obtenerAsignacionesEspeciales(): Promise<AsignacionEspecia
 
   const { data, error } = await supabase
     .from("asignaciones_especiales")
-    .select("id, tipo, fecha_inicio, fecha_fin, motivo, usuarios(nombre)")
+    .select("id, usuario_id, tipo, fecha_inicio, fecha_fin, motivo, usuarios(nombre)")
     .gte("fecha_fin", hoyPeru())
     .order("fecha_inicio", { ascending: true });
 
@@ -550,6 +551,7 @@ export async function obtenerAsignacionesEspeciales(): Promise<AsignacionEspecia
 
   return (data ?? []).map((a: any) => ({
     id: a.id,
+    usuarioId: a.usuario_id,
     usuarioNombre: a.usuarios?.nombre ?? "—",
     tipo: a.tipo,
     fechaInicio: a.fecha_inicio,

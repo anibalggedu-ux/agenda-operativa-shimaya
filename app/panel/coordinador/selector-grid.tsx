@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Ban } from "lucide-react";
 
 export type OpcionGrid = {
   id: string;
@@ -13,6 +13,11 @@ export type OpcionGrid = {
   // (ej. la persona tiene descanso fijo justo ese día).
   advertencia?: boolean;
   etiquetaAdvertencia?: string;
+  // Más fuerte que "advertencia": la persona tiene vacaciones, permiso o
+  // licencia vigente justo esa fecha — se pinta en fucsia y tiene prioridad
+  // visual sobre todo lo demás, para que sea obvio que no se le debe asignar.
+  noDisponible?: boolean;
+  etiquetaNoDisponible?: string;
 };
 
 export default function SelectorGrid({
@@ -36,22 +41,26 @@ export default function SelectorGrid({
             className={`text-left rounded-[3px] border-2 p-3 transition ${
               seleccionado
                 ? "border-marca-rojo bg-marca-rojo/20 ring-2 ring-marca-rojo"
-                : o.advertencia
-                  ? "border-amber-500/70 bg-amber-950/25 hover:brightness-125"
-                  : o.destacado
-                    ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
-                    : "border-marca-borde bg-marca-fondo hover:brightness-125"
+                : o.noDisponible
+                  ? "border-fuchsia-500/70 bg-fuchsia-950/25 hover:brightness-125"
+                  : o.advertencia
+                    ? "border-amber-500/70 bg-amber-950/25 hover:brightness-125"
+                    : o.destacado
+                      ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
+                      : "border-marca-borde bg-marca-fondo hover:brightness-125"
             }`}
           >
             <p
               className={`font-bold text-sm truncate ${
                 seleccionado
                   ? "text-marca-textofuerte"
-                  : o.advertencia
-                    ? "text-amber-300"
-                    : o.destacado
-                      ? "text-emerald-300"
-                      : "text-marca-texto"
+                  : o.noDisponible
+                    ? "text-fuchsia-300"
+                    : o.advertencia
+                      ? "text-amber-300"
+                      : o.destacado
+                        ? "text-emerald-300"
+                        : "text-marca-texto"
               }`}
             >
               {o.titulo}
@@ -59,12 +68,17 @@ export default function SelectorGrid({
             {o.subtitulo && (
               <p className="text-[10px] text-marca-tenue uppercase mt-0.5 truncate">{o.subtitulo}</p>
             )}
-            {o.advertencia && o.etiquetaAdvertencia && (
+            {o.noDisponible && o.etiquetaNoDisponible && (
+              <p className="flex items-center gap-1 text-[10px] text-fuchsia-400 font-bold mt-1">
+                <Ban className="w-3 h-3" /> {o.etiquetaNoDisponible}
+              </p>
+            )}
+            {!o.noDisponible && o.advertencia && o.etiquetaAdvertencia && (
               <p className="flex items-center gap-1 text-[10px] text-amber-400 font-bold mt-1">
                 <AlertTriangle className="w-3 h-3" /> {o.etiquetaAdvertencia}
               </p>
             )}
-            {!o.advertencia && o.destacado && o.etiquetaDestacado && (
+            {!o.noDisponible && !o.advertencia && o.destacado && o.etiquetaDestacado && (
               <p className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold mt-1">
                 <Check className="w-3 h-3" /> {o.etiquetaDestacado}
               </p>

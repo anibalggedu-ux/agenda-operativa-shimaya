@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap } from "lucide-react";
+import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap, Ban } from "lucide-react";
 import {
   obtenerUsuariosYTiendas,
   obtenerRutasActivas,
+  obtenerAsignacionesEspeciales,
   asignarRuta,
   eliminarRutaActiva,
   reenviarCorreoRuta,
@@ -15,6 +16,7 @@ import {
   type UsuarioBasico,
   type TiendaBasica,
   type RutaActiva,
+  type AsignacionEspecial,
   type ResultadoAccion,
   type ColaboradorCercano,
   type TiendaCercana,
@@ -77,6 +79,7 @@ export default function AsignarRutas() {
   const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
   const [tiendas, setTiendas] = useState<TiendaBasica[]>([]);
   const [rutas, setRutas] = useState<RutaActiva[]>([]);
+  const [asignacionesEspeciales, setAsignacionesEspeciales] = useState<AsignacionEspecial[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reenviandoId, setReenviandoId] = useState<string | null>(null);
@@ -153,11 +156,12 @@ export default function AsignarRutas() {
 
   function cargarTodo() {
     setCargando(true);
-    Promise.all([obtenerUsuariosYTiendas(), obtenerRutasActivas()])
-      .then(([{ usuarios, tiendas }, rutas]) => {
+    Promise.all([obtenerUsuariosYTiendas(), obtenerRutasActivas(), obtenerAsignacionesEspeciales()])
+      .then(([{ usuarios, tiendas }, rutas, asignacionesEspeciales]) => {
         setUsuarios(usuarios);
         setTiendas(tiendas);
         setRutas(rutas);
+        setAsignacionesEspeciales(asignacionesEspeciales);
       })
       .catch((e) => setError(e.message || "Error al cargar datos."))
       .finally(() => setCargando(false));
@@ -213,18 +217,43 @@ export default function AsignarRutas() {
   // quién le toca descanso fijo justo ese día.
   const diaSemanaSeleccionado = useMemo(() => diaSemanaPeru(fecha), [fecha]);
 
+  // Quién tiene vacaciones, permiso o licencia vigente justo la fecha
+  // elegida -- "Descanso Semanal" ya se cubre aparte con diasDescanso, y
+  // "Misión Especial" no bloquea (esa persona sigue disponible, solo está
+  // en otra tienda). Un usuario no debería tener más de una vigente a la
+  // vez, pero por si acaso se usa la primera que calce.
+  const TIPOS_NO_DISPONIBLE = ["Vacaciones", "Permiso", "Licencia"];
+  const noDisponiblesEnFecha = useMemo(() => {
+    const mapa = new Map<string, AsignacionEspecial>();
+    asignacionesEspeciales
+      .filter(
+        (a) =>
+          TIPOS_NO_DISPONIBLE.includes(a.tipo) && a.fechaInicio <= fecha && fecha <= a.fechaFin
+      )
+      .forEach((a) => {
+        if (!mapa.has(a.usuarioId)) mapa.set(a.usuarioId, a);
+      });
+    return mapa;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asignacionesEspeciales, fecha]);
+
   const opcionesUsuarios = useMemo(
     () =>
-      usuarios.map((u) => ({
-        id: u.id,
-        titulo: u.nombre,
-        subtitulo: u.rol,
-        advertencia: u.diasDescanso.includes(diaSemanaSeleccionado),
-        etiquetaAdvertencia: "Descansa este día",
-        destacado: asignadosEnFecha.usuariosSet.has(u.id),
-        etiquetaDestacado: "Ya asignado",
-      })),
-    [usuarios, asignadosEnFecha, diaSemanaSeleccionado]
+      usuarios.map((u) => {
+        const noDisponible = noDisponiblesEnFecha.get(u.id);
+        return {
+          id: u.id,
+          titulo: u.nombre,
+          subtitulo: u.rol,
+          noDisponible: !!noDisponible,
+          etiquetaNoDisponible: noDisponible?.tipo,
+          advertencia: u.diasDescanso.includes(diaSemanaSeleccionado),
+          etiquetaAdvertencia: "Descansa este día",
+          destacado: asignadosEnFecha.usuariosSet.has(u.id),
+          etiquetaDestacado: "Ya asignado",
+        };
+      }),
+    [usuarios, asignadosEnFecha, diaSemanaSeleccionado, noDisponiblesEnFecha]
   );
 
   const usuarioSeleccionado = useMemo(
@@ -232,11 +261,22 @@ export default function AsignarRutas() {
     [usuarios, usuarioId]
   );
   const usuarioEnDescanso = !!usuarioSeleccionado?.diasDescanso.includes(diaSemanaSeleccionado);
+  const usuarioNoDisponible = usuarioId ? noDisponiblesEnFecha.get(usuarioId) : undefined;
 
   // Segunda confirmación al enviar, además de la marca visual — para que
-  // asignar a alguien en su día de descanso sea una decisión consciente
-  // (ej. una emergencia real) y no un click apurado sobre la tarjeta ámbar.
+  // asignar a alguien en su día de descanso, o con vacaciones/permiso/
+  // licencia vigente, sea una decisión consciente (ej. una emergencia real)
+  // y no un click apurado sobre la tarjeta marcada.
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (usuarioNoDisponible && usuarioSeleccionado) {
+      const confirmado = window.confirm(
+        `${usuarioSeleccionado.nombre} tiene ${usuarioNoDisponible.tipo.toLowerCase()} justo la fecha elegida (${formatearFechaLegible(usuarioNoDisponible.fechaInicio)} → ${formatearFechaLegible(usuarioNoDisponible.fechaFin)}).\n\n¿Asignarle la tienda de todas formas?`
+      );
+      if (!confirmado) {
+        e.preventDefault();
+        return;
+      }
+    }
     if (usuarioEnDescanso && usuarioSeleccionado) {
       const confirmado = window.confirm(
         `${usuarioSeleccionado.nombre} tiene descanso fijo los días ${diaSemanaSeleccionado.toLowerCase()} — justo la fecha elegida.\n\n¿Asignarle la tienda de todas formas?`
@@ -294,7 +334,8 @@ export default function AsignarRutas() {
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
             Usuario{" "}
             <span className="text-marca-tenue/70 normal-case font-normal">
-              (verde = ya tiene ruta esta fecha · ámbar = descansa este día)
+              (verde = ya tiene ruta esta fecha · ámbar = descansa este día · fucsia = vacaciones/permiso/
+              licencia)
             </span>
           </label>
           <SelectorGrid
@@ -302,7 +343,15 @@ export default function AsignarRutas() {
             seleccionadoId={usuarioId}
             onSeleccionar={setUsuarioId}
           />
-          {usuarioEnDescanso && usuarioSeleccionado && (
+          {usuarioNoDisponible && usuarioSeleccionado && (
+            <p className="flex items-start gap-1.5 mt-2 text-fuchsia-400 text-xs font-bold">
+              <Ban className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {usuarioSeleccionado.nombre} tiene{" "}
+              {usuarioNoDisponible.tipo.toLowerCase()} del {formatearFechaLegible(usuarioNoDisponible.fechaInicio)}{" "}
+              al {formatearFechaLegible(usuarioNoDisponible.fechaFin)} — se pedirá confirmación extra antes
+              de asignar.
+            </p>
+          )}
+          {!usuarioNoDisponible && usuarioEnDescanso && usuarioSeleccionado && (
             <p className="flex items-start gap-1.5 mt-2 text-amber-400 text-xs font-bold">
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {usuarioSeleccionado.nombre} tiene
               descanso fijo los {diaSemanaSeleccionado.toLowerCase()} — se pedirá confirmación extra antes
