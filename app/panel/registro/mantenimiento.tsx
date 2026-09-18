@@ -13,6 +13,7 @@ import {
   obtenerMarcacionesTiendaParaCorregir,
   liberarMarcacionTienda,
   obtenerResumenDepuracionFotos,
+  obtenerFotosParaVisualizar,
   depurarFotosMarcacion,
   obtenerAsignacionesEspecialesParaCorregir,
   eliminarAsignacionEspecialRegistro,
@@ -36,6 +37,7 @@ import {
   type ReporteCorregible,
   type MarcacionTiendaCorregible,
   type ResumenDepuracionFotos,
+  type FotoParaVisualizar,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
   type AuditoriaCorregible,
@@ -614,10 +616,14 @@ function SeccionDepuracionFotos() {
   const [depurando, setDepurando] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mostrandoFotos, setMostrandoFotos] = useState(false);
+  const [fotos, setFotos] = useState<FotoParaVisualizar[]>([]);
+  const [cargandoFotos, setCargandoFotos] = useState(false);
 
   function consultar() {
     setCargandoResumen(true);
     setError(null);
+    setMostrandoFotos(false);
     obtenerResumenDepuracionFotos(hasta)
       .then(setResumen)
       .catch((e) => setError(e.message || "No se pudo calcular el resumen."))
@@ -625,6 +631,19 @@ function SeccionDepuracionFotos() {
   }
 
   useEffect(consultar, [hasta]);
+
+  function toggleVerFotos() {
+    if (mostrandoFotos) {
+      setMostrandoFotos(false);
+      return;
+    }
+    setMostrandoFotos(true);
+    setCargandoFotos(true);
+    obtenerFotosParaVisualizar(hasta)
+      .then(setFotos)
+      .catch(() => setFotos([]))
+      .finally(() => setCargandoFotos(false));
+  }
 
   async function handleDepurar() {
     if (!resumen || resumen.totalFotos === 0) return;
@@ -669,15 +688,70 @@ function SeccionDepuracionFotos() {
       {error && <p className="text-marca-rojoclaro text-xs font-bold mt-2">{error}</p>}
 
       {!cargandoResumen && resumen && (
-        <p className="text-marca-textofuerte text-sm mt-2">
-          {resumen.totalFotos === 0 ? (
-            "No hay fotos que depurar en ese rango."
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="text-marca-textofuerte text-sm">
+            {resumen.totalFotos === 0 ? (
+              "No hay fotos que depurar en ese rango."
+            ) : (
+              <>
+                Se van a borrar <strong>{resumen.totalFotos}</strong> foto(s).
+              </>
+            )}
+          </p>
+          {resumen.totalFotos > 0 && (
+            <button
+              type="button"
+              onClick={toggleVerFotos}
+              className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase tracking-widest"
+            >
+              {mostrandoFotos ? "Ocultar fotos" : "Ver fotos"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {mostrandoFotos && (
+        <div className="mt-2">
+          {cargandoFotos ? (
+            <p className="text-marca-tenue text-sm animate-pulse">Cargando fotos...</p>
+          ) : fotos.length === 0 ? (
+            <p className="text-marca-tenue text-sm italic">No se pudo cargar ninguna foto.</p>
           ) : (
             <>
-              Se van a borrar <strong>{resumen.totalFotos}</strong> foto(s).
+              <p className="text-marca-tenue text-[10px] mb-2">
+                Muestra de las {fotos.length} fotos más recientes del rango
+                {resumen && resumen.totalFotos > fotos.length ? ` (de ${resumen.totalFotos} en total)` : ""}.
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                {fotos.map((f) => (
+                  <a
+                    key={f.blob}
+                    href={f.url ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group"
+                  >
+                    {f.url ? (
+                      <img
+                        src={f.url}
+                        alt={f.etiqueta}
+                        className="w-full aspect-square object-cover rounded-[3px] border border-marca-borde group-hover:border-marca-rojoclaro transition"
+                      />
+                    ) : (
+                      <div className="w-full aspect-square rounded-[3px] border border-marca-borde bg-marca-fondo flex items-center justify-center text-marca-tenue text-[10px] text-center p-1">
+                        Sin imagen
+                      </div>
+                    )}
+                    <p className="text-marca-tenue text-[9px] mt-1 truncate">{f.etiqueta}</p>
+                    <p className="text-marca-tenue text-[9px] truncate capitalize">
+                      {formatearFechaLegible(f.fecha)}
+                    </p>
+                  </a>
+                ))}
+              </div>
             </>
           )}
-        </p>
+        </div>
       )}
 
       <input

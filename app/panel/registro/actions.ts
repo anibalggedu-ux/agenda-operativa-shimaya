@@ -6,7 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
-import { eliminarFotoMarcacion } from "@/lib/azure-storage";
+import { eliminarFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/azure-storage";
 
 export async function exigirAccesoRegistro() {
   const sesion = await obtenerSesion();
@@ -831,6 +831,90 @@ export async function obtenerResumenDepuracionFotos(hasta: string): Promise<Resu
   const supabase = supabaseServer();
   const filas = await listarFotosAntesDe(supabase, hasta);
   return { totalFotos: new Set(filas.map((f) => f.blob)).size };
+}
+
+// Muestra visual (no el total) de las fotos que se van a depurar -- para que
+// se pueda revisar de un vistazo qué se va a borrar antes de confirmar. Se
+// limita a las más recientes del rango, con su tienda/evento y fecha, en vez
+// de traer y generar un enlace temporal para cada una si el rango es grande.
+const LIMITE_VISUALIZACION_FOTOS = 40;
+
+export type FotoParaVisualizar = { blob: string; fecha: string; etiqueta: string; url: string | null };
+
+export async function obtenerFotosParaVisualizar(hasta: string): Promise<FotoParaVisualizar[]> {
+  await exigirAccesoRegistro();
+  if (!hasta) return [];
+  const supabase = supabaseServer();
+
+  const [activas, diarias, eventos, asis] = await Promise.all([
+    supabase
+      .from("rutas_activas")
+      .select("fecha_planificada, foto_llegada_blob, foto_salida_blob, tiendas!tienda_id(nombre)")
+      .lt("fecha_planificada", hasta)
+      .order("fecha_planificada", { ascending: false })
+      .limit(200),
+    supabase
+      .from("rutas_diarias")
+      .select("fecha, foto_llegada_blob, foto_salida_blob, tiendas!tienda_id(nombre)")
+      .lt("fecha", hasta)
+      .order("fecha", { ascending: false })
+      .limit(200),
+    supabase
+      .from("asistencia_eventos")
+      .select("fecha, foto_llegada_blob, foto_salida_blob, comunicados(mensaje)")
+      .lt("fecha", hasta)
+      .order("fecha", { ascending: false })
+      .limit(200),
+    supabase
+      .from("asistencia")
+      .select("fecha, foto_ingreso_blob, foto_salida_blob")
+      .lt("fecha", hasta)
+      .order("fecha", { ascending: false })
+      .limit(200),
+  ]);
+
+  // Un mismo archivo puede aparecer referenciado en "asistencia" y en la
+  // tabla de la tienda/evento a la vez -- se procesa asistencia AL FINAL
+  // para que, si ya se agregó con un nombre de tienda/evento, no se pise con
+  // la etiqueta genérica "Asistencia general".
+  const mapa = new Map<string, { fecha: string; etiqueta: string }>();
+  function agregar(blob: string | null, fecha: string, etiqueta: string) {
+    if (!blob || mapa.has(blob)) return;
+    mapa.set(blob, { fecha, etiqueta });
+  }
+
+  (activas.data ?? []).forEach((r: any) => {
+    const nombre = r.tiendas?.nombre ?? "—";
+    agregar(r.foto_llegada_blob, r.fecha_planificada, `${nombre} · Llegada`);
+    agregar(r.foto_salida_blob, r.fecha_planificada, `${nombre} · Salida`);
+  });
+  (diarias.data ?? []).forEach((r: any) => {
+    const nombre = r.tiendas?.nombre ?? "—";
+    agregar(r.foto_llegada_blob, r.fecha, `${nombre} · Llegada`);
+    agregar(r.foto_salida_blob, r.fecha, `${nombre} · Salida`);
+  });
+  (eventos.data ?? []).forEach((r: any) => {
+    const mensaje = r.comunicados?.mensaje ?? "Evento";
+    agregar(r.foto_llegada_blob, r.fecha, `${mensaje} · Llegada`);
+    agregar(r.foto_salida_blob, r.fecha, `${mensaje} · Salida`);
+  });
+  (asis.data ?? []).forEach((r: any) => {
+    agregar(r.foto_ingreso_blob, r.fecha, "Asistencia general · Ingreso");
+    agregar(r.foto_salida_blob, r.fecha, "Asistencia general · Salida");
+  });
+
+  const masRecientes = Array.from(mapa.entries())
+    .sort((a, b) => b[1].fecha.localeCompare(a[1].fecha))
+    .slice(0, LIMITE_VISUALIZACION_FOTOS);
+
+  return Promise.all(
+    masRecientes.map(async ([blob, info]) => ({
+      blob,
+      fecha: info.fecha,
+      etiqueta: info.etiqueta,
+      url: await obtenerUrlTemporalFoto(blob),
+    }))
+  );
 }
 
 export type ResultadoDepuracionFotos = ResultadoRegistro & { borradas?: number; pendientes?: number };
