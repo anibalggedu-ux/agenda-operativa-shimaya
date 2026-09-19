@@ -98,16 +98,24 @@ export default async function PanelGerente() {
       tituloPortal="Gerente"
       items={items}
       defaultId="inicio"
-      encabezado={(activo) => (
+      encabezado={
         <>
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
             Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
           </h1>
-          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} ocultarTarjetas={activo === "galeria"}>
-            {activo !== "galeria" && <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />}
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
+            <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />
           </ResumenDelDia>
         </>
-      )}
+      }
+      encabezadoGaleria={
+        <>
+          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+            Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
+          </h1>
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} ocultarTarjetas />
+        </>
+      }
     />
   );
 }

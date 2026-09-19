@@ -48,6 +48,7 @@ export default function PanelShell({
   defaultId,
   accionesExtra,
   encabezado,
+  encabezadoGaleria,
 }: {
   nombre: string;
   tituloPortal: string;
@@ -56,9 +57,13 @@ export default function PanelShell({
   accionesExtra?: ReactNode;
   // Contenido que va debajo de la barra fija (título del panel, Resumen del
   // Día, etc.) — se define por página, pero siempre queda bajo la misma
-  // barra superior fija. Puede ser fijo, o una función del id de la pestaña
-  // activa, para variar (ej. ocultar las tarjetas del resumen en Galería).
-  encabezado?: ReactNode | ((activo: string) => ReactNode);
+  // barra superior fija.
+  encabezado?: ReactNode;
+  // Reemplaza a "encabezado" solo mientras la pestaña "galeria" está activa
+  // (ej. sin las tarjetas de Resumen del Día). Un componente de servidor no
+  // puede pasar una función a este Client Component, así que en vez de
+  // "encabezado(activo)" se reciben las dos versiones ya armadas.
+  encabezadoGaleria?: ReactNode;
 }) {
   // Permite enlaces directos a una sección (ej. desde el correo de "Nueva
   // ruta asignada" hacia la Bitácora de Campo): /panel/supervisor?seccion=bitacora
@@ -153,7 +158,7 @@ export default function PanelShell({
           </p>
         </div>
 
-        {typeof encabezado === "function" ? encabezado(activo ?? "") : encabezado}
+        {activo === "galeria" && encabezadoGaleria ? encabezadoGaleria : encabezado}
 
         <div className="flex flex-col lg:flex-row border border-marca-borde rounded-[3px] overflow-hidden">
           <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 bg-marca-superficie border-r border-marca-borde">

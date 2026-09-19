@@ -112,17 +112,26 @@ export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: str
       items={items}
       defaultId="rutas"
       accionesExtra={<CampanitaDescansos />}
-      encabezado={(activo) => (
+      encabezado={
         <div className="space-y-4 mb-4">
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
-          <ResumenDelDia nombre={nombre} rol={rol} ocultarTarjetas={activo === "galeria"}>
-            {activo !== "galeria" && <HistoriasFeed miUsuarioId={id} miRol={rol} />}
+          <ResumenDelDia nombre={nombre} rol={rol}>
+            <HistoriasFeed miUsuarioId={id} miRol={rol} />
           </ResumenDelDia>
           <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
         </div>
-      )}
+      }
+      encabezadoGaleria={
+        <div className="space-y-4 mb-4">
+          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
+            Central <span className="text-marca-rojoclaro italic">Coordinación</span>
+          </h1>
+          <ResumenDelDia nombre={nombre} rol={rol} ocultarTarjetas />
+          <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
+        </div>
+      }
     />
   );
 }
