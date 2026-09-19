@@ -44,7 +44,7 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
-          <HistoriasFeed />
+          <HistoriasFeed miUsuarioId={sesion.id} />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>

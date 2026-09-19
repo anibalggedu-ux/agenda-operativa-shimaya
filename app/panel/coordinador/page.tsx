@@ -8,5 +8,5 @@ export default async function PanelCoordinador() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "coordinador") redirect("/login");
 
-  return <PanelTabs nombre={sesion.nombre} rol={sesion.rol} />;
+  return <PanelTabs id={sesion.id} nombre={sesion.nombre} rol={sesion.rol} />;
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle } from "lucide-react";
-import { obtenerFeedHistorias, crearHistoria, type GrupoHistorias } from "./actions";
+import { Plus, X, AlertTriangle, Trash2 } from "lucide-react";
+import { obtenerFeedHistorias, crearHistoria, eliminarHistoria, type GrupoHistorias } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
 // Mismo set en el compositor (pie de foto) y, más adelante, en las
@@ -13,14 +13,35 @@ const TEXTO_MAXIMO = 200;
 function VisorHistorias({
   grupo,
   indiceInicial,
+  miUsuarioId,
   onCerrar,
+  onEliminada,
 }: {
   grupo: GrupoHistorias;
   indiceInicial: number;
+  miUsuarioId: string;
   onCerrar: () => void;
+  onEliminada: () => void;
 }) {
   const [indice, setIndice] = useState(indiceInicial);
+  const [confirmando, setConfirmando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [mensaje, setMensaje] = useState<string | null>(null);
   const historia = grupo.historias[indice];
+  const esPropia = grupo.usuarioId === miUsuarioId;
+
+  async function confirmarBorrado() {
+    setEliminando(true);
+    setMensaje(null);
+    const resultado = await eliminarHistoria(historia.id);
+    if (resultado.exito) {
+      onEliminada();
+    } else {
+      setMensaje(resultado.mensaje || "No se pudo borrar la foto.");
+      setEliminando(false);
+      setConfirmando(false);
+    }
+  }
 
   return (
     <div
@@ -41,9 +62,20 @@ function VisorHistorias({
           <p className="text-white text-sm font-bold">
             {grupo.nombre} <span className="text-white/50 font-normal text-xs capitalize">· {grupo.rol}</span>
           </p>
-          <button onClick={onCerrar} className="text-white/70 hover:text-white" aria-label="Cerrar">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            {esPropia && (
+              <button
+                onClick={() => setConfirmando(true)}
+                className="text-white/70 hover:text-marca-rojoclaro"
+                aria-label="Borrar esta foto"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onCerrar} className="text-white/70 hover:text-white" aria-label="Cerrar">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="relative">
@@ -57,7 +89,41 @@ function VisorHistorias({
               {historia.texto}
             </p>
           )}
+
+          {confirmando && (
+            <div
+              className="absolute inset-0 bg-black/85 flex items-center justify-center rounded-[3px] p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-marca-superficie2 border border-marca-borde rounded-[3px] p-4 space-y-3 max-w-xs text-center">
+                <p className="text-marca-texto text-sm font-bold">¿Borrar esta foto?</p>
+                <p className="text-marca-tenue text-xs">Se elimina para todo el equipo y no se puede deshacer.</p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setConfirmando(false)}
+                    disabled={eliminando}
+                    className="flex-1 min-h-[40px] border border-marca-borde text-marca-texto text-xs font-bold rounded-[3px] disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmarBorrado}
+                    disabled={eliminando}
+                    className="flex-1 min-h-[40px] bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte text-xs font-black rounded-[3px] disabled:opacity-60"
+                  >
+                    {eliminando ? "Borrando..." : "Sí, borrar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {mensaje && (
+          <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold mt-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
+          </p>
+        )}
 
         <div className="flex justify-between mt-2 text-xs font-bold">
           <button
@@ -157,7 +223,7 @@ function ComposerHistoria({
   );
 }
 
-export default function HistoriasFeed() {
+export default function HistoriasFeed({ miUsuarioId }: { miUsuarioId: string }) {
   const [grupos, setGrupos] = useState<GrupoHistorias[]>([]);
   const [cargando, setCargando] = useState(true);
   const [borrador, setBorrador] = useState<string | null>(null);
@@ -279,7 +345,16 @@ export default function HistoriasFeed() {
       )}
 
       {visor && (
-        <VisorHistorias grupo={visor.grupo} indiceInicial={visor.indice} onCerrar={() => setVisor(null)} />
+        <VisorHistorias
+          grupo={visor.grupo}
+          indiceInicial={visor.indice}
+          miUsuarioId={miUsuarioId}
+          onCerrar={() => setVisor(null)}
+          onEliminada={() => {
+            setVisor(null);
+            cargar();
+          }}
+        />
       )}
     </div>
   );

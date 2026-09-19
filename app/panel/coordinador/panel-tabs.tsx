@@ -32,7 +32,7 @@ import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import ResumenDelDia from "../resumen-del-dia";
 import { hoyPeru } from "@/lib/fechas";
 
-export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string }) {
+export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: string; rol: string }) {
   const items: ItemMenuPanel[] = [
     {
       id: "rutas",
@@ -117,7 +117,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol} />
           <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
-          <HistoriasFeed />
+          <HistoriasFeed miUsuarioId={id} />
         </div>
       }
     />

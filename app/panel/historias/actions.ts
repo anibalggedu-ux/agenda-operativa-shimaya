@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
-import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria } from "@/lib/azure-storage";
+import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria } from "@/lib/azure-storage";
 
 // Las historias se muestran mientras tengan menos de 7 días -- el borrado
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
@@ -39,6 +39,39 @@ export async function crearHistoria(fotoDataUrl: string, texto?: string): Promis
     return { exito: true };
   } catch (err: any) {
     return { exito: false, mensaje: err?.message || "No se pudo publicar la foto." };
+  }
+}
+
+// Por ahora solo el propio autor puede borrar su historia (ej. la subió por
+// error) -- el borrado por moderación de coordinador/gerente sobre fotos de
+// otras personas llega en el paso de moderación.
+export async function eliminarHistoria(historiaId: string): Promise<ResultadoHistoria> {
+  try {
+    const sesion = await exigirSesion();
+    const supabase = supabaseServer();
+
+    const { data, error: errorLectura } = await supabase
+      .from("historias")
+      .select("id, usuario_id, foto_blob")
+      .eq("id", historiaId)
+      .single();
+
+    if (errorLectura || !data) {
+      return { exito: false, mensaje: "La historia ya no existe." };
+    }
+    if (data.usuario_id !== sesion.id) {
+      return { exito: false, mensaje: "No puedes borrar la historia de otra persona." };
+    }
+
+    const { error: errorBorrado } = await supabase.from("historias").delete().eq("id", historiaId);
+    if (errorBorrado) {
+      return { exito: false, mensaje: "No se pudo borrar la historia." };
+    }
+
+    await eliminarFotoHistoria(data.foto_blob);
+    return { exito: true };
+  } catch (err: any) {
+    return { exito: false, mensaje: err?.message || "No se pudo borrar la historia." };
   }
 }
 
