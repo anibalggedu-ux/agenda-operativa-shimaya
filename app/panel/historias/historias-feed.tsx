@@ -5,6 +5,11 @@ import { Plus, X, AlertTriangle } from "lucide-react";
 import { obtenerFeedHistorias, crearHistoria, type GrupoHistorias } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
+// Mismo set en el compositor (pie de foto) y, más adelante, en las
+// reacciones que deja el resto del equipo sobre una historia ya publicada.
+const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
+const TEXTO_MAXIMO = 200;
+
 function VisorHistorias({
   grupo,
   indiceInicial,
@@ -41,11 +46,18 @@ function VisorHistorias({
           </button>
         </div>
 
-        <img
-          src={historia.url}
-          alt={`Historia de ${grupo.nombre}`}
-          className="w-full max-h-[70vh] object-contain rounded-[3px] bg-black"
-        />
+        <div className="relative">
+          <img
+            src={historia.url}
+            alt={`Historia de ${grupo.nombre}`}
+            className="w-full max-h-[70vh] object-contain rounded-[3px] bg-black"
+          />
+          {historia.texto && (
+            <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent text-white text-sm font-semibold px-3 pt-6 pb-3 rounded-b-[3px]">
+              {historia.texto}
+            </p>
+          )}
+        </div>
 
         <div className="flex justify-between mt-2 text-xs font-bold">
           <button
@@ -68,10 +80,88 @@ function VisorHistorias({
   );
 }
 
+function ComposerHistoria({
+  foto,
+  onCancelar,
+  onPublicar,
+  publicando,
+  mensaje,
+}: {
+  foto: string;
+  onCancelar: () => void;
+  onPublicar: (texto: string) => void;
+  publicando: boolean;
+  mensaje: string | null;
+}) {
+  const [texto, setTexto] = useState("");
+
+  function agregarEmoji(emoji: string) {
+    setTexto((t) => (t.length + emoji.length <= TEXTO_MAXIMO ? t + emoji : t));
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-white text-sm font-bold">Nueva historia</p>
+          <button
+            onClick={onCancelar}
+            disabled={publicando}
+            className="text-white/70 hover:text-white disabled:opacity-40"
+            aria-label="Cancelar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <img src={foto} alt="Foto a publicar" className="w-full max-h-[50vh] object-contain rounded-[3px] bg-black" />
+
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value.slice(0, TEXTO_MAXIMO))}
+          placeholder="Escribe un pie de foto (opcional)..."
+          rows={2}
+          className="w-full bg-marca-superficie2 border border-marca-borde rounded-[3px] px-3 py-2 text-sm text-marca-texto placeholder:text-marca-tenue resize-none"
+        />
+        <p className="text-right text-[10px] text-marca-tenue -mt-2">{texto.length}/{TEXTO_MAXIMO}</p>
+
+        <div className="flex flex-wrap gap-2">
+          {EMOJIS_HISTORIA.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => agregarEmoji(emoji)}
+              className="w-9 h-9 flex items-center justify-center text-lg bg-marca-superficie2 border border-marca-borde rounded-full hover:border-marca-rojoclaro transition"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+
+        {mensaje && (
+          <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onPublicar(texto)}
+          disabled={publicando}
+          className="w-full min-h-[48px] bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] transition"
+        >
+          {publicando ? "Publicando..." : "Publicar historia"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function HistoriasFeed() {
   const [grupos, setGrupos] = useState<GrupoHistorias[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [subiendo, setSubiendo] = useState(false);
+  const [borrador, setBorrador] = useState<string | null>(null);
+  const [publicando, setPublicando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,18 +182,29 @@ export default function HistoriasFeed() {
 
     setMensaje(null);
     try {
-      setSubiendo(true);
       const foto = await comprimirFotoComoBase64(archivo, 1280, 0.75);
-      const resultado = await crearHistoria(foto);
+      setBorrador(foto);
+    } catch (err: any) {
+      setMensaje(err?.message || "No se pudo procesar la foto.");
+    }
+  }
+
+  async function publicar(texto: string) {
+    if (!borrador) return;
+    setMensaje(null);
+    setPublicando(true);
+    try {
+      const resultado = await crearHistoria(borrador, texto);
       if (resultado.exito) {
+        setBorrador(null);
         cargar();
       } else {
         setMensaje(resultado.mensaje || "No se pudo publicar la foto.");
       }
     } catch (err: any) {
-      setMensaje(err?.message || "No se pudo procesar la foto.");
+      setMensaje(err?.message || "No se pudo publicar la foto.");
     } finally {
-      setSubiendo(false);
+      setPublicando(false);
     }
   }
 
@@ -126,15 +227,12 @@ export default function HistoriasFeed() {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={subiendo}
           className="shrink-0 flex flex-col items-center gap-1 w-16"
         >
-          <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro disabled:opacity-60">
-            {subiendo ? "…" : <Plus className="w-5 h-5" />}
+          <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
+            <Plus className="w-5 h-5" />
           </span>
-          <span className="text-[10px] text-marca-tenue truncate w-full text-center">
-            {subiendo ? "Subiendo" : "Publicar"}
-          </span>
+          <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
         </button>
 
         {grupos.map((g) => (
@@ -157,7 +255,7 @@ export default function HistoriasFeed() {
         ))}
       </div>
 
-      {mensaje && (
+      {mensaje && !borrador && (
         <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
         </p>
@@ -165,6 +263,19 @@ export default function HistoriasFeed() {
 
       {grupos.length === 0 && (
         <p className="text-marca-tenue text-[11px]">Nadie ha publicado historias todavía — sé el primero.</p>
+      )}
+
+      {borrador && (
+        <ComposerHistoria
+          foto={borrador}
+          onCancelar={() => {
+            setBorrador(null);
+            setMensaje(null);
+          }}
+          onPublicar={publicar}
+          publicando={publicando}
+          mensaje={mensaje}
+        />
       )}
 
       {visor && (

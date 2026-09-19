@@ -8,16 +8,19 @@ import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria } from "@/lib/azure-s
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
 // decide qué se sigue mostrando en el feed mientras tanto.
 const DIAS_VISIBLE = 7;
+const TEXTO_MAXIMO = 200;
 
 export type ResultadoHistoria = { exito: boolean; mensaje?: string };
 
-export async function crearHistoria(fotoDataUrl: string): Promise<ResultadoHistoria> {
+export async function crearHistoria(fotoDataUrl: string, texto?: string): Promise<ResultadoHistoria> {
   try {
     const sesion = await exigirSesion();
 
     if (!fotoDataUrl || !fotoDataUrl.startsWith("data:image/")) {
       return { exito: false, mensaje: "La foto no tiene un formato válido." };
     }
+
+    const textoLimpio = texto?.trim().slice(0, TEXTO_MAXIMO) || null;
 
     const blobPath = `${sesion.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
     await subirFotoHistoria(blobPath, fotoDataUrl);
@@ -26,6 +29,7 @@ export async function crearHistoria(fotoDataUrl: string): Promise<ResultadoHisto
     const { error } = await supabase.from("historias").insert({
       usuario_id: sesion.id,
       foto_blob: blobPath,
+      texto: textoLimpio,
     });
 
     if (error) {
@@ -38,7 +42,7 @@ export async function crearHistoria(fotoDataUrl: string): Promise<ResultadoHisto
   }
 }
 
-export type HistoriaFoto = { id: string; url: string; creadoEn: string };
+export type HistoriaFoto = { id: string; url: string; texto: string | null; creadoEn: string };
 
 export type GrupoHistorias = {
   usuarioId: string;
@@ -57,7 +61,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, usuario_id, foto_blob, created_at, usuarios(nombre, rol)")
+    .select("id, usuario_id, foto_blob, texto, created_at, usuarios(nombre, rol)")
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
 
@@ -79,7 +83,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
       rol: fila.usuarios?.rol ?? "",
       historias: [],
     };
-    grupo.historias.push({ id: fila.id, url, creadoEn: fila.created_at });
+    grupo.historias.push({ id: fila.id, url, texto: fila.texto, creadoEn: fila.created_at });
     porUsuario.set(fila.usuario_id, grupo);
   }
 

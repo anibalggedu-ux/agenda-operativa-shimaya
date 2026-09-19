@@ -525,18 +525,21 @@ export type Database = {
           created_at: string
           foto_blob: string
           id: string
+          texto: string | null
           usuario_id: string
         }
         Insert: {
           created_at?: string
           foto_blob: string
           id?: string
+          texto?: string | null
           usuario_id: string
         }
         Update: {
           created_at?: string
           foto_blob?: string
           id?: string
+          texto?: string | null
           usuario_id?: string
         }
         Relationships: [
