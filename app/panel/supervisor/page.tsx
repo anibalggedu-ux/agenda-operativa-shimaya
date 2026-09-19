@@ -27,6 +27,7 @@ import {
   LazyMiGaleria as MiGaleria,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
+import { obtenerNotificacionesPendientes } from "../historias/social-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function PanelSupervisor() {
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
   const accesoAuditoria = await tieneAccesoAuditoria(sesion.id);
+  const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
 
   const items: ItemMenuPanel[] = [
     {
@@ -110,6 +112,7 @@ export default async function PanelSupervisor() {
       etiqueta: "Mi Galería",
       icono: <Images className="w-4 h-4" />,
       contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
+      badge: notificacionesPendientes,
     },
   ];
 

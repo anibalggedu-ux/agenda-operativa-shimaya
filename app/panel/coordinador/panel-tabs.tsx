@@ -33,7 +33,17 @@ import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import ResumenDelDia from "../resumen-del-dia";
 import { hoyPeru } from "@/lib/fechas";
 
-export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: string; rol: string }) {
+export default function PanelTabs({
+  id,
+  nombre,
+  rol,
+  notificacionesPendientes,
+}: {
+  id: string;
+  nombre: string;
+  rol: string;
+  notificacionesPendientes: number;
+}) {
   const items: ItemMenuPanel[] = [
     {
       id: "rutas",
@@ -102,7 +112,13 @@ export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: str
     },
     { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <HistorialAuditorias modo="todas" /> },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
-    { id: "galeria", etiqueta: "Mi Galería", icono: <Images className="w-4 h-4" />, contenido: <MiGaleria miUsuarioId={id} miRol={rol} /> },
+    {
+      id: "galeria",
+      etiqueta: "Mi Galería",
+      icono: <Images className="w-4 h-4" />,
+      contenido: <MiGaleria miUsuarioId={id} miRol={rol} />,
+      badge: notificacionesPendientes,
+    },
   ];
 
   return (

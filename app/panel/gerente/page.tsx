@@ -18,12 +18,14 @@ import {
   LazyMiGaleria as MiGaleria,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
+import { obtenerNotificacionesPendientes } from "../historias/social-actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function PanelGerente() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "gerente") redirect("/login");
+  const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
 
@@ -80,6 +82,7 @@ export default async function PanelGerente() {
       etiqueta: "Mi Galería",
       icono: <Images className="w-4 h-4" />,
       contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
+      badge: notificacionesPendientes,
     },
   ];
 

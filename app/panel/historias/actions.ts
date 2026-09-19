@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria } from "@/lib/azure-storage";
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
+import { hoyPeru } from "@/lib/fechas";
 
 // Las historias se muestran mientras tengan menos de 7 días -- el borrado
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
@@ -84,6 +85,12 @@ export async function crearHistoria(fotoDataUrl: string, texto?: string): Promis
     if (error) {
       return { exito: false, mensaje: "No se pudo guardar la historia." };
     }
+
+    // Para la racha de publicación -- no se borra cuando la foto vence a
+    // los 7 días, así que no importa si ya existía la fila de hoy.
+    await supabase
+      .from("historia_publicaciones")
+      .upsert({ usuario_id: sesion.id, fecha: hoyPeru() }, { onConflict: "usuario_id,fecha", ignoreDuplicates: true });
 
     return { exito: true };
   } catch (err: any) {
@@ -303,7 +310,15 @@ export async function alternarReaccion(historiaId: string, emoji: string): Promi
   }
 }
 
-export type HistoriaFoto = { id: string; url: string; texto: string | null; creadoEn: string };
+export type HistoriaFoto = {
+  id: string;
+  url: string;
+  texto: string | null;
+  creadoEn: string;
+  // Comentarios + reacciones combinados -- se muestra como un badge chico
+  // sobre el círculo del feed, sin tener que abrir la foto.
+  interacciones: number;
+};
 
 export type GrupoHistorias = {
   usuarioId: string;
@@ -328,6 +343,19 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
   if (error || !data) return [];
 
+  const idsHistorias = (data as any[]).map((f) => f.id);
+  const [reaccionesRes, comentariosRes] = await Promise.all([
+    supabase.from("historia_reacciones").select("historia_id").in("historia_id", idsHistorias),
+    supabase.from("historia_comentarios").select("historia_id").in("historia_id", idsHistorias),
+  ]);
+  const conteoInteracciones = new Map<string, number>();
+  (reaccionesRes.data ?? []).forEach((r: any) =>
+    conteoInteracciones.set(r.historia_id, (conteoInteracciones.get(r.historia_id) ?? 0) + 1)
+  );
+  (comentariosRes.data ?? []).forEach((c: any) =>
+    conteoInteracciones.set(c.historia_id, (conteoInteracciones.get(c.historia_id) ?? 0) + 1)
+  );
+
   const filasConUrl = await Promise.all(
     (data as any[]).map(async (fila) => ({
       fila,
@@ -344,7 +372,13 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
       rol: fila.usuarios?.rol ?? "",
       historias: [],
     };
-    grupo.historias.push({ id: fila.id, url, texto: fila.texto, creadoEn: fila.created_at });
+    grupo.historias.push({
+      id: fila.id,
+      url,
+      texto: fila.texto,
+      creadoEn: fila.created_at,
+      interacciones: conteoInteracciones.get(fila.id) ?? 0,
+    });
     porUsuario.set(fila.usuario_id, grupo);
   }
 

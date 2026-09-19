@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share2, Images } from "lucide-react";
+import { Download, Share2, Images, Trophy } from "lucide-react";
 import { obtenerMiGaleria, obtenerMiSaldoDeRegalo, type FotoGaleria, type SaldoRegalo } from "./actions";
+import { marcarNotificacionesVistas, obtenerRankingRegalos, type FilaRankingRegalos } from "./social-actions";
 import HistoriasFeed from "./historias-feed";
 
 function claseBadge(diasRestantes: number): string {
@@ -96,19 +97,63 @@ function FranjaPuntos({ saldo }: { saldo: SaldoRegalo }) {
   );
 }
 
+function RankingRegalos({ filas }: { filas: FilaRankingRegalos[] }) {
+  const topDonadores = [...filas].filter((f) => f.donado > 0).sort((a, b) => b.donado - a.donado).slice(0, 5);
+  const topReceptores = [...filas].filter((f) => f.recibido > 0).sort((a, b) => b.recibido - a.recibido).slice(0, 5);
+
+  if (topDonadores.length === 0 && topReceptores.length === 0) return null;
+
+  return (
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-4">
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> RANKING DE REGALOS DEL EQUIPO
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <p className="text-marca-tenue text-[10px] font-black uppercase tracking-widest">🎁 Top donadores</p>
+          {topDonadores.map((f, i) => (
+            <div key={f.usuarioId} className="flex items-center justify-between text-xs">
+              <span className="text-marca-texto">
+                <span className="text-marca-tenue font-bold mr-1.5">{i + 1}.</span>
+                {f.nombre}
+              </span>
+              <span className="text-marca-rojoclaro font-black">{f.donado} pts</span>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-marca-tenue text-[10px] font-black uppercase tracking-widest">🎉 Top receptores</p>
+          {topReceptores.map((f, i) => (
+            <div key={f.usuarioId} className="flex items-center justify-between text-xs">
+              <span className="text-marca-texto">
+                <span className="text-marca-tenue font-bold mr-1.5">{i + 1}.</span>
+                {f.nombre}
+              </span>
+              <span className="text-emerald-400 font-black">{f.recibido} pts</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string; miRol: string }) {
   const [fotos, setFotos] = useState<FotoGaleria[]>([]);
   const [saldo, setSaldo] = useState<SaldoRegalo | null>(null);
+  const [ranking, setRanking] = useState<FilaRankingRegalos[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    Promise.all([obtenerMiGaleria(), obtenerMiSaldoDeRegalo()])
-      .then(([f, s]) => {
+    Promise.all([obtenerMiGaleria(), obtenerMiSaldoDeRegalo(), obtenerRankingRegalos()])
+      .then(([f, s, r]) => {
         setFotos(f);
         setSaldo(s);
+        setRanking(r);
       })
       .catch(() => setFotos([]))
       .finally(() => setCargando(false));
+    marcarNotificacionesVistas().catch(() => {});
   }, []);
 
   if (cargando) {
@@ -137,6 +182,8 @@ export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string;
           </div>
         )}
       </div>
+
+      <RankingRegalos filas={ranking} />
     </div>
   );
 }

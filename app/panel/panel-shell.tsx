@@ -15,6 +15,9 @@ export type ItemMenuPanel = {
   // rompe la serialización de React Server Components.
   icono: ReactNode;
   contenido: ReactNode;
+  // Numerito rojo junto al nombre de la pestaña (ej. notificaciones nuevas
+  // en Mi Galería). Se calcula en el servidor al cargar la página.
+  badge?: number;
 };
 
 function BotonItem({
@@ -36,7 +39,12 @@ function BotonItem({
       }`}
     >
       <span className="shrink-0">{item.icono}</span>
-      <span className="truncate">{item.etiqueta}</span>
+      <span className="truncate flex-1">{item.etiqueta}</span>
+      {!!item.badge && (
+        <span className="shrink-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-marca-rojo text-white text-[10px] font-black">
+          {item.badge > 9 ? "9+" : item.badge}
+        </span>
+      )}
     </button>
   );
 }

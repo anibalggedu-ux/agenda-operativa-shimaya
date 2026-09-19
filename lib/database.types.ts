@@ -559,6 +559,29 @@ export type Database = {
           },
         ]
       }
+      historia_publicaciones: {
+        Row: {
+          fecha: string
+          usuario_id: string
+        }
+        Insert: {
+          fecha: string
+          usuario_id: string
+        }
+        Update: {
+          fecha?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historia_publicaciones_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historia_reacciones: {
         Row: {
           created_at: string
@@ -710,6 +733,29 @@ export type Database = {
             foreignKeyName: "historias_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificaciones_estado: {
+        Row: {
+          usuario_id: string
+          visto_en: string
+        }
+        Insert: {
+          usuario_id: string
+          visto_en?: string
+        }
+        Update: {
+          usuario_id?: string
+          visto_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificaciones_estado_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
             referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },

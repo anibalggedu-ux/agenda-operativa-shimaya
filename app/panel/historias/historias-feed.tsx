@@ -17,6 +17,7 @@ import {
   type DetalleHistoria,
   type SaldoRegalo,
 } from "./actions";
+import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
@@ -491,6 +492,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [publicando, setPublicando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
+  const [racha, setRacha] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function cargar() {
@@ -501,6 +503,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   }
 
   useEffect(cargar, []);
+  useEffect(() => {
+    obtenerRachaPublicacion().then(setRacha).catch(() => {});
+  }, []);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
@@ -525,6 +530,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       if (resultado.exito) {
         setBorrador(null);
         cargar();
+        obtenerRachaPublicacion().then(setRacha).catch(() => {});
       } else {
         setMensaje(resultado.mensaje || "No se pudo publicar la foto.");
       }
@@ -539,7 +545,14 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-black tracking-widest text-marca-tenue">HISTORIAS DEL EQUIPO</h3>
+      <div className="flex items-center gap-2 flex-wrap">
+        <h3 className="text-xs font-black tracking-widest text-marca-tenue">HISTORIAS DEL EQUIPO</h3>
+        {racha > 0 && (
+          <span className="bg-orange-950/30 border border-orange-700/40 text-orange-300 text-[10px] font-black px-2.5 py-1 rounded-full">
+            🔥 {racha} día{racha === 1 ? "" : "s"} publicando seguido
+          </span>
+        )}
+      </div>
 
       <input
         ref={inputRef}
@@ -562,24 +575,34 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
           <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
         </button>
 
-        {grupos.map((g) => (
-          <button
-            key={g.usuarioId}
-            type="button"
-            onClick={() => setVisor({ grupo: g, indice: g.historias.length - 1 })}
-            className="shrink-0 flex flex-col items-center gap-1 w-16"
-          >
-            <span className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-marca-rojo to-marca-rojoclaro">
-              <span
-                className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo"
-                style={{ backgroundImage: `url(${g.historias[g.historias.length - 1].url})` }}
-              />
-            </span>
-            <span className="text-[10px] text-marca-texto truncate w-full text-center">
-              {g.nombre.split(" ")[0]}
-            </span>
-          </button>
-        ))}
+        {grupos.map((g) => {
+          const ultima = g.historias[g.historias.length - 1];
+          return (
+            <button
+              key={g.usuarioId}
+              type="button"
+              onClick={() => setVisor({ grupo: g, indice: g.historias.length - 1 })}
+              className="shrink-0 flex flex-col items-center gap-1 w-16"
+            >
+              <span className="relative w-14 h-14">
+                <span className="block w-full h-full rounded-full p-[2px] bg-gradient-to-tr from-marca-rojo to-marca-rojoclaro">
+                  <span
+                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo"
+                    style={{ backgroundImage: `url(${ultima.url})` }}
+                  />
+                </span>
+                {ultima.interacciones > 0 && (
+                  <span className="absolute -bottom-1 -right-1 min-w-[17px] h-[17px] px-1 flex items-center justify-center rounded-full bg-marca-rojo border-2 border-marca-fondo text-white text-[9px] font-black">
+                    {ultima.interacciones > 9 ? "9+" : ultima.interacciones}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] text-marca-texto truncate w-full text-center">
+                {g.nombre.split(" ")[0]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {mensaje && !borrador && (
