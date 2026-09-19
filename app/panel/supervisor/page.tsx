@@ -136,7 +136,7 @@ export default async function PanelSupervisor() {
             Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
           </h1>
           <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
-            <HistoriasFeed miUsuarioId={sesion.id} />
+            <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />
           </ResumenDelDia>
         </>
       }

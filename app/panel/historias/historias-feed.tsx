@@ -1,25 +1,79 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle, Trash2 } from "lucide-react";
-import { obtenerFeedHistorias, crearHistoria, eliminarHistoria, type GrupoHistorias } from "./actions";
+import { Plus, X, AlertTriangle, Trash2, Send } from "lucide-react";
+import {
+  obtenerFeedHistorias,
+  crearHistoria,
+  eliminarHistoria,
+  obtenerDetalleHistoria,
+  agregarComentario,
+  eliminarComentario,
+  alternarReaccion,
+  type GrupoHistorias,
+  type DetalleHistoria,
+} from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
-// Mismo set en el compositor (pie de foto) y, más adelante, en las
-// reacciones que deja el resto del equipo sobre una historia ya publicada.
+// Mismo set en el compositor (pie de foto) y en las reacciones que deja el
+// resto del equipo sobre una historia ya publicada.
 const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
 const TEXTO_MAXIMO = 200;
+const COMENTARIO_MAXIMO = 300;
+
+function BarraReacciones({
+  reacciones,
+  miReaccion,
+  onReaccionar,
+  deshabilitado,
+}: {
+  reacciones: { emoji: string; cantidad: number }[];
+  miReaccion: string | null;
+  onReaccionar: (emoji: string) => void;
+  deshabilitado: boolean;
+}) {
+  function cantidadDe(emoji: string) {
+    return reacciones.find((r) => r.emoji === emoji)?.cantidad ?? 0;
+  }
+
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-1">
+      {EMOJIS_HISTORIA.map((emoji) => {
+        const cantidad = cantidadDe(emoji);
+        const esMia = miReaccion === emoji;
+        return (
+          <button
+            key={emoji}
+            type="button"
+            disabled={deshabilitado}
+            onClick={() => onReaccionar(emoji)}
+            className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full border text-sm transition disabled:opacity-50 ${
+              esMia
+                ? "bg-marca-rojo/20 border-marca-rojoclaro"
+                : "bg-white/5 border-white/15 hover:border-white/35"
+            }`}
+          >
+            <span>{emoji}</span>
+            {cantidad > 0 && <span className="text-[10px] font-bold text-white/80">{cantidad}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function VisorHistorias({
   grupo,
   indiceInicial,
   miUsuarioId,
+  miRol,
   onCerrar,
   onEliminada,
 }: {
   grupo: GrupoHistorias;
   indiceInicial: number;
   miUsuarioId: string;
+  miRol: string;
   onCerrar: () => void;
   onEliminada: () => void;
 }) {
@@ -27,8 +81,23 @@ function VisorHistorias({
   const [confirmando, setConfirmando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
+
+  const [detalle, setDetalle] = useState<DetalleHistoria | null>(null);
+  const [reaccionando, setReaccionando] = useState(false);
+  const [comentarioTexto, setComentarioTexto] = useState("");
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
+
   const historia = grupo.historias[indice];
   const esPropia = grupo.usuarioId === miUsuarioId;
+  const esModerador = miRol === "coordinador" || miRol === "gerente";
+  const puedeBorrarFoto = esPropia || esModerador;
+
+  useEffect(() => {
+    setDetalle(null);
+    setComentarioTexto("");
+    obtenerDetalleHistoria(historia.id).then(setDetalle).catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historia.id]);
 
   async function confirmarBorrado() {
     setEliminando(true);
@@ -43,12 +112,50 @@ function VisorHistorias({
     }
   }
 
+  async function reaccionar(emoji: string) {
+    setReaccionando(true);
+    const resultado = await alternarReaccion(historia.id, emoji);
+    if (resultado.exito) {
+      setDetalle((d) => (d ? { ...d, reacciones: resultado.reacciones ?? [], miReaccion: resultado.miReaccion ?? null } : d));
+    } else {
+      setMensaje(resultado.mensaje || "No se pudo reaccionar.");
+    }
+    setReaccionando(false);
+  }
+
+  async function enviarComentario() {
+    const texto = comentarioTexto.trim();
+    if (!texto) return;
+    setEnviandoComentario(true);
+    const resultado = await agregarComentario(historia.id, texto);
+    if (resultado.exito) {
+      setComentarioTexto("");
+      const actualizado = await obtenerDetalleHistoria(historia.id);
+      setDetalle(actualizado);
+    } else {
+      setMensaje(resultado.mensaje || "No se pudo publicar el comentario.");
+    }
+    setEnviandoComentario(false);
+  }
+
+  async function borrarComentario(comentarioId: string) {
+    const resultado = await eliminarComentario(comentarioId);
+    if (resultado.exito) {
+      setDetalle((d) => (d ? { ...d, comentarios: d.comentarios.filter((c) => c.id !== comentarioId) } : d));
+    } else {
+      setMensaje(resultado.mensaje || "No se pudo borrar el comentario.");
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
       onClick={onCerrar}
     >
-      <div className="relative w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="relative w-full max-w-sm max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-1 mb-2">
           {grupo.historias.map((_, i) => (
             <span
@@ -63,11 +170,12 @@ function VisorHistorias({
             {grupo.nombre} <span className="text-white/50 font-normal text-xs capitalize">· {grupo.rol}</span>
           </p>
           <div className="flex items-center gap-3">
-            {esPropia && (
+            {puedeBorrarFoto && (
               <button
                 onClick={() => setConfirmando(true)}
                 className="text-white/70 hover:text-marca-rojoclaro"
                 aria-label="Borrar esta foto"
+                title={esPropia ? "Borrar mi foto" : "Borrar por moderación"}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -82,7 +190,7 @@ function VisorHistorias({
           <img
             src={historia.url}
             alt={`Historia de ${grupo.nombre}`}
-            className="w-full max-h-[70vh] object-contain rounded-[3px] bg-black"
+            className="w-full max-h-[48vh] object-contain rounded-[3px] bg-black"
           />
           {historia.texto && (
             <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent text-white text-sm font-semibold px-3 pt-6 pb-3 rounded-b-[3px]">
@@ -97,7 +205,11 @@ function VisorHistorias({
             >
               <div className="bg-marca-superficie2 border border-marca-borde rounded-[3px] p-4 space-y-3 max-w-xs text-center">
                 <p className="text-marca-texto text-sm font-bold">¿Borrar esta foto?</p>
-                <p className="text-marca-tenue text-xs">Se elimina para todo el equipo y no se puede deshacer.</p>
+                <p className="text-marca-tenue text-xs">
+                  {esPropia
+                    ? "Se elimina para todo el equipo y no se puede deshacer."
+                    : "Se elimina por moderación, para todo el equipo, y no se puede deshacer."}
+                </p>
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => setConfirmando(false)}
@@ -125,7 +237,63 @@ function VisorHistorias({
           </p>
         )}
 
-        <div className="flex justify-between mt-2 text-xs font-bold">
+        <div className="mt-3">
+          <BarraReacciones
+            reacciones={detalle?.reacciones ?? []}
+            miReaccion={detalle?.miReaccion ?? null}
+            onReaccionar={reaccionar}
+            deshabilitado={reaccionando || !detalle}
+          />
+        </div>
+
+        <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1">
+          {detalle && detalle.comentarios.length === 0 && (
+            <p className="text-white/40 text-[11px]">Todavía no hay comentarios.</p>
+          )}
+          {detalle?.comentarios.map((c) => {
+            const puedeBorrar = c.usuarioId === miUsuarioId || esModerador;
+            return (
+              <div key={c.id} className="flex items-start justify-between gap-2 bg-white/5 rounded-[3px] px-2.5 py-1.5">
+                <p className="text-white text-xs min-w-0 break-words">
+                  <span className="font-bold">{c.nombre}</span>{" "}
+                  <span className="text-white/40 text-[10px] uppercase">({c.rol})</span>{" "}
+                  <span className="text-white/85">{c.texto}</span>
+                </p>
+                {puedeBorrar && (
+                  <button
+                    onClick={() => borrarComentario(c.id)}
+                    className="shrink-0 text-white/40 hover:text-marca-rojoclaro"
+                    aria-label="Borrar comentario"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            value={comentarioTexto}
+            onChange={(e) => setComentarioTexto(e.target.value.slice(0, COMENTARIO_MAXIMO))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") enviarComentario();
+            }}
+            placeholder="Escribe un comentario..."
+            className="flex-1 bg-white/10 border border-white/20 rounded-full px-3.5 py-2 text-xs text-white placeholder:text-white/40"
+          />
+          <button
+            onClick={enviarComentario}
+            disabled={enviandoComentario || !comentarioTexto.trim()}
+            aria-label="Enviar comentario"
+            className="shrink-0 w-9 h-9 flex items-center justify-center bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 rounded-full text-white"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex justify-between mt-3 text-xs font-bold">
           <button
             disabled={indice === 0}
             onClick={() => setIndice((i) => i - 1)}
@@ -223,7 +391,7 @@ function ComposerHistoria({
   );
 }
 
-export default function HistoriasFeed({ miUsuarioId }: { miUsuarioId: string }) {
+export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: string; miRol: string }) {
   const [grupos, setGrupos] = useState<GrupoHistorias[]>([]);
   const [cargando, setCargando] = useState(true);
   const [borrador, setBorrador] = useState<string | null>(null);
@@ -349,6 +517,7 @@ export default function HistoriasFeed({ miUsuarioId }: { miUsuarioId: string }) 
           grupo={visor.grupo}
           indiceInicial={visor.indice}
           miUsuarioId={miUsuarioId}
+          miRol={miRol}
           onCerrar={() => setVisor(null)}
           onEliminada={() => {
             setVisor(null);

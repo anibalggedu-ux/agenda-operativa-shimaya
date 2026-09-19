@@ -117,7 +117,7 @@ export default async function PanelCapacitador() {
             Panel <span className="text-marca-rojoclaro italic">Capacitador</span>
           </h1>
           <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
-            <HistoriasFeed miUsuarioId={sesion.id} />
+            <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />
           </ResumenDelDia>
         </>
       }

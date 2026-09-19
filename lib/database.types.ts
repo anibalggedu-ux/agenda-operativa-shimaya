@@ -520,6 +520,84 @@ export type Database = {
           },
         ]
       }
+      historia_comentarios: {
+        Row: {
+          created_at: string
+          historia_id: string
+          id: string
+          texto: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          historia_id: string
+          id?: string
+          texto: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          historia_id?: string
+          id?: string
+          texto?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historia_comentarios_historia_id_fkey"
+            columns: ["historia_id"]
+            isOneToOne: false
+            referencedRelation: "historias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_comentarios_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historia_reacciones: {
+        Row: {
+          created_at: string
+          emoji: string
+          historia_id: string
+          id: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          historia_id: string
+          id?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          historia_id?: string
+          id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historia_reacciones_historia_id_fkey"
+            columns: ["historia_id"]
+            isOneToOne: false
+            referencedRelation: "historias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_reacciones_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historias: {
         Row: {
           created_at: string
