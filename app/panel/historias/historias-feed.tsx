@@ -129,7 +129,7 @@ function VisorHistorias({
     setMensajeRegalo(null);
     const resultado = await regalarPuntos(historia.id, monto);
     if (resultado.exito) {
-      setSaldoRegalo((s) => (s ? { saldo: resultado.saldo ?? s.saldo, totalDonado: s.totalDonado + monto } : s));
+      setSaldoRegalo((s) => (s ? { ...s, saldo: resultado.saldo ?? s.saldo, totalDonado: s.totalDonado + monto } : s));
       setMontoConfirmado(monto);
       setTimeout(() => setMontoConfirmado(null), 2500);
     } else {

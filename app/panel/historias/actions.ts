@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria } from "@/lib/azure-storage";
-import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado } from "../puntos-actions";
+import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 
 // Las historias se muestran mientras tengan menos de 7 días -- el borrado
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
@@ -327,14 +327,19 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
 const MONTOS_REGALO_VALIDOS = [5, 10, 15, 20, 50];
 
-export type SaldoRegalo = { saldo: number; totalDonado: number };
+export type SaldoRegalo = { saldo: number; totalDonado: number; totalRecibido: number };
 
-// Para pintar el panel de "Regalar puntos" antes de que la persona elija un
-// monto: cuánto tiene disponible ahora mismo y cuánto ha donado en total.
+// Para pintar el panel de "Regalar puntos" y el resumen de Mi Galería:
+// cuánto tiene disponible ahora mismo, cuánto ha donado y cuánto ha recibido
+// en total.
 export async function obtenerMiSaldoDeRegalo(): Promise<SaldoRegalo> {
   await exigirSesion();
-  const [saldo, totalDonado] = await Promise.all([obtenerSaldoDisponibleParaRegalo(), obtenerTotalDonado()]);
-  return { saldo, totalDonado };
+  const [saldo, totalDonado, totalRecibido] = await Promise.all([
+    obtenerSaldoDisponibleParaRegalo(),
+    obtenerTotalDonado(),
+    obtenerTotalRecibido(),
+  ]);
+  return { saldo, totalDonado, totalRecibido };
 }
 
 export type ResultadoRegalo = ResultadoHistoria & { saldo?: number };

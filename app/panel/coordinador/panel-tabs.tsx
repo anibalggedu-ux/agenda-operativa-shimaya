@@ -102,7 +102,7 @@ export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: str
     },
     { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <HistorialAuditorias modo="todas" /> },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
-    { id: "galeria", etiqueta: "Mi Galería", icono: <Images className="w-4 h-4" />, contenido: <MiGaleria /> },
+    { id: "galeria", etiqueta: "Mi Galería", icono: <Images className="w-4 h-4" />, contenido: <MiGaleria miUsuarioId={id} miRol={rol} /> },
   ];
 
   return (

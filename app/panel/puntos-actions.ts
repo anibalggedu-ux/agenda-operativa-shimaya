@@ -287,6 +287,21 @@ export async function obtenerTotalDonado(usuarioId?: string): Promise<number> {
   return (data ?? []).reduce((acc: number, r: any) => acc + r.puntos, 0);
 }
 
+// Cuántos puntos ha recibido en total por regalos -- ya están sumados dentro
+// del saldo, pero se muestra aparte para que se vea de dónde vino.
+export async function obtenerTotalRecibido(usuarioId?: string): Promise<number> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("historia_regalos")
+    .select("puntos")
+    .eq("usuario_id_recibe", usuarioId ?? sesion.id);
+
+  return (data ?? []).reduce((acc: number, r: any) => acc + r.puntos, 0);
+}
+
 // Cuánto puede regalar ahora mismo desde una historia. Supervisor,
 // capacitador y coordinador usan su saldo real de puntos (puntualidad +
 // reportes + heredados + neto de regalos, ver calcularPuntosDeTodos).

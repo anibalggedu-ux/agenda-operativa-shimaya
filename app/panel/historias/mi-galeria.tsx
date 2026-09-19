@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share2, Images } from "lucide-react";
-import { obtenerMiGaleria, type FotoGaleria } from "./actions";
+import { Download, Share2, Images, Gift } from "lucide-react";
+import { obtenerMiGaleria, obtenerMiSaldoDeRegalo, type FotoGaleria, type SaldoRegalo } from "./actions";
+import HistoriasFeed from "./historias-feed";
 
 function claseBadge(diasRestantes: number): string {
   if (diasRestantes <= 1) return "bg-marca-rojo/20 border-marca-rojoclaro text-marca-rojoclaro";
@@ -70,13 +71,43 @@ function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
   );
 }
 
-export default function MiGaleria() {
+function ResumenPuntos({ saldo }: { saldo: SaldoRegalo }) {
+  return (
+    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-4 space-y-3">
+      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
+        <Gift className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS PUNTOS
+      </h3>
+      <p className="font-display text-2xl text-marca-textofuerte">{saldo.saldo} pts</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        {saldo.totalDonado > 0 && (
+          <span className="bg-marca-rojo/10 border border-marca-rojo/30 text-marca-rojoclaro text-xs font-black px-3 py-1.5 rounded-full">
+            🎁 Has donado {saldo.totalDonado} pts
+          </span>
+        )}
+        {saldo.totalRecibido > 0 && (
+          <span className="bg-emerald-950/30 border border-emerald-700/40 text-emerald-300 text-xs font-black px-3 py-1.5 rounded-full">
+            🎉 Te han donado {saldo.totalRecibido} pts
+          </span>
+        )}
+        {saldo.totalDonado === 0 && saldo.totalRecibido === 0 && (
+          <span className="text-marca-tenue text-xs">Todavía no has donado ni recibido puntos por Historias.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string; miRol: string }) {
   const [fotos, setFotos] = useState<FotoGaleria[]>([]);
+  const [saldo, setSaldo] = useState<SaldoRegalo | null>(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    obtenerMiGaleria()
-      .then(setFotos)
+    Promise.all([obtenerMiGaleria(), obtenerMiSaldoDeRegalo()])
+      .then(([f, s]) => {
+        setFotos(f);
+        setSaldo(s);
+      })
       .catch(() => setFotos([]))
       .finally(() => setCargando(false));
   }, []);
@@ -86,21 +117,27 @@ export default function MiGaleria() {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-marca-tenue text-[11px] flex items-start gap-1.5">
-        <Images className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        Tus fotos publicadas en Historias, hasta por 7 días — se borran solas después.
-      </p>
+    <div className="space-y-6">
+      <HistoriasFeed miUsuarioId={miUsuarioId} miRol={miRol} />
 
-      {fotos.length === 0 ? (
-        <p className="text-marca-tenue text-sm">No tienes fotos activas en tu galería.</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {fotos.map((f) => (
-            <TarjetaFoto key={f.id} foto={f} />
-          ))}
-        </div>
-      )}
+      <div className="space-y-4">
+        <p className="text-marca-tenue text-[11px] flex items-start gap-1.5">
+          <Images className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          Tus fotos publicadas en Historias, hasta por 7 días — se borran solas después.
+        </p>
+
+        {fotos.length === 0 ? (
+          <p className="text-marca-tenue text-sm">No tienes fotos activas en tu galería.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {fotos.map((f) => (
+              <TarjetaFoto key={f.id} foto={f} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {saldo && <ResumenPuntos saldo={saldo} />}
     </div>
   );
 }

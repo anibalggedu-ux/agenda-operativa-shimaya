@@ -79,7 +79,7 @@ export default async function PanelGerente() {
       id: "galeria",
       etiqueta: "Mi Galería",
       icono: <Images className="w-4 h-4" />,
-      contenido: <MiGaleria />,
+      contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
     },
   ];
 
