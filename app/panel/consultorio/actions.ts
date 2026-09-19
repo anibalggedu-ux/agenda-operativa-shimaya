@@ -6,11 +6,33 @@ import { z } from "zod";
 import { obtenerClienteAnthropic } from "@/lib/anthropic";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import { obtenerTiendasClasificadas } from "../supervisor/actions";
-import { obtenerMisPuntos } from "../puntos-actions";
-import { obtenerMisKilometros } from "../kilometros-actions";
+import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "../puntos-actions";
+import { obtenerMisKilometros, obtenerResumenKilometros } from "../kilometros-actions";
 import { obtenerResumenPersonal, obtenerResumenOperativo } from "../resumen-dia-actions";
 import { obtenerDashboardGerente, obtenerMapaOperativoHoy } from "../gerente/actions";
+import {
+  obtenerDesempenoPorPersona,
+  obtenerRankingTardanzas,
+  obtenerRankingPuntualidad,
+  obtenerRankingTiendasCompleto,
+  obtenerTiendasPorTardanzas,
+  obtenerDashboardTiendas,
+  obtenerReportesPorDia,
+} from "../analitica/actions";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
+
+// Rango por defecto para las herramientas de equipo cuando el modelo no
+// especifica fechas -- últimos 30 días, mismo default que ya usan las
+// pantallas de Central Analítica.
+function rangoPorDefecto(desde?: string, hasta?: string): { desde: string; hasta: string } {
+  const hoy = hoyPeru();
+  return { desde: desde || sumarDias(hoy, -30), hasta: hasta || hoy };
+}
+
+const esquemaRangoFechas = z.object({
+  desde: z.string().optional().describe("Fecha inicial YYYY-MM-DD, opcional (por defecto hace 30 días)"),
+  hasta: z.string().optional().describe("Fecha final YYYY-MM-DD, opcional (por defecto hoy)"),
+});
 
 export type MensajeConsultorio = { rol: "user" | "assistant"; texto: string };
 
@@ -108,6 +130,90 @@ function construirHerramientas(rol: string) {
         description: "Quién está en qué tienda en este momento, según las marcaciones de hoy.",
         inputSchema: z.object({}),
         run: async () => JSON.stringify(await obtenerMapaOperativoHoy()),
+      }),
+      // A partir de acá, las mismas consultas que ya existen en Central
+      // Analítica (Personas/Tiendas) -- para preguntas de tipo "quién
+      // reporta menos", "qué tienda casi no se visita", "quién llega más
+      // tarde", etc. Todas devuelven listas ordenadas de mayor a menor.
+      betaZodTool({
+        name: "ranking_reportes_por_persona",
+        description:
+          "Cuántos reportes de visita envió cada persona del equipo en el rango de fechas, ordenado de mayor a menor -- para responder quién reporta más o menos.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerDesempenoPorPersona(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "ranking_puntos_del_equipo",
+        description: "Puntos, medallas, racha actual y viajes a provincia de cada persona del equipo (histórico completo, no por rango de fechas).",
+        inputSchema: z.object({}),
+        run: async () => JSON.stringify(await obtenerVitrinaTrofeos()),
+      }),
+      betaZodTool({
+        name: "ranking_tardanzas",
+        description: "Cuántas veces llegó tarde cada persona en el rango de fechas, ordenado de más a menos tardanzas.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerRankingTardanzas(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "ranking_puntualidad",
+        description: "Cuántas veces marcó a tiempo cada persona en el rango de fechas, ordenado de más a menos puntualidad.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerRankingPuntualidad(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "ranking_kilometros_del_equipo",
+        description: "Kilómetros y minutos recorridos por cada persona del equipo en el rango de fechas, con el detalle de trayectos.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerResumenKilometros(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "ranking_tiendas_visitadas",
+        description:
+          "Cuántas visitas recibió cada tienda en el rango de fechas -- incluye cuáles tiendas NO recibieron ninguna visita.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerRankingTiendasCompleto(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "tiendas_con_mas_tardanzas",
+        description: "Por cada tienda: cuántas visitas tuvo, cuántas fueron con llegada tarde de la persona que fue, y quiénes.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerTiendasPorTardanzas(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "dashboard_tiendas",
+        description: "Por cada tienda: encargados, visitas, última auditoría (fecha, porcentaje, clasificación) y alertas críticas. Incluye promedios por categoría de auditoría.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerDashboardTiendas(r.desde, r.hasta));
+        },
+      }),
+      betaZodTool({
+        name: "reportes_por_dia",
+        description: "Cantidad total de reportes enviados por todo el equipo, día por día, en el rango de fechas -- para ver la tendencia.",
+        inputSchema: esquemaRangoFechas,
+        run: async ({ desde, hasta }) => {
+          const r = rangoPorDefecto(desde, hasta);
+          return JSON.stringify(await obtenerReportesPorDia(r.desde, r.hasta));
+        },
       })
     );
   }
