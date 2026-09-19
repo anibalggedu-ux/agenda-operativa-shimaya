@@ -25,7 +25,7 @@ export default function MisPuntosWidget() {
     return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
 
-  const { puntos, medallas, progresoBronce, rachaActual, viajesProvincia } = datos;
+  const { puntos, medallas, progresoBronce, rachaActual, viajesProvincia, totalDonado } = datos;
   const progreso = Math.round((progresoBronce.actual / (progresoBronce.actual + progresoBronce.faltan)) * 100);
 
   return (
@@ -36,11 +36,18 @@ export default function MisPuntosWidget() {
 
       <div className="flex items-end justify-between flex-wrap gap-2">
         <p className="font-display text-2xl text-marca-textofuerte">{puntos} pts</p>
-        {rachaActual > 0 && (
-          <span className="bg-orange-950/30 border border-orange-700/40 text-orange-300 text-xs font-black px-3 py-1.5 rounded-full">
-            🔥 {rachaActual} día{rachaActual === 1 ? "" : "s"} de racha puntual
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {totalDonado > 0 && (
+            <span className="bg-marca-rojo/10 border border-marca-rojo/30 text-marca-rojoclaro text-xs font-black px-3 py-1.5 rounded-full">
+              🎁 Has donado {totalDonado} pts
+            </span>
+          )}
+          {rachaActual > 0 && (
+            <span className="bg-orange-950/30 border border-orange-700/40 text-orange-300 text-xs font-black px-3 py-1.5 rounded-full">
+              🔥 {rachaActual} día{rachaActual === 1 ? "" : "s"} de racha puntual
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-4 flex-wrap">

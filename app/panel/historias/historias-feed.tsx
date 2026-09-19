@@ -10,8 +10,11 @@ import {
   agregarComentario,
   eliminarComentario,
   alternarReaccion,
+  obtenerMiSaldoDeRegalo,
+  regalarPuntos,
   type GrupoHistorias,
   type DetalleHistoria,
+  type SaldoRegalo,
 } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 
@@ -20,6 +23,16 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
 const TEXTO_MAXIMO = 200;
 const COMENTARIO_MAXIMO = 300;
+
+// Solo +50 va relleno -- el tratamiento más celebratorio se reserva para el
+// regalo más generoso, el resto queda como contorno discreto.
+const BOTONES_REGALO = [
+  { monto: 5, clase: "text-[11px] px-2.5 py-1 font-bold" },
+  { monto: 10, clase: "text-xs px-3 py-1.5 font-bold" },
+  { monto: 15, clase: "text-xs px-3 py-1.5 font-black" },
+  { monto: 20, clase: "text-sm px-3.5 py-2 font-black" },
+  { monto: 50, clase: "text-base px-5 py-2.5 font-black" },
+];
 
 function BarraReacciones({
   reacciones,
@@ -87,10 +100,16 @@ function VisorHistorias({
   const [comentarioTexto, setComentarioTexto] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
 
+  const [saldoRegalo, setSaldoRegalo] = useState<SaldoRegalo | null>(null);
+  const [enviandoRegalo, setEnviandoRegalo] = useState(false);
+  const [mensajeRegalo, setMensajeRegalo] = useState<string | null>(null);
+  const [montoConfirmado, setMontoConfirmado] = useState<number | null>(null);
+
   const historia = grupo.historias[indice];
   const esPropia = grupo.usuarioId === miUsuarioId;
   const esModerador = miRol === "coordinador" || miRol === "gerente";
   const puedeBorrarFoto = esPropia || esModerador;
+  const primerNombre = grupo.nombre.split(" ")[0];
 
   useEffect(() => {
     setDetalle(null);
@@ -98,6 +117,29 @@ function VisorHistorias({
     obtenerDetalleHistoria(historia.id).then(setDetalle).catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
+
+  useEffect(() => {
+    if (esPropia) return;
+    obtenerMiSaldoDeRegalo().then(setSaldoRegalo).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function regalar(monto: number) {
+    setEnviandoRegalo(true);
+    setMensajeRegalo(null);
+    const resultado = await regalarPuntos(historia.id, monto);
+    if (resultado.exito) {
+      setSaldoRegalo((s) => (s ? { saldo: resultado.saldo ?? s.saldo, totalDonado: s.totalDonado + monto } : s));
+      setMontoConfirmado(monto);
+      setTimeout(() => setMontoConfirmado(null), 2500);
+    } else {
+      setMensajeRegalo(resultado.mensaje || "No se pudo enviar el regalo.");
+      if (resultado.saldo !== undefined) {
+        setSaldoRegalo((s) => (s ? { ...s, saldo: resultado.saldo! } : s));
+      }
+    }
+    setEnviandoRegalo(false);
+  }
 
   async function confirmarBorrado() {
     setEliminando(true);
@@ -245,6 +287,42 @@ function VisorHistorias({
             deshabilitado={reaccionando || !detalle}
           />
         </div>
+
+        {!esPropia && (
+          <div className="mt-3 bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-white text-xs font-black">🎁 Regalar puntos a {primerNombre}</p>
+              {saldoRegalo && (
+                <p className="text-white/60 text-[10.5px]">Tienes {saldoRegalo.saldo} pts disponibles</p>
+              )}
+            </div>
+
+            <div className="flex items-end gap-2 flex-wrap">
+              {BOTONES_REGALO.map(({ monto, clase }) => (
+                <button
+                  key={monto}
+                  type="button"
+                  disabled={enviandoRegalo || !saldoRegalo || saldoRegalo.saldo < monto}
+                  onClick={() => regalar(monto)}
+                  className={`rounded-full border transition disabled:opacity-40 ${clase} ${
+                    monto === 50
+                      ? "bg-marca-rojo border-marca-rojo text-white"
+                      : "bg-transparent border-white/25 text-white/85 hover:border-marca-rojoclaro"
+                  }`}
+                >
+                  +{monto}
+                </button>
+              ))}
+            </div>
+
+            {montoConfirmado && (
+              <p className="text-emerald-400 text-xs font-bold">
+                🎉 Le regalaste {montoConfirmado} pts a {primerNombre}.
+              </p>
+            )}
+            {mensajeRegalo && <p className="text-marca-rojoclaro text-[11px] font-bold">{mensajeRegalo}</p>}
+          </div>
+        )}
 
         <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1">
           {detalle && detalle.comentarios.length === 0 && (

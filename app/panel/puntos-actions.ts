@@ -125,28 +125,45 @@ export type PuntosUsuario = {
   viajesProvincia: number;
 };
 
+// Suma neta de Historias: cuánto ha recibido menos cuánto ha regalado cada
+// usuario. Se aplica como ajuste al total de puntos, igual que
+// puntos_heredados -- un regalo es una transferencia real, no un bono.
+async function obtenerNetoRegalosPorUsuario(): Promise<Map<string, number>> {
+  const supabase = supabaseServer();
+  const { data } = await supabase.from("historia_regalos").select("usuario_id_regala, usuario_id_recibe, puntos");
+
+  const neto = new Map<string, number>();
+  (data ?? []).forEach((r: any) => {
+    neto.set(r.usuario_id_recibe, (neto.get(r.usuario_id_recibe) ?? 0) + r.puntos);
+    neto.set(r.usuario_id_regala, (neto.get(r.usuario_id_regala) ?? 0) - r.puntos);
+  });
+  return neto;
+}
+
 async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const supabase = supabaseServer();
 
-  const [usuariosRes, asistenciaRes, reportesRes, rutasActivasRes, tiendasProvinciaRes] = await Promise.all([
-    supabase
-      .from("usuarios")
-      .select(
-        "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
-      )
-      .in("rol", ROLES_CON_PUNTOS),
-    supabase
-      .from("asistencia")
-      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
-      .not("hora_ingreso", "is", null),
-    supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
-    // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
-    // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
-    // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
-    // que se asigna, no desde que se reporta, así que se incluyen acá.
-    supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
-    supabase.from("tiendas").select("id").eq("es_provincia", true),
-  ]);
+  const [usuariosRes, asistenciaRes, reportesRes, rutasActivasRes, tiendasProvinciaRes, netoRegalos] =
+    await Promise.all([
+      supabase
+        .from("usuarios")
+        .select(
+          "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
+        )
+        .in("rol", ROLES_CON_PUNTOS),
+      supabase
+        .from("asistencia")
+        .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
+        .not("hora_ingreso", "is", null),
+      supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
+      // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
+      // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
+      // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
+      // que se asigna, no desde que se reporta, así que se incluyen acá.
+      supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
+      supabase.from("tiendas").select("id").eq("es_provincia", true),
+      obtenerNetoRegalosPorUsuario(),
+    ]);
 
   if (
     usuariosRes.error ||
@@ -238,7 +255,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       usuarioId: u.id,
       nombre: u.nombre,
       rol: u.rol,
-      puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono + (u.puntos_heredados ?? 0),
+      puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono + (u.puntos_heredados ?? 0) + (netoRegalos.get(u.id) ?? 0),
       rachaActual: racha,
       viajesProvincia: viajesProvinciaPorUsuario.get(u.id) ?? 0,
     };
@@ -251,13 +268,48 @@ export type MisPuntos = {
   progresoBronce: { actual: number; faltan: number };
   rachaActual: number;
   viajesProvincia: number;
+  totalDonado: number;
 };
+
+// Cuántos puntos ha regalado en total a través de Historias -- estadística
+// aparte del saldo (que ya descuenta lo regalado), para que se vea cuánto ha
+// donado sin tener que restarlo mentalmente.
+export async function obtenerTotalDonado(usuarioId?: string): Promise<number> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("historia_regalos")
+    .select("puntos")
+    .eq("usuario_id_regala", usuarioId ?? sesion.id);
+
+  return (data ?? []).reduce((acc: number, r: any) => acc + r.puntos, 0);
+}
+
+// Cuánto puede regalar ahora mismo desde una historia. Supervisor,
+// capacitador y coordinador usan su saldo real de puntos (puntualidad +
+// reportes + heredados + neto de regalos, ver calcularPuntosDeTodos).
+// Gerente no participa de ese sistema (no hace bitácora de campo), así que
+// su saldo para regalar sale solo de lo que ha recibido en regalos.
+export async function obtenerSaldoDisponibleParaRegalo(): Promise<number> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  if (ROLES_CON_PUNTOS.includes(sesion.rol)) {
+    const mis = await obtenerMisPuntos();
+    return mis.puntos;
+  }
+
+  const neto = await obtenerNetoRegalosPorUsuario();
+  return neto.get(sesion.id) ?? 0;
+}
 
 export async function obtenerMisPuntos(): Promise<MisPuntos> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
-  const todos = await calcularPuntosDeTodos();
+  const [todos, totalDonado] = await Promise.all([calcularPuntosDeTodos(), obtenerTotalDonado(sesion.id)]);
   const propio = todos.find((p) => p.usuarioId === sesion.id);
 
   return {
@@ -266,6 +318,7 @@ export async function obtenerMisPuntos(): Promise<MisPuntos> {
     progresoBronce: progresoProximoBronce(propio?.puntos ?? 0),
     rachaActual: propio?.rachaActual ?? 0,
     viajesProvincia: propio?.viajesProvincia ?? 0,
+    totalDonado,
   };
 }
 
@@ -273,7 +326,7 @@ export async function obtenerPuntosDeUsuario(usuarioId: string): Promise<MisPunt
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
-  const todos = await calcularPuntosDeTodos();
+  const [todos, totalDonado] = await Promise.all([calcularPuntosDeTodos(), obtenerTotalDonado(usuarioId)]);
   const propio = todos.find((p) => p.usuarioId === usuarioId);
 
   return {
@@ -282,6 +335,7 @@ export async function obtenerPuntosDeUsuario(usuarioId: string): Promise<MisPunt
     progresoBronce: progresoProximoBronce(propio?.puntos ?? 0),
     rachaActual: propio?.rachaActual ?? 0,
     viajesProvincia: propio?.viajesProvincia ?? 0,
+    totalDonado,
   };
 }
 

@@ -598,6 +598,55 @@ export type Database = {
           },
         ]
       }
+      historia_regalos: {
+        Row: {
+          created_at: string
+          historia_id: string | null
+          id: string
+          puntos: number
+          usuario_id_recibe: string
+          usuario_id_regala: string
+        }
+        Insert: {
+          created_at?: string
+          historia_id?: string | null
+          id?: string
+          puntos: number
+          usuario_id_recibe: string
+          usuario_id_regala: string
+        }
+        Update: {
+          created_at?: string
+          historia_id?: string | null
+          id?: string
+          puntos?: number
+          usuario_id_recibe?: string
+          usuario_id_regala?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historia_regalos_historia_id_fkey"
+            columns: ["historia_id"]
+            isOneToOne: false
+            referencedRelation: "historias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_regalos_usuario_id_recibe_fkey"
+            columns: ["usuario_id_recibe"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_regalos_usuario_id_regala_fkey"
+            columns: ["usuario_id_regala"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historias: {
         Row: {
           created_at: string

@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria } from "@/lib/azure-storage";
+import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado } from "../puntos-actions";
 
 // Las historias se muestran mientras tengan menos de 7 días -- el borrado
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
@@ -322,4 +323,62 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   });
 
   return grupos;
+}
+
+const MONTOS_REGALO_VALIDOS = [5, 10, 15, 20, 50];
+
+export type SaldoRegalo = { saldo: number; totalDonado: number };
+
+// Para pintar el panel de "Regalar puntos" antes de que la persona elija un
+// monto: cuánto tiene disponible ahora mismo y cuánto ha donado en total.
+export async function obtenerMiSaldoDeRegalo(): Promise<SaldoRegalo> {
+  await exigirSesion();
+  const [saldo, totalDonado] = await Promise.all([obtenerSaldoDisponibleParaRegalo(), obtenerTotalDonado()]);
+  return { saldo, totalDonado };
+}
+
+export type ResultadoRegalo = ResultadoHistoria & { saldo?: number };
+
+export async function regalarPuntos(historiaId: string, monto: number): Promise<ResultadoRegalo> {
+  try {
+    const sesion = await exigirSesion();
+
+    if (!MONTOS_REGALO_VALIDOS.includes(monto)) {
+      return { exito: false, mensaje: "Monto inválido." };
+    }
+
+    const supabase = supabaseServer();
+    const { data: historia, error: errorHistoria } = await supabase
+      .from("historias")
+      .select("id, usuario_id")
+      .eq("id", historiaId)
+      .single();
+
+    if (errorHistoria || !historia) {
+      return { exito: false, mensaje: "La historia ya no existe." };
+    }
+    if (historia.usuario_id === sesion.id) {
+      return { exito: false, mensaje: "No puedes regalarte puntos a ti mismo." };
+    }
+
+    const saldo = await obtenerSaldoDisponibleParaRegalo();
+    if (saldo < monto) {
+      return { exito: false, mensaje: `No te alcanza -- tienes ${saldo} pts disponibles.`, saldo };
+    }
+
+    const { error } = await supabase.from("historia_regalos").insert({
+      historia_id: historiaId,
+      usuario_id_regala: sesion.id,
+      usuario_id_recibe: historia.usuario_id,
+      puntos: monto,
+    });
+
+    if (error) {
+      return { exito: false, mensaje: "No se pudo enviar el regalo." };
+    }
+
+    return { exito: true, saldo: saldo - monto };
+  } catch (err: any) {
+    return { exito: false, mensaje: err?.message || "No se pudo enviar el regalo." };
+  }
 }
