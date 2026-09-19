@@ -138,10 +138,15 @@ export type ComentarioHistoria = {
 
 export type ReaccionResumen = { emoji: string; cantidad: number };
 
+export type VistaHistoria = { usuarioId: string; nombre: string; rol: string; creadoEn: string };
+
 export type DetalleHistoria = {
   comentarios: ComentarioHistoria[];
   reacciones: ReaccionResumen[];
   miReaccion: string | null;
+  // Solo viene con datos si quien pregunta es el autor de la historia o
+  // puede moderar -- a los demás no se les muestra quién más la vio.
+  vistas: VistaHistoria[];
 };
 
 const TEXTO_COMENTARIO_MAXIMO = 300;
@@ -150,13 +155,14 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
 
-  const [comentariosRes, reaccionesRes] = await Promise.all([
+  const [comentariosRes, reaccionesRes, historiaRes] = await Promise.all([
     supabase
       .from("historia_comentarios")
       .select("id, usuario_id, texto, created_at, usuarios(nombre, rol)")
       .eq("historia_id", historiaId)
       .order("created_at", { ascending: true }),
     supabase.from("historia_reacciones").select("usuario_id, emoji").eq("historia_id", historiaId),
+    supabase.from("historias").select("usuario_id").eq("id", historiaId).single(),
   ]);
 
   const comentarios: ComentarioHistoria[] = ((comentariosRes.data ?? []) as any[]).map((c) => ({
@@ -175,11 +181,40 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
     if (r.usuario_id === sesion.id) miReaccion = r.emoji;
   });
 
+  let vistas: VistaHistoria[] = [];
+  const esDueno = historiaRes.data?.usuario_id === sesion.id;
+  if (esDueno || puedeModerar(sesion.rol)) {
+    const { data: vistasData } = await supabase
+      .from("historia_vistas")
+      .select("usuario_id, created_at, usuarios(nombre, rol)")
+      .eq("historia_id", historiaId)
+      .order("created_at", { ascending: true });
+
+    vistas = ((vistasData ?? []) as any[]).map((v) => ({
+      usuarioId: v.usuario_id,
+      nombre: v.usuarios?.nombre ?? "—",
+      rol: v.usuarios?.rol ?? "",
+      creadoEn: v.created_at,
+    }));
+  }
+
   return {
     comentarios,
     reacciones: Array.from(conteo.entries()).map(([emoji, cantidad]) => ({ emoji, cantidad })),
     miReaccion,
+    vistas,
   };
+}
+
+// Se llama al abrir una historia ajena -- la propia no se marca como vista
+// por su autor. upsert con ignoreDuplicates conserva el momento de la
+// PRIMERA vista si la persona la vuelve a abrir después.
+export async function registrarVista(historiaId: string): Promise<void> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  await supabase
+    .from("historia_vistas")
+    .upsert({ historia_id: historiaId, usuario_id: sesion.id }, { onConflict: "historia_id,usuario_id", ignoreDuplicates: true });
 }
 
 export async function agregarComentario(historiaId: string, texto: string): Promise<ResultadoHistoria> {

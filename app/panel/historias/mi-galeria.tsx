@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share2, Images, Gift } from "lucide-react";
+import { Download, Share2, Images } from "lucide-react";
 import { obtenerMiGaleria, obtenerMiSaldoDeRegalo, type FotoGaleria, type SaldoRegalo } from "./actions";
 import HistoriasFeed from "./historias-feed";
 
@@ -71,27 +71,26 @@ function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
   );
 }
 
-function ResumenPuntos({ saldo }: { saldo: SaldoRegalo }) {
+function FranjaPuntos({ saldo }: { saldo: SaldoRegalo }) {
   return (
-    <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-4 space-y-3">
-      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
-        <Gift className="w-3.5 h-3.5 text-marca-rojoclaro" /> MIS PUNTOS
-      </h3>
-      <p className="font-display text-2xl text-marca-textofuerte">{saldo.saldo} pts</p>
-      <div className="flex items-center gap-2 flex-wrap">
-        {saldo.totalDonado > 0 && (
-          <span className="bg-marca-rojo/10 border border-marca-rojo/30 text-marca-rojoclaro text-xs font-black px-3 py-1.5 rounded-full">
-            🎁 Has donado {saldo.totalDonado} pts
-          </span>
-        )}
-        {saldo.totalRecibido > 0 && (
-          <span className="bg-emerald-950/30 border border-emerald-700/40 text-emerald-300 text-xs font-black px-3 py-1.5 rounded-full">
-            🎉 Te han donado {saldo.totalRecibido} pts
-          </span>
-        )}
-        {saldo.totalDonado === 0 && saldo.totalRecibido === 0 && (
-          <span className="text-marca-tenue text-xs">Todavía no has donado ni recibido puntos por Historias.</span>
-        )}
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-marca-borde">
+      <div className="flex-1 p-4">
+        <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest mb-1">Tus puntos</p>
+        <p className="font-display text-2xl text-marca-textofuerte">
+          {saldo.saldo} <span className="text-sm font-bold text-marca-tenue">pts</span>
+        </p>
+      </div>
+      <div className="flex-1 p-4">
+        <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest mb-1">🎁 Has donado</p>
+        <p className="font-display text-2xl text-marca-rojoclaro">
+          {saldo.totalDonado} <span className="text-sm font-bold text-marca-tenue">pts</span>
+        </p>
+      </div>
+      <div className="flex-1 p-4">
+        <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest mb-1">🎉 Te han donado</p>
+        <p className="font-display text-2xl text-emerald-400">
+          {saldo.totalRecibido} <span className="text-sm font-bold text-marca-tenue">pts</span>
+        </p>
       </div>
     </div>
   );
@@ -118,6 +117,8 @@ export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string;
 
   return (
     <div className="space-y-6">
+      {saldo && <FranjaPuntos saldo={saldo} />}
+
       <HistoriasFeed miUsuarioId={miUsuarioId} miRol={miRol} />
 
       <div className="space-y-4">
@@ -136,8 +137,6 @@ export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string;
           </div>
         )}
       </div>
-
-      {saldo && <ResumenPuntos saldo={saldo} />}
     </div>
   );
 }

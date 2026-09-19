@@ -137,16 +137,16 @@ export default async function PanelSupervisor() {
       tituloPortal="Supervisor"
       items={items}
       defaultId="inicio"
-      encabezado={
+      encabezado={(activo) => (
         <>
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
             Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
           </h1>
-          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
-            <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} ocultarTarjetas={activo === "galeria"}>
+            {activo !== "galeria" && <HistoriasFeed miUsuarioId={sesion.id} miRol={sesion.rol} />}
           </ResumenDelDia>
         </>
-      }
+      )}
     />
   );
 }

@@ -10,6 +10,7 @@ import {
   agregarComentario,
   eliminarComentario,
   alternarReaccion,
+  registrarVista,
   obtenerMiSaldoDeRegalo,
   regalarPuntos,
   type GrupoHistorias,
@@ -114,7 +115,12 @@ function VisorHistorias({
   useEffect(() => {
     setDetalle(null);
     setComentarioTexto("");
-    obtenerDetalleHistoria(historia.id).then(setDetalle).catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null }));
+    obtenerDetalleHistoria(historia.id)
+      .then(setDetalle)
+      .catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null, vistas: [] }));
+    if (!esPropia) {
+      registrarVista(historia.id).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
 
@@ -272,6 +278,15 @@ function VisorHistorias({
             </div>
           )}
         </div>
+
+        {(esPropia || esModerador) && detalle && (
+          <p className="text-white/45 text-[10.5px] mt-2">
+            👁 Visto por{" "}
+            {detalle.vistas.length === 0
+              ? "nadie todavía"
+              : detalle.vistas.map((v) => v.nombre.split(" ")[0]).join(", ")}
+          </p>
+        )}
 
         {mensaje && (
           <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold mt-2">

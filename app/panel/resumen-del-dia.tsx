@@ -112,12 +112,16 @@ export default function ResumenDelDia({
   nombre,
   rol,
   children,
+  ocultarTarjetas,
 }: {
   nombre: string;
   rol: string;
   // Contenido que va justo debajo del saludo y la fecha, antes de los
   // cuadros de estadísticas -- ej. la fila de Historias del equipo.
   children?: ReactNode;
+  // true en pestañas como Mi Galería, que ya arman su propio resumen y no
+  // necesitan repetir clima/ruta/reportes/racha/comunicados/mapas acá.
+  ocultarTarjetas?: boolean;
 }) {
   const esOperativo = rol === "coordinador" || rol === "gerente";
   const [personal, setPersonal] = useState<ResumenPersonal | null>(null);
@@ -282,6 +286,7 @@ export default function ResumenDelDia({
         </div>
       )}
 
+      {!ocultarTarjetas && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {esOperativo && operativo && (
           <>
@@ -581,6 +586,7 @@ export default function ResumenDelDia({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
