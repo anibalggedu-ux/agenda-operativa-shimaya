@@ -520,6 +520,35 @@ export type Database = {
           },
         ]
       }
+      historias: {
+        Row: {
+          created_at: string
+          foto_blob: string
+          id: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          foto_blob: string
+          id?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          foto_blob?: string
+          id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historias_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plantilla_auditoria_items: {
         Row: {
           categoria: string

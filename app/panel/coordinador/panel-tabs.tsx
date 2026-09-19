@@ -25,6 +25,7 @@ import {
   LazyCentralAnalitica as CentralAnalitica,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
+  LazyHistoriasFeed as HistoriasFeed,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -116,6 +117,7 @@ export default function PanelTabs({ nombre, rol }: { nombre: string; rol: string
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol} />
           <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
+          <HistoriasFeed />
         </div>
       }
     />

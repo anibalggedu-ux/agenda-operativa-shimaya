@@ -16,7 +16,11 @@ import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
-import { LazyCalendario as Calendario, LazyConsultorioIA as ConsultorioIA } from "../panel-lazy";
+import {
+  LazyCalendario as Calendario,
+  LazyConsultorioIA as ConsultorioIA,
+  LazyHistoriasFeed as HistoriasFeed,
+} from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +37,7 @@ export default async function PanelCapacitador() {
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
+          <HistoriasFeed />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>

@@ -23,6 +23,7 @@ import {
   LazyRegistro as Registro,
   LazyAuditoriasPanel as AuditoriasPanel,
   LazyConsultorioIA as ConsultorioIA,
+  LazyHistoriasFeed as HistoriasFeed,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -43,6 +44,7 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
+          <HistoriasFeed />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>

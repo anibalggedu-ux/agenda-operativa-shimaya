@@ -50,3 +50,8 @@ export const LazyConsultorioIA = dynamic(() => import("./consultorio/consultorio
   ssr: false,
   loading: cargando,
 });
+
+export const LazyHistoriasFeed = dynamic(() => import("./historias/historias-feed"), {
+  ssr: false,
+  loading: cargando,
+});

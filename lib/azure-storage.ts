@@ -20,6 +20,13 @@ function obtenerNombreContenedor(): string {
   return process.env.AZURE_STORAGE_CONTAINER || "marcaciones";
 }
 
+// Las fotos de Historias van a un contenedor aparte de las de marcación: se
+// borran automáticamente a los 7 días (ver cron de limpieza), así que
+// conviene tenerlas separadas de las fotos de asistencia, que se conservan.
+function obtenerNombreContenedorHistorias(): string {
+  return process.env.AZURE_STORAGE_CONTAINER_HISTORIAS || "historias";
+}
+
 function obtenerCredencial(connectionString: string): StorageSharedKeyCredential | null {
   const match = connectionString.match(/AccountName=([^;]+);AccountKey=([^;]+)/);
   if (!match) return null;
@@ -85,6 +92,59 @@ export async function obtenerUrlTemporalFoto(
     return `${blockBlob.url}?${sas}`;
   } catch (error) {
     console.error("No se pudo generar el enlace temporal de la foto:", error);
+    return null;
+  }
+}
+
+export async function subirFotoHistoria(blobPath: string, dataUrl: string): Promise<void> {
+  const connectionString = obtenerConnectionString();
+  const { buffer, contentType } = decodificarFotoBase64(dataUrl);
+
+  const cliente = BlobServiceClient.fromConnectionString(connectionString);
+  const contenedor = cliente.getContainerClient(obtenerNombreContenedorHistorias());
+  await contenedor.createIfNotExists();
+
+  const blockBlob = contenedor.getBlockBlobClient(blobPath);
+  await blockBlob.uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
+}
+
+// Borrado real del archivo -- lo usa el cron diario que limpia las historias
+// vencidas (más de 7 días), además del borrado manual por moderación.
+export async function eliminarFotoHistoria(blobPath: string): Promise<void> {
+  const connectionString = obtenerConnectionString();
+  const cliente = BlobServiceClient.fromConnectionString(connectionString);
+  const contenedor = cliente.getContainerClient(obtenerNombreContenedorHistorias());
+  const blockBlob = contenedor.getBlockBlobClient(blobPath);
+  await blockBlob.deleteIfExists();
+}
+
+export async function obtenerUrlTemporalFotoHistoria(
+  blobPath: string | null,
+  minutos = 180
+): Promise<string | null> {
+  if (!blobPath) return null;
+  try {
+    const connectionString = obtenerConnectionString();
+    const credencial = obtenerCredencial(connectionString);
+    if (!credencial) return null;
+
+    const cliente = BlobServiceClient.fromConnectionString(connectionString);
+    const contenedor = cliente.getContainerClient(obtenerNombreContenedorHistorias());
+    const blockBlob = contenedor.getBlockBlobClient(blobPath);
+
+    const sas = generateBlobSASQueryParameters(
+      {
+        containerName: obtenerNombreContenedorHistorias(),
+        blobName: blobPath,
+        permissions: BlobSASPermissions.parse("r"),
+        expiresOn: new Date(Date.now() + minutos * 60 * 1000),
+      },
+      credencial
+    ).toString();
+
+    return `${blockBlob.url}?${sas}`;
+  } catch (error) {
+    console.error("No se pudo generar el enlace temporal de la foto de historia:", error);
     return null;
   }
 }

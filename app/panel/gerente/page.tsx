@@ -14,6 +14,7 @@ import {
   LazyHistorialAuditorias as HistorialAuditorias,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
+  LazyHistoriasFeed as HistoriasFeed,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -32,6 +33,7 @@ export default async function PanelGerente() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <HistoriasFeed />
           <Dashboard />
           <AnunciosWidget />
         </div>
