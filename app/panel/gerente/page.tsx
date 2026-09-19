@@ -33,7 +33,6 @@ export default async function PanelGerente() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
-          <HistoriasFeed miUsuarioId={sesion.id} />
           <Dashboard />
           <AnunciosWidget />
         </div>
@@ -97,7 +96,9 @@ export default async function PanelGerente() {
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
             Dashboard <span className="text-marca-rojoclaro italic">Gerencial</span>
           </h1>
-          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
+            <HistoriasFeed miUsuarioId={sesion.id} />
+          </ResumenDelDia>
         </>
       }
     />

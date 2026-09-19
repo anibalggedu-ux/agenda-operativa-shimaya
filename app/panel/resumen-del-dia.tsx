@@ -108,7 +108,17 @@ function TarjetaAncha({ icono, etiqueta, valor }: { icono: ReactNode; etiqueta: 
   );
 }
 
-export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: string }) {
+export default function ResumenDelDia({
+  nombre,
+  rol,
+  children,
+}: {
+  nombre: string;
+  rol: string;
+  // Contenido que va justo debajo del saludo y la fecha, antes de los
+  // cuadros de estadísticas -- ej. la fila de Historias del equipo.
+  children?: ReactNode;
+}) {
   const esOperativo = rol === "coordinador" || rol === "gerente";
   const [personal, setPersonal] = useState<ResumenPersonal | null>(null);
   const [operativo, setOperativo] = useState<ResumenOperativo | null>(null);
@@ -209,6 +219,8 @@ export default function ResumenDelDia({ nombre, rol }: { nombre: string; rol: st
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
+
+      {children && <div className="mb-3">{children}</div>}
 
       {!esOperativo &&
         personal &&

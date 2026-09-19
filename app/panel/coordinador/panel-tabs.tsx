@@ -115,8 +115,9 @@ export default function PanelTabs({ id, nombre, rol }: { id: string; nombre: str
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
-          <ResumenDelDia nombre={nombre} rol={rol} />
-          <HistoriasFeed miUsuarioId={id} />
+          <ResumenDelDia nombre={nombre} rol={rol}>
+            <HistoriasFeed miUsuarioId={id} />
+          </ResumenDelDia>
           <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
         </div>
       }

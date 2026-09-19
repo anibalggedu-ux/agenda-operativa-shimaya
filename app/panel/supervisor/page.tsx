@@ -43,7 +43,6 @@ export default async function PanelSupervisor() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
-          <HistoriasFeed miUsuarioId={sesion.id} />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
           <AnunciosWidget />
@@ -136,7 +135,9 @@ export default async function PanelSupervisor() {
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
             Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
           </h1>
-          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} />
+          <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
+            <HistoriasFeed miUsuarioId={sesion.id} />
+          </ResumenDelDia>
         </>
       }
     />
