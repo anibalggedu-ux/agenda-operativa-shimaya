@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -34,6 +34,22 @@ export default async function PanelCapacitador() {
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
+          <AnunciosWidget />
+        </div>
+      ),
+    },
+    {
+      id: "solicitudes",
+      etiqueta: "Solicitudes",
+      icono: <CalendarClock className="w-4 h-4" />,
+      contenido: <MisSolicitudes />,
+    },
+    {
+      id: "ranking",
+      etiqueta: "Ranking",
+      icono: <Trophy className="w-4 h-4" />,
+      contenido: (
+        <div className="space-y-6">
           <RankingCapacitadores />
           <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-3">
             <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
@@ -44,15 +60,8 @@ export default async function PanelCapacitador() {
             </p>
             <KilometrosDelMes soloRol="capacitador" limite={0} />
           </div>
-          <AnunciosWidget />
         </div>
       ),
-    },
-    {
-      id: "solicitudes",
-      etiqueta: "Solicitudes",
-      icono: <CalendarClock className="w-4 h-4" />,
-      contenido: <MisSolicitudes />,
     },
     {
       id: "bitacora",
