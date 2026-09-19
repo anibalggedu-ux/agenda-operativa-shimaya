@@ -36,8 +36,8 @@ export default async function PanelCapacitador() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
-          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <HistoriasFeed miUsuarioId={sesion.id} />
+          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>
