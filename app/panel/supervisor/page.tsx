@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles } from "lucide-react";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -43,11 +43,16 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
-          <MisSolicitudes />
           <MisPuntosWidget />
           <AnunciosWidget />
         </div>
       ),
+    },
+    {
+      id: "solicitudes",
+      etiqueta: "Solicitudes",
+      icono: <CalendarClock className="w-4 h-4" />,
+      contenido: <MisSolicitudes />,
     },
     {
       id: "bitacora",
