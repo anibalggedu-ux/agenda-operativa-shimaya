@@ -55,3 +55,8 @@ export const LazyHistoriasFeed = dynamic(() => import("./historias/historias-fee
   ssr: false,
   loading: cargando,
 });
+
+export const LazyMiGaleria = dynamic(() => import("./historias/mi-galeria"), {
+  ssr: false,
+  loading: cargando,
+});

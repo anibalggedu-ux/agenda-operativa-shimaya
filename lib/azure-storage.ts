@@ -120,7 +120,11 @@ export async function eliminarFotoHistoria(blobPath: string): Promise<void> {
 
 export async function obtenerUrlTemporalFotoHistoria(
   blobPath: string | null,
-  minutos = 180
+  minutos = 180,
+  // true = agrega Content-Disposition: attachment al enlace, para que el
+  // navegador la descargue directo al tocar el botón "Descargar" en Mi
+  // Galería, en vez de solo abrirla en una pestaña.
+  forzarDescarga = false
 ): Promise<string | null> {
   if (!blobPath) return null;
   try {
@@ -138,6 +142,7 @@ export async function obtenerUrlTemporalFotoHistoria(
         blobName: blobPath,
         permissions: BlobSASPermissions.parse("r"),
         expiresOn: new Date(Date.now() + minutos * 60 * 1000),
+        contentDisposition: forzarDescarga ? 'attachment; filename="historia-shimaya.jpg"' : undefined,
       },
       credencial
     ).toString();

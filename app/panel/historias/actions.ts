@@ -12,6 +12,54 @@ const TEXTO_MAXIMO = 200;
 
 export type ResultadoHistoria = { exito: boolean; mensaje?: string };
 
+export type FotoGaleria = {
+  id: string;
+  url: string;
+  urlDescarga: string;
+  texto: string | null;
+  creadoEn: string;
+  diasRestantes: number;
+};
+
+// Solo las fotos propias -- "Mi Galería" es un espacio personal, distinto
+// del feed de Historias del equipo que muestra las de todos.
+export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  const desde = new Date(Date.now() - DIAS_VISIBLE * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("historias")
+    .select("id, foto_blob, texto, created_at")
+    .eq("usuario_id", sesion.id)
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  const conUrls = await Promise.all(
+    data.map(async (fila) => {
+      const [url, urlDescarga] = await Promise.all([
+        obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180),
+        obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180, true),
+      ]);
+      if (!url || !urlDescarga) return null;
+
+      const diasTranscurridos = Math.floor((Date.now() - new Date(fila.created_at).getTime()) / (24 * 60 * 60 * 1000));
+      return {
+        id: fila.id,
+        url,
+        urlDescarga,
+        texto: fila.texto,
+        creadoEn: fila.created_at,
+        diasRestantes: Math.max(DIAS_VISIBLE - diasTranscurridos, 0),
+      };
+    })
+  );
+
+  return conUrls.filter((f): f is FotoGaleria => f !== null);
+}
+
 export async function crearHistoria(fotoDataUrl: string, texto?: string): Promise<ResultadoHistoria> {
   try {
     const sesion = await exigirSesion();
