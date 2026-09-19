@@ -8,6 +8,10 @@ import { formatearFechaLegible } from "@/lib/fechas";
 const COLOR_ROL: Record<string, string> = { supervisor: "#e23744", capacitador: "#fbbf24" };
 const ETIQUETA_ROL: Record<string, string> = { supervisor: "Supervisor", capacitador: "Capacitador" };
 const COLOR_MULTIPLE = "#f7f5f2";
+// Los eventos/reuniones se marcan como un rombo celeste -- distinto en forma
+// Y color a las tiendas (círculos rojo/ámbar), para no confundir "una tienda
+// con un solo capacitador" con "una reunión".
+const COLOR_EVENTO = "#60a5fa";
 
 // Centro aproximado de Lima Metropolitana — punto de partida antes de
 // ajustar el zoom a las tiendas con actividad hoy.
@@ -78,6 +82,37 @@ export default function MapaOperativo() {
         bounds.push([t.lat, t.lon]);
       });
 
+      datos.eventos.forEach((ev) => {
+        const icono = L.divIcon({
+          className: "",
+          html:
+            `<div style="width:16px;height:16px;background:${COLOR_EVENTO};border:2px solid #0d0e10;` +
+            `transform:rotate(45deg);"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
+
+        const marcador = L.marker([ev.lat, ev.lon], { icon: icono }).addTo(mapa);
+
+        const listaPersonas = ev.personas
+          .map(
+            (p) =>
+              `<div style="margin-top:4px;display:flex;align-items:center;gap:6px;">` +
+              `<span style="width:8px;height:8px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};flex:none;"></span>` +
+              `<span><b>${p.usuarioNombre}</b> — ${ETIQUETA_ROL[p.rol] ?? p.rol}</span></div>`
+          )
+          .join("");
+
+        marcador.bindPopup(
+          `<div style="font-family:sans-serif;min-width:190px;">` +
+            `<div style="font-weight:700;margin-bottom:4px;">📅 ${ev.mensaje}</div>` +
+            listaPersonas +
+            `</div>`
+        );
+
+        bounds.push([ev.lat, ev.lon]);
+      });
+
       if (bounds.length > 0) {
         mapa.fitBounds(bounds as any, { padding: [40, 40], maxZoom: 14 });
       }
@@ -103,17 +138,17 @@ export default function MapaOperativo() {
   if (error) {
     return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   }
-  if (!datos || datos.tiendas.length === 0) {
+  if (!datos || (datos.tiendas.length === 0 && datos.eventos.length === 0)) {
     return (
       <p className="text-marca-tenue text-sm italic">
-        Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta hoy).
+        Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta ni evento hoy).
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-marca-borde border border-marca-borde rounded-[3px] overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-marca-borde border border-marca-borde rounded-[3px] overflow-hidden">
         <div className="bg-marca-superficie p-3">
           <p className="text-marca-tenue text-[9.5px] uppercase font-bold">Colaboradores en campo</p>
           <p className="font-display text-xl text-marca-textofuerte">{datos.totalPersonas}</p>
@@ -122,7 +157,11 @@ export default function MapaOperativo() {
           <p className="text-marca-tenue text-[9.5px] uppercase font-bold">Tiendas con visita hoy</p>
           <p className="font-display text-xl text-marca-textofuerte">{datos.tiendas.length}</p>
         </div>
-        <div className="bg-marca-superficie p-3 col-span-2 sm:col-span-1">
+        <div className="bg-marca-superficie p-3">
+          <p className="text-marca-tenue text-[9.5px] uppercase font-bold">Eventos/reuniones hoy</p>
+          <p className="font-display text-xl text-marca-textofuerte">{datos.eventos.length}</p>
+        </div>
+        <div className="bg-marca-superficie p-3">
           <p className="text-marca-tenue text-[9.5px] uppercase font-bold">Fecha</p>
           <p className="font-display text-sm text-marca-textofuerte capitalize mt-1">
             {formatearFechaLegible(datos.fecha)}
@@ -151,6 +190,13 @@ export default function MapaOperativo() {
             style={{ background: COLOR_MULTIPLE, borderColor: "#8b8d92" }}
           />
           Varias personas en la misma tienda
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="w-2.5 h-2.5 inline-block border-2"
+            style={{ background: COLOR_EVENTO, borderColor: "#0d0e10", transform: "rotate(45deg)" }}
+          />
+          Evento / reunión
         </span>
       </div>
     </div>

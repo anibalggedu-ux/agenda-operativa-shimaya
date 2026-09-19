@@ -136,9 +136,22 @@ export type TiendaEnMapa = {
   personas: PersonaEnMapa[];
 };
 
+// Reunión/evento con al menos una marcación de llegada hoy -- mismo criterio
+// que las tarjetas de "Eventos de hoy" (asistencia_eventos), separado de las
+// visitas a tienda para no mezclar ambos tipos de ubicación en la misma
+// lista, aunque se muestren juntos en el mismo mapa.
+export type EventoEnMapa = {
+  comunicadoId: string;
+  mensaje: string;
+  lat: number;
+  lon: number;
+  personas: PersonaEnMapa[];
+};
+
 export type MapaOperativoHoy = {
   fecha: string;
   tiendas: TiendaEnMapa[];
+  eventos: EventoEnMapa[];
   totalPersonas: number;
 };
 
@@ -147,12 +160,19 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
   const supabase = supabaseServer();
   const hoy = hoyPeru();
 
-  const [visitas, { data: tiendas, error: errorTiendas }] = await Promise.all([
-    obtenerVisitasEnRangoAnalitica(hoy, hoy),
-    supabase.from("tiendas").select("id, nombre, lat, lon"),
-  ]);
+  const [visitas, { data: tiendas, error: errorTiendas }, { data: eventosHoy, error: errorEventos }] =
+    await Promise.all([
+      obtenerVisitasEnRangoAnalitica(hoy, hoy),
+      supabase.from("tiendas").select("id, nombre, lat, lon"),
+      supabase
+        .from("asistencia_eventos")
+        .select("comunicado_id, usuario_id, usuarios(nombre, rol), comunicados(mensaje, lat, lon)")
+        .eq("fecha", hoy)
+        .not("hora_llegada", "is", null),
+    ]);
 
   if (errorTiendas) throw new Error("No se pudo cargar el mapa operativo.");
+  if (errorEventos) throw new Error("No se pudo cargar los eventos del mapa operativo.");
 
   const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
   const porTienda = new Map<string, TiendaEnMapa>();
@@ -177,9 +197,34 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
     porTienda.set(v.tiendaId, entrada);
   });
 
+  const porEvento = new Map<string, EventoEnMapa>();
+  (eventosHoy ?? []).forEach((e: any) => {
+    const comunicado = e.comunicados;
+    if (!comunicado?.lat || !comunicado?.lon) return; // sin ubicación geocodificada — no se puede ubicar
+
+    usuariosUnicos.add(e.usuario_id);
+
+    const entrada: EventoEnMapa = porEvento.get(e.comunicado_id) ?? {
+      comunicadoId: e.comunicado_id,
+      mensaje: comunicado.mensaje,
+      lat: Number(comunicado.lat),
+      lon: Number(comunicado.lon),
+      personas: [],
+    };
+    if (!entrada.personas.some((p) => p.usuarioId === e.usuario_id)) {
+      entrada.personas.push({
+        usuarioId: e.usuario_id,
+        usuarioNombre: e.usuarios?.nombre ?? "—",
+        rol: e.usuarios?.rol ?? "—",
+      });
+    }
+    porEvento.set(e.comunicado_id, entrada);
+  });
+
   return {
     fecha: hoy,
     tiendas: Array.from(porTienda.values()),
+    eventos: Array.from(porEvento.values()),
     totalPersonas: usuariosUnicos.size,
   };
 }
