@@ -721,7 +721,6 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const inputTraseraRef = useRef<HTMLInputElement>(null);
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   function cargar() {
     obtenerFeedHistorias()
@@ -734,14 +733,6 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   useEffect(() => {
     obtenerRachaPublicacion().then(setRacha).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    function alHacerClickFuera(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false);
-    }
-    if (menuAbierto) document.addEventListener("mousedown", alHacerClickFuera);
-    return () => document.removeEventListener("mousedown", alHacerClickFuera);
-  }, [menuAbierto]);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivos = Array.from(e.target.files ?? []);
@@ -849,64 +840,16 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
-        <div className="relative shrink-0" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuAbierto((v) => !v)}
-            className="flex flex-col items-center gap-1 w-16"
-          >
-            <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
-              <Plus className="w-5 h-5" />
-            </span>
-            <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
-          </button>
-
-          {menuAbierto && (
-            <div className="absolute left-0 top-full mt-1 z-30 w-48 bg-marca-superficie2 border border-marca-borde rounded-[3px] shadow-lg overflow-hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuAbierto(false);
-                  inputTraseraRef.current?.click();
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left"
-              >
-                <Camera className="w-3.5 h-3.5 text-marca-rojoclaro" /> Tomar foto
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuAbierto(false);
-                  inputSelfieRef.current?.click();
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
-              >
-                <UserRound className="w-3.5 h-3.5 text-marca-rojoclaro" /> Selfie
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuAbierto(false);
-                  inputGaleriaRef.current?.click();
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
-              >
-                <Images className="w-3.5 h-3.5 text-marca-rojoclaro" /> Elegir de mi galería (puedes elegir varias)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuAbierto(false);
-                  setMensaje(null);
-                  setModoTexto(true);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
-              >
-                <Type className="w-3.5 h-3.5 text-marca-rojoclaro" /> Texto con color
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setMenuAbierto(true)}
+          className="shrink-0 flex flex-col items-center gap-1 w-16"
+        >
+          <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
+            <Plus className="w-5 h-5" />
+          </span>
+          <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
+        </button>
 
         {grupos.map((g) => {
           const ultima = g.historias[g.historias.length - 1];
@@ -983,6 +926,97 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
           publicando={publicando}
           mensaje={mensaje}
         />
+      )}
+
+      {menuAbierto && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+          onClick={() => setMenuAbierto(false)}
+        >
+          <div
+            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl pb-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2.5 pb-3">
+              <span className="w-9 h-1 rounded-full bg-marca-borde" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 pb-5">
+              <span className="w-5" />
+              <p className="text-marca-textofuerte text-sm font-black">Nueva historia</p>
+              <button
+                onClick={() => setMenuAbierto(false)}
+                aria-label="Cerrar"
+                className="text-marca-tenue hover:text-marca-texto"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex justify-around px-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputTraseraRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Camera className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Cámara</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputSelfieRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <UserRound className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Selfie</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  setMensaje(null);
+                  setModoTexto(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Type className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Texto</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputGaleriaRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Images className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Galería</span>
+              </button>
+            </div>
+
+            <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
+              En Galería puedes elegir varias fotos a la vez.
+            </p>
+          </div>
+        </div>
       )}
 
       {visor && (

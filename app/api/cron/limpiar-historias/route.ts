@@ -8,7 +8,10 @@ import { eliminarFotoHistoria } from "@/lib/azure-storage";
 // simplemente conociendo la URL.
 export const dynamic = "force-dynamic";
 
-const HORAS_VISIBLE = 24;
+// El borrado real espera 7 días -- aunque la historia deja de verse en el
+// feed del equipo a las 24h, sigue disponible en "Mi Galería" (el archivo
+// personal de cada uno) hasta entonces.
+const DIAS_VISIBLE_GALERIA = 7;
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -17,7 +20,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = supabaseServer();
-  const limite = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
+  const limite = new Date(Date.now() - DIAS_VISIBLE_GALERIA * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase.from("historias").select("id, foto_blob").lt("created_at", limite);
 

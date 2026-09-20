@@ -6,10 +6,14 @@ import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 import { hoyPeru } from "@/lib/fechas";
 
-// Las historias se muestran mientras tengan menos de 24 horas -- el borrado
-// real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
-// decide qué se sigue mostrando en el feed mientras tanto.
-const HORAS_VISIBLE = 24;
+// La historia se ve en "Historias del equipo" mientras tenga menos de 24
+// horas -- igual que un estado de WhatsApp, deja de mostrarse a los demás
+// pasado ese tiempo. En "Mi Galería" (solo tus propias fotos) sigue
+// disponible hasta los 7 días -- ahí sí es un archivo personal, no un
+// estado que el equipo está viendo. El borrado real (fila + blob en Azure)
+// pasa a los 7 días -- ver app/api/cron/limpiar-historias.
+const HORAS_VISIBLE_FEED = 24;
+const DIAS_VISIBLE_GALERIA = 7;
 const TEXTO_MAXIMO = 200;
 
 export type ResultadoHistoria = { exito: boolean; mensaje?: string };
@@ -20,7 +24,7 @@ export type FotoGaleria = {
   urlDescarga: string;
   texto: string | null;
   creadoEn: string;
-  minutosRestantes: number;
+  diasRestantes: number;
 };
 
 // Solo las fotos propias -- "Mi Galería" es un espacio personal, distinto
@@ -28,7 +32,7 @@ export type FotoGaleria = {
 export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
-  const desde = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
+  const desde = new Date(Date.now() - DIAS_VISIBLE_GALERIA * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
     .from("historias")
@@ -47,14 +51,14 @@ export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
       ]);
       if (!url || !urlDescarga) return null;
 
-      const minutosTranscurridos = Math.floor((Date.now() - new Date(fila.created_at).getTime()) / 60000);
+      const diasTranscurridos = Math.floor((Date.now() - new Date(fila.created_at).getTime()) / (24 * 60 * 60 * 1000));
       return {
         id: fila.id,
         url,
         urlDescarga,
         texto: fila.texto,
         creadoEn: fila.created_at,
-        minutosRestantes: Math.max(HORAS_VISIBLE * 60 - minutosTranscurridos, 0),
+        diasRestantes: Math.max(DIAS_VISIBLE_GALERIA - diasTranscurridos, 0),
       };
     })
   );
@@ -354,7 +358,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   const sesion = await exigirSesion();
 
   const supabase = supabaseServer();
-  const desde = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
+  const desde = new Date(Date.now() - HORAS_VISIBLE_FEED * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
     .from("historias")
