@@ -57,12 +57,11 @@ export type NotificacionItem = {
   usuarioNombre: string;
   mensaje: string;
   creadoEn: string;
-  nueva: boolean;
 };
 
-// Lista para la campanita -- últimas actividades de otros sobre lo tuyo
-// (comentario, reacción, regalo), marcando cuáles llegaron después de tu
-// última visita para pintarlas distinto.
+// Lista para la campanita -- solo lo que pasó DESPUÉS de tu última visita
+// (no un historial completo), para que la lista se vacíe sola una vez que
+// ya la revisaste y no se vaya acumulando para siempre.
 export async function obtenerNotificaciones(limite = 20): Promise<NotificacionItem[]> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
@@ -86,6 +85,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         .select("id, texto, created_at, usuarios(nombre)")
         .in("historia_id", idsMisHistorias)
         .neq("usuario_id", sesion.id)
+        .gt("created_at", desde)
         .order("created_at", { ascending: false })
         .limit(limite),
       supabase
@@ -93,6 +93,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         .select("id, emoji, created_at, usuarios(nombre)")
         .in("historia_id", idsMisHistorias)
         .neq("usuario_id", sesion.id)
+        .gt("created_at", desde)
         .order("created_at", { ascending: false })
         .limit(limite),
     ]);
@@ -103,7 +104,6 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         usuarioNombre: c.usuarios?.nombre ?? "—",
         mensaje: `comentó tu foto: "${c.texto.length > 60 ? c.texto.slice(0, 60) + "…" : c.texto}"`,
         creadoEn: c.created_at,
-        nueva: c.created_at > desde,
       });
     });
 
@@ -113,7 +113,6 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         usuarioNombre: r.usuarios?.nombre ?? "—",
         mensaje: `reaccionó ${r.emoji} a tu foto`,
         creadoEn: r.created_at,
-        nueva: r.created_at > desde,
       });
     });
   }
@@ -122,6 +121,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
     .from("historia_regalos")
     .select("id, puntos, created_at, usuarios!historia_regalos_usuario_id_regala_fkey(nombre)")
     .eq("usuario_id_recibe", sesion.id)
+    .gt("created_at", desde)
     .order("created_at", { ascending: false })
     .limit(limite);
 
@@ -131,7 +131,6 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
       usuarioNombre: g.usuarios?.nombre ?? "—",
       mensaje: `te regaló 🎁 ${g.puntos} pts`,
       creadoEn: g.created_at,
-      nueva: g.created_at > desde,
     });
   });
 

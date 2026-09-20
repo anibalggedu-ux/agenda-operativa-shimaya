@@ -219,24 +219,24 @@ function VisorHistorias({
         </div>
 
         <div className="flex items-center justify-between mb-2">
-          <p className="text-white text-sm font-bold">
-            {grupo.nombre} <span className="text-white/50 font-normal text-xs capitalize">· {grupo.rol}</span>
-          </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <p className="text-white text-sm font-bold truncate">
+              {grupo.nombre} <span className="text-white/50 font-normal text-xs capitalize">· {grupo.rol}</span>
+            </p>
             {puedeBorrarFoto && (
               <button
                 onClick={() => setConfirmando(true)}
-                className="text-white/70 hover:text-marca-rojoclaro"
+                className="shrink-0 text-white/45 hover:text-marca-rojoclaro p-1 -m-1"
                 aria-label="Borrar esta foto"
                 title={esPropia ? "Borrar mi foto" : "Borrar por moderación"}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
-            <button onClick={onCerrar} className="text-white/70 hover:text-white" aria-label="Cerrar">
-              <X className="w-5 h-5" />
-            </button>
           </div>
+          <button onClick={onCerrar} className="shrink-0 text-white/70 hover:text-white p-1 -m-1" aria-label="Cerrar">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="relative">
@@ -307,6 +307,17 @@ function VisorHistorias({
             deshabilitado={reaccionando || !detalle}
           />
         </div>
+
+        {(esPropia || esModerador) &&
+          detalle &&
+          detalle.reacciones.some((r) => r.nombres && r.nombres.length > 0) && (
+            <p className="text-white/45 text-[10.5px] mt-1.5">
+              {detalle.reacciones
+                .filter((r) => r.nombres && r.nombres.length > 0)
+                .map((r) => `${r.emoji} ${r.nombres!.map((n) => n.split(" ")[0]).join(", ")}`)
+                .join(" · ")}
+            </p>
+          )}
 
         {!esPropia && (
           <div className="mt-3 bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3 space-y-2">

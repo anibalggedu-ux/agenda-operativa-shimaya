@@ -143,7 +143,13 @@ export type ComentarioHistoria = {
   creadoEn: string;
 };
 
-export type ReaccionResumen = { emoji: string; cantidad: number };
+export type ReaccionResumen = {
+  emoji: string;
+  cantidad: number;
+  // Solo viene con datos si quien pregunta es el autor de la historia o
+  // puede moderar -- a los demás se les muestra la cantidad, no quién.
+  nombres?: string[];
+};
 
 export type VistaHistoria = { usuarioId: string; nombre: string; rol: string; creadoEn: string };
 
@@ -168,7 +174,7 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
       .select("id, usuario_id, texto, created_at, usuarios(nombre, rol)")
       .eq("historia_id", historiaId)
       .order("created_at", { ascending: true }),
-    supabase.from("historia_reacciones").select("usuario_id, emoji").eq("historia_id", historiaId),
+    supabase.from("historia_reacciones").select("usuario_id, emoji, usuarios(nombre)").eq("historia_id", historiaId),
     supabase.from("historias").select("usuario_id").eq("id", historiaId).single(),
   ]);
 
@@ -181,16 +187,24 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
     creadoEn: c.created_at,
   }));
 
+  const esDueno = historiaRes.data?.usuario_id === sesion.id;
+  const puedeVerQuienes = esDueno || puedeModerar(sesion.rol);
+
   const conteo = new Map<string, number>();
+  const nombresPorEmoji = new Map<string, string[]>();
   let miReaccion: string | null = null;
   ((reaccionesRes.data ?? []) as any[]).forEach((r) => {
     conteo.set(r.emoji, (conteo.get(r.emoji) ?? 0) + 1);
     if (r.usuario_id === sesion.id) miReaccion = r.emoji;
+    if (puedeVerQuienes) {
+      const lista = nombresPorEmoji.get(r.emoji) ?? [];
+      lista.push(r.usuarios?.nombre ?? "—");
+      nombresPorEmoji.set(r.emoji, lista);
+    }
   });
 
   let vistas: VistaHistoria[] = [];
-  const esDueno = historiaRes.data?.usuario_id === sesion.id;
-  if (esDueno || puedeModerar(sesion.rol)) {
+  if (puedeVerQuienes) {
     const { data: vistasData } = await supabase
       .from("historia_vistas")
       .select("usuario_id, created_at, usuarios(nombre, rol)")
@@ -207,7 +221,11 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
 
   return {
     comentarios,
-    reacciones: Array.from(conteo.entries()).map(([emoji, cantidad]) => ({ emoji, cantidad })),
+    reacciones: Array.from(conteo.entries()).map(([emoji, cantidad]) => ({
+      emoji,
+      cantidad,
+      nombres: puedeVerQuienes ? nombresPorEmoji.get(emoji) : undefined,
+    })),
     miReaccion,
     vistas,
   };

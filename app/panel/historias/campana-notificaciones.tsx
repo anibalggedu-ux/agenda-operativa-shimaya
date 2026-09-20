@@ -94,15 +94,10 @@ export default function CampanaNotificaciones() {
             NOTIFICACIONES
           </p>
           {items.length === 0 ? (
-            <p className="px-3 py-4 text-marca-tenue text-xs">No tienes notificaciones todavía.</p>
+            <p className="px-3 py-4 text-marca-tenue text-xs">No tienes notificaciones nuevas.</p>
           ) : (
             items.map((n) => (
-              <div
-                key={n.id}
-                className={`px-3 py-2.5 border-b border-marca-borde last:border-b-0 text-xs ${
-                  n.nueva ? "bg-marca-rojo/5" : ""
-                }`}
-              >
+              <div key={n.id} className="px-3 py-2.5 border-b border-marca-borde last:border-b-0 text-xs bg-marca-rojo/5">
                 <p className="text-marca-texto">
                   <span className="font-bold">{n.usuarioNombre}</span> <span className="text-marca-tenue">{n.mensaje}</span>
                 </p>
