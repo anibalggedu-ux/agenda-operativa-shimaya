@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle, Trash2, Send } from "lucide-react";
+import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images } from "lucide-react";
 import {
   obtenerFeedHistorias,
   crearHistoria,
@@ -497,7 +497,11 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
   const [racha, setRacha] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const inputTraseraRef = useRef<HTMLInputElement>(null);
+  const inputSelfieRef = useRef<HTMLInputElement>(null);
+  const inputGaleriaRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   function cargar() {
     obtenerFeedHistorias()
@@ -510,6 +514,14 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   useEffect(() => {
     obtenerRachaPublicacion().then(setRacha).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    function alHacerClickFuera(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false);
+    }
+    if (menuAbierto) document.addEventListener("mousedown", alHacerClickFuera);
+    return () => document.removeEventListener("mousedown", alHacerClickFuera);
+  }, [menuAbierto]);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
@@ -559,25 +571,71 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       </div>
 
       <input
-        ref={inputRef}
+        ref={inputTraseraRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
         onChange={handleArchivo}
       />
+      <input
+        ref={inputSelfieRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={handleArchivo}
+      />
+      <input ref={inputGaleriaRef} type="file" accept="image/*" className="hidden" onChange={handleArchivo} />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="shrink-0 flex flex-col items-center gap-1 w-16"
-        >
-          <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
-            <Plus className="w-5 h-5" />
-          </span>
-          <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
-        </button>
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuAbierto((v) => !v)}
+            className="flex flex-col items-center gap-1 w-16"
+          >
+            <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
+              <Plus className="w-5 h-5" />
+            </span>
+            <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
+          </button>
+
+          {menuAbierto && (
+            <div className="absolute left-0 top-full mt-1 z-30 w-48 bg-marca-superficie2 border border-marca-borde rounded-[3px] shadow-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputTraseraRef.current?.click();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left"
+              >
+                <Camera className="w-3.5 h-3.5 text-marca-rojoclaro" /> Tomar foto
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputSelfieRef.current?.click();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
+              >
+                <UserRound className="w-3.5 h-3.5 text-marca-rojoclaro" /> Selfie
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  inputGaleriaRef.current?.click();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
+              >
+                <Images className="w-3.5 h-3.5 text-marca-rojoclaro" /> Elegir de mi galería
+              </button>
+            </div>
+          )}
+        </div>
 
         {grupos.map((g) => {
           const ultima = g.historias[g.historias.length - 1];
