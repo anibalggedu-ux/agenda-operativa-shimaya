@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
+import { reproducirSonidoExito } from "@/lib/sonido";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -138,6 +139,7 @@ function VisorHistorias({
     if (resultado.exito) {
       setSaldoRegalo((s) => (s ? { ...s, saldo: resultado.saldo ?? s.saldo, totalDonado: s.totalDonado + monto } : s));
       setMontoConfirmado(monto);
+      reproducirSonidoExito();
       setTimeout(() => setMontoConfirmado(null), 2500);
     } else {
       setMensajeRegalo(resultado.mensaje || "No se pudo enviar el regalo.");
@@ -166,6 +168,7 @@ function VisorHistorias({
     const resultado = await alternarReaccion(historia.id, emoji);
     if (resultado.exito) {
       setDetalle((d) => (d ? { ...d, reacciones: resultado.reacciones ?? [], miReaccion: resultado.miReaccion ?? null } : d));
+      if (resultado.miReaccion) reproducirSonidoExito();
     } else {
       setMensaje(resultado.mensaje || "No se pudo reaccionar.");
     }
@@ -181,6 +184,7 @@ function VisorHistorias({
       setComentarioTexto("");
       const actualizado = await obtenerDetalleHistoria(historia.id);
       setDetalle(actualizado);
+      reproducirSonidoExito();
     } else {
       setMensaje(resultado.mensaje || "No se pudo publicar el comentario.");
     }

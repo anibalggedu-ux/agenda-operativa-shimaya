@@ -52,6 +52,92 @@ export async function obtenerNotificacionesPendientes(): Promise<number> {
   return comentarios + reacciones + (regalos ?? 0);
 }
 
+export type NotificacionItem = {
+  id: string;
+  usuarioNombre: string;
+  mensaje: string;
+  creadoEn: string;
+  nueva: boolean;
+};
+
+// Lista para la campanita -- últimas actividades de otros sobre lo tuyo
+// (comentario, reacción, regalo), marcando cuáles llegaron después de tu
+// última visita para pintarlas distinto.
+export async function obtenerNotificaciones(limite = 20): Promise<NotificacionItem[]> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+
+  const { data: estado } = await supabase
+    .from("notificaciones_estado")
+    .select("visto_en")
+    .eq("usuario_id", sesion.id)
+    .maybeSingle();
+  const desde = estado?.visto_en ?? new Date(0).toISOString();
+
+  const { data: misHistorias } = await supabase.from("historias").select("id").eq("usuario_id", sesion.id);
+  const idsMisHistorias = (misHistorias ?? []).map((h) => h.id);
+
+  const items: NotificacionItem[] = [];
+
+  if (idsMisHistorias.length > 0) {
+    const [comentariosRes, reaccionesRes] = await Promise.all([
+      supabase
+        .from("historia_comentarios")
+        .select("id, texto, created_at, usuarios(nombre)")
+        .in("historia_id", idsMisHistorias)
+        .neq("usuario_id", sesion.id)
+        .order("created_at", { ascending: false })
+        .limit(limite),
+      supabase
+        .from("historia_reacciones")
+        .select("id, emoji, created_at, usuarios(nombre)")
+        .in("historia_id", idsMisHistorias)
+        .neq("usuario_id", sesion.id)
+        .order("created_at", { ascending: false })
+        .limit(limite),
+    ]);
+
+    ((comentariosRes.data ?? []) as any[]).forEach((c) => {
+      items.push({
+        id: `comentario-${c.id}`,
+        usuarioNombre: c.usuarios?.nombre ?? "—",
+        mensaje: `comentó tu foto: "${c.texto.length > 60 ? c.texto.slice(0, 60) + "…" : c.texto}"`,
+        creadoEn: c.created_at,
+        nueva: c.created_at > desde,
+      });
+    });
+
+    ((reaccionesRes.data ?? []) as any[]).forEach((r) => {
+      items.push({
+        id: `reaccion-${r.id}`,
+        usuarioNombre: r.usuarios?.nombre ?? "—",
+        mensaje: `reaccionó ${r.emoji} a tu foto`,
+        creadoEn: r.created_at,
+        nueva: r.created_at > desde,
+      });
+    });
+  }
+
+  const { data: regalos } = await supabase
+    .from("historia_regalos")
+    .select("id, puntos, created_at, usuarios!historia_regalos_usuario_id_regala_fkey(nombre)")
+    .eq("usuario_id_recibe", sesion.id)
+    .order("created_at", { ascending: false })
+    .limit(limite);
+
+  ((regalos ?? []) as any[]).forEach((g) => {
+    items.push({
+      id: `regalo-${g.id}`,
+      usuarioNombre: g.usuarios?.nombre ?? "—",
+      mensaje: `te regaló 🎁 ${g.puntos} pts`,
+      creadoEn: g.created_at,
+      nueva: g.created_at > desde,
+    });
+  });
+
+  return items.sort((a, b) => b.creadoEn.localeCompare(a.creadoEn)).slice(0, limite);
+}
+
 export async function marcarNotificacionesVistas(): Promise<void> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();

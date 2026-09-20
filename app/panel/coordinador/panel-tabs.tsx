@@ -27,6 +27,7 @@ import {
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiGaleria as MiGaleria,
+  LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -127,7 +128,12 @@ export default function PanelTabs({
       tituloPortal="Coordinador"
       items={items}
       defaultId="rutas"
-      accionesExtra={<CampanitaDescansos />}
+      accionesExtra={
+        <>
+          <CampanaNotificaciones />
+          <CampanitaDescansos />
+        </>
+      }
       encabezado={
         <div className="space-y-4 mb-4">
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">

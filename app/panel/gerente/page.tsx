@@ -16,6 +16,7 @@ import {
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiGaleria as MiGaleria,
+  LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 import { obtenerNotificacionesPendientes } from "../historias/social-actions";
@@ -101,6 +102,7 @@ export default async function PanelGerente() {
       tituloPortal="Gerente"
       items={items}
       defaultId="inicio"
+      accionesExtra={<CampanaNotificaciones />}
       encabezado={
         <>
           <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">

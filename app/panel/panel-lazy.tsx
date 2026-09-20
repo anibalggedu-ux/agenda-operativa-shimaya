@@ -60,3 +60,10 @@ export const LazyMiGaleria = dynamic(() => import("./historias/mi-galeria"), {
   ssr: false,
   loading: cargando,
 });
+
+// Vive en la barra superior (junto a Recargar/Tema) -- un "Cargando..." ahí
+// se ve fuera de lugar, así que no muestra nada mientras carga el bundle.
+export const LazyCampanaNotificaciones = dynamic(() => import("./historias/campana-notificaciones"), {
+  ssr: false,
+  loading: () => null,
+});

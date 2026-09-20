@@ -62,3 +62,40 @@ export function reproducirSonidoExito(): void {
     // que deba interrumpir el flujo si falla.
   }
 }
+
+// Aviso corto y distinto al "ding" de éxito -- para notificaciones nuevas
+// (comentario, reacción o regalo recibido) que aparecen solas mientras la
+// persona tiene la app abierta, sin que ella haya hecho nada.
+export function reproducirSonidoNotificacion(): void {
+  const ctx = obtenerContexto();
+  if (!ctx) return;
+
+  try {
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const ahora = ctx.currentTime;
+    const notas = [1046, 784]; // C6 → G5, descendente (distinto al ding ascendente)
+
+    notas.forEach((frecuencia, i) => {
+      const inicio = ahora + i * 0.1;
+      const osc = ctx.createOscillator();
+      const ganancia = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = frecuencia;
+
+      ganancia.gain.setValueAtTime(0, inicio);
+      ganancia.gain.linearRampToValueAtTime(0.16, inicio + 0.015);
+      ganancia.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.25);
+
+      osc.connect(ganancia);
+      ganancia.connect(ctx.destination);
+      osc.start(inicio);
+      osc.stop(inicio + 0.28);
+    });
+  } catch {
+    // El sonido es un plus -- nunca debe interrumpir el flujo si falla.
+  }
+}
