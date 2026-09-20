@@ -559,30 +559,56 @@ function VisorHistorias({
   );
 }
 
+export type ItemPublicar = { foto: string; texto: string };
+
 function ComposerHistoria({
-  foto,
+  fotos,
   onCancelar,
   onPublicar,
   publicando,
   mensaje,
+  progresoPublicacion,
 }: {
-  foto: string;
+  fotos: string[];
   onCancelar: () => void;
-  onPublicar: (texto: string) => void;
+  onPublicar: (items: ItemPublicar[]) => void;
   publicando: boolean;
   mensaje: string | null;
+  progresoPublicacion: { actual: number; total: number } | null;
 }) {
-  const [texto, setTexto] = useState("");
+  const [indice, setIndice] = useState(0);
+  const [textos, setTextos] = useState<string[]>(() => fotos.map(() => ""));
+  const esMultiple = fotos.length > 1;
+  const textoActual = textos[indice] ?? "";
+
+  function cambiarTexto(valor: string) {
+    setTextos((prev) => {
+      const copia = [...prev];
+      copia[indice] = valor.slice(0, TEXTO_MAXIMO);
+      return copia;
+    });
+  }
 
   function agregarEmoji(emoji: string) {
-    setTexto((t) => (t.length + emoji.length <= TEXTO_MAXIMO ? t + emoji : t));
+    setTextos((prev) => {
+      const copia = [...prev];
+      const actual = copia[indice] ?? "";
+      if (actual.length + emoji.length <= TEXTO_MAXIMO) copia[indice] = actual + emoji;
+      return copia;
+    });
+  }
+
+  function publicarTodas() {
+    onPublicar(fotos.map((foto, i) => ({ foto, texto: textos[i] ?? "" })));
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-white text-sm font-bold">Nueva historia</p>
+          <p className="text-white text-sm font-bold">
+            {esMultiple ? `Nueva historia (${indice + 1}/${fotos.length})` : "Nueva historia"}
+          </p>
           <button
             onClick={onCancelar}
             disabled={publicando}
@@ -593,16 +619,33 @@ function ComposerHistoria({
           </button>
         </div>
 
-        <img src={foto} alt="Foto a publicar" className="w-full max-h-[50vh] object-contain rounded-[3px] bg-black" />
+        {esMultiple && (
+          <div className="flex gap-1">
+            {fotos.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 flex-1 rounded ${
+                  i === indice ? "bg-marca-rojoclaro" : i < indice ? "bg-white/50" : "bg-white/15"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        <img
+          src={fotos[indice]}
+          alt="Foto a publicar"
+          className="w-full max-h-[45vh] object-contain rounded-[3px] bg-black"
+        />
 
         <textarea
-          value={texto}
-          onChange={(e) => setTexto(e.target.value.slice(0, TEXTO_MAXIMO))}
+          value={textoActual}
+          onChange={(e) => cambiarTexto(e.target.value)}
           placeholder="Escribe un pie de foto (opcional)..."
           rows={2}
           className="w-full bg-marca-superficie2 border border-marca-borde rounded-[3px] px-3 py-2 text-sm text-marca-texto placeholder:text-marca-tenue resize-none"
         />
-        <p className="text-right text-[10px] text-marca-tenue -mt-2">{texto.length}/{TEXTO_MAXIMO}</p>
+        <p className="text-right text-[10px] text-marca-tenue -mt-2">{textoActual.length}/{TEXTO_MAXIMO}</p>
 
         <div className="flex flex-wrap gap-2">
           {EMOJIS_HISTORIA.map((emoji) => (
@@ -617,6 +660,27 @@ function ComposerHistoria({
           ))}
         </div>
 
+        {esMultiple && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={indice === 0 || publicando}
+              onClick={() => setIndice((i) => i - 1)}
+              className="flex-1 min-h-[40px] border border-marca-borde text-marca-texto text-xs font-bold rounded-[3px] disabled:opacity-40"
+            >
+              ← Foto anterior
+            </button>
+            <button
+              type="button"
+              disabled={indice === fotos.length - 1 || publicando}
+              onClick={() => setIndice((i) => i + 1)}
+              className="flex-1 min-h-[40px] border border-marca-borde text-marca-texto text-xs font-bold rounded-[3px] disabled:opacity-40"
+            >
+              Siguiente foto →
+            </button>
+          </div>
+        )}
+
         {mensaje && (
           <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
@@ -625,11 +689,17 @@ function ComposerHistoria({
 
         <button
           type="button"
-          onClick={() => onPublicar(texto)}
+          onClick={publicarTodas}
           disabled={publicando}
           className="w-full min-h-[48px] bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] transition"
         >
-          {publicando ? "Publicando..." : "Publicar historia"}
+          {publicando
+            ? progresoPublicacion
+              ? `Publicando ${progresoPublicacion.actual}/${progresoPublicacion.total}...`
+              : "Publicando..."
+            : esMultiple
+              ? `Publicar ${fotos.length} historias`
+              : "Publicar historia"}
         </button>
       </div>
     </div>
@@ -639,8 +709,9 @@ function ComposerHistoria({
 export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: string; miRol: string }) {
   const [grupos, setGrupos] = useState<GrupoHistorias[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [borrador, setBorrador] = useState<string | null>(null);
+  const [borradores, setBorradores] = useState<string[] | null>(null);
   const [publicando, setPublicando] = useState(false);
+  const [progresoPublicacion, setProgresoPublicacion] = useState<{ actual: number; total: number } | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
   const [vistosLocalmente, setVistosLocalmente] = useState<Set<string>>(new Set());
@@ -673,36 +744,50 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   }, [menuAbierto]);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
+    const archivos = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!archivo) return;
+    if (archivos.length === 0) return;
+
+    if (archivos.length > 10) {
+      setMensaje("Puedes elegir hasta 10 fotos a la vez.");
+      return;
+    }
 
     setMensaje(null);
     try {
-      const foto = await comprimirFotoComoBase64(archivo, 1280, 0.75);
-      setBorrador(foto);
+      const fotos = await Promise.all(archivos.map((a) => comprimirFotoComoBase64(a, 1280, 0.75)));
+      setBorradores(fotos);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
     }
   }
 
-  async function publicar(texto: string) {
-    if (!borrador) return;
+  async function publicar(items: ItemPublicar[]) {
+    if (items.length === 0) return;
     setMensaje(null);
     setPublicando(true);
+    setProgresoPublicacion(items.length > 1 ? { actual: 0, total: items.length } : null);
     try {
-      const resultado = await crearHistoria(borrador, texto);
-      if (resultado.exito) {
-        setBorrador(null);
-        cargar();
-        obtenerRachaPublicacion().then(setRacha).catch(() => {});
-      } else {
-        setMensaje(resultado.mensaje || "No se pudo publicar la foto.");
+      for (let i = 0; i < items.length; i++) {
+        const resultado = await crearHistoria(items[i].foto, items[i].texto);
+        if (!resultado.exito) {
+          setMensaje(
+            items.length > 1
+              ? resultado.mensaje || `No se pudo publicar la foto ${i + 1} de ${items.length}.`
+              : resultado.mensaje || "No se pudo publicar la foto."
+          );
+          return;
+        }
+        if (items.length > 1) setProgresoPublicacion({ actual: i + 1, total: items.length });
       }
+      setBorradores(null);
+      cargar();
+      obtenerRachaPublicacion().then(setRacha).catch(() => {});
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo publicar la foto.");
     } finally {
       setPublicando(false);
+      setProgresoPublicacion(null);
     }
   }
 
@@ -754,7 +839,14 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         className="hidden"
         onChange={handleArchivo}
       />
-      <input ref={inputGaleriaRef} type="file" accept="image/*" className="hidden" onChange={handleArchivo} />
+      <input
+        ref={inputGaleriaRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleArchivo}
+      />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <div className="relative shrink-0" ref={menuRef}>
@@ -799,7 +891,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
               >
-                <Images className="w-3.5 h-3.5 text-marca-rojoclaro" /> Elegir de mi galería
+                <Images className="w-3.5 h-3.5 text-marca-rojoclaro" /> Elegir de mi galería (puedes elegir varias)
               </button>
               <button
                 type="button"
@@ -857,7 +949,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         })}
       </div>
 
-      {mensaje && !borrador && !modoTexto && (
+      {mensaje && !borradores && !modoTexto && (
         <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
         </p>
@@ -867,16 +959,17 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         <p className="text-marca-tenue text-[11px]">Nadie ha publicado historias todavía — sé el primero.</p>
       )}
 
-      {borrador && (
+      {borradores && (
         <ComposerHistoria
-          foto={borrador}
+          fotos={borradores}
           onCancelar={() => {
-            setBorrador(null);
+            setBorradores(null);
             setMensaje(null);
           }}
           onPublicar={publicar}
           publicando={publicando}
           mensaje={mensaje}
+          progresoPublicacion={progresoPublicacion}
         />
       )}
 
