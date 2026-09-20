@@ -27,6 +27,8 @@ import ComposerTexto from "./composer-texto";
 const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
 const TEXTO_MAXIMO = 200;
 const COMENTARIO_MAXIMO = 300;
+// Cuánto dura cada foto antes de avanzar sola, como en WhatsApp/Instagram.
+const DURACION_AUTOAVANCE_MS = 5000;
 
 // Solo +50 va relleno -- el tratamiento más celebratorio se reserva para el
 // regalo más generoso, el resto queda como contorno discreto.
@@ -110,12 +112,19 @@ function VisorHistorias({
   const [enviandoRegalo, setEnviandoRegalo] = useState(false);
   const [mensajeRegalo, setMensajeRegalo] = useState<string | null>(null);
   const [montoConfirmado, setMontoConfirmado] = useState<number | null>(null);
+  const [progreso, setProgreso] = useState(0);
 
   const historia = grupo.historias[indice];
   const esPropia = grupo.usuarioId === miUsuarioId;
   const esModerador = miRol === "coordinador" || miRol === "gerente";
   const puedeBorrarFoto = esPropia || esModerador;
   const primerNombre = grupo.nombre.split(" ")[0];
+  const esUltima = indice === grupo.historias.length - 1;
+
+  const pausadoRef = useRef(false);
+  const inicioRef = useRef(0);
+  const acumuladoRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     setDetalle(null);
@@ -129,6 +138,56 @@ function VisorHistorias({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
+
+  // Auto-avance: la foto actual se llena sola y pasa a la siguiente, como en
+  // WhatsApp/Instagram -- se detiene en la última en vez de cerrar solo.
+  useEffect(() => {
+    setProgreso(0);
+    acumuladoRef.current = 0;
+    inicioRef.current = performance.now();
+    pausadoRef.current = false;
+
+    function tick(ahora: number) {
+      if (!pausadoRef.current) {
+        const transcurrido = acumuladoRef.current + (ahora - inicioRef.current);
+        const p = Math.min(transcurrido / DURACION_AUTOAVANCE_MS, 1);
+        setProgreso(p);
+        if (p >= 1) {
+          if (!esUltima) setIndice((i) => i + 1);
+          return;
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historia.id]);
+
+  function pausar() {
+    if (pausadoRef.current) return;
+    acumuladoRef.current += performance.now() - inicioRef.current;
+    pausadoRef.current = true;
+  }
+
+  function reanudar() {
+    if (!pausadoRef.current) return;
+    inicioRef.current = performance.now();
+    pausadoRef.current = false;
+  }
+
+  function alTocarImagen(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.3) {
+      if (indice > 0) setIndice((i) => i - 1);
+    } else {
+      if (!esUltima) setIndice((i) => i + 1);
+    }
+  }
 
   useEffect(() => {
     if (esPropia) return;
@@ -215,10 +274,15 @@ function VisorHistorias({
       >
         <div className="flex items-center gap-1 mb-2">
           {grupo.historias.map((_, i) => (
-            <span
-              key={i}
-              className={`h-0.5 flex-1 rounded ${i <= indice ? "bg-marca-rojoclaro" : "bg-white/25"}`}
-            />
+            <span key={i} className="h-0.5 flex-1 rounded bg-white/25 overflow-hidden">
+              <span
+                className="block h-full bg-marca-rojoclaro"
+                style={{
+                  width: i < indice ? "100%" : i === indice ? `${progreso * 100}%` : "0%",
+                  transition: i === indice ? "none" : "width 0.15s linear",
+                }}
+              />
+            </span>
           ))}
         </div>
 
@@ -243,11 +307,20 @@ function VisorHistorias({
           </button>
         </div>
 
-        <div className="relative">
+        <div
+          className="relative select-none"
+          onClick={confirmando ? undefined : alTocarImagen}
+          onMouseDown={pausar}
+          onMouseUp={reanudar}
+          onMouseLeave={reanudar}
+          onTouchStart={pausar}
+          onTouchEnd={reanudar}
+        >
           <img
             src={historia.url}
             alt={`Historia de ${grupo.nombre}`}
             className="w-full max-h-[48vh] object-contain rounded-[3px] bg-black"
+            draggable={false}
           />
           {historia.texto && (
             <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent text-white text-sm font-semibold px-3 pt-6 pb-3 rounded-b-[3px]">
