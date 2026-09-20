@@ -6,16 +6,16 @@ import { obtenerMiGaleria, obtenerMiSaldoDeRegalo, type FotoGaleria, type SaldoR
 import { marcarNotificacionesVistas, obtenerRankingRegalos, type FilaRankingRegalos } from "./social-actions";
 import HistoriasFeed from "./historias-feed";
 
-function claseBadge(diasRestantes: number): string {
-  if (diasRestantes <= 1) return "bg-marca-rojo/20 border-marca-rojoclaro text-marca-rojoclaro";
-  if (diasRestantes <= 3) return "bg-amber-950/30 border-amber-500/50 text-amber-400";
+function claseBadge(minutosRestantes: number): string {
+  if (minutosRestantes <= 120) return "bg-marca-rojo/20 border-marca-rojoclaro text-marca-rojoclaro";
+  if (minutosRestantes <= 360) return "bg-amber-950/30 border-amber-500/50 text-amber-400";
   return "bg-marca-superficie2 border-marca-borde text-marca-tenue";
 }
 
-function textoVencimiento(diasRestantes: number): string {
-  if (diasRestantes <= 0) return "vence hoy";
-  if (diasRestantes === 1) return "vence mañana";
-  return `vence en ${diasRestantes} días`;
+function textoVencimiento(minutosRestantes: number): string {
+  if (minutosRestantes <= 0) return "venciendo...";
+  if (minutosRestantes < 60) return `vence en ${minutosRestantes} min`;
+  return `vence en ${Math.round(minutosRestantes / 60)} h`;
 }
 
 function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
@@ -41,10 +41,10 @@ function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
         <img src={foto.url} alt="Foto de mi historia" className="w-full h-full object-cover" />
         <span
           className={`absolute top-2 right-2 text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${claseBadge(
-            foto.diasRestantes
+            foto.minutosRestantes
           )}`}
         >
-          {textoVencimiento(foto.diasRestantes)}
+          {textoVencimiento(foto.minutosRestantes)}
         </span>
         {foto.texto && (
           <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 to-transparent text-white text-[11px] font-semibold px-2.5 pt-5 pb-2 line-clamp-2">
@@ -169,7 +169,7 @@ export default function MiGaleria({ miUsuarioId, miRol }: { miUsuarioId: string;
       <div className="space-y-4">
         <p className="text-marca-tenue text-[11px] flex items-start gap-1.5">
           <Images className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          Tus fotos publicadas en Historias, hasta por 7 días — se borran solas después.
+          Tus fotos publicadas en Historias, hasta por 24 horas — se borran solas después.
         </p>
 
         {fotos.length === 0 ? (

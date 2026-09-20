@@ -6,10 +6,10 @@ import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 import { hoyPeru } from "@/lib/fechas";
 
-// Las historias se muestran mientras tengan menos de 7 días -- el borrado
+// Las historias se muestran mientras tengan menos de 24 horas -- el borrado
 // real (fila + blob en Azure) lo hace un cron aparte, este filtro solo
 // decide qué se sigue mostrando en el feed mientras tanto.
-const DIAS_VISIBLE = 7;
+const HORAS_VISIBLE = 24;
 const TEXTO_MAXIMO = 200;
 
 export type ResultadoHistoria = { exito: boolean; mensaje?: string };
@@ -20,7 +20,7 @@ export type FotoGaleria = {
   urlDescarga: string;
   texto: string | null;
   creadoEn: string;
-  diasRestantes: number;
+  minutosRestantes: number;
 };
 
 // Solo las fotos propias -- "Mi Galería" es un espacio personal, distinto
@@ -28,7 +28,7 @@ export type FotoGaleria = {
 export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
-  const desde = new Date(Date.now() - DIAS_VISIBLE * 24 * 60 * 60 * 1000).toISOString();
+  const desde = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
     .from("historias")
@@ -47,14 +47,14 @@ export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
       ]);
       if (!url || !urlDescarga) return null;
 
-      const diasTranscurridos = Math.floor((Date.now() - new Date(fila.created_at).getTime()) / (24 * 60 * 60 * 1000));
+      const minutosTranscurridos = Math.floor((Date.now() - new Date(fila.created_at).getTime()) / 60000);
       return {
         id: fila.id,
         url,
         urlDescarga,
         texto: fila.texto,
         creadoEn: fila.created_at,
-        diasRestantes: Math.max(DIAS_VISIBLE - diasTranscurridos, 0),
+        minutosRestantes: Math.max(HORAS_VISIBLE * 60 - minutosTranscurridos, 0),
       };
     })
   );
@@ -87,7 +87,7 @@ export async function crearHistoria(fotoDataUrl: string, texto?: string): Promis
     }
 
     // Para la racha de publicación -- no se borra cuando la foto vence a
-    // los 7 días, así que no importa si ya existía la fila de hoy.
+    // las 24 horas, así que no importa si ya existía la fila de hoy.
     await supabase
       .from("historia_publicaciones")
       .upsert({ usuario_id: sesion.id, fecha: hoyPeru() }, { onConflict: "usuario_id,fecha", ignoreDuplicates: true });
@@ -351,7 +351,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   await exigirSesion();
 
   const supabase = supabaseServer();
-  const desde = new Date(Date.now() - DIAS_VISIBLE * 24 * 60 * 60 * 1000).toISOString();
+  const desde = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
     .from("historias")
