@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images } from "lucide-react";
+import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type } from "lucide-react";
 import {
   obtenerFeedHistorias,
   crearHistoria,
@@ -20,6 +20,7 @@ import {
 import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoExito } from "@/lib/sonido";
+import ComposerTexto from "./composer-texto";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -509,6 +510,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
   const [racha, setRacha] = useState(0);
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [modoTexto, setModoTexto] = useState(false);
   const inputTraseraRef = useRef<HTMLInputElement>(null);
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
@@ -563,6 +565,25 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       }
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo publicar la foto.");
+    } finally {
+      setPublicando(false);
+    }
+  }
+
+  async function publicarTexto(fotoDataUrl: string) {
+    setMensaje(null);
+    setPublicando(true);
+    try {
+      const resultado = await crearHistoria(fotoDataUrl);
+      if (resultado.exito) {
+        setModoTexto(false);
+        cargar();
+        obtenerRachaPublicacion().then(setRacha).catch(() => {});
+      } else {
+        setMensaje(resultado.mensaje || "No se pudo publicar la historia.");
+      }
+    } catch (err: any) {
+      setMensaje(err?.message || "No se pudo publicar la historia.");
     } finally {
       setPublicando(false);
     }
@@ -644,6 +665,17 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
               >
                 <Images className="w-3.5 h-3.5 text-marca-rojoclaro" /> Elegir de mi galería
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  setMensaje(null);
+                  setModoTexto(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold text-marca-texto hover:bg-marca-superficie transition text-left border-t border-marca-borde"
+              >
+                <Type className="w-3.5 h-3.5 text-marca-rojoclaro" /> Texto con color
+              </button>
             </div>
           )}
         </div>
@@ -678,7 +710,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         })}
       </div>
 
-      {mensaje && !borrador && (
+      {mensaje && !borrador && !modoTexto && (
         <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-bold">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {mensaje}
         </p>
@@ -696,6 +728,18 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             setMensaje(null);
           }}
           onPublicar={publicar}
+          publicando={publicando}
+          mensaje={mensaje}
+        />
+      )}
+
+      {modoTexto && (
+        <ComposerTexto
+          onCancelar={() => {
+            setModoTexto(false);
+            setMensaje(null);
+          }}
+          onPublicar={publicarTexto}
           publicando={publicando}
           mensaje={mensaje}
         />
