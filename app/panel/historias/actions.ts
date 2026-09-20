@@ -336,6 +336,9 @@ export type HistoriaFoto = {
   // Comentarios + reacciones combinados -- se muestra como un badge chico
   // sobre el círculo del feed, sin tener que abrir la foto.
   interacciones: number;
+  // Si quien pregunta ya vio esta foto -- pinta el anillo del círculo del
+  // feed gris (vista) o rojo (sin ver), igual que WhatsApp/Instagram.
+  vistoPorMi: boolean;
 };
 
 export type GrupoHistorias = {
@@ -348,7 +351,7 @@ export type GrupoHistorias = {
 };
 
 export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
-  await exigirSesion();
+  const sesion = await exigirSesion();
 
   const supabase = supabaseServer();
   const desde = new Date(Date.now() - HORAS_VISIBLE * 60 * 60 * 1000).toISOString();
@@ -362,9 +365,14 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   if (error || !data) return [];
 
   const idsHistorias = (data as any[]).map((f) => f.id);
-  const [reaccionesRes, comentariosRes] = await Promise.all([
+  const [reaccionesRes, comentariosRes, vistasRes] = await Promise.all([
     supabase.from("historia_reacciones").select("historia_id").in("historia_id", idsHistorias),
     supabase.from("historia_comentarios").select("historia_id").in("historia_id", idsHistorias),
+    supabase
+      .from("historia_vistas")
+      .select("historia_id")
+      .in("historia_id", idsHistorias)
+      .eq("usuario_id", sesion.id),
   ]);
   const conteoInteracciones = new Map<string, number>();
   (reaccionesRes.data ?? []).forEach((r: any) =>
@@ -373,6 +381,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   (comentariosRes.data ?? []).forEach((c: any) =>
     conteoInteracciones.set(c.historia_id, (conteoInteracciones.get(c.historia_id) ?? 0) + 1)
   );
+  const idsVistas = new Set((vistasRes.data ?? []).map((v: any) => v.historia_id));
 
   const filasConUrl = await Promise.all(
     (data as any[]).map(async (fila) => ({
@@ -396,6 +405,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
       texto: fila.texto,
       creadoEn: fila.created_at,
       interacciones: conteoInteracciones.get(fila.id) ?? 0,
+      vistoPorMi: idsVistas.has(fila.id),
     });
     porUsuario.set(fila.usuario_id, grupo);
   }

@@ -86,6 +86,7 @@ function VisorHistorias({
   miRol,
   onCerrar,
   onEliminada,
+  onVista,
 }: {
   grupo: GrupoHistorias;
   indiceInicial: number;
@@ -93,6 +94,7 @@ function VisorHistorias({
   miRol: string;
   onCerrar: () => void;
   onEliminada: () => void;
+  onVista: (historiaId: string) => void;
 }) {
   const [indice, setIndice] = useState(indiceInicial);
   const [confirmando, setConfirmando] = useState(false);
@@ -123,6 +125,7 @@ function VisorHistorias({
       .catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null, vistas: [] }));
     if (!esPropia) {
       registrarVista(historia.id).catch(() => {});
+      onVista(historia.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
@@ -508,6 +511,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [publicando, setPublicando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
+  const [vistosLocalmente, setVistosLocalmente] = useState<Set<string>>(new Set());
   const [racha, setRacha] = useState(0);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [modoTexto, setModoTexto] = useState(false);
@@ -682,6 +686,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
 
         {grupos.map((g) => {
           const ultima = g.historias[g.historias.length - 1];
+          const esMiPropioGrupo = g.usuarioId === miUsuarioId;
+          const todoVisto =
+            esMiPropioGrupo || g.historias.every((h) => h.vistoPorMi || vistosLocalmente.has(h.id));
           return (
             <button
               key={g.usuarioId}
@@ -690,7 +697,11 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
               className="shrink-0 flex flex-col items-center gap-1 w-16"
             >
               <span className="relative w-14 h-14">
-                <span className="block w-full h-full rounded-full p-[2px] bg-gradient-to-tr from-marca-rojo to-marca-rojoclaro">
+                <span
+                  className={`block w-full h-full rounded-full p-[2px] ${
+                    todoVisto ? "bg-marca-borde" : "bg-gradient-to-tr from-marca-rojo to-marca-rojoclaro"
+                  }`}
+                >
                   <span
                     className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo"
                     style={{ backgroundImage: `url(${ultima.url})` }}
@@ -702,7 +713,11 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                   </span>
                 )}
               </span>
-              <span className="text-[10px] text-marca-texto truncate w-full text-center">
+              <span
+                className={`text-[10px] truncate w-full text-center ${
+                  todoVisto ? "text-marca-tenue" : "text-marca-texto"
+                }`}
+              >
                 {g.nombre.split(" ")[0]}
               </span>
             </button>
@@ -756,6 +771,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             setVisor(null);
             cargar();
           }}
+          onVista={(historiaId) => setVistosLocalmente((prev) => new Set(prev).add(historiaId))}
         />
       )}
     </div>
