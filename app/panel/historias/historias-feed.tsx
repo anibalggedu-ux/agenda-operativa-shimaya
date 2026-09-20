@@ -40,6 +40,35 @@ const BOTONES_REGALO = [
   { monto: 50, clase: "text-base px-5 py-2.5 font-black" },
 ];
 
+// Corazón grande que aparece y se desvanece al doble-tocar la foto -- usa
+// la Web Animations API en vez de CSS global, para no depender de una
+// animación definida fuera de este componente.
+function CorazonAnimado({ x, y }: { x: number; y: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    ref.current?.animate(
+      [
+        { transform: "translate(-50%, -50%) scale(0.4)", opacity: 0 },
+        { transform: "translate(-50%, -50%) scale(1.15)", opacity: 1, offset: 0.35 },
+        { transform: "translate(-50%, -50%) scale(1)", opacity: 1, offset: 0.7 },
+        { transform: "translate(-50%, -50%) scale(1)", opacity: 0 },
+      ],
+      { duration: 800, easing: "ease-out" }
+    );
+  }, []);
+
+  return (
+    <span
+      ref={ref}
+      className="absolute text-7xl pointer-events-none"
+      style={{ left: x, top: y, filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.35))" }}
+    >
+      ❤️
+    </span>
+  );
+}
+
 function BarraReacciones({
   reacciones,
   miReaccion,
@@ -113,6 +142,7 @@ function VisorHistorias({
   const [mensajeRegalo, setMensajeRegalo] = useState<string | null>(null);
   const [montoConfirmado, setMontoConfirmado] = useState<number | null>(null);
   const [progreso, setProgreso] = useState(0);
+  const [corazonAnimado, setCorazonAnimado] = useState<{ x: number; y: number; clave: number } | null>(null);
 
   const historia = grupo.historias[indice];
   const esPropia = grupo.usuarioId === miUsuarioId;
@@ -125,6 +155,14 @@ function VisorHistorias({
   const inicioRef = useRef(0);
   const acumuladoRef = useRef(0);
   const rafRef = useRef<number | null>(null);
+  const ultimoTapRef = useRef(0);
+  const tapPendienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!corazonAnimado) return;
+    const t = setTimeout(() => setCorazonAnimado(null), 800);
+    return () => clearTimeout(t);
+  }, [corazonAnimado]);
 
   useEffect(() => {
     setDetalle(null);
@@ -182,11 +220,30 @@ function VisorHistorias({
   function alTocarImagen(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width * 0.3) {
-      if (indice > 0) setIndice((i) => i - 1);
-    } else {
-      if (!esUltima) setIndice((i) => i + 1);
+    const y = e.clientY - rect.top;
+    const esIzquierda = x < rect.width * 0.3;
+    const ahora = Date.now();
+
+    if (ahora - ultimoTapRef.current < 300) {
+      if (tapPendienteRef.current) {
+        clearTimeout(tapPendienteRef.current);
+        tapPendienteRef.current = null;
+      }
+      ultimoTapRef.current = 0;
+      setCorazonAnimado({ x, y, clave: ahora });
+      if (detalle?.miReaccion !== "❤️") reaccionar("❤️");
+      return;
     }
+
+    ultimoTapRef.current = ahora;
+    tapPendienteRef.current = setTimeout(() => {
+      tapPendienteRef.current = null;
+      if (esIzquierda) {
+        if (indice > 0) setIndice((i) => i - 1);
+      } else if (!esUltima) {
+        setIndice((i) => i + 1);
+      }
+    }, 280);
   }
 
   useEffect(() => {
@@ -327,6 +384,8 @@ function VisorHistorias({
               {historia.texto}
             </p>
           )}
+
+          {corazonAnimado && <CorazonAnimado key={corazonAnimado.clave} x={corazonAnimado.x} y={corazonAnimado.y} />}
 
           {confirmando && (
             <div
