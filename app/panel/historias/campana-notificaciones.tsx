@@ -89,7 +89,7 @@ export default function CampanaNotificaciones() {
       </button>
 
       {abierta && (
-        <div className="absolute right-0 top-11 z-40 w-80 max-w-[90vw] max-h-96 overflow-y-auto bg-marca-superficie2 border border-marca-borde rounded-[3px] shadow-lg">
+        <div className="fixed right-3 left-3 sm:left-auto top-16 z-40 sm:w-80 max-h-[70vh] overflow-y-auto bg-marca-superficie2 border border-marca-borde rounded-[3px] shadow-lg">
           <p className="px-3 py-2.5 border-b border-marca-borde text-[11px] font-black tracking-widest text-marca-tenue">
             NOTIFICACIONES
           </p>
