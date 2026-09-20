@@ -511,11 +511,64 @@ export async function reenviarCorreoRuta(rutaActivaId: string): Promise<Resultad
     : { exito: false, mensaje: resultado.motivo || "No se pudo reenviar el correo." };
 }
 
+// Avisa por correo que una ruta ya no vale -- para que quien la tenía
+// asignada no se guíe por el correo viejo de "Nueva ruta asignada" cuando
+// se le cambia a último momento (ver eliminarRutaActiva).
+async function enviarCorreoRutaCancelada(
+  supabase: ReturnType<typeof supabaseServer>,
+  sesion: SesionUsuario,
+  usuarioId: string,
+  tiendaId: string,
+  fechaPlanificada: string
+): Promise<void> {
+  const [contacto, { data: tienda }, { data: colaborador }, responderA] = await Promise.all([
+    obtenerContacto(supabase, usuarioId),
+    supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle(),
+    supabase.from("usuarios").select("rol").eq("id", usuarioId).maybeSingle(),
+    obtenerReplyTo(supabase, sesion),
+  ]);
+  if (!contacto?.email) return;
+
+  const enlaceBitacora = `${URL_APP}/panel/${colaborador?.rol ?? "supervisor"}?seccion=bitacora`;
+
+  await enviarCorreo({
+    para: contacto.email,
+    tituloEmoji: "🚫",
+    asunto: `Ruta cancelada — ${formatearFechaLegible(fechaPlanificada)}`,
+    responderA,
+    cuerpoHtml: `
+      <p>Hola ${contacto.nombre},</p>
+      <p>Tu ruta del <strong>${formatearFechaLegible(fechaPlanificada)}</strong> a <strong>${
+      tienda?.nombre ?? "—"
+    }</strong> fue cancelada.</p>
+      <p style="margin:0 0 16px;">Si tienes otro correo de una ruta asignada para ese mismo día, ese es el que vale ahora — revisa la app para confirmar tu ruta actualizada.</p>
+      <p style="margin:0 0 16px;">
+        <a href="${enlaceBitacora}" style="color:#e23744; font-weight:700;">Ir a la Bitácora de Campo →</a>
+      </p>
+      <p style="color:#8b8d92; font-size:12px;">Cancelado por ${sesion.nombre}.</p>
+    `,
+  });
+}
+
 export async function eliminarRutaActiva(id: string): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  const sesion = await exigirCoordinador();
   const supabase = supabaseServer();
+
+  const { data: ruta } = await supabase
+    .from("rutas_activas")
+    .select("usuario_id, tienda_id, fecha_planificada")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("rutas_activas").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo cancelar la ruta." };
+
+  if (ruta) {
+    await notificarPorCorreo(() =>
+      enviarCorreoRutaCancelada(supabase, sesion, ruta.usuario_id, ruta.tienda_id, ruta.fecha_planificada)
+    );
+  }
+
   return { exito: true };
 }
 
