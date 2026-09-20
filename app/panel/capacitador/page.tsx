@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, Images } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, Images, UserCircle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -21,6 +21,7 @@ import {
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiGaleria as MiGaleria,
+  LazyMiPerfil as MiPerfil,
   LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
@@ -113,6 +114,12 @@ export default async function PanelCapacitador() {
       icono: <Images className="w-4 h-4" />,
       contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
       badge: notificacionesPendientes,
+    },
+    {
+      id: "perfil",
+      etiqueta: "Mi Perfil",
+      icono: <UserCircle className="w-4 h-4" />,
+      contenido: <MiPerfil />,
     },
   ];
 

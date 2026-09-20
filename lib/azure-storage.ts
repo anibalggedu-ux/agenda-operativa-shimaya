@@ -27,6 +27,13 @@ function obtenerNombreContenedorHistorias(): string {
   return process.env.AZURE_STORAGE_CONTAINER_HISTORIAS || "historias";
 }
 
+// Fotos de perfil: contenedor aparte de marcaciones/historias porque no
+// caducan nunca solas (no las toca el cron de limpieza) y se sobrescriben en
+// vez de acumularse -- ver subirFotoPerfil.
+function obtenerNombreContenedorPerfiles(): string {
+  return process.env.AZURE_STORAGE_CONTAINER_PERFILES || "perfiles";
+}
+
 function obtenerCredencial(connectionString: string): StorageSharedKeyCredential | null {
   const match = connectionString.match(/AccountName=([^;]+);AccountKey=([^;]+)/);
   if (!match) return null;
@@ -116,6 +123,59 @@ export async function eliminarFotoHistoria(blobPath: string): Promise<void> {
   const contenedor = cliente.getContainerClient(obtenerNombreContenedorHistorias());
   const blockBlob = contenedor.getBlockBlobClient(blobPath);
   await blockBlob.deleteIfExists();
+}
+
+// El nombre del blob es siempre el id del usuario -- subir una foto nueva
+// simplemente sobrescribe la anterior, así que no hace falta guardar ninguna
+// referencia en la base de datos ni limpiar archivos huérfanos.
+function blobPerfil(usuarioId: string): string {
+  return `${usuarioId}.jpg`;
+}
+
+export async function subirFotoPerfil(usuarioId: string, dataUrl: string): Promise<void> {
+  const connectionString = obtenerConnectionString();
+  const { buffer, contentType } = decodificarFotoBase64(dataUrl);
+
+  const cliente = BlobServiceClient.fromConnectionString(connectionString);
+  const contenedor = cliente.getContainerClient(obtenerNombreContenedorPerfiles());
+  await contenedor.createIfNotExists();
+
+  const blockBlob = contenedor.getBlockBlobClient(blobPerfil(usuarioId));
+  await blockBlob.uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
+}
+
+// null cuando el usuario nunca subió foto -- el front muestra sus iniciales
+// como respaldo en ese caso.
+export async function obtenerUrlTemporalFotoPerfil(
+  usuarioId: string,
+  minutos = 180
+): Promise<string | null> {
+  try {
+    const connectionString = obtenerConnectionString();
+    const credencial = obtenerCredencial(connectionString);
+    if (!credencial) return null;
+
+    const cliente = BlobServiceClient.fromConnectionString(connectionString);
+    const contenedor = cliente.getContainerClient(obtenerNombreContenedorPerfiles());
+    const blockBlob = contenedor.getBlockBlobClient(blobPerfil(usuarioId));
+
+    if (!(await blockBlob.exists())) return null;
+
+    const sas = generateBlobSASQueryParameters(
+      {
+        containerName: obtenerNombreContenedorPerfiles(),
+        blobName: blobPerfil(usuarioId),
+        permissions: BlobSASPermissions.parse("r"),
+        expiresOn: new Date(Date.now() + minutos * 60 * 1000),
+      },
+      credencial
+    ).toString();
+
+    return `${blockBlob.url}?${sas}`;
+  } catch (error) {
+    console.error("No se pudo generar el enlace temporal de la foto de perfil:", error);
+    return null;
+  }
 }
 
 export async function obtenerUrlTemporalFotoHistoria(

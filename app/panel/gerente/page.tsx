@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, Images } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, Images, UserCircle } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
@@ -16,6 +16,7 @@ import {
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiGaleria as MiGaleria,
+  LazyMiPerfil as MiPerfil,
   LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
@@ -84,6 +85,12 @@ export default async function PanelGerente() {
       icono: <Images className="w-4 h-4" />,
       contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
       badge: notificacionesPendientes,
+    },
+    {
+      id: "perfil",
+      etiqueta: "Mi Perfil",
+      icono: <UserCircle className="w-4 h-4" />,
+      contenido: <MiPerfil />,
     },
   ];
 

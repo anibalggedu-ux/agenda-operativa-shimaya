@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, Images } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, Images, UserCircle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -27,6 +27,7 @@ import {
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiGaleria as MiGaleria,
+  LazyMiPerfil as MiPerfil,
   LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
@@ -120,6 +121,12 @@ export default function PanelTabs({
       contenido: <MiGaleria miUsuarioId={id} miRol={rol} />,
       badge: notificacionesPendientes,
     },
+    {
+      id: "perfil",
+      etiqueta: "Mi Perfil",
+      icono: <UserCircle className="w-4 h-4" />,
+      contenido: <MiPerfil />,
+    },
   ];
 
   return (
@@ -151,7 +158,6 @@ export default function PanelTabs({
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol} ocultarTarjetas />
-          <PerfilBanner cargarPerfil={obtenerPerfilCoordinador} />
         </div>
       }
     />

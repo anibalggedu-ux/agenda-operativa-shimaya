@@ -67,10 +67,11 @@ export default function PanelShell({
   // Día, etc.) — se define por página, pero siempre queda bajo la misma
   // barra superior fija.
   encabezado?: ReactNode;
-  // Reemplaza a "encabezado" solo mientras la pestaña "galeria" está activa
-  // (ej. sin las tarjetas de Resumen del Día). Un componente de servidor no
-  // puede pasar una función a este Client Component, así que en vez de
-  // "encabezado(activo)" se reciben las dos versiones ya armadas.
+  // Reemplaza a "encabezado" mientras la pestaña "galeria" o "perfil" está
+  // activa (ej. sin las tarjetas de Resumen del Día ni el compositor de
+  // Historias, que no pintan bien encima de esas secciones). Un componente
+  // de servidor no puede pasar una función a este Client Component, así que
+  // en vez de "encabezado(activo)" se reciben las dos versiones ya armadas.
   encabezadoGaleria?: ReactNode;
 }) {
   // Permite enlaces directos a una sección (ej. desde el correo de "Nueva
@@ -166,7 +167,7 @@ export default function PanelShell({
           </p>
         </div>
 
-        {activo === "galeria" && encabezadoGaleria ? encabezadoGaleria : encabezado}
+        {(activo === "galeria" || activo === "perfil") && encabezadoGaleria ? encabezadoGaleria : encabezado}
 
         <div className="flex flex-col lg:flex-row border border-marca-borde rounded-[3px] overflow-hidden">
           <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 bg-marca-superficie border-r border-marca-borde">
