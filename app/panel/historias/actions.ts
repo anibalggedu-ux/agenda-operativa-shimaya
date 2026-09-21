@@ -27,17 +27,14 @@ export type FotoGaleria = {
   diasRestantes: number;
 };
 
-// Solo las fotos propias -- "Mi Galería" es un espacio personal, distinto
-// del feed de Historias del equipo que muestra las de todos.
-export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
-  const sesion = await exigirSesion();
+async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> {
   const supabase = supabaseServer();
   const desde = new Date(Date.now() - DIAS_VISIBLE_GALERIA * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
     .from("historias")
     .select("id, foto_blob, texto, created_at")
-    .eq("usuario_id", sesion.id)
+    .eq("usuario_id", usuarioId)
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
 
@@ -64,6 +61,21 @@ export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
   );
 
   return conUrls.filter((f): f is FotoGaleria => f !== null);
+}
+
+// Solo las fotos propias -- "Mi Galería" es un espacio personal, distinto
+// del feed de Historias del equipo que muestra las de todos.
+export async function obtenerMiGaleria(): Promise<FotoGaleria[]> {
+  const sesion = await exigirSesion();
+  return obtenerGaleriaInterna(sesion.id);
+}
+
+// Misma galería pero de otro usuario -- la ve cualquiera que entre a su
+// perfil (ver app/panel/perfil), no solo su dueño. Solo exige sesión
+// iniciada, no un rol ni una relación con ese usuario en particular.
+export async function obtenerGaleriaDeUsuario(usuarioId: string): Promise<FotoGaleria[]> {
+  await exigirSesion();
+  return obtenerGaleriaInterna(usuarioId);
 }
 
 export async function crearHistoria(fotoDataUrl: string, texto?: string): Promise<ResultadoHistoria> {

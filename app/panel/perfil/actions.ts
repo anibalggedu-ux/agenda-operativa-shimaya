@@ -9,6 +9,11 @@ import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil } from "@/lib/azure-stora
 import { revalidatePath } from "next/cache";
 
 export type PerfilCompleto = {
+  usuarioId: string;
+  // El perfil que se pidió es el de quien tiene la sesión abierta -- muestra
+  // el botón de cambiar foto y el directorio del equipo. El de otro usuario
+  // es de solo lectura.
+  esPropio: boolean;
   nombre: string;
   rol: string;
   fotoUrl: string | null;
@@ -28,22 +33,28 @@ export type PerfilCompleto = {
   totalRecibido: number;
 };
 
-export async function obtenerMiPerfilCompleto(): Promise<PerfilCompleto> {
+// Sin usuarioId trae el propio. Con uno, cualquiera con sesión iniciada
+// puede ver el perfil de cualquier compañero -- es la vitrina del equipo,
+// no hay nada privado en estos datos (ya son visibles hoy repartidos entre
+// Historias, la Vitrina de Trofeos y los rankings de cada portal).
+export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
+  const objetivoId = usuarioId ?? sesion.id;
+
   const supabase = supabaseServer();
   const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido, fotoUrl] = await Promise.all([
-    supabase.from("usuarios").select("nombre, rol, dias_descanso, fecha_ingreso").eq("id", sesion.id).maybeSingle(),
+    supabase.from("usuarios").select("nombre, rol, dias_descanso, fecha_ingreso").eq("id", objetivoId).maybeSingle(),
     obtenerVitrinaTrofeos(),
-    obtenerTotalDonado(),
-    obtenerTotalRecibido(),
-    obtenerUrlTemporalFotoPerfil(sesion.id),
+    obtenerTotalDonado(objetivoId),
+    obtenerTotalRecibido(objetivoId),
+    obtenerUrlTemporalFotoPerfil(objetivoId),
   ]);
 
-  if (error) throw new Error("No se pudo cargar tu perfil.");
+  if (error || !usuario) throw new Error("No se pudo cargar el perfil.");
 
-  const fechaIngreso = usuario?.fecha_ingreso ?? null;
+  const fechaIngreso = usuario.fecha_ingreso ?? null;
   let antiguedad: PerfilCompleto["antiguedad"] = null;
   let proximoAniversario: PerfilCompleto["proximoAniversario"] = null;
   if (fechaIngreso) {
@@ -53,14 +64,16 @@ export async function obtenerMiPerfilCompleto(): Promise<PerfilCompleto> {
     proximoAniversario = calcularProximaFechaAnual(mIng, dIng, hoy);
   }
 
-  const indice = vitrina.findIndex((f) => f.usuarioId === sesion.id);
+  const indice = vitrina.findIndex((f) => f.usuarioId === objetivoId);
   const propio = indice >= 0 ? vitrina[indice] : null;
 
   return {
-    nombre: usuario?.nombre ?? sesion.nombre,
-    rol: usuario?.rol ?? sesion.rol,
+    usuarioId: objetivoId,
+    esPropio: objetivoId === sesion.id,
+    nombre: usuario.nombre ?? sesion.nombre,
+    rol: usuario.rol ?? sesion.rol,
     fotoUrl,
-    diasDescanso: usuario?.dias_descanso ?? [],
+    diasDescanso: usuario.dias_descanso ?? [],
     antiguedad,
     proximoAniversario,
     tienePuntos: propio !== null,
@@ -86,4 +99,26 @@ export async function actualizarFotoPerfil(fotoDataUrl: string): Promise<{ ok: b
   } catch (error: any) {
     return { ok: false, mensaje: error.message || "No se pudo subir la foto." };
   }
+}
+
+export type PersonaDirectorio = { usuarioId: string; nombre: string; rol: string };
+
+// Lista de todo el equipo activo para "Perfil de tu equipo" -- cualquier
+// usuario con sesión puede verla, es la misma idea que ya existe en
+// Historias (ver quién publicó qué) llevada a una lista de nombres.
+export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id, nombre, rol")
+    .eq("activo", true)
+    .neq("id", sesion.id)
+    .order("nombre", { ascending: true });
+
+  if (error) return [];
+
+  return (data ?? []).map((u) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol }));
 }

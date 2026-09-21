@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper } from "lucide-react";
-import { obtenerMiPerfilCompleto, actualizarFotoPerfil, type PerfilCompleto } from "./actions";
-import { obtenerMiGaleria, type FotoGaleria } from "../historias/actions";
+import { Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight } from "lucide-react";
+import {
+  obtenerPerfil,
+  actualizarFotoPerfil,
+  obtenerDirectorioEquipo,
+  type PerfilCompleto,
+  type PersonaDirectorio,
+} from "./actions";
+import { obtenerGaleriaDeUsuario, type FotoGaleria } from "../historias/actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 
@@ -19,11 +25,11 @@ function iniciales(nombre: string): string {
   return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
 }
 
-function textoAntiguedad(a: PerfilCompleto["antiguedad"]): string | null {
+function textoAntiguedad(a: PerfilCompleto["antiguedad"], esPropio: boolean): string | null {
   if (!a) return null;
   const anios = `${a.anios} año${a.anios !== 1 ? "s" : ""}`;
   const meses = a.meses > 0 ? ` y ${a.meses} mes${a.meses !== 1 ? "es" : ""}` : "";
-  return `Miembro desde hace ${anios}${meses}`;
+  return `${esPropio ? "Miembro" : "En el equipo"} desde hace ${anios}${meses}`;
 }
 
 function Tile({ icono, etiqueta, valor, unidad }: { icono: React.ReactNode; etiqueta: string; valor: string; unidad?: string }) {
@@ -39,26 +45,33 @@ function Tile({ icono, etiqueta, valor, unidad }: { icono: React.ReactNode; etiq
   );
 }
 
-export default function MiPerfil() {
+function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrirPerfil: (id: string) => void }) {
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [fotos, setFotos] = useState<FotoGaleria[]>([]);
+  const [directorio, setDirectorio] = useState<PersonaDirectorio[]>([]);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function cargar() {
-    return Promise.all([obtenerMiPerfilCompleto(), obtenerMiGaleria()]).then(([p, f]) => {
-      setPerfil(p);
-      setFotos(f);
-    });
+  async function cargar() {
+    const p = await obtenerPerfil(usuarioId);
+    const [f, d] = await Promise.all([
+      obtenerGaleriaDeUsuario(p.usuarioId),
+      p.esPropio ? obtenerDirectorioEquipo() : Promise.resolve([]),
+    ]);
+    setPerfil(p);
+    setFotos(f);
+    setDirectorio(d);
   }
 
   useEffect(() => {
+    setCargando(true);
     cargar()
-      .catch(() => setMensaje("No se pudo cargar tu perfil."))
+      .catch(() => setMensaje("No se pudo cargar el perfil."))
       .finally(() => setCargando(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuarioId]);
 
   async function alElegirFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
@@ -83,19 +96,20 @@ export default function MiPerfil() {
   }
 
   if (cargando) {
-    return <p className="text-marca-tenue text-sm animate-pulse">Cargando tu perfil...</p>;
+    return <p className="text-marca-tenue text-sm animate-pulse">Cargando perfil...</p>;
   }
 
   if (!perfil) {
     return <p className="text-marca-rojoclaro text-sm">{mensaje}</p>;
   }
 
+  const esPropio = perfil.esPropio;
   const progreso = Math.round(
     (perfil.progresoBronce.actual / (perfil.progresoBronce.actual + perfil.progresoBronce.faltan)) * 100
   );
   const textoDescanso =
     perfil.diasDescanso.length === 0 ? "Sin descanso fijo asignado" : perfil.diasDescanso.join(" y ");
-  const caption = textoAntiguedad(perfil.antiguedad);
+  const caption = textoAntiguedad(perfil.antiguedad, esPropio);
 
   return (
     <div className="space-y-6">
@@ -105,27 +119,25 @@ export default function MiPerfil() {
           <div className="relative w-24 h-24 -mt-12">
             <div className="w-24 h-24 rounded-full border-4 border-marca-fondo bg-marca-superficie2 flex items-center justify-center overflow-hidden">
               {perfil.fotoUrl ? (
-                <img src={perfil.fotoUrl} alt="Tu foto de perfil" className="w-full h-full object-cover" />
+                <img src={perfil.fotoUrl} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-marca-textofuerte text-2xl font-extrabold">{iniciales(perfil.nombre)}</span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={subiendo}
-              aria-label="Cambiar foto de perfil"
-              className="absolute -bottom-0.5 -right-0.5 w-8 h-8 rounded-full bg-marca-rojoclaro border-[3px] border-marca-fondo flex items-center justify-center disabled:opacity-50"
-            >
-              <Camera className="w-3.5 h-3.5 text-white" />
-            </button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={alElegirFoto}
-            />
+            {esPropio && (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={subiendo}
+                aria-label="Cambiar foto de perfil"
+                className="absolute -bottom-0.5 -right-0.5 w-8 h-8 rounded-full bg-marca-rojoclaro border-[3px] border-marca-fondo flex items-center justify-center disabled:opacity-50"
+              >
+                <Camera className="w-3.5 h-3.5 text-white" />
+              </button>
+            )}
+            {esPropio && (
+              <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={alElegirFoto} />
+            )}
           </div>
 
           <div className="mt-2.5">
@@ -167,13 +179,17 @@ export default function MiPerfil() {
 
       <div className="flex gap-2.5">
         <div className="flex-1 bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 py-3">
-          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">🎁 Has donado</p>
+          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">
+            🎁 {esPropio ? "Has donado" : "Ha donado"}
+          </p>
           <p className="font-display text-lg font-extrabold text-marca-rojoclaro mt-1">
             {perfil.totalDonado} <span className="text-[11px] font-bold text-marca-tenue">pts</span>
           </p>
         </div>
         <div className="flex-1 bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 py-3">
-          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">🎉 Te han donado</p>
+          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">
+            🎉 {esPropio ? "Te han donado" : "Le han donado"}
+          </p>
           <p className="font-display text-lg font-extrabold text-emerald-400 mt-1">
             {perfil.totalRecibido} <span className="text-[11px] font-bold text-marca-tenue">pts</span>
           </p>
@@ -183,7 +199,7 @@ export default function MiPerfil() {
       {perfil.tienePuntos && (
         <div>
           <h3 className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-marca-tenue uppercase mb-2.5">
-            <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> Tus medallas
+            <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> {esPropio ? "Tus medallas" : "Sus medallas"}
           </h3>
           <div className="flex gap-2">
             {UMBRALES_MEDALLAS.map((u) => (
@@ -193,15 +209,17 @@ export default function MiPerfil() {
               </div>
             ))}
           </div>
-          <div className="mt-2.5">
-            <p className="text-marca-tenue text-[10.5px] mb-1.5">
-              Te faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para
-              tu próxima medalla 🥉
-            </p>
-            <div className="h-[5px] bg-marca-borde rounded-full overflow-hidden">
-              <div className="h-full bg-marca-rojo rounded-full" style={{ width: progreso + "%" }} />
+          {esPropio && (
+            <div className="mt-2.5">
+              <p className="text-marca-tenue text-[10.5px] mb-1.5">
+                Te faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para
+                tu próxima medalla 🥉
+              </p>
+              <div className="h-[5px] bg-marca-borde rounded-full overflow-hidden">
+                <div className="h-full bg-marca-rojo rounded-full" style={{ width: progreso + "%" }} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -242,21 +260,68 @@ export default function MiPerfil() {
 
       <div>
         <p className="flex items-center gap-1.5 text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-2.5">
-          <Images className="w-3.5 h-3.5" /> Tus fotos recientes
+          <Images className="w-3.5 h-3.5" /> {esPropio ? "Tus fotos recientes" : "Sus fotos recientes"}
         </p>
         {fotos.length === 0 ? (
-          <p className="text-marca-tenue text-sm">Aún no tienes fotos activas en tu galería.</p>
+          <p className="text-marca-tenue text-sm">
+            {esPropio ? "Aún no tienes fotos activas en tu galería." : "Todavía no tiene fotos activas."}
+          </p>
         ) : (
           <div className="grid grid-cols-3 gap-1.5">
             {fotos.map((f) => (
               <div key={f.id} className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo">
-                <img src={f.url} alt="Foto de tu historia" className="w-full h-full object-cover" />
+                <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
               </div>
             ))}
           </div>
         )}
         <p className="text-marca-tenue text-[10.5px] mt-2">Se ven aquí hasta 7 días, igual que en Mi Galería.</p>
       </div>
+
+      {esPropio && directorio.length > 0 && (
+        <div>
+          <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Perfil de tu equipo</p>
+          <p className="text-marca-tenue text-[10.5px] mb-2">Toca un nombre para ver su perfil.</p>
+          <div className="bg-marca-superficie border border-marca-borde rounded-[3px] divide-y divide-marca-borde">
+            {directorio.map((persona) => (
+              <button
+                key={persona.usuarioId}
+                type="button"
+                onClick={() => onAbrirPerfil(persona.usuarioId)}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-marca-superficie2 transition"
+              >
+                <div className="w-8 h-8 rounded-full bg-marca-superficie2 flex items-center justify-center text-[11px] font-black text-marca-textofuerte shrink-0">
+                  {iniciales(persona.nombre)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-marca-textofuerte text-[13px] font-bold truncate">{persona.nombre}</p>
+                  <p className="text-marca-tenue text-[10.5px]">{ETIQUETA_ROL[persona.rol] ?? persona.rol}</p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-marca-tenue shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MiPerfil() {
+  const [verUsuarioId, setVerUsuarioId] = useState<string | undefined>(undefined);
+
+  return (
+    <div className="space-y-4">
+      {verUsuarioId && (
+        <button
+          type="button"
+          onClick={() => setVerUsuarioId(undefined)}
+          className="flex items-center gap-1.5 text-marca-tenue hover:text-marca-texto text-xs font-bold transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Volver a tu perfil
+        </button>
+      )}
+      <VistaPerfil key={verUsuarioId ?? "propio"} usuarioId={verUsuarioId} onAbrirPerfil={setVerUsuarioId} />
     </div>
   );
 }
