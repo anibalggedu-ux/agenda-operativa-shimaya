@@ -101,7 +101,7 @@ export async function actualizarFotoPerfil(fotoDataUrl: string): Promise<{ ok: b
   }
 }
 
-export type PersonaDirectorio = { usuarioId: string; nombre: string; rol: string };
+export type PersonaDirectorio = { usuarioId: string; nombre: string; rol: string; fotoUrl: string | null };
 
 // Lista de todo el equipo activo para "Perfil de tu equipo" -- cualquier
 // usuario con sesión puede verla, es la misma idea que ya existe en
@@ -120,5 +120,8 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
 
   if (error) return [];
 
-  return (data ?? []).map((u) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol }));
+  const personas = data ?? [];
+  const fotos = await Promise.all(personas.map((u) => obtenerUrlTemporalFotoPerfil(u.id)));
+
+  return personas.map((u, i) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol, fotoUrl: fotos[i] }));
 }

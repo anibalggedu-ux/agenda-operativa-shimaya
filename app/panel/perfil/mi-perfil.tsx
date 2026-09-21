@@ -20,6 +20,16 @@ const ETIQUETA_ROL: Record<string, string> = {
   gerente: "Gerente",
 };
 
+// Un color por rol para identificar de un vistazo a cada quién en el
+// directorio del equipo -- gerente usa el rojo de marca, los demás roles
+// operativos se distinguen entre sí.
+const COLOR_ROL: Record<string, string> = {
+  gerente: "#e23744",
+  coordinador: "#f59e0b",
+  supervisor: "#3b82f6",
+  capacitador: "#8b5cf6",
+};
+
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
   return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
@@ -283,23 +293,39 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
           <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Perfil de tu equipo</p>
           <p className="text-marca-tenue text-[10.5px] mb-2">Toca un nombre para ver su perfil.</p>
           <div className="bg-marca-superficie border border-marca-borde rounded-[3px] divide-y divide-marca-borde">
-            {directorio.map((persona) => (
-              <button
-                key={persona.usuarioId}
-                type="button"
-                onClick={() => onAbrirPerfil(persona.usuarioId)}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-marca-superficie2 transition"
-              >
-                <div className="w-8 h-8 rounded-full bg-marca-superficie2 flex items-center justify-center text-[11px] font-black text-marca-textofuerte shrink-0">
-                  {iniciales(persona.nombre)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-marca-textofuerte text-[13px] font-bold truncate">{persona.nombre}</p>
-                  <p className="text-marca-tenue text-[10.5px]">{ETIQUETA_ROL[persona.rol] ?? persona.rol}</p>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 text-marca-tenue shrink-0" />
-              </button>
-            ))}
+            {directorio.map((persona) => {
+              const color = COLOR_ROL[persona.rol] ?? "#8b8d92";
+              return (
+                <button
+                  key={persona.usuarioId}
+                  type="button"
+                  onClick={() => onAbrirPerfil(persona.usuarioId)}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-marca-superficie2 transition"
+                >
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 overflow-hidden"
+                    style={{
+                      border: `2px solid ${color}`,
+                      background: persona.fotoUrl ? undefined : `${color}26`,
+                      color: persona.fotoUrl ? undefined : color,
+                    }}
+                  >
+                    {persona.fotoUrl ? (
+                      <img src={persona.fotoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      iniciales(persona.nombre)
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-marca-textofuerte text-[13px] font-bold truncate">{persona.nombre}</p>
+                    <p className="text-[10.5px] font-bold" style={{ color }}>
+                      {ETIQUETA_ROL[persona.rol] ?? persona.rol}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-marca-tenue shrink-0" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
