@@ -9,6 +9,7 @@ import {
 } from "@/lib/trofeos";
 import { hoyPeru, sumarDias, diaSemanaPeru, diasEntreFechas } from "@/lib/fechas";
 import { resolverHoraLimite } from "@/lib/puntualidad";
+import { exigirAccesoRegistro } from "./registro/actions";
 
 const ROLES_CON_PUNTOS = ["supervisor", "capacitador", "coordinador"];
 const PUNTOS_POR_REPORTE = 10;
@@ -140,30 +141,78 @@ async function obtenerNetoRegalosPorUsuario(): Promise<Map<string, number>> {
   return neto;
 }
 
+export type ConfiguracionBonoHistoria = { activo: boolean; puntos: number };
+
+const CONFIGURACION_BONO_HISTORIA_POR_DEFECTO: ConfiguracionBonoHistoria = { activo: true, puntos: 15 };
+
+// Bono configurable desde Registro: si está activo, cada día que un usuario
+// publicó al menos una historia (ver historia_publicaciones) suma "puntos" a
+// su total -- no importa cuántas fotos haya subido ese día, es por día.
+export async function obtenerConfiguracionBonoHistoria(): Promise<ConfiguracionBonoHistoria> {
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("configuracion_bono_historia")
+    .select("activo, puntos")
+    .eq("id", true)
+    .maybeSingle();
+
+  if (!data) return CONFIGURACION_BONO_HISTORIA_POR_DEFECTO;
+  return { activo: data.activo, puntos: data.puntos };
+}
+
+export async function actualizarConfiguracionBonoHistoria(
+  activo: boolean,
+  puntos: number
+): Promise<{ exito: boolean; mensaje?: string }> {
+  await exigirAccesoRegistro();
+
+  if (!Number.isInteger(puntos) || puntos < 0) {
+    return { exito: false, mensaje: "Los puntos deben ser un número entero de 0 a más." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("configuracion_bono_historia")
+    .upsert({ id: true, activo, puntos }, { onConflict: "id" });
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar la configuración." };
+  return { exito: true };
+}
+
 async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const supabase = supabaseServer();
 
-  const [usuariosRes, asistenciaRes, reportesRes, rutasActivasRes, tiendasProvinciaRes, netoRegalos] =
-    await Promise.all([
-      supabase
-        .from("usuarios")
-        .select(
-          "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
-        )
-        .in("rol", ROLES_CON_PUNTOS),
-      supabase
-        .from("asistencia")
-        .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
-        .not("hora_ingreso", "is", null),
-      supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
-      // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
-      // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
-      // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
-      // que se asigna, no desde que se reporta, así que se incluyen acá.
-      supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
-      supabase.from("tiendas").select("id").eq("es_provincia", true),
-      obtenerNetoRegalosPorUsuario(),
-    ]);
+  const [
+    usuariosRes,
+    asistenciaRes,
+    reportesRes,
+    rutasActivasRes,
+    tiendasProvinciaRes,
+    netoRegalos,
+    configBonoHistoria,
+    historiaPublicacionesRes,
+  ] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select(
+        "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
+      )
+      .in("rol", ROLES_CON_PUNTOS),
+    supabase
+      .from("asistencia")
+      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
+      .not("hora_ingreso", "is", null),
+    supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
+    // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
+    // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
+    // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
+    // que se asigna, no desde que se reporta, así que se incluyen acá.
+    supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
+    supabase.from("tiendas").select("id").eq("es_provincia", true),
+    obtenerNetoRegalosPorUsuario(),
+    obtenerConfiguracionBonoHistoria(),
+    supabase.from("historia_publicaciones").select("usuario_id"),
+  ]);
 
   if (
     usuariosRes.error ||
@@ -174,6 +223,15 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   ) {
     throw new Error("No se pudo calcular los puntos.");
   }
+
+  // Un día marcado en historia_publicaciones = al menos una historia
+  // publicada ese día (ver crearHistoria, que hace upsert con
+  // ignoreDuplicates sobre usuario_id+fecha) -- por eso contar filas ya
+  // cuenta "días con publicación", nunca fotos sueltas.
+  const diasPublicadosPorUsuario = new Map<string, number>();
+  (historiaPublicacionesRes.data ?? []).forEach((r: any) => {
+    diasPublicadosPorUsuario.set(r.usuario_id, (diasPublicadosPorUsuario.get(r.usuario_id) ?? 0) + 1);
+  });
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
 
@@ -251,11 +309,20 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       u.horario_por_dia
     );
 
+    const bonoHistoria = configBonoHistoria.activo
+      ? (diasPublicadosPorUsuario.get(u.id) ?? 0) * configBonoHistoria.puntos
+      : 0;
+
     return {
       usuarioId: u.id,
       nombre: u.nombre,
       rol: u.rol,
-      puntos: (puntosPorUsuario.get(u.id) ?? 0) + bono + (u.puntos_heredados ?? 0) + (netoRegalos.get(u.id) ?? 0),
+      puntos:
+        (puntosPorUsuario.get(u.id) ?? 0) +
+        bono +
+        bonoHistoria +
+        (u.puntos_heredados ?? 0) +
+        (netoRegalos.get(u.id) ?? 0),
       rachaActual: racha,
       viajesProvincia: viajesProvinciaPorUsuario.get(u.id) ?? 0,
     };

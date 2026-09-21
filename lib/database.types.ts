@@ -439,6 +439,24 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracion_bono_historia: {
+        Row: {
+          activo: boolean
+          id: boolean
+          puntos: number
+        }
+        Insert: {
+          activo?: boolean
+          id?: boolean
+          puntos?: number
+        }
+        Update: {
+          activo?: boolean
+          id?: boolean
+          puntos?: number
+        }
+        Relationships: []
+      }
       documentos: {
         Row: {
           actualizado_en: string
@@ -474,51 +492,6 @@ export type Database = {
           tamano_bytes?: number
         }
         Relationships: []
-      }
-      historial_asignaciones: {
-        Row: {
-          area: string | null
-          created_at: string | null
-          enfoque: string | null
-          fecha_planificada: string
-          id: string
-          tienda_id: string
-          usuario_id: string
-        }
-        Insert: {
-          area?: string | null
-          created_at?: string | null
-          enfoque?: string | null
-          fecha_planificada: string
-          id?: string
-          tienda_id: string
-          usuario_id: string
-        }
-        Update: {
-          area?: string | null
-          created_at?: string | null
-          enfoque?: string | null
-          fecha_planificada?: string
-          id?: string
-          tienda_id?: string
-          usuario_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "historial_asignaciones_tienda_id_fkey"
-            columns: ["tienda_id"]
-            isOneToOne: false
-            referencedRelation: "tiendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "historial_asignaciones_usuario_id_fkey"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "usuarios"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       historia_comentarios: {
         Row: {
@@ -699,6 +672,51 @@ export type Database = {
           },
           {
             foreignKeyName: "historia_vistas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historial_asignaciones: {
+        Row: {
+          area: string | null
+          created_at: string | null
+          enfoque: string | null
+          fecha_planificada: string
+          id: string
+          tienda_id: string
+          usuario_id: string
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string | null
+          enfoque?: string | null
+          fecha_planificada: string
+          id?: string
+          tienda_id: string
+          usuario_id: string
+        }
+        Update: {
+          area?: string | null
+          created_at?: string | null
+          enfoque?: string | null
+          fecha_planificada?: string
+          id?: string
+          tienda_id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historial_asignaciones_tienda_id_fkey"
+            columns: ["tienda_id"]
+            isOneToOne: false
+            referencedRelation: "tiendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historial_asignaciones_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Users, UserPlus, UserCog, Search, Store, Settings, Clock, Receipt, ClipboardList, Wrench, History, Activity, FileClock, Shuffle } from "lucide-react";
+import { Users, UserPlus, UserCog, Search, Store, Settings, Clock, Receipt, ClipboardList, Wrench, History, Activity, FileClock, Shuffle, Gift } from "lucide-react";
 import {
   crearUsuario,
   obtenerUsuariosConAcceso,
@@ -28,6 +28,7 @@ import {
   BloqueKilometros,
 } from "./mantenimiento";
 import HorarioPersonalizado from "./horario-personalizado";
+import BonoHistoria from "./bono-historia";
 import { AccesoAuditoria, PlantillaAuditoria } from "./auditoria-admin";
 import SeccionColapsable from "../seccion-colapsable";
 import HistorialCambios from "./historial-cambios";
@@ -602,6 +603,14 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
           descripcion="Configura una hora límite propia para quien tenga un turno diferido del resto."
         >
           <HorarioPersonalizado />
+        </SeccionColapsable>
+
+        <SeccionColapsable
+          titulo="Bono por publicar en Historias"
+          icono={<Gift />}
+          descripcion="Activa o desactiva los puntos que se suman por publicar en Historias, y cuántos son."
+        >
+          <BonoHistoria />
         </SeccionColapsable>
 
         <SeccionColapsable
