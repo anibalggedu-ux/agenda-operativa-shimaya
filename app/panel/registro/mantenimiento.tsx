@@ -7,6 +7,7 @@ import {
   obtenerAsistenciaParaCorregir,
   actualizarAsistencia,
   crearAsistenciaManual,
+  obtenerUsuariosSinMarcarHoy,
   eliminarAsistencia,
   obtenerReportesParaCorregir,
   actualizarReporteRegistro,
@@ -35,6 +36,7 @@ import {
   geocodificarDireccionColaborador,
   type UsuarioBasicoRegistro,
   type AsistenciaCorregible,
+  type PersonaSinMarcar,
   type ReporteCorregible,
   type MarcacionTiendaCorregible,
   type ResumenDepuracionFotos,
@@ -355,6 +357,146 @@ function SeccionAsistencia() {
               />
             </div>
           ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function SeccionPeriodoGracia() {
+  const [fecha, setFecha] = useState(hoyPeru());
+  const [personas, setPersonas] = useState<PersonaSinMarcar[]>([]);
+  const [seleccion, setSeleccion] = useState<Record<string, boolean>>({});
+  const [horas, setHoras] = useState<Record<string, string>>({});
+  const [buscado, setBuscado] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [aplicando, setAplicando] = useState(false);
+  const [resultado, setResultado] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function buscar() {
+    setCargando(true);
+    setError(null);
+    setResultado(null);
+    obtenerUsuariosSinMarcarHoy(fecha)
+      .then((filas) => {
+        setPersonas(filas);
+        setBuscado(true);
+        const sel: Record<string, boolean> = {};
+        const hrs: Record<string, string> = {};
+        filas.forEach((p) => {
+          sel[p.usuarioId] = !!p.horaSugerida;
+          hrs[p.usuarioId] = p.horaSugerida ? p.horaSugerida.slice(0, 5) : "";
+        });
+        setSeleccion(sel);
+        setHoras(hrs);
+      })
+      .catch((e) => setError(e.message || "No se pudo cargar la lista."))
+      .finally(() => setCargando(false));
+  }
+
+  async function aplicar() {
+    setAplicando(true);
+    setError(null);
+    setResultado(null);
+    const aplicar = personas.filter((p) => seleccion[p.usuarioId] && horas[p.usuarioId]);
+    let ok = 0;
+    let fallos = 0;
+    for (const p of aplicar) {
+      const r = await crearAsistenciaManual(
+        p.usuarioId,
+        fecha,
+        `${horas[p.usuarioId]}:00`,
+        null,
+        "Período de gracia — falla de Azure Storage"
+      );
+      if (r.exito) ok += 1;
+      else fallos += 1;
+    }
+    setAplicando(false);
+    setResultado(`Aplicado a ${ok} persona${ok === 1 ? "" : "s"}.${fallos ? ` ${fallos} con error.` : ""}`);
+    buscar();
+  }
+
+  const hayAlgoSeleccionado = personas.some((p) => seleccion[p.usuarioId] && horas[p.usuarioId]);
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Fecha</label>
+          <input
+            type="date"
+            value={fecha}
+            max={hoyPeru()}
+            onChange={(e) => {
+              setFecha(e.target.value);
+              setBuscado(false);
+            }}
+            className={clasesInput}
+          />
+        </div>
+        <div className="sm:col-span-2 flex items-end">
+          <button
+            type="button"
+            onClick={buscar}
+            disabled={cargando}
+            className="bg-marca-superficie2 border border-marca-borde hover:border-marca-rojoclaro disabled:opacity-50 text-marca-texto font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+          >
+            {cargando ? "Buscando..." : "Buscar quién no marcó ese día"}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {resultado && <p className="text-emerald-400 text-xs font-bold mb-2">{resultado}</p>}
+
+      {buscado && !cargando && personas.length === 0 && (
+        <p className="text-marca-tenue text-sm italic">
+          Todos los de rol con puntos ya tienen ingreso registrado ese día (o tenían descanso).
+        </p>
+      )}
+
+      {personas.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-marca-tenue text-[11px]">
+            Revisa la lista — desmarca a quien no corresponda (ej. estaba de vacaciones o con permiso ese día).
+            La hora sugerida es su hora límite de puntualidad (cuenta como "a tiempo").
+          </p>
+          {personas.map((p) => (
+            <div
+              key={p.usuarioId}
+              className="flex flex-wrap items-center gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+            >
+              <input
+                type="checkbox"
+                checked={!!seleccion[p.usuarioId]}
+                onChange={(e) => setSeleccion((prev) => ({ ...prev, [p.usuarioId]: e.target.checked }))}
+                className="w-4 h-4 accent-marca-rojo"
+              />
+              <div className="min-w-[180px]">
+                <span className="text-marca-textofuerte font-bold text-sm">{p.nombre}</span>{" "}
+                <span className="text-marca-tenue text-[11px] uppercase">({p.rol})</span>
+              </div>
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Ingreso</label>
+                <input
+                  type="time"
+                  value={horas[p.usuarioId] ?? ""}
+                  onChange={(e) => setHoras((prev) => ({ ...prev, [p.usuarioId]: e.target.value }))}
+                  className={clasesInputChico}
+                />
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={aplicar}
+            disabled={aplicando || !hayAlgoSeleccionado}
+            className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+          >
+            {aplicando ? "Aplicando..." : "Aplicar a los seleccionados"}
+          </button>
         </div>
       )}
     </>
@@ -1619,6 +1761,18 @@ export function BloqueAsistencia() {
       descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
     >
       <SeccionAsistencia />
+    </SeccionColapsable>
+  );
+}
+
+export function BloquePeriodoGracia() {
+  return (
+    <SeccionColapsable
+      titulo="Período de gracia (no pudieron marcar)"
+      icono={<Timer />}
+      descripcion="Para cuando algo externo (ej. Azure caído) impidió marcar ingreso -- rellena el día a quienes les falte, con su hora límite de puntualidad."
+    >
+      <SeccionPeriodoGracia />
     </SeccionColapsable>
   );
 }

@@ -4,9 +4,15 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, exigirCoordinador } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
-import { DIAS_SEMANA } from "@/lib/fechas";
+import { DIAS_SEMANA, diaSemanaPeru } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
 import { eliminarFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { resolverHoraLimite } from "@/lib/puntualidad";
+
+// Mismo set de roles que participan del sistema de puntos en puntos-actions.ts
+// -- duplicado a propósito acá (en vez de importarlo) para no crear un ciclo
+// de imports, ya que puntos-actions.ts ya importa de este archivo.
+const ROLES_CON_PUNTOS_REGISTRO = ["supervisor", "capacitador", "coordinador"];
 
 export async function exigirAccesoRegistro() {
   const sesion = await obtenerSesion();
@@ -431,6 +437,52 @@ export async function actualizarAsistencia(
   );
 
   return { exito: true };
+}
+
+export type PersonaSinMarcar = {
+  usuarioId: string;
+  nombre: string;
+  rol: string;
+  // Hora límite que le corresponde ese día (su horario personalizado/mixto,
+  // o el de su rol) -- se ofrece como sugerencia para el período de gracia,
+  // ya que marcar justo en el límite cuenta como "a tiempo" (ni tarde ni con
+  // el bono extra de llegar antes). null si el rol no tiene hora límite.
+  horaSugerida: string | null;
+};
+
+// Para el período de gracia cuando algo externo (ej. Azure Storage caído)
+// impidió marcar durante un rango de horas -- lista quién de los roles con
+// puntos no tiene ingreso registrado ese día, salteando a quienes tenían
+// descanso fijo esa fecha. No filtra asignaciones especiales (vacaciones,
+// permisos, etc.): coordinador revisa la lista y desmarca a quien no
+// corresponda antes de aplicar.
+export async function obtenerUsuariosSinMarcarHoy(fecha: string): Promise<PersonaSinMarcar[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const [{ data: usuarios, error: errorUsuarios }, { data: yaMarcaron, error: errorAsistencia }] =
+    await Promise.all([
+      supabase
+        .from("usuarios")
+        .select("id, nombre, rol, dias_descanso, hora_limite_ingreso, horario_por_dia")
+        .eq("activo", true)
+        .in("rol", ROLES_CON_PUNTOS_REGISTRO),
+      supabase.from("asistencia").select("usuario_id").eq("fecha", fecha).not("hora_ingreso", "is", null),
+    ]);
+
+  if (errorUsuarios || errorAsistencia) throw new Error("No se pudo cargar la lista.");
+
+  const idsConIngreso = new Set((yaMarcaron ?? []).map((a) => a.usuario_id));
+  const diaSemana = diaSemanaPeru(fecha);
+
+  return (usuarios ?? [])
+    .filter((u) => !idsConIngreso.has(u.id) && !(u.dias_descanso ?? []).includes(diaSemana))
+    .map((u) => ({
+      usuarioId: u.id,
+      nombre: u.nombre,
+      rol: u.rol,
+      horaSugerida: resolverHoraLimite(u.rol, u.hora_limite_ingreso, u.horario_por_dia as any, diaSemana) ?? null,
+    }));
 }
 
 // Para rellenar a mano un día sin ninguna marcación -- ej. si Azure Storage
