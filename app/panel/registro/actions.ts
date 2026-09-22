@@ -433,6 +433,61 @@ export async function actualizarAsistencia(
   return { exito: true };
 }
 
+// Para rellenar a mano un día sin ninguna marcación -- ej. si Azure Storage
+// estuvo caído y nadie pudo marcar ingreso/salida ese día. A diferencia de
+// actualizarAsistencia (que corrige una fila existente), esta crea la fila
+// desde cero.
+export async function crearAsistenciaManual(
+  usuarioId: string,
+  fecha: string,
+  horaIngreso: string | null,
+  horaSalida: string | null,
+  motivo?: string
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+
+  if (!usuarioId || !fecha) return { exito: false, mensaje: "Selecciona una persona y una fecha." };
+  if (!horaIngreso && !horaSalida) {
+    return { exito: false, mensaje: "Ingresa al menos una hora (ingreso o salida)." };
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: existente } = await supabase
+    .from("asistencia")
+    .select("id")
+    .eq("usuario_id", usuarioId)
+    .eq("fecha", fecha)
+    .maybeSingle();
+
+  if (existente) {
+    return {
+      exito: false,
+      mensaje: "Ya existe una marcación ese día para esa persona -- corrígela con 'Guardar' en la lista de abajo en vez de crear una nueva.",
+    };
+  }
+
+  const { data: usuario } = await supabase.from("usuarios").select("nombre").eq("id", usuarioId).maybeSingle();
+
+  const { error } = await supabase.from("asistencia").insert({
+    usuario_id: usuarioId,
+    fecha,
+    hora_ingreso: horaIngreso,
+    hora_salida: horaSalida,
+  });
+
+  if (error) return { exito: false, mensaje: "No se pudo crear la marcación." };
+
+  await registrarCambio(
+    sesion,
+    "Creó una marcación de asistencia a mano",
+    `${usuario?.nombre ?? "—"} — ${fecha}: ingreso ${horaIngreso ?? "—"}, salida ${horaSalida ?? "—"}`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
 export async function eliminarAsistencia(id: string, motivo?: string): Promise<ResultadoRegistro> {
   const sesion = await exigirAccesoRegistro();
   const supabase = supabaseServer();

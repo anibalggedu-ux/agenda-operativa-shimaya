@@ -247,14 +247,16 @@ export async function marcarLlegadaEvento(
 
   const hora = horaPeru();
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
-  const fotoBlob = `${sesion.id}/evento-${comunicadoId}-llegada-${Date.now()}.jpg`;
+  const fotoBlobPath = `${sesion.id}/evento-${comunicadoId}-llegada-${Date.now()}.jpg`;
 
+  let fotoGuardada = true;
   try {
-    await subirFotoMarcacion(fotoBlob, fotoBase64);
+    await subirFotoMarcacion(fotoBlobPath, fotoBase64);
   } catch (error) {
     console.error("No se pudo subir la foto de llegada al evento:", error);
-    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+    fotoGuardada = false;
   }
+  const fotoBlob = fotoGuardada ? fotoBlobPath : null;
 
   const { data: existente } = await supabase
     .from("asistencia_eventos")
@@ -287,7 +289,9 @@ export async function marcarLlegadaEvento(
 
   await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
 
-  return { exito: true, mensaje: "Llegada al evento registrada." };
+  return fotoGuardada
+    ? { exito: true, mensaje: "Llegada al evento registrada." }
+    : { exito: true, mensaje: "Llegada al evento registrada sin foto — no se pudo guardar la foto en este momento." };
 }
 
 export async function marcarSalidaEvento(
@@ -312,14 +316,16 @@ export async function marcarSalidaEvento(
 
   const hora = horaPeru();
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
-  const fotoBlob = `${sesion.id}/evento-${comunicadoId}-salida-${Date.now()}.jpg`;
+  const fotoBlobPath = `${sesion.id}/evento-${comunicadoId}-salida-${Date.now()}.jpg`;
 
+  let fotoGuardada = true;
   try {
-    await subirFotoMarcacion(fotoBlob, fotoBase64);
+    await subirFotoMarcacion(fotoBlobPath, fotoBase64);
   } catch (error) {
     console.error("No se pudo subir la foto de salida del evento:", error);
-    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+    fotoGuardada = false;
   }
+  const fotoBlob = fotoGuardada ? fotoBlobPath : null;
 
   const { error } = await supabase
     .from("asistencia_eventos")
@@ -330,5 +336,7 @@ export async function marcarSalidaEvento(
 
   await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
 
-  return { exito: true, mensaje: "Salida del evento registrada." };
+  return fotoGuardada
+    ? { exito: true, mensaje: "Salida del evento registrada." }
+    : { exito: true, mensaje: "Salida del evento registrada sin foto — no se pudo guardar la foto en este momento." };
 }

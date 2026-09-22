@@ -6,6 +6,7 @@ import {
   obtenerUsuariosBasicos,
   obtenerAsistenciaParaCorregir,
   actualizarAsistencia,
+  crearAsistenciaManual,
   eliminarAsistencia,
   obtenerReportesParaCorregir,
   actualizarReporteRegistro,
@@ -87,6 +88,12 @@ function SeccionAsistencia() {
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [nuevaFecha, setNuevaFecha] = useState(hoyPeru());
+  const [nuevoIngreso, setNuevoIngreso] = useState("");
+  const [nuevoSalida, setNuevoSalida] = useState("");
+  const [nuevoMotivo, setNuevoMotivo] = useState("");
+  const [creando, setCreando] = useState(false);
+
   useEffect(() => {
     obtenerUsuariosBasicos()
       .then(setUsuarios)
@@ -152,6 +159,31 @@ function SeccionAsistencia() {
     else setError(resultado.mensaje || "No se pudo eliminar.");
   }
 
+  async function handleCrear() {
+    if (!usuarioId) {
+      setError("Selecciona una persona primero.");
+      return;
+    }
+    setCreando(true);
+    setError(null);
+    const resultado = await crearAsistenciaManual(
+      usuarioId,
+      nuevaFecha,
+      nuevoIngreso ? `${nuevoIngreso}:00` : null,
+      nuevoSalida ? `${nuevoSalida}:00` : null,
+      nuevoMotivo
+    );
+    setCreando(false);
+    if (resultado.exito) {
+      setNuevoIngreso("");
+      setNuevoSalida("");
+      setNuevoMotivo("");
+      cargar();
+    } else {
+      setError(resultado.mensaje || "No se pudo crear.");
+    }
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -188,6 +220,62 @@ function SeccionAsistencia() {
             onChange={(e) => setHasta(e.target.value)}
             className={clasesInput}
           />
+        </div>
+      </div>
+
+      <div className="bg-marca-fondo border border-dashed border-marca-borde rounded-[3px] p-3 mb-4">
+        <p className="text-marca-tenue text-[10px] uppercase font-bold mb-2">
+          Agregar marcación manual (para un día sin ninguna — ej. no se pudo marcar por una falla externa)
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Fecha</label>
+            <input
+              type="date"
+              value={nuevaFecha}
+              max={hoyPeru()}
+              onChange={(e) => setNuevaFecha(e.target.value)}
+              className={clasesInputChico}
+            />
+          </div>
+          <div>
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Ingreso</label>
+            <input
+              type="time"
+              value={nuevoIngreso}
+              onChange={(e) => setNuevoIngreso(e.target.value)}
+              className={clasesInputChico}
+            />
+          </div>
+          <div>
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Salida</label>
+            <input
+              type="time"
+              value={nuevoSalida}
+              onChange={(e) => setNuevoSalida(e.target.value)}
+              className={clasesInputChico}
+            />
+          </div>
+          <div className="min-w-[160px] flex-1">
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+              Motivo (opcional)
+            </label>
+            <input
+              type="text"
+              value={nuevoMotivo}
+              onChange={(e) => setNuevoMotivo(e.target.value)}
+              placeholder="Ej. No se pudo marcar por falla externa"
+              className={clasesInputChico + " w-full"}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleCrear}
+            disabled={creando || !usuarioId}
+            className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+          >
+            {creando ? "..." : "Crear"}
+          </button>
         </div>
       </div>
 

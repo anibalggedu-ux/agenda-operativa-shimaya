@@ -584,7 +584,7 @@ export async function sincronizarAsistenciaGeneral(
   tipo: "llegada" | "salida",
   hora: string,
   ubicacion: string,
-  fotoBlob: string
+  fotoBlob: string | null
 ): Promise<void> {
   const fecha = diaLaboralPeru();
 
@@ -681,14 +681,20 @@ export async function marcarLlegadaTienda(
 
   const hora = horaPeru();
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
-  const fotoBlob = `${sesion.id}/${contexto.tiendaId}-llegada-${Date.now()}.jpg`;
+  const fotoBlobPath = `${sesion.id}/${contexto.tiendaId}-llegada-${Date.now()}.jpg`;
 
+  // La foto es la prueba visual, pero la hora de llegada es lo que mueve
+  // puntos y racha -- si Azure Storage falla, igual se registra la llegada
+  // sin foto en vez de bloquear todo el marcado (ver conversación sobre la
+  // cuenta de Azure deshabilitada, sept. 2026).
+  let fotoGuardada = true;
   try {
-    await subirFotoMarcacion(fotoBlob, fotoBase64);
+    await subirFotoMarcacion(fotoBlobPath, fotoBase64);
   } catch (error) {
     console.error("No se pudo subir la foto de llegada:", error);
-    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+    fotoGuardada = false;
   }
+  const fotoBlob = fotoGuardada ? fotoBlobPath : null;
 
   const { error } = await supabase
     .from(contexto.tabla)
@@ -699,7 +705,9 @@ export async function marcarLlegadaTienda(
 
   await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
 
-  return { exito: true, mensaje: "Llegada registrada con foto." };
+  return fotoGuardada
+    ? { exito: true, mensaje: "Llegada registrada con foto." }
+    : { exito: true, mensaje: "Llegada registrada sin foto — no se pudo guardar la foto en este momento." };
 }
 
 export async function marcarSalidaTienda(
@@ -719,14 +727,16 @@ export async function marcarSalidaTienda(
 
   const hora = horaPeru();
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
-  const fotoBlob = `${sesion.id}/${contexto.tiendaId}-salida-${Date.now()}.jpg`;
+  const fotoBlobPath = `${sesion.id}/${contexto.tiendaId}-salida-${Date.now()}.jpg`;
 
+  let fotoGuardada = true;
   try {
-    await subirFotoMarcacion(fotoBlob, fotoBase64);
+    await subirFotoMarcacion(fotoBlobPath, fotoBase64);
   } catch (error) {
     console.error("No se pudo subir la foto de salida:", error);
-    return { exito: false, mensaje: "No se pudo guardar la foto. Intenta de nuevo." };
+    fotoGuardada = false;
   }
+  const fotoBlob = fotoGuardada ? fotoBlobPath : null;
 
   const { error } = await supabase
     .from(contexto.tabla)
@@ -737,7 +747,9 @@ export async function marcarSalidaTienda(
 
   await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
 
-  return { exito: true, mensaje: "Salida registrada con foto." };
+  return fotoGuardada
+    ? { exito: true, mensaje: "Salida registrada con foto." }
+    : { exito: true, mensaje: "Salida registrada sin foto — no se pudo guardar la foto en este momento." };
 }
 
 export type MiReporte = {
