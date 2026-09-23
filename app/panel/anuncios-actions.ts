@@ -2,9 +2,10 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, diaLaboralPeru, horaPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+import { hoyPeru, diaLaboralPeru, calcularProximaFechaAnual } from "@/lib/fechas";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { sincronizarAsistenciaGeneral } from "./supervisor/actions";
+import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
 
 const DIAS_ANTICIPACION_CUMPLEANOS = 2;
 
@@ -232,7 +233,8 @@ export async function marcarLlegadaEvento(
   comunicadoId: string,
   lat: number,
   lng: number,
-  fotoBase64: string
+  fotoBase64: string,
+  horaCapturadaMs?: number
 ): Promise<ResultadoAsistenciaEvento> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -245,7 +247,7 @@ export async function marcarLlegadaEvento(
   const fecha = diaLaboralPeru();
   const origenTiendaId = await inferirOrigenTienda(supabase, sesion.id, fecha);
 
-  const hora = horaPeru();
+  const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "llegada a evento");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
   const fotoBlobPath = `${sesion.id}/evento-${comunicadoId}-llegada-${Date.now()}.jpg`;
 
@@ -298,7 +300,8 @@ export async function marcarSalidaEvento(
   comunicadoId: string,
   lat: number,
   lng: number,
-  fotoBase64: string
+  fotoBase64: string,
+  horaCapturadaMs?: number
 ): Promise<ResultadoAsistenciaEvento> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -314,7 +317,7 @@ export async function marcarSalidaEvento(
     .maybeSingle();
   if (!existente) return { exito: false, mensaje: "Primero marca la llegada al evento." };
 
-  const hora = horaPeru();
+  const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "salida de evento");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
   const fotoBlobPath = `${sesion.id}/evento-${comunicadoId}-salida-${Date.now()}.jpg`;
 

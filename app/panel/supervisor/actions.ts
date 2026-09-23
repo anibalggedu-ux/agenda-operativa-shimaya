@@ -6,7 +6,6 @@ import {
   sumarDias,
   diaLaboralPeru,
   hoyPeru,
-  horaPeru,
   DIAS_SEMANA,
   calcularAntiguedad,
   calcularProximaFechaAnual,
@@ -17,6 +16,7 @@ import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib
 import { enviarCorreo, URL_APP } from "@/lib/email";
 import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/blob-storage";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
+import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
 // de haberlo enviado (p. ej. si se equivocó al escribir la observación).
@@ -669,7 +669,11 @@ export async function marcarLlegadaTienda(
   reporteId: string | null,
   lat: number,
   lng: number,
-  fotoBase64: string
+  fotoBase64: string,
+  // Presente cuando la marcación se hizo sin señal y se está sincronizando
+  // ahora -- epoch ms del momento real en que se tocó el botón. Ver
+  // lib/cola-marcaciones.ts y lib/marcacion-offline.ts.
+  horaCapturadaMs?: number
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -679,7 +683,7 @@ export async function marcarLlegadaTienda(
   const contexto = await obtenerContextoTienda(supabase, sesion.id, rutaActivaId, reporteId);
   if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
 
-  const hora = horaPeru();
+  const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "llegada a tienda");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
   const fotoBlobPath = `${sesion.id}/${contexto.tiendaId}-llegada-${Date.now()}.jpg`;
 
@@ -715,7 +719,8 @@ export async function marcarSalidaTienda(
   reporteId: string | null,
   lat: number,
   lng: number,
-  fotoBase64: string
+  fotoBase64: string,
+  horaCapturadaMs?: number
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -725,7 +730,7 @@ export async function marcarSalidaTienda(
   const contexto = await obtenerContextoTienda(supabase, sesion.id, rutaActivaId, reporteId);
   if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
 
-  const hora = horaPeru();
+  const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "salida de tienda");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
   const fotoBlobPath = `${sesion.id}/${contexto.tiendaId}-salida-${Date.now()}.jpg`;
 

@@ -26,6 +26,7 @@ import {
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoExito } from "@/lib/sonido";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
+import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -214,7 +215,9 @@ function MarcadoVisitaTienda({
   // Antes la foto y el GPS se pedían juntos con Promise.all: si el GPS
   // fallaba, se descartaba la foto recién tomada y había que volver a abrir
   // la cámara. Ahora se puede reintentar solo la ubicación y el envío.
-  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number } | null>(
+    null
+  );
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
 
@@ -224,16 +227,23 @@ function MarcadoVisitaTienda({
     subiendo: "Enviando (no cierres la app)...",
   };
 
-  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string) {
+  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string, horaCapturadaMs: number) {
+    let coords: { lat: number; lng: number };
     try {
       setPaso("ubicando");
-      const coords = await obtenerUbicacionActual();
+      coords = await obtenerUbicacionActual();
+    } catch (err: any) {
+      setMensaje(err?.message || "Ocurrió un error.");
+      setPaso(null);
+      return;
+    }
 
+    try {
       setPaso("subiendo");
       const resultado =
         tipo === "llegada"
-          ? await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto)
-          : await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto);
+          ? await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto, horaCapturadaMs)
+          : await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto, horaCapturadaMs);
 
       if (resultado.exito) {
         setPendiente(null);
@@ -243,7 +253,26 @@ function MarcadoVisitaTienda({
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
       }
     } catch (err: any) {
-      setMensaje(err?.message || "Ocurrió un error.");
+      if (pareceFallaDeConexion(err)) {
+        // Sin señal (típico en los estacionamientos subterráneos) -- queda
+        // en la cola del celular y el indicador global la reenvía sola con
+        // la hora de este intento en cuanto vuelva la conexión.
+        agregarMarcacionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          accion: tipo === "llegada" ? "llegada-tienda" : "salida-tienda",
+          rutaActivaId: tienda.rutaActivaId,
+          reporteId: tienda.reporteId,
+          foto,
+          lat: coords.lat,
+          lng: coords.lng,
+          horaCapturadaMs,
+          etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
+        });
+        setPendiente(null);
+        setMensaje("Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
+      } else {
+        setMensaje(err?.message || "Ocurrió un error.");
+      }
     } finally {
       setPaso(null);
     }
@@ -253,12 +282,13 @@ function MarcadoVisitaTienda({
     const archivo = e.target.files?.[0];
     e.target.value = "";
     if (!archivo) return;
+    const horaCapturadaMs = Date.now();
     setMensaje(null);
     try {
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
-      setPendiente({ tipo, foto });
-      await enviarMarcacion(tipo, foto);
+      setPendiente({ tipo, foto, horaCapturadaMs });
+      await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
       setPaso(null);
@@ -268,7 +298,7 @@ function MarcadoVisitaTienda({
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacion(pendiente.tipo, pendiente.foto);
+    await enviarMarcacion(pendiente.tipo, pendiente.foto, pendiente.horaCapturadaMs);
   }
 
   const ocupado = paso !== null;

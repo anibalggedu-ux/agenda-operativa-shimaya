@@ -12,6 +12,7 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { reproducirSonidoExito } from "@/lib/sonido";
 import { formatearHora } from "@/lib/fechas";
+import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 
 // Tarjeta independiente para marcar entrada/salida a un anuncio/evento del
 // día (ej. una reunión en otra sede) — no toca la asignación de tienda del
@@ -20,7 +21,9 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
   type Paso = "comprimiendo" | "ubicando" | "subiendo";
   const [paso, setPaso] = useState<Paso | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
-  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number } | null>(
+    null
+  );
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
 
@@ -30,16 +33,23 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
     subiendo: "Enviando (no cierres la app)...",
   };
 
-  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string) {
+  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string, horaCapturadaMs: number) {
+    let coords: { lat: number; lng: number };
     try {
       setPaso("ubicando");
-      const coords = await obtenerUbicacionActual();
+      coords = await obtenerUbicacionActual();
+    } catch (err: any) {
+      setMensaje(err?.message || "Ocurrió un error.");
+      setPaso(null);
+      return;
+    }
 
+    try {
       setPaso("subiendo");
       const resultado =
         tipo === "llegada"
-          ? await marcarLlegadaEvento(evento.comunicadoId, coords.lat, coords.lng, foto)
-          : await marcarSalidaEvento(evento.comunicadoId, coords.lat, coords.lng, foto);
+          ? await marcarLlegadaEvento(evento.comunicadoId, coords.lat, coords.lng, foto, horaCapturadaMs)
+          : await marcarSalidaEvento(evento.comunicadoId, coords.lat, coords.lng, foto, horaCapturadaMs);
 
       if (resultado.exito) {
         setPendiente(null);
@@ -49,7 +59,22 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
       }
     } catch (err: any) {
-      setMensaje(err?.message || "Ocurrió un error.");
+      if (pareceFallaDeConexion(err)) {
+        agregarMarcacionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          accion: tipo === "llegada" ? "llegada-evento" : "salida-evento",
+          comunicadoId: evento.comunicadoId,
+          foto,
+          lat: coords.lat,
+          lng: coords.lng,
+          horaCapturadaMs,
+          etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${evento.mensaje}`,
+        });
+        setPendiente(null);
+        setMensaje("Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
+      } else {
+        setMensaje(err?.message || "Ocurrió un error.");
+      }
     } finally {
       setPaso(null);
     }
@@ -59,12 +84,13 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
     const archivo = e.target.files?.[0];
     e.target.value = "";
     if (!archivo) return;
+    const horaCapturadaMs = Date.now();
     setMensaje(null);
     try {
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
-      setPendiente({ tipo, foto });
-      await enviarMarcacion(tipo, foto);
+      setPendiente({ tipo, foto, horaCapturadaMs });
+      await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
       setPaso(null);
@@ -74,7 +100,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacion(pendiente.tipo, pendiente.foto);
+    await enviarMarcacion(pendiente.tipo, pendiente.foto, pendiente.horaCapturadaMs);
   }
 
   const ocupado = paso !== null;

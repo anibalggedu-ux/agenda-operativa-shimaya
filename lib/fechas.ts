@@ -19,6 +19,14 @@ export function horaPeru(): string {
   return ahoraEnPeru().toISOString().slice(11, 19);
 }
 
+// Igual que horaPeru(), pero para un instante puntual (epoch ms) en vez de
+// "ahora" -- usado para marcaciones hechas sin señal, donde se necesita la
+// hora de pared de Perú en el momento en que el celular capturó el intento,
+// no la hora en que el servidor por fin recibe la sincronización.
+export function horaPeruDesdeEpoch(epochMs: number): string {
+  return new Date(epochMs + OFFSET_HORAS_PERU * 3600000).toISOString().slice(11, 19);
+}
+
 export function sumarDias(fechaISO: string, dias: number): string {
   const partes = fechaISO.split("-").map(Number);
   const y = partes[0];

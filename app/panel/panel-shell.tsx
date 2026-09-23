@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Menu, X, RefreshCw } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
+import SincronizadorOffline from "./sincronizador-offline";
 
 export type ItemMenuPanel = {
   id: string;
@@ -185,6 +186,8 @@ export default function PanelShell({
           </div>
         </div>
       </div>
+
+      <SincronizadorOffline />
     </div>
   );
 }
