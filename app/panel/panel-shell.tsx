@@ -79,7 +79,10 @@ export default function PanelShell({
   // ruta asignada" hacia la Bitácora de Campo): /panel/supervisor?seccion=bitacora
   const parametros = useSearchParams();
   const seccionUrl = parametros.get("seccion");
-  const idInicial = seccionUrl && items.some((i) => i.id === seccionUrl) ? seccionUrl : defaultId ?? items[0]?.id;
+  // "Home" de cada portal -- no siempre se llama "inicio" (coordinador usa
+  // "rutas"), así que se toma de defaultId en vez de un id fijo.
+  const idHome = defaultId ?? items[0]?.id;
+  const idInicial = seccionUrl && items.some((i) => i.id === seccionUrl) ? seccionUrl : idHome;
 
   const [activo, setActivo] = useState(idInicial);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
@@ -168,7 +171,7 @@ export default function PanelShell({
           </p>
         </div>
 
-        {(activo === "galeria" || activo === "perfil") && encabezadoGaleria ? encabezadoGaleria : encabezado}
+        {activo === idHome ? encabezado : encabezadoGaleria ?? encabezado}
 
         <div className="flex flex-col lg:flex-row border border-marca-borde rounded-[3px] overflow-hidden">
           <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 bg-marca-superficie border-r border-marca-borde">
