@@ -457,6 +457,24 @@ export type Database = {
         }
         Relationships: []
       }
+      intentos_login: {
+        Row: {
+          created_at: string
+          id: number
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ip?: string
+        }
+        Relationships: []
+      }
       documentos: {
         Row: {
           actualizado_en: string
