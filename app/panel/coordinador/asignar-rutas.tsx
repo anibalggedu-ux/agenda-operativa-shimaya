@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap, Ban } from "lucide-react";
+import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap, Ban, BedDouble } from "lucide-react";
 import {
   obtenerUsuariosYTiendas,
   obtenerRutasActivas,
@@ -23,7 +23,7 @@ import {
   type DistanciaSeleccion,
 } from "./actions";
 import { AREAS_RUTA } from "./constantes";
-import { formatearFechaLegible, formatearHora, hoyPeru, diaSemanaPeru } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, hoyPeru, diaSemanaPeru, sumarDias } from "@/lib/fechas";
 import { formatearMinutos } from "@/lib/distancia";
 import SelectorGrid from "./selector-grid";
 
@@ -217,6 +217,18 @@ export default function AsignarRutas() {
   // quién le toca descanso fijo justo ese día.
   const diaSemanaSeleccionado = useMemo(() => diaSemanaPeru(fecha), [fecha]);
 
+  // Aviso fijo de "quién descansa mañana" -- independiente de qué fecha haya
+  // en el formulario. Las rutas a veces se asignan de noche (10-11pm) para
+  // el día siguiente, y si nadie se acuerda de cambiar "Fecha planificada"
+  // a mañana, el resaltado de descanso queda calculado sobre HOY sin que se
+  // note. Esto se ve siempre, sin depender de tocar el selector de fecha.
+  const manana = useMemo(() => sumarDias(hoyPeru(), 1), []);
+  const diaSemanaManana = useMemo(() => diaSemanaPeru(manana), [manana]);
+  const descansanManana = useMemo(
+    () => usuarios.filter((u) => u.diasDescanso.includes(diaSemanaManana)),
+    [usuarios, diaSemanaManana]
+  );
+
   // Quién tiene vacaciones, permiso o licencia vigente justo la fecha
   // elegida -- "Descanso Semanal" ya se cubre aparte con diasDescanso, y
   // "Misión Especial" no bloquea (esa persona sigue disponible, solo está
@@ -306,6 +318,20 @@ export default function AsignarRutas() {
 
   return (
     <div className="space-y-6">
+      {descansanManana.length > 0 && (
+        <div className="flex items-start gap-2.5 bg-amber-950/20 border border-amber-500/40 rounded-[3px] px-4 py-3">
+          <BedDouble className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs">
+            <span className="font-black uppercase tracking-wide">
+              Mañana ({formatearFechaLegible(manana)})
+            </span>{" "}
+            descansa{descansanManana.length === 1 ? "" : "n"}:{" "}
+            <span className="font-bold">{descansanManana.map((u) => u.nombre).join(", ")}</span> — si vas a
+            asignar rutas para mañana, ten esto en cuenta.
+          </p>
+        </div>
+      )}
+
       <form
         action={formAction}
         onSubmit={handleSubmit}
@@ -320,14 +346,25 @@ export default function AsignarRutas() {
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
             Fecha planificada
           </label>
-          <input
-            type="date"
-            name="fechaPlanificada"
-            required
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="w-full sm:w-56 p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              name="fechaPlanificada"
+              required
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="w-full sm:w-56 p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+            />
+            {fecha !== manana && (
+              <button
+                type="button"
+                onClick={() => setFecha(manana)}
+                className="shrink-0 border border-marca-borde hover:border-marca-rojoclaro/50 text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase tracking-wide px-3 py-2.5 rounded-[3px] transition"
+              >
+                Usar mañana
+              </button>
+            )}
+          </div>
         </div>
 
         <div>
