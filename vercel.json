@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/limpiar-historias", "schedule": "0 8 * * *" }
+    { "path": "/api/cron/limpiar-historias", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/depurar-marcaciones", "schedule": "0 9 * * *" }
   ]
 }

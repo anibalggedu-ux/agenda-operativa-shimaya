@@ -5,7 +5,7 @@ import { obtenerSesion } from "@/lib/session";
 import { calcularAntiguedad, calcularProximaFechaAnual, hoyPeru } from "@/lib/fechas";
 import { progresoProximoBronce, type ConteoMedallas } from "@/lib/trofeos";
 import { obtenerVitrinaTrofeos, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
-import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil } from "@/lib/azure-storage";
+import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil } from "@/lib/blob-storage";
 import { revalidatePath } from "next/cache";
 
 export type PerfilCompleto = {

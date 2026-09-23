@@ -6,7 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA, diaSemanaPeru } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
-import { eliminarFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { eliminarFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { resolverHoraLimite } from "@/lib/puntualidad";
 
 // Mismo set de roles que participan del sistema de puntos en puntos-actions.ts
@@ -1026,26 +1026,30 @@ export async function obtenerFotosParaVisualizar(hasta: string): Promise<FotoPar
 
 export type ResultadoDepuracionFotos = ResultadoRegistro & { borradas?: number; pendientes?: number };
 
-export async function depurarFotosMarcacion(hasta: string, motivo?: string): Promise<ResultadoDepuracionFotos> {
-  const sesion = await exigirAccesoRegistro();
-  if (!hasta) return { exito: false, mensaje: "Indica la fecha de corte." };
-
+// Núcleo compartido entre la depuración manual (este archivo, con sesión y
+// bitácora de auditoría) y el cron automático mensual (sin sesión -- ver
+// app/api/cron/depurar-marcaciones/route.ts). Borra el archivo real y limpia
+// SOLO la columna de la foto en cada fila que lo referencia.
+export async function ejecutarDepuracionFotos(
+  hasta: string,
+  limiteLote: number
+): Promise<{ borradas: number; pendientes: number }> {
   const supabase = supabaseServer();
   const filas = await listarFotosAntesDe(supabase, hasta);
 
   const blobsUnicos = Array.from(new Set(filas.map((f) => f.blob)));
-  const loteBlobs = blobsUnicos.slice(0, LOTE_DEPURACION_FOTOS);
+  const loteBlobs = blobsUnicos.slice(0, limiteLote);
   const loteSet = new Set(loteBlobs);
 
-  // Se borra cada archivo de Azure -- si uno falla (ej. error de red
-  // puntual), se sigue con el resto en vez de abortar todo el lote.
+  // Se borra cada archivo -- si uno falla (ej. error de red puntual), se
+  // sigue con el resto en vez de abortar todo el lote.
   let borradas = 0;
   for (const blob of loteBlobs) {
     try {
       await eliminarFotoMarcacion(blob);
       borradas++;
     } catch (error) {
-      console.error(`No se pudo borrar la foto ${blob} de Azure:`, error);
+      console.error(`No se pudo borrar la foto ${blob}:`, error);
     }
   }
 
@@ -1067,7 +1071,15 @@ export async function depurarFotosMarcacion(hasta: string, motivo?: string): Pro
     await (supabase.from(tabla) as any).update({ [columna]: null }).in("id", ids);
   }
 
-  const pendientes = blobsUnicos.length - loteBlobs.length;
+  return { borradas, pendientes: blobsUnicos.length - loteBlobs.length };
+}
+
+export async function depurarFotosMarcacion(hasta: string, motivo?: string): Promise<ResultadoDepuracionFotos> {
+  const sesion = await exigirAccesoRegistro();
+  if (!hasta) return { exito: false, mensaje: "Indica la fecha de corte." };
+
+  const { borradas, pendientes } = await ejecutarDepuracionFotos(hasta, LOTE_DEPURACION_FOTOS);
+
   await registrarCambio(
     sesion,
     "Depuró fotos de marcación antiguas",

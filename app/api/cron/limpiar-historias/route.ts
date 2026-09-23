@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { eliminarFotoHistoria } from "@/lib/azure-storage";
+import { eliminarFotoHistoria } from "@/lib/blob-storage";
 
 // Vercel Cron llama esta ruta una vez al día (ver vercel.json) mandando
 // "Authorization: Bearer <CRON_SECRET>" automáticamente cuando esa variable

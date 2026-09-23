@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import { hoyPeru, diaLaboralPeru, horaPeru, calcularProximaFechaAnual } from "@/lib/fechas";
-import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { sincronizarAsistenciaGeneral } from "./supervisor/actions";
 
 const DIAS_ANTICIPACION_CUMPLEANOS = 2;

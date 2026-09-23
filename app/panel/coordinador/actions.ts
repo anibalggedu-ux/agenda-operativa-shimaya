@@ -23,7 +23,7 @@ import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
-import { obtenerUrlTemporalFoto } from "@/lib/azure-storage";
+import { obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { geocodificarDireccion } from "@/lib/geocodificar";
 
 

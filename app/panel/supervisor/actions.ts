@@ -15,7 +15,7 @@ import {
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo, URL_APP } from "@/lib/email";
-import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/azure-storage";
+import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/blob-storage";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 
 // Ventana en la que un colaborador puede corregir su propio reporte después
