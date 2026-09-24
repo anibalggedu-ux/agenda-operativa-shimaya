@@ -33,7 +33,7 @@ async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> 
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, foto_blob, texto, created_at")
+    .select("id, foto_blob, texto, created_at, tiene_miniatura")
     .eq("usuario_id", usuarioId)
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
@@ -43,7 +43,7 @@ async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> 
   const conUrls = await Promise.all(
     data.map(async (fila) => {
       const [url, urlDescarga] = await Promise.all([
-        obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180),
+        obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180, false, fila.tiene_miniatura),
         obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180, true),
       ]);
       if (!url || !urlDescarga) return null;
@@ -78,7 +78,13 @@ export async function obtenerGaleriaDeUsuario(usuarioId: string): Promise<FotoGa
   return obtenerGaleriaInterna(usuarioId);
 }
 
-export async function crearHistoria(fotoDataUrl: string, texto?: string): Promise<ResultadoHistoria> {
+export async function crearHistoria(
+  fotoDataUrl: string,
+  texto?: string,
+  // Versión de 800px que se muestra en el feed y la galería (ver
+  // rutaMiniatura en lib/blob-storage.ts); la completa queda para descargar.
+  miniDataUrl?: string
+): Promise<ResultadoHistoria> {
   try {
     const sesion = await exigirSesion();
 
@@ -89,13 +95,15 @@ export async function crearHistoria(fotoDataUrl: string, texto?: string): Promis
     const textoLimpio = texto?.trim().slice(0, TEXTO_MAXIMO) || null;
 
     const blobPath = `${sesion.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    await subirFotoHistoria(blobPath, fotoDataUrl);
+    const miniValida = miniDataUrl && miniDataUrl.startsWith("data:image/") ? miniDataUrl : null;
+    const tieneMiniatura = await subirFotoHistoria(blobPath, fotoDataUrl, miniValida);
 
     const supabase = supabaseServer();
     const { error } = await supabase.from("historias").insert({
       usuario_id: sesion.id,
       foto_blob: blobPath,
       texto: textoLimpio,
+      tiene_miniatura: tieneMiniatura,
     });
 
     if (error) {
@@ -374,7 +382,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, usuario_id, foto_blob, texto, created_at, usuarios(nombre, rol)")
+    .select("id, usuario_id, foto_blob, texto, created_at, tiene_miniatura, usuarios(nombre, rol)")
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
 
@@ -402,7 +410,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   const filasConUrl = await Promise.all(
     (data as any[]).map(async (fila) => ({
       fila,
-      url: await obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180),
+      url: await obtenerUrlTemporalFotoHistoria(fila.foto_blob, 180, false, fila.tiene_miniatura),
     }))
   );
 

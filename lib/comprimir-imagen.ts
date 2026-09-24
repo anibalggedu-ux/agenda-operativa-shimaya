@@ -68,3 +68,30 @@ export async function comprimirFotoComoBase64(
 
   return canvas.toDataURL("image/jpeg", calidad);
 }
+
+// Versión más chica de una foto ya comprimida (data URL), para la miniatura
+// que se muestra en pantalla. Nunca agranda: si ya es más angosta, solo
+// recomprime.
+export async function reducirDataUrl(dataUrl: string, maxAncho = 640, calidad = 0.7): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("No se pudo preparar la miniatura."));
+    i.src = dataUrl;
+  });
+
+  let ancho = img.naturalWidth;
+  let alto = img.naturalHeight;
+  if (ancho > maxAncho) {
+    alto = Math.round((alto * maxAncho) / ancho);
+    ancho = maxAncho;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = ancho;
+  canvas.height = alto;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo preparar la miniatura.");
+  ctx.drawImage(img, 0, 0, ancho, alto);
+  return canvas.toDataURL("image/jpeg", calidad);
+}

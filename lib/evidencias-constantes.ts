@@ -9,4 +9,5 @@ export const DIAS_RETENCION_EVIDENCIAS = 60;
 
 export type TipoRegistroEvidencia = "checklist" | "auditoria";
 
-export type FotoEvidencia = { id: string; url: string | null; pie: string | null };
+// url = versión liviana para mostrar; urlCompleta = la original, al tocarla.
+export type FotoEvidencia = { id: string; url: string | null; urlCompleta: string | null; pie: string | null };

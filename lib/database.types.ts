@@ -657,6 +657,7 @@ export type Database = {
           created_at: string
           id: string
           pie: string | null
+          tiene_miniatura: boolean
           usuario_id: string
         }
         Insert: {
@@ -666,6 +667,7 @@ export type Database = {
           created_at?: string
           id?: string
           pie?: string | null
+          tiene_miniatura?: boolean
           usuario_id: string
         }
         Update: {
@@ -675,6 +677,7 @@ export type Database = {
           created_at?: string
           id?: string
           pie?: string | null
+          tiene_miniatura?: boolean
           usuario_id?: string
         }
         Relationships: [
@@ -938,6 +941,7 @@ export type Database = {
           foto_blob: string
           id: string
           texto: string | null
+          tiene_miniatura: boolean
           usuario_id: string
         }
         Insert: {
@@ -945,6 +949,7 @@ export type Database = {
           foto_blob: string
           id?: string
           texto?: string | null
+          tiene_miniatura?: boolean
           usuario_id: string
         }
         Update: {
@@ -952,6 +957,7 @@ export type Database = {
           foto_blob?: string
           id?: string
           texto?: string | null
+          tiene_miniatura?: boolean
           usuario_id?: string
         }
         Relationships: [

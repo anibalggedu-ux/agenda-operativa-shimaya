@@ -18,7 +18,7 @@ import {
   type SaldoRegalo,
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
-import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
+import { comprimirFotoComoBase64, reducirDataUrl } from "@/lib/comprimir-imagen";
 import { reproducirSonidoExito } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
 
@@ -760,7 +760,10 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     setProgresoPublicacion(items.length > 1 ? { actual: 0, total: items.length } : null);
     try {
       for (let i = 0; i < items.length; i++) {
-        const resultado = await crearHistoria(items[i].foto, items[i].texto);
+        // Si la miniatura no se puede generar, se publica igual con la
+        // foto completa (se mostrará esa).
+        const mini = await reducirDataUrl(items[i].foto, 800, 0.72).catch(() => undefined);
+        const resultado = await crearHistoria(items[i].foto, items[i].texto, mini);
         if (!resultado.exito) {
           setMensaje(
             items.length > 1
@@ -786,7 +789,8 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     setMensaje(null);
     setPublicando(true);
     try {
-      const resultado = await crearHistoria(fotoDataUrl);
+      const mini = await reducirDataUrl(fotoDataUrl, 800, 0.72).catch(() => undefined);
+      const resultado = await crearHistoria(fotoDataUrl, undefined, mini);
       if (resultado.exito) {
         setModoTexto(false);
         cargar();

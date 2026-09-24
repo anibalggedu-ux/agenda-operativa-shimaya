@@ -36,6 +36,48 @@ async function eliminarFoto(carpeta: string, blobPath: string): Promise<void> {
   await del(`${carpeta}/${blobPath}`);
 }
 
+// Versión liviana (640-800px, 50-80 KB) que se guarda junto a la foto completa
+// para mostrar en pantalla: "equipo/123.jpg" -> "equipo/123-mini.jpg". La
+// completa (~200 KB) queda para descargar o ampliar.
+export function rutaMiniatura(blobPath: string): string {
+  return /\.[a-z0-9]+$/i.test(blobPath)
+    ? blobPath.replace(/(\.[a-z0-9]+)$/i, "-mini$1")
+    : `${blobPath}-mini`;
+}
+
+// Sube la foto y, si viene, su miniatura. Devuelve si la miniatura quedó
+// guardada: si falla, la foto igual sirve (se muestra la completa).
+async function subirFotoConMiniatura(
+  carpeta: string,
+  blobPath: string,
+  dataUrl: string,
+  miniDataUrl?: string | null
+): Promise<boolean> {
+  await subirFoto(carpeta, blobPath, dataUrl);
+  if (!miniDataUrl) return false;
+  try {
+    await subirFoto(carpeta, rutaMiniatura(blobPath), miniDataUrl);
+    return true;
+  } catch (error) {
+    console.error("No se pudo subir la miniatura:", error);
+    return false;
+  }
+}
+
+async function eliminarFotoConMiniatura(carpeta: string, blobPath: string): Promise<void> {
+  await del([`${carpeta}/${blobPath}`, `${carpeta}/${rutaMiniatura(blobPath)}`]);
+}
+
+// Los enlaces firmados vencen en bloques fijos de 30 minutos en vez de
+// "ahora + N minutos": así, al volver a abrir una pantalla dentro del mismo
+// bloque, el enlace puede salir igual y el celular reutiliza la foto que ya
+// descargó en vez de bajarla de nuevo. Siempre dura al menos lo pedido.
+const VENTANA_ENLACES_MS = 30 * 60 * 1000;
+
+function vencimientoEstable(minutos: number): number {
+  return Math.ceil((Date.now() + minutos * 60 * 1000) / VENTANA_ENLACES_MS) * VENTANA_ENLACES_MS;
+}
+
 // Enlace temporal firmado para leer una foto privada -- lo que antes hacía
 // el SAS token de Azure. issueSignedToken() pide el permiso al control plane
 // de Vercel y presignUrl() firma la URL en sí, ambos con el mismo
@@ -44,7 +86,7 @@ async function generarUrlTemporal(carpeta: string, blobPath: string | null, minu
   if (!blobPath) return null;
   try {
     const pathname = `${carpeta}/${blobPath}`;
-    const validUntil = Date.now() + minutos * 60 * 1000;
+    const validUntil = vencimientoEstable(minutos);
     const token = await issueSignedToken({ pathname, operations: ["get"], validUntil });
     const { presignedUrl } = await presignUrl(token, {
       operation: "get",
@@ -77,14 +119,18 @@ export async function obtenerUrlTemporalFoto(blobPath: string | null, minutos = 
 
 // --- Historias ---
 
-export async function subirFotoHistoria(blobPath: string, dataUrl: string): Promise<void> {
-  await subirFoto(CARPETA_HISTORIAS, blobPath, dataUrl);
+export async function subirFotoHistoria(
+  blobPath: string,
+  dataUrl: string,
+  miniDataUrl?: string | null
+): Promise<boolean> {
+  return subirFotoConMiniatura(CARPETA_HISTORIAS, blobPath, dataUrl, miniDataUrl);
 }
 
 // Borrado real del archivo -- lo usa el cron diario que limpia las historias
 // vencidas (más de 7 días), además del borrado manual por moderación.
 export async function eliminarFotoHistoria(blobPath: string): Promise<void> {
-  await eliminarFoto(CARPETA_HISTORIAS, blobPath);
+  await eliminarFotoConMiniatura(CARPETA_HISTORIAS, blobPath);
 }
 
 export async function obtenerUrlTemporalFotoHistoria(
@@ -97,13 +143,17 @@ export async function obtenerUrlTemporalFotoHistoria(
   // fijar ese header -- ver app/api/blob/descargar/route.ts. Esa ruta la
   // protege la sesión del usuario (misma cookie, mismo dominio), no un
   // token de Vercel.
-  forzarDescarga = false
+  forzarDescarga = false,
+  // true = la versión liviana para mostrar en pantalla (solo si la historia
+  // la tiene, ver historias.tiene_miniatura). La descarga siempre es la
+  // completa.
+  miniatura = false
 ): Promise<string | null> {
   if (!blobPath) return null;
   if (forzarDescarga) {
     return `/api/blob/descargar?carpeta=${CARPETA_HISTORIAS}&archivo=${encodeURIComponent(blobPath)}`;
   }
-  return generarUrlTemporal(CARPETA_HISTORIAS, blobPath, minutos);
+  return generarUrlTemporal(CARPETA_HISTORIAS, miniatura ? rutaMiniatura(blobPath) : blobPath, minutos);
 }
 
 // --- Fotos de perfil ---
@@ -135,14 +185,22 @@ export async function obtenerUrlTemporalFotoPerfil(usuarioId: string, minutos = 
 
 // blobPath = "<checklist|auditoria>/<id del registro>/<id de la foto>.jpg".
 // Se borran a los 60 días desde el cron de depuración (ver lib/evidencias.ts).
-export async function subirFotoEvidencia(blobPath: string, dataUrl: string): Promise<void> {
-  await subirFoto(CARPETA_EVIDENCIAS, blobPath, dataUrl);
+export async function subirFotoEvidencia(
+  blobPath: string,
+  dataUrl: string,
+  miniDataUrl?: string | null
+): Promise<boolean> {
+  return subirFotoConMiniatura(CARPETA_EVIDENCIAS, blobPath, dataUrl, miniDataUrl);
 }
 
 export async function eliminarFotoEvidencia(blobPath: string): Promise<void> {
-  await eliminarFoto(CARPETA_EVIDENCIAS, blobPath);
+  await eliminarFotoConMiniatura(CARPETA_EVIDENCIAS, blobPath);
 }
 
-export async function obtenerUrlTemporalFotoEvidencia(blobPath: string, minutos = 120): Promise<string | null> {
-  return generarUrlTemporal(CARPETA_EVIDENCIAS, blobPath, minutos);
+export async function obtenerUrlTemporalFotoEvidencia(
+  blobPath: string,
+  minutos = 120,
+  miniatura = false
+): Promise<string | null> {
+  return generarUrlTemporal(CARPETA_EVIDENCIAS, miniatura ? rutaMiniatura(blobPath) : blobPath, minutos);
 }
