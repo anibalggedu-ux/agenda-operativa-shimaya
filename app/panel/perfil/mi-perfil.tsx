@@ -61,6 +61,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [directorio, setDirectorio] = useState<PersonaDirectorio[]>([]);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
+  const [fotoRecienSubida, setFotoRecienSubida] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -97,6 +98,10 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
         setMensaje(resultado.mensaje || "No se pudo subir la foto.");
         return;
       }
+      // El enlace firmado de la foto puede repetirse por un rato (ver
+      // vencimientoEstable en lib/blob-storage.ts) y el navegador mostraría
+      // la anterior desde su caché: se muestra la recién subida.
+      setFotoRecienSubida(dataUrl);
       await cargar();
     } catch (error: any) {
       setMensaje(error.message || "No se pudo procesar la foto.");
@@ -128,8 +133,8 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
         <div className="px-1">
           <div className="relative w-24 h-24 -mt-12">
             <div className="w-24 h-24 rounded-full border-4 border-marca-fondo bg-marca-superficie2 flex items-center justify-center overflow-hidden">
-              {perfil.fotoUrl ? (
-                <img src={perfil.fotoUrl} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
+              {(perfil.esPropio && fotoRecienSubida) || perfil.fotoUrl ? (
+                <img src={(perfil.esPropio && fotoRecienSubida) || perfil.fotoUrl || ""} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-marca-textofuerte text-2xl font-extrabold">{iniciales(perfil.nombre)}</span>
               )}

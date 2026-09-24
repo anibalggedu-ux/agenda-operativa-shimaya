@@ -889,6 +889,74 @@ const COLOR_CLASIFICACION: Record<string, [number, number, number]> = {
   "Acción inmediata": [200, 30, 40],
 };
 
+// ---------- Fotos de evidencia (checklist y auditoría) ----------
+
+export type FotoPdf = { dataUrl: string; pie: string | null };
+
+const ANCHO_FOTO = 87;
+const SEPARACION_FOTOS = 6;
+const ALTO_MAXIMO_FOTO = 85;
+
+// Dibuja las fotos de 2 en 2 con su descripción debajo, pasando de página
+// cuando una fila no entra. Devuelve la nueva posición vertical.
+function dibujarFotos(doc: jsPDF, fotos: FotoPdf[], yInicial: number): number {
+  let y = yInicial;
+  if (y + 20 > ALTO_PAGINA) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Fotos (${fotos.length})`, 14, y);
+  y += 6;
+
+  for (let i = 0; i < fotos.length; i += 2) {
+    const fila = fotos.slice(i, i + 2).map((f) => {
+      let ancho = ANCHO_FOTO;
+      let alto = ALTO_MAXIMO_FOTO * 0.75;
+      try {
+        const props = doc.getImageProperties(f.dataUrl);
+        alto = (props.height / props.width) * ANCHO_FOTO;
+        if (alto > ALTO_MAXIMO_FOTO) {
+          ancho = (ANCHO_FOTO * ALTO_MAXIMO_FOTO) / alto;
+          alto = ALTO_MAXIMO_FOTO;
+        }
+      } catch {
+        // Si la imagen no se puede leer se deja el espacio con el texto.
+      }
+      doc.setFontSize(8.5);
+      const lineas: string[] = f.pie ? doc.splitTextToSize(f.pie, ANCHO_FOTO) : [];
+      return { ...f, ancho, alto, lineas };
+    });
+    const altoFila = Math.max(...fila.map((f) => f.alto + f.lineas.length * 4 + 2)) + 5;
+
+    if (y + altoFila > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    fila.forEach((f, j) => {
+      const x = 14 + j * (ANCHO_FOTO + SEPARACION_FOTOS);
+      try {
+        const formato = f.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        doc.addImage(f.dataUrl, formato, x + (ANCHO_FOTO - f.ancho) / 2, y, f.ancho, f.alto);
+      } catch {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8.5);
+        doc.text("(foto no disponible)", x, y + 5);
+      }
+      if (f.lineas.length > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.text(f.lineas, x, y + f.alto + 4);
+      }
+    });
+    y += altoFila;
+  }
+  return y;
+}
+
 export type DatosAuditoriaPdf = {
   tiendaNombre: string;
   fecha: string;
@@ -904,6 +972,7 @@ export type DatosAuditoriaPdf = {
   fortalezas: string | null;
   oportunidades: string | null;
   compromisos: { accion: string; responsable: string; fecha: string }[];
+  fotos?: FotoPdf[];
 };
 
 const ETIQUETA_PUNTAJE: Record<number, string> = { 2: "Cumple", 1: "Parcial", 0: "No cumple" };
@@ -1059,6 +1128,8 @@ export async function generarPdfAuditoria(datos: DatosAuditoriaPdf) {
     y += 4;
   }
 
+  if (datos.fotos && datos.fotos.length > 0) y = dibujarFotos(doc, datos.fotos, y + 2);
+
   // Pensado para entregarse impreso en la tienda — dos líneas de firma al
   // final, en una página nueva si no queda espacio decente para ambas.
   if (y + 40 > ALTO_PAGINA) {
@@ -1107,6 +1178,7 @@ export type DatosChecklistVisitaPdf = {
   secciones: SeccionChecklistVisitaPdf[];
   porcentaje?: number | null;
   clasificacion?: string | null;
+  fotos?: FotoPdf[];
 };
 
 function formatearValorChecklist(item: ItemChecklistVisitaPdf): string {
@@ -1181,6 +1253,8 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
 
     y += 4;
   });
+
+  if (datos.fotos && datos.fotos.length > 0) y = dibujarFotos(doc, datos.fotos, y + 2);
 
   // Pensado para entregarse al encargado de la tienda -- dos líneas de
   // firma al final, en una página nueva si no queda espacio decente.

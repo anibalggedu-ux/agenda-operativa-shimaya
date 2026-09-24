@@ -10,4 +10,12 @@ export const DIAS_RETENCION_EVIDENCIAS = 60;
 export type TipoRegistroEvidencia = "checklist" | "auditoria";
 
 // url = versión liviana para mostrar; urlCompleta = la original, al tocarla.
-export type FotoEvidencia = { id: string; url: string | null; urlCompleta: string | null; pie: string | null };
+// rutaPdf = la liviana servida por la propia app (/api/blob/descargar), para
+// poder meterla en el PDF desde el navegador.
+export type FotoEvidencia = {
+  id: string;
+  url: string | null;
+  urlCompleta: string | null;
+  rutaPdf: string;
+  pie: string | null;
+};

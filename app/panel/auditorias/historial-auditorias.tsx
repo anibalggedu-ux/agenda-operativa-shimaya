@@ -1,6 +1,6 @@
 "use client";
 
-import { GaleriaEvidencias } from "../fotos-evidencia";
+import { GaleriaEvidencias, fotosGuardadasParaPdf } from "../fotos-evidencia";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, FileDown } from "lucide-react";
@@ -80,6 +80,7 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
         fortalezas: detalle.fortalezas,
         oportunidades: detalle.oportunidades,
         compromisos: detalle.compromisos,
+        fotos: await fotosGuardadasParaPdf(detalle.fotos),
       });
     } catch {
       setError("No se pudo generar el PDF.");

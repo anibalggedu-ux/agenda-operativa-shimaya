@@ -1,6 +1,6 @@
 "use client";
 
-import { GaleriaEvidencias } from "../fotos-evidencia";
+import { GaleriaEvidencias, fotosGuardadasParaPdf } from "../fotos-evidencia";
 import { Fragment, useEffect, useState } from "react";
 import {
   ResponsiveContainer,
@@ -107,6 +107,7 @@ function DetalleChecklist({
 }) {
   const [detalle, setDetalle] = useState<ChecklistVisitaDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
 
   useEffect(() => {
     obtenerDetalleChecklistVisita(id)
@@ -115,7 +116,16 @@ function DetalleChecklist({
   }, [id]);
 
   async function handleDescargar() {
-    if (!detalle) return;
+    if (!detalle || generandoPdf) return;
+    setGenerandoPdf(true);
+    try {
+      await generarPdfConFotos(detalle);
+    } finally {
+      setGenerandoPdf(false);
+    }
+  }
+
+  async function generarPdfConFotos(detalle: ChecklistVisitaDetalle) {
     const seccionesPdf: SeccionChecklistVisitaPdf[] = secciones.map((s) => ({
       titulo: s.titulo,
       items: s.items.map((it) => ({
@@ -132,6 +142,7 @@ function DetalleChecklist({
       secciones: seccionesPdf,
       porcentaje: detalle.porcentaje,
       clasificacion: detalle.clasificacion,
+      fotos: await fotosGuardadasParaPdf(detalle.fotos),
     });
   }
 
@@ -154,9 +165,10 @@ function DetalleChecklist({
             <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={handleDescargar}
-                className="text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase flex items-center gap-1"
+                disabled={generandoPdf}
+                className="text-marca-rojoclaro hover:text-marca-rojo disabled:opacity-50 text-[11px] font-bold uppercase flex items-center gap-1"
               >
-                <FileDown className="w-3.5 h-3.5" /> Descargar PDF
+                <FileDown className="w-3.5 h-3.5" /> {generandoPdf ? "Generando..." : "Descargar PDF"}
               </button>
               <button
                 onClick={onCerrar}
