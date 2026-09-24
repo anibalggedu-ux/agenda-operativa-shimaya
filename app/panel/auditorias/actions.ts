@@ -1,5 +1,7 @@
 "use server";
 
+import { cargarFotosEvidencia } from "@/lib/evidencias";
+import type { FotoEvidencia } from "@/lib/evidencias-constantes";
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { tieneAccesoAuditoria } from "@/lib/permisos";
@@ -59,7 +61,7 @@ function clasificar(porcentaje: number): string {
   return "Acción inmediata";
 }
 
-export type ResultadoAuditoria = { exito: boolean; mensaje?: string };
+export type ResultadoAuditoria = { exito: boolean; mensaje?: string; id?: string };
 
 const FILAS_COMPROMISOS = 5;
 
@@ -308,7 +310,7 @@ export async function crearAuditoria(
     items,
   });
 
-  return { exito: true, mensaje: `Auditoría guardada — ${porcentaje}% (${clasificacion}).` };
+  return { exito: true, id: creada.id, mensaje: `Auditoría guardada — ${porcentaje}% (${clasificacion}).` };
 }
 
 export type AuditoriaResumen = {
@@ -372,6 +374,7 @@ export type DetalleAuditoria = AuditoriaResumen & {
   compromisos: { accion: string; responsable: string; fecha: string }[];
   puntajeTotal: number;
   puntajeMaximo: number;
+  fotos: FotoEvidencia[];
 };
 
 export async function obtenerDetalleAuditoria(id: string): Promise<DetalleAuditoria> {
@@ -426,5 +429,6 @@ export async function obtenerDetalleAuditoria(id: string): Promise<DetalleAudito
     compromisos: (data.compromisos as DetalleAuditoria["compromisos"]) ?? [],
     puntajeTotal: data.puntaje_total,
     puntajeMaximo: data.puntaje_maximo,
+    fotos: await cargarFotosEvidencia(supabase, "auditoria", data.id),
   };
 }

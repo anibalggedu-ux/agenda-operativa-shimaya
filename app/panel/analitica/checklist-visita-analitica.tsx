@@ -1,5 +1,6 @@
 "use client";
 
+import { GaleriaEvidencias } from "../fotos-evidencia";
 import { Fragment, useEffect, useState } from "react";
 import {
   ResponsiveContainer,
@@ -192,6 +193,7 @@ function DetalleChecklist({
               );
             })}
           </div>
+          <GaleriaEvidencias fotos={detalle.fotos} />
         </>
       )}
     </div>

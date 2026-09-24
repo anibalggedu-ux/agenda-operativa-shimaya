@@ -1,5 +1,7 @@
 "use server";
 
+import { cargarFotosEvidencia } from "@/lib/evidencias";
+import type { FotoEvidencia } from "@/lib/evidencias-constantes";
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { enviarCorreo, URL_APP } from "@/lib/email";
@@ -271,6 +273,7 @@ export async function obtenerChecklistsVisita(
 
 export type ChecklistVisitaDetalle = {
   id: string;
+  fotos: FotoEvidencia[];
   tiendaNombre: string;
   usuarioNombre: string;
   rol: string;
@@ -439,5 +442,6 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     respuestas: data.respuestas as unknown as RespuestasChecklist,
     porcentaje: data.porcentaje,
     clasificacion: data.clasificacion as ClasificacionChecklist | null,
+    fotos: await cargarFotosEvidencia(supabase, "checklist", data.id),
   };
 }
