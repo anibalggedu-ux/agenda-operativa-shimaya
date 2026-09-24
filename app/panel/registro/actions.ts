@@ -6,7 +6,14 @@ import { hashPassword } from "@/lib/password";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import { DIAS_SEMANA, diaSemanaPeru } from "@/lib/fechas";
 import { geocodificarDireccion } from "@/lib/geocodificar";
-import { eliminarFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
+import {
+  eliminarFotoMarcacion,
+  obtenerUrlTemporalFoto,
+  eliminarFotoEvidencia,
+  obtenerUrlTemporalFotoEvidencia,
+  eliminarFotoHistoria,
+  obtenerUrlTemporalFotoHistoria,
+} from "@/lib/blob-storage";
 import { resolverHoraLimite } from "@/lib/puntualidad";
 
 // Mismo set de roles que participan del sistema de puntos en puntos-actions.ts
@@ -932,10 +939,37 @@ async function listarFotosAntesDe(
 
 export type ResumenDepuracionFotos = { totalFotos: number };
 
-export async function obtenerResumenDepuracionFotos(hasta: string): Promise<ResumenDepuracionFotos> {
+// Qué fotos se depuran desde Registro: las de marcación (ingreso, tiendas y
+// eventos), las opcionales de checklists/auditorías (fotos_evidencia) o las
+// de historias. Las dos últimas se borran con su fila (y su miniatura); en
+// marcaciones solo se limpia la columna de la foto.
+export type TipoFotosDepuracion = "marcaciones" | "evidencias" | "historias";
+
+// Las fechas de corte son días de Perú (UTC-5): el día empieza a las 05:00 UTC.
+function inicioDiaPeruIso(fecha: string): string {
+  return `${fecha}T05:00:00.000Z`;
+}
+
+async function contarOtrasFotosAntesDe(
+  supabase: ReturnType<typeof supabaseServer>,
+  tipo: Exclude<TipoFotosDepuracion, "marcaciones">,
+  hasta: string
+): Promise<number> {
+  const { count } = await supabase
+    .from(tipo === "evidencias" ? "fotos_evidencia" : "historias")
+    .select("id", { count: "exact", head: true })
+    .lt("created_at", inicioDiaPeruIso(hasta));
+  return count ?? 0;
+}
+
+export async function obtenerResumenDepuracionFotos(
+  hasta: string,
+  tipo: TipoFotosDepuracion = "marcaciones"
+): Promise<ResumenDepuracionFotos> {
   await exigirAccesoRegistro();
   if (!hasta) return { totalFotos: 0 };
   const supabase = supabaseServer();
+  if (tipo !== "marcaciones") return { totalFotos: await contarOtrasFotosAntesDe(supabase, tipo, hasta) };
   const filas = await listarFotosAntesDe(supabase, hasta);
   return { totalFotos: new Set(filas.map((f) => f.blob)).size };
 }
@@ -948,10 +982,47 @@ const LIMITE_VISUALIZACION_FOTOS = 40;
 
 export type FotoParaVisualizar = { blob: string; fecha: string; etiqueta: string; url: string | null };
 
-export async function obtenerFotosParaVisualizar(hasta: string): Promise<FotoParaVisualizar[]> {
+export async function obtenerFotosParaVisualizar(
+  hasta: string,
+  tipo: TipoFotosDepuracion = "marcaciones"
+): Promise<FotoParaVisualizar[]> {
   await exigirAccesoRegistro();
   if (!hasta) return [];
   const supabase = supabaseServer();
+
+  if (tipo === "evidencias") {
+    const { data } = await supabase
+      .from("fotos_evidencia")
+      .select("blob_path, pie, created_at, checklist_id, tiene_miniatura")
+      .lt("created_at", inicioDiaPeruIso(hasta))
+      .order("created_at", { ascending: false })
+      .limit(LIMITE_VISUALIZACION_FOTOS);
+    return Promise.all(
+      (data ?? []).map(async (f) => ({
+        blob: f.blob_path,
+        fecha: f.created_at.slice(0, 10),
+        etiqueta: `${f.checklist_id ? "Checklist" : "Auditoría"}${f.pie ? ` · ${f.pie}` : ""}`,
+        url: await obtenerUrlTemporalFotoEvidencia(f.blob_path, 60, f.tiene_miniatura),
+      }))
+    );
+  }
+
+  if (tipo === "historias") {
+    const { data } = await supabase
+      .from("historias")
+      .select("foto_blob, texto, created_at, tiene_miniatura, usuarios(nombre)")
+      .lt("created_at", inicioDiaPeruIso(hasta))
+      .order("created_at", { ascending: false })
+      .limit(LIMITE_VISUALIZACION_FOTOS);
+    return Promise.all(
+      (data ?? []).map(async (h: any) => ({
+        blob: h.foto_blob,
+        fecha: h.created_at.slice(0, 10),
+        etiqueta: `${h.usuarios?.nombre ?? "—"}${h.texto ? ` · ${h.texto}` : ""}`,
+        url: await obtenerUrlTemporalFotoHistoria(h.foto_blob, 60, false, h.tiene_miniatura),
+      }))
+    );
+  }
 
   const [activas, diarias, eventos, asis] = await Promise.all([
     supabase
@@ -1074,15 +1145,65 @@ export async function ejecutarDepuracionFotos(
   return { borradas, pendientes: blobsUnicos.length - loteBlobs.length };
 }
 
-export async function depurarFotosMarcacion(hasta: string, motivo?: string): Promise<ResultadoDepuracionFotos> {
+// Borra archivo (y miniatura) y fila de las fotos de checklists/auditorías o
+// de historias creadas antes del día de corte. En historias se borra la
+// historia completa (con sus reacciones, comentarios y vistas), igual que
+// el cron diario; los puntos ya ganados no se tocan.
+async function ejecutarDepuracionOtrasFotos(
+  tipo: Exclude<TipoFotosDepuracion, "marcaciones">,
+  hasta: string,
+  limiteLote: number
+): Promise<{ borradas: number; pendientes: number }> {
+  const supabase = supabaseServer();
+  const tabla = tipo === "evidencias" ? "fotos_evidencia" : "historias";
+  const columnaBlob = tipo === "evidencias" ? "blob_path" : "foto_blob";
+
+  const total = await contarOtrasFotosAntesDe(supabase, tipo, hasta);
+  const { data } = await (supabase.from(tabla) as any)
+    .select(`id, ${columnaBlob}`)
+    .lt("created_at", inicioDiaPeruIso(hasta))
+    .order("created_at", { ascending: true })
+    .limit(limiteLote);
+
+  const borradasIds: string[] = [];
+  for (const fila of (data ?? []) as Record<string, string>[]) {
+    try {
+      if (tipo === "evidencias") await eliminarFotoEvidencia(fila[columnaBlob]);
+      else await eliminarFotoHistoria(fila[columnaBlob]);
+      borradasIds.push(fila.id);
+    } catch (error) {
+      console.error(`No se pudo borrar la foto ${fila[columnaBlob]}:`, error);
+    }
+  }
+  if (borradasIds.length > 0) {
+    await (supabase.from(tabla) as any).delete().in("id", borradasIds);
+  }
+  return { borradas: borradasIds.length, pendientes: Math.max(0, total - borradasIds.length) };
+}
+
+const NOMBRE_TIPO_FOTOS: Record<TipoFotosDepuracion, string> = {
+  marcaciones: "fotos de marcación",
+  evidencias: "fotos de checklists y auditorías",
+  historias: "fotos de historias",
+};
+
+export async function depurarFotosMarcacion(
+  hasta: string,
+  motivo?: string,
+  tipo: TipoFotosDepuracion = "marcaciones"
+): Promise<ResultadoDepuracionFotos> {
   const sesion = await exigirAccesoRegistro();
   if (!hasta) return { exito: false, mensaje: "Indica la fecha de corte." };
+  if (!(tipo in NOMBRE_TIPO_FOTOS)) return { exito: false, mensaje: "Tipo de fotos inválido." };
 
-  const { borradas, pendientes } = await ejecutarDepuracionFotos(hasta, LOTE_DEPURACION_FOTOS);
+  const { borradas, pendientes } =
+    tipo === "marcaciones"
+      ? await ejecutarDepuracionFotos(hasta, LOTE_DEPURACION_FOTOS)
+      : await ejecutarDepuracionOtrasFotos(tipo, hasta, LOTE_DEPURACION_FOTOS);
 
   await registrarCambio(
     sesion,
-    "Depuró fotos de marcación antiguas",
+    `Depuró ${NOMBRE_TIPO_FOTOS[tipo]} antiguas`,
     `${borradas} foto(s) anteriores a ${hasta}${pendientes > 0 ? ` (quedan ${pendientes} pendientes)` : ""}`,
     motivo
   );
