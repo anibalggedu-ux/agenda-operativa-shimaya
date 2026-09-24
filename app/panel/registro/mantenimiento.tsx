@@ -40,6 +40,7 @@ import {
   type ReporteCorregible,
   type MarcacionTiendaCorregible,
   type ResumenDepuracionFotos,
+  type TipoFotosDepuracion,
   type FotoParaVisualizar,
   type AsignacionEspecialCorregible,
   type ComunicadoCorregible,
@@ -842,7 +843,26 @@ function SeccionMarcacionesTienda() {
 // fecha de corte -- primero muestra cuántas se van a borrar (obtenerResumen...)
 // antes de dejar tocar el botón, y si el lote fue muy grande, avisa cuántas
 // quedan pendientes para volver a tocarlo.
+const TIPOS_DEPURACION: { tipo: TipoFotosDepuracion; etiqueta: string; nota: string }[] = [
+  {
+    tipo: "marcaciones",
+    etiqueta: "Marcaciones",
+    nota: "Ingreso/salida, tiendas y eventos. Solo se borra la foto: la hora, la ubicación y el reporte se conservan.",
+  },
+  {
+    tipo: "evidencias",
+    etiqueta: "Checklists y auditorías",
+    nota: "Las fotos opcionales con descripción. El checklist o la auditoría se conservan.",
+  },
+  {
+    tipo: "historias",
+    etiqueta: "Historias",
+    nota: "Se borra la historia completa (con sus reacciones y comentarios). Los puntos ya ganados se conservan.",
+  },
+];
+
 function SeccionDepuracionFotos() {
+  const [tipo, setTipo] = useState<TipoFotosDepuracion>("marcaciones");
   const [hasta, setHasta] = useState(sumarDias(hoyPeru(), -180));
   const [resumen, setResumen] = useState<ResumenDepuracionFotos | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -858,13 +878,14 @@ function SeccionDepuracionFotos() {
     setCargandoResumen(true);
     setError(null);
     setMostrandoFotos(false);
-    obtenerResumenDepuracionFotos(hasta)
+    obtenerResumenDepuracionFotos(hasta, tipo)
       .then(setResumen)
       .catch((e) => setError(e.message || "No se pudo calcular el resumen."))
       .finally(() => setCargandoResumen(false));
   }
 
-  useEffect(consultar, [hasta]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(consultar, [hasta, tipo]);
 
   function toggleVerFotos() {
     if (mostrandoFotos) {
@@ -873,7 +894,7 @@ function SeccionDepuracionFotos() {
     }
     setMostrandoFotos(true);
     setCargandoFotos(true);
-    obtenerFotosParaVisualizar(hasta)
+    obtenerFotosParaVisualizar(hasta, tipo)
       .then(setFotos)
       .catch(() => setFotos([]))
       .finally(() => setCargandoFotos(false));
@@ -883,16 +904,16 @@ function SeccionDepuracionFotos() {
     if (!resumen || resumen.totalFotos === 0) return;
     if (
       !window.confirm(
-        `¿Borrar ${resumen.totalFotos} foto(s) de marcación anteriores al ${formatearFechaLegible(
+        `¿Borrar ${resumen.totalFotos} foto(s) (${TIPOS_DEPURACION.find((t) => t.tipo === tipo)?.etiqueta}) anteriores al ${formatearFechaLegible(
           hasta
-        )}? Esto NO se puede deshacer — las fotos se pierden para siempre. La hora, ubicación y el reporte/asignación no se tocan.`
+        )}? Esto NO se puede deshacer — las fotos se pierden para siempre. ${TIPOS_DEPURACION.find((t) => t.tipo === tipo)?.nota ?? ""}`
       )
     )
       return;
     setDepurando(true);
     setMensaje(null);
     setError(null);
-    const resultado = await depurarFotosMarcacion(hasta, motivo);
+    const resultado = await depurarFotosMarcacion(hasta, motivo, tipo);
     setDepurando(false);
     if (resultado.exito) {
       setMensaje({ texto: resultado.mensaje || "Listo.", exito: true });
@@ -905,6 +926,31 @@ function SeccionDepuracionFotos() {
 
   return (
     <>
+      <div className="mb-3">
+        <p className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Qué fotos</p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Tipo de fotos a depurar">
+          {TIPOS_DEPURACION.map((t) => (
+            <button
+              key={t.tipo}
+              type="button"
+              aria-pressed={tipo === t.tipo}
+              onClick={() => {
+                setTipo(t.tipo);
+                setMensaje(null);
+              }}
+              className={`text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border transition ${
+                tipo === t.tipo
+                  ? "border-marca-rojo bg-marca-rojo/15 text-marca-textofuerte"
+                  : "border-marca-borde text-marca-tenue hover:text-marca-texto"
+              }`}
+            >
+              {t.etiqueta}
+            </button>
+          ))}
+        </div>
+        <p className="text-marca-tenue text-[10px] mt-1">{TIPOS_DEPURACION.find((t) => t.tipo === tipo)?.nota}</p>
+      </div>
+
       <div>
         <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
           Borrar fotos anteriores a
@@ -1804,9 +1850,9 @@ export function BloqueMarcacionesTienda() {
 export function BloqueDepuracionFotos() {
   return (
     <SeccionColapsable
-      titulo="Depurar fotos de marcación antiguas"
+      titulo="Depurar fotos antiguas"
       icono={<Trash2 />}
-      descripcion="Borra del almacenamiento (Azure) las fotos de llegada/salida anteriores a una fecha, para liberar espacio — irreversible, no toca horas ni reportes."
+      descripcion="Borra del almacenamiento las fotos de marcación, de checklists/auditorías o de historias anteriores a una fecha, para liberar espacio. Irreversible. Además, cada día se borran solas las de marcación, checklists y auditorías con más de 60 días y las historias con más de 7."
     >
       <SeccionDepuracionFotos />
     </SeccionColapsable>
