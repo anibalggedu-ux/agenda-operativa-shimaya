@@ -649,6 +649,58 @@ export type Database = {
         }
         Relationships: []
       }
+      fotos_evidencia: {
+        Row: {
+          auditoria_id: string | null
+          blob_path: string
+          checklist_id: string | null
+          created_at: string
+          id: string
+          pie: string | null
+          usuario_id: string
+        }
+        Insert: {
+          auditoria_id?: string | null
+          blob_path: string
+          checklist_id?: string | null
+          created_at?: string
+          id?: string
+          pie?: string | null
+          usuario_id: string
+        }
+        Update: {
+          auditoria_id?: string | null
+          blob_path?: string
+          checklist_id?: string | null
+          created_at?: string
+          id?: string
+          pie?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fotos_evidencia_auditoria_id_fkey"
+            columns: ["auditoria_id"]
+            isOneToOne: false
+            referencedRelation: "auditorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fotos_evidencia_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fotos_evidencia_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historia_comentarios: {
         Row: {
           created_at: string

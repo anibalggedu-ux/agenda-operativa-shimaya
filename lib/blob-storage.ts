@@ -10,6 +10,7 @@ import { put, del, head, issueSignedToken, presignUrl } from "@vercel/blob";
 const CARPETA_MARCACIONES = "marcaciones";
 const CARPETA_HISTORIAS = "historias";
 const CARPETA_PERFILES = "perfiles";
+const CARPETA_EVIDENCIAS = "evidencias";
 
 // Convierte un data URL ("data:image/jpeg;base64,...") en el buffer y el
 // content-type reales, tal como los produce el input de cámara del celular.
@@ -128,4 +129,20 @@ export async function obtenerUrlTemporalFotoPerfil(usuarioId: string, minutos = 
     return null; // BlobNotFoundError -- nunca subió foto
   }
   return generarUrlTemporal(CARPETA_PERFILES, blobPerfil(usuarioId), minutos);
+}
+
+// --- Fotos de evidencia (checklist de visita y auditorías) ---
+
+// blobPath = "<checklist|auditoria>/<id del registro>/<id de la foto>.jpg".
+// Se borran a los 60 días desde el cron de depuración (ver lib/evidencias.ts).
+export async function subirFotoEvidencia(blobPath: string, dataUrl: string): Promise<void> {
+  await subirFoto(CARPETA_EVIDENCIAS, blobPath, dataUrl);
+}
+
+export async function eliminarFotoEvidencia(blobPath: string): Promise<void> {
+  await eliminarFoto(CARPETA_EVIDENCIAS, blobPath);
+}
+
+export async function obtenerUrlTemporalFotoEvidencia(blobPath: string, minutos = 120): Promise<string | null> {
+  return generarUrlTemporal(CARPETA_EVIDENCIAS, blobPath, minutos);
 }

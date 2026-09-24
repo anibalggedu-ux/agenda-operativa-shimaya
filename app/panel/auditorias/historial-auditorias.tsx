@@ -1,5 +1,6 @@
 "use client";
 
+import { GaleriaEvidencias } from "../fotos-evidencia";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, FileDown } from "lucide-react";
@@ -246,6 +247,8 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
                     </div>
                   </div>
                 )}
+
+                <GaleriaEvidencias fotos={detalle.fotos} />
 
                 <div className="flex gap-2">
                   <button

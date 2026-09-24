@@ -12,6 +12,12 @@ import {
   type ResultadoAuditoria,
 } from "./actions";
 import { hoyPeru } from "@/lib/fechas";
+import {
+  AvisoFotosPendientes,
+  SelectorFotosEvidencia,
+  subirFotosEvidencia,
+  type FotoPendiente,
+} from "../fotos-evidencia";
 
 const ALERTAS = [
   "Riesgo sanitario",
@@ -59,6 +65,11 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
   const [borradorRestaurado, setBorradorRestaurado] = useState(false);
   const [estado, formAction] = useFormState(crearAuditoria, estadoInicial);
   const formRef = useRef<HTMLFormElement>(null);
+  // Las fotos no van en el FormData: se suben una por una después de
+  // guardar, con el id de la auditoría ya creada.
+  const [fotos, setFotos] = useState<FotoPendiente[]>([]);
+  const [subiendoFotos, setSubiendoFotos] = useState(false);
+  const [fotosFallidas, setFotosFallidas] = useState(0);
 
   useEffect(() => {
     Promise.all([obtenerPlantillaParaFormulario(), obtenerTiendasAuditoria()])
@@ -119,6 +130,16 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
     } catch {}
   }, [cargando, items]);
 
+  async function subirFotos(auditoriaId: string, lista: FotoPendiente[]) {
+    setSubiendoFotos(true);
+    const fallidas = await subirFotosEvidencia("auditoria", auditoriaId, lista, setFotos);
+    setFotosFallidas(fallidas);
+    setSubiendoFotos(false);
+    // Si todas subieron se pasa al historial como antes; si alguna falló,
+    // se queda aquí para poder reintentar.
+    if (fallidas === 0) onGuardado();
+  }
+
   useEffect(() => {
     if (estado.exito) {
       formRef.current?.reset();
@@ -127,7 +148,8 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
       } catch {}
       setCalificados(0);
       setBorradorRestaurado(false);
-      onGuardado();
+      if (estado.id && fotos.length > 0) subirFotos(estado.id, fotos);
+      else onGuardado();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
@@ -365,7 +387,35 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
         </div>
       </div>
 
-      <BotonEnviar />
+      <SelectorFotosEvidencia
+        fotos={fotos}
+        onCambiar={setFotos}
+        bloqueado={subiendoFotos || (estado.exito && fotos.length > 0)}
+      />
+
+      {subiendoFotos && (
+        <p className="text-marca-tenue text-xs text-center animate-pulse">
+          Subiendo fotos ({fotos.filter((f) => f.estado === "subida").length} de {fotos.length})... no cierres la app.
+        </p>
+      )}
+      {estado.exito && estado.id && !subiendoFotos && fotosFallidas > 0 && (
+        <div className="space-y-2">
+          <AvisoFotosPendientes
+            fallidas={fotosFallidas}
+            reintentando={subiendoFotos}
+            onReintentar={() => subirFotos(estado.id!, fotos)}
+          />
+          <button
+            type="button"
+            onClick={onGuardado}
+            className="w-full border border-marca-borde text-marca-tenue hover:text-marca-texto font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase"
+          >
+            Seguir sin esas fotos
+          </button>
+        </div>
+      )}
+
+      {!(estado.exito && fotos.length > 0) && <BotonEnviar />}
 
       {estado.mensaje && (
         <p

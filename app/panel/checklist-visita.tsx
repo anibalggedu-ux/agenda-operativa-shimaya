@@ -13,6 +13,12 @@ import {
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { hoyPeru } from "@/lib/fechas";
+import {
+  AvisoFotosPendientes,
+  SelectorFotosEvidencia,
+  subirFotosEvidencia,
+  type FotoPendiente,
+} from "./fotos-evidencia";
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
@@ -160,6 +166,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
+  const [fotos, setFotos] = useState<FotoPendiente[]>([]);
+  const [registroId, setRegistroId] = useState<string | null>(null);
+  const [subiendoFotos, setSubiendoFotos] = useState(false);
+  const [fotosFallidas, setFotosFallidas] = useState(0);
   const [resultado, setResultado] = useState<{
     porcentaje: number | null;
     clasificacion: ClasificacionChecklist | null;
@@ -184,6 +194,9 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
 
   function handleNuevo() {
     setRespuestas({});
+    setFotos([]);
+    setRegistroId(null);
+    setFotosFallidas(0);
     setGuardado(false);
     setResultado(null);
     setError(null);
@@ -201,9 +214,20 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     if (resp.exito) {
       setGuardado(true);
       setResultado({ porcentaje: resp.porcentaje ?? null, clasificacion: resp.clasificacion ?? null });
+      if (resp.id && fotos.length > 0) {
+        setRegistroId(resp.id);
+        await subirFotos(resp.id);
+      }
     } else {
       setError(resp.mensaje || "No se pudo guardar el checklist.");
     }
+  }
+
+  async function subirFotos(id: string) {
+    setSubiendoFotos(true);
+    const fallidas = await subirFotosEvidencia("checklist", id, fotos, setFotos);
+    setFotosFallidas(fallidas);
+    setSubiendoFotos(false);
   }
 
   async function handleDescargarPdf() {
@@ -283,6 +307,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         </fieldset>
       )}
 
+      {secciones.length > 0 && (
+        <SelectorFotosEvidencia fotos={fotos} onCambiar={setFotos} bloqueado={guardado || guardando} />
+      )}
+
       {error && <p className="text-marca-rojoclaro text-xs font-bold">{error}</p>}
 
       {!guardado ? (
@@ -299,6 +327,18 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           <p className="flex items-center justify-center gap-1.5 text-emerald-400 text-xs font-bold text-center">
             <Check className="w-3.5 h-3.5" /> Checklist guardado — ya se puede ver en Central Analítica.
           </p>
+          {subiendoFotos && (
+            <p className="text-marca-tenue text-xs text-center animate-pulse">
+              Subiendo fotos ({fotos.filter((f) => f.estado === "subida").length} de {fotos.length})... no cierres la app.
+            </p>
+          )}
+          {!subiendoFotos && registroId && (
+            <AvisoFotosPendientes
+              fallidas={fotosFallidas}
+              reintentando={subiendoFotos}
+              onReintentar={() => subirFotos(registroId)}
+            />
+          )}
           {resultado?.porcentaje !== null && resultado?.porcentaje !== undefined && (
             <p className={`text-center font-display text-2xl font-bold ${claseColorClasificacion(resultado.clasificacion)}`}>
               {resultado.porcentaje}%{" "}
@@ -316,7 +356,8 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             <button
               type="button"
               onClick={handleNuevo}
-              className="flex-1 border border-marca-borde text-marca-tenue hover:text-marca-texto font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+              disabled={subiendoFotos}
+              className="flex-1 disabled:opacity-50 border border-marca-borde text-marca-tenue hover:text-marca-texto font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
             >
               + Nuevo checklist
             </button>
