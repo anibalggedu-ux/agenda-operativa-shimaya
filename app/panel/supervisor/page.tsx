@@ -5,6 +5,7 @@ import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
+import EncuestasPendientes from "../encuestas/encuestas-pendientes";
 import MisPuntosWidget from "../mis-puntos-widget";
 import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
 import PerfilBanner from "../perfil-banner";
@@ -48,6 +49,7 @@ export default async function PanelSupervisor() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <EncuestasPendientes />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
           <AnunciosWidget />

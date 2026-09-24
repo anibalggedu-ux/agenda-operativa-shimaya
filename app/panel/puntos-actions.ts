@@ -191,6 +191,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     netoRegalos,
     configBonoHistoria,
     historiaPublicacionesRes,
+    encuestaRespuestasRes,
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -212,6 +213,9 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     obtenerNetoRegalosPorUsuario(),
     obtenerConfiguracionBonoHistoria(),
     supabase.from("historia_publicaciones").select("usuario_id"),
+    // Puntos por responder encuestas completas: se guardan en cada respuesta
+    // al enviarla, así que cambiar o borrar la encuesta después no los quita.
+    supabase.from("encuesta_respuestas").select("usuario_id, puntos_ganados").gt("puntos_ganados", 0),
   ]);
 
   if (
@@ -231,6 +235,11 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const diasPublicadosPorUsuario = new Map<string, number>();
   (historiaPublicacionesRes.data ?? []).forEach((r: any) => {
     diasPublicadosPorUsuario.set(r.usuario_id, (diasPublicadosPorUsuario.get(r.usuario_id) ?? 0) + 1);
+  });
+
+  const puntosEncuestasPorUsuario = new Map<string, number>();
+  (encuestaRespuestasRes.data ?? []).forEach((r) => {
+    puntosEncuestasPorUsuario.set(r.usuario_id, (puntosEncuestasPorUsuario.get(r.usuario_id) ?? 0) + r.puntos_ganados);
   });
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
@@ -321,6 +330,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
         (puntosPorUsuario.get(u.id) ?? 0) +
         bono +
         bonoHistoria +
+        (puntosEncuestasPorUsuario.get(u.id) ?? 0) +
         (u.puntos_heredados ?? 0) +
         (netoRegalos.get(u.id) ?? 0),
       rachaActual: racha,

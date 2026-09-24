@@ -5,6 +5,7 @@ import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
+import EncuestasPendientes from "../encuestas/encuestas-pendientes";
 import MisPuntosWidget from "../mis-puntos-widget";
 import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "../supervisor/actions";
@@ -41,6 +42,7 @@ export default async function PanelCapacitador() {
       icono: <Home className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <EncuestasPendientes />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
           <AnunciosWidget />
