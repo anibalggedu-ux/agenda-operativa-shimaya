@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Users, GraduationCap, Calendar, MapPin, Target } from "lucide-react";
+import { Users, GraduationCap, Calendar, Clock, MapPin, Target } from "lucide-react";
 import {
   obtenerComunicados,
   crearComunicado,
@@ -13,6 +13,7 @@ import {
   type ResultadoAccion,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { textoHorarioEvento } from "@/lib/eventos";
 
 const estadoInicial: ResultadoAccion = { exito: false };
 
@@ -156,6 +157,12 @@ function TarjetaAnuncio({
             <Calendar className="w-3 h-3" /> Evento: {formatearFechaLegible(c.fechaEvento)}
           </p>
         )}
+        {textoHorarioEvento(c.horaInicio, c.horaFin) && (
+          <p className="text-marca-textofuerte text-[11px] font-bold mt-1 flex items-center gap-1.5">
+            <Clock className="w-3 h-3" /> {textoHorarioEvento(c.horaInicio, c.horaFin)}
+            {c.fechaEvento && !c.vigente ? <span className="text-marca-tenue font-normal">· Finalizado</span> : null}
+          </p>
+        )}
         {c.ubicacion && (
           <a
             href={`https://www.google.com/maps?q=${encodeURIComponent(c.ubicacion)}`}
@@ -293,8 +300,43 @@ export default function Anuncios() {
               className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             />
             <p className="text-marca-tenue text-[10px] mt-1">
-              Si la pones, el anuncio desaparece automáticamente al día siguiente del evento
+              Si la pones, el anuncio desaparece automáticamente cuando termina el evento
               (queda guardado como histórico).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:order-last">
+            <div>
+              <label
+                htmlFor="anuncio-hora-inicio"
+                className="block text-marca-tenue text-[10px] uppercase font-bold mb-1"
+              >
+                Hora de inicio (opcional)
+              </label>
+              <input
+                id="anuncio-hora-inicio"
+                type="time"
+                name="horaInicio"
+                className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="anuncio-hora-fin"
+                className="block text-marca-tenue text-[10px] uppercase font-bold mb-1"
+              >
+                Hora de fin (opcional)
+              </label>
+              <input
+                id="anuncio-hora-fin"
+                type="time"
+                name="horaFin"
+                className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+              />
+            </div>
+            <p className="col-span-2 text-marca-tenue text-[10px] -mt-1">
+              Pasada la hora de fin, el evento se da por finalizado y sale de Anuncios. Sin hora de
+              fin, dura todo el día.
             </p>
           </div>
 
@@ -358,7 +400,7 @@ export default function Anuncios() {
             onClick={() => setVerHistorico((v) => !v)}
             className="text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase tracking-widest mb-3"
           >
-            {verHistorico ? "▾" : "▸"} Histórico de eventos vencidos ({historicos.length})
+            {verHistorico ? "▾" : "▸"} Histórico de eventos finalizados ({historicos.length})
           </button>
           {verHistorico && (
             <div className="space-y-2">

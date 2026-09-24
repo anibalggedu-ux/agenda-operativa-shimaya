@@ -2,7 +2,8 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, diaLaboralPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+import { hoyPeru, horaPeru, diaLaboralPeru, calcularProximaFechaAnual } from "@/lib/fechas";
+import { eventoFinalizado } from "@/lib/eventos";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { sincronizarAsistenciaGeneral } from "./supervisor/actions";
 import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
@@ -23,6 +24,8 @@ export type ComunicadoPublico = {
   mensaje: string;
   autor: string | null;
   fechaEvento: string | null;
+  horaInicio: string | null;
+  horaFin: string | null;
   ubicacion: string | null;
   // null = anuncio normal.
   encuesta: EncuestaPublica | null;
@@ -80,6 +83,7 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
 
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  const ahora = horaPeru();
 
   // Se piden más de los 10 que se muestran porque algunos se descartan acá
   // mismo por destinatario — filtrar antes en SQL con array-contains sobre
@@ -87,7 +91,7 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
   const { data, error } = await supabase
     .from("comunicados")
     .select(
-      "id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
+      "id, fecha, tipo, mensaje, autor, fecha_evento, hora_inicio, hora_fin, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
     )
     .or(`fecha_evento.is.null,fecha_evento.gte.${hoy}`)
     .order("fecha", { ascending: false })
@@ -100,6 +104,8 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
   const visibles = (data ?? [])
     .filter((c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id))
     .filter((c) => !c.encuesta_opciones || !encuestaCerrada(c.encuesta_cierra, hoy))
+    // Un evento de hoy con hora de fin sale apenas termina, no al día siguiente.
+    .filter((c) => !eventoFinalizado(c.fecha_evento, c.hora_fin, hoy, ahora))
     .slice(0, 10);
 
   const votos = await cargarVotosEncuestas(
@@ -114,6 +120,8 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
     mensaje: c.mensaje,
     autor: c.autor,
     fechaEvento: c.fecha_evento,
+    horaInicio: c.hora_inicio,
+    horaFin: c.hora_fin,
     ubicacion: c.ubicacion,
     encuesta: c.encuesta_opciones
       ? armarEncuestaPublica(
