@@ -13,8 +13,9 @@ import {
   type ResultadoPregunta,
   type ResultadosEncuestaCompleta,
 } from "../encuestas/actions";
-import { obtenerUsuariosYTiendas, type UsuarioBasico } from "./actions";
+import { obtenerComunicados, obtenerUsuariosYTiendas, type Comunicado, type UsuarioBasico } from "./actions";
 import { SelectorDestinatarios } from "./anuncios";
+import { FormEncuestaRapida, TarjetaEncuestaRapida } from "./encuesta-rapida";
 import {
   CARITAS,
   MAX_LARGO_DESCRIPCION,
@@ -433,20 +434,29 @@ function TarjetaResultados({
 
 // ---------- Pestaña ----------
 
+type TipoNueva = "rapida" | "completa";
+
+type ItemLista =
+  | { tipo: "completa"; fecha: string; cerrada: boolean; e: ResultadosEncuestaCompleta }
+  | { tipo: "rapida"; fecha: string; cerrada: boolean; c: Comunicado };
+
 export default function EncuestasCoordinador() {
   const [encuestas, setEncuestas] = useState<ResultadosEncuestaCompleta[]>([]);
+  const [rapidas, setRapidas] = useState<Comunicado[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creando, setCreando] = useState(false);
+  const [creando, setCreando] = useState<TipoNueva | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([preguntaNueva("caritas")]);
   const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set());
   const [estado, formAction] = useFormState(crearEncuestaCompleta, estadoInicial);
 
   function cargar() {
-    obtenerResultadosEncuestas()
-      .then((r) => {
-        setEncuestas(r);
+    Promise.all([obtenerResultadosEncuestas(), obtenerComunicados()])
+      .then(([completas, comunicados]) => {
+        setEncuestas(completas);
+        setRapidas(comunicados.filter((c) => c.encuesta));
         setError(null);
       })
       .catch((e) => setError(e.message || "Error al cargar las encuestas."))
@@ -462,10 +472,15 @@ export default function EncuestasCoordinador() {
       .catch(() => {});
   }, []);
 
+  function publicada(mensaje: string) {
+    cargar();
+    setCreando(null);
+    setAviso(mensaje);
+  }
+
   useEffect(() => {
     if (estado.exito) {
-      cargar();
-      setCreando(false);
+      publicada(estado.mensaje || "Encuesta publicada.");
       setPreguntas([preguntaNueva("caritas")]);
       setDestinatarios(new Set());
     }
@@ -480,139 +495,174 @@ export default function EncuestasCoordinador() {
     setPreguntas(siguiente);
   }
 
-  const enCurso = encuestas.filter((e) => !e.cerrada);
-  const cerradas = encuestas.filter((e) => e.cerrada);
+  const usuariosPorId = new Map(usuarios.map((u) => [u.id, u]));
+  const items: ItemLista[] = [
+    ...encuestas.map((e) => ({ tipo: "completa" as const, fecha: e.creada.slice(0, 10), cerrada: e.cerrada, e })),
+    ...rapidas.map((c) => ({ tipo: "rapida" as const, fecha: c.fecha, cerrada: !!c.encuesta?.cerrada, c })),
+  ].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const enCurso = items.filter((i) => !i.cerrada);
+  const cerradas = items.filter((i) => i.cerrada);
+
+  function renderItem(i: ItemLista) {
+    if (i.tipo === "completa") return <TarjetaResultados key={i.e.id} e={i.e} onCambio={cargar} />;
+    return (
+      <TarjetaEncuestaRapida
+        key={i.c.id}
+        c={i.c}
+        encuesta={i.c.encuesta!}
+        usuariosPorId={usuariosPorId}
+        onCambio={cargar}
+      />
+    );
+  }
+
+  const claseTipo = (activo: boolean) =>
+    `flex-1 text-left rounded-[3px] border p-3 transition ${
+      activo ? "border-marca-rojo bg-marca-rojo/15" : "border-marca-borde bg-marca-fondo hover:border-marca-rojoclaro"
+    }`;
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-xs font-black tracking-widest text-marca-tenue">ENCUESTAS COMPLETAS</h2>
-        <p className="text-marca-tenue text-xs">
-          Varias preguntas que el equipo responde pantalla por pantalla desde el inicio de su panel. Para una
-          sola pregunta rápida, usa Encuesta en la pestaña Anuncios.
-        </p>
-      </div>
+      <h2 className="text-xs font-black tracking-widest text-marca-tenue">ENCUESTAS</h2>
 
-      {!creando ? (
+      {creando === null ? (
         <button
           type="button"
-          onClick={() => setCreando(true)}
+          onClick={() => {
+            setAviso(null);
+            setCreando("rapida");
+          }}
           className="w-full border border-dashed border-marca-rojo/60 hover:bg-marca-rojo/10 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" /> Nueva encuesta
         </button>
       ) : (
-        <form action={formAction} className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
+        <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black tracking-widest text-marca-tenue">NUEVA ENCUESTA</h3>
             <button
               type="button"
-              onClick={() => setCreando(false)}
+              onClick={() => setCreando(null)}
               className="text-[11px] font-bold uppercase text-marca-tenue hover:text-marca-texto"
             >
               Cancelar
             </button>
           </div>
 
-          <div>
-            <label htmlFor="encuesta-titulo" className={claseEtiqueta}>
-              Título
-            </label>
-            <input
-              id="encuesta-titulo"
-              name="titulo"
-              required
-              maxLength={MAX_LARGO_TITULO}
-              className={claseCampo}
-              placeholder="Ej: Clima del equipo · septiembre"
-            />
+          <div className="flex gap-2" role="group" aria-label="Tipo de encuesta">
+            <button type="button" aria-pressed={creando === "rapida"} onClick={() => setCreando("rapida")} className={claseTipo(creando === "rapida")}>
+              <span className="block text-marca-textofuerte text-sm font-bold">📊 Rápida</span>
+              <span className="block text-marca-tenue text-[11px]">1 pregunta · se vota con un toque en Anuncios</span>
+            </button>
+            <button type="button" aria-pressed={creando === "completa"} onClick={() => setCreando("completa")} className={claseTipo(creando === "completa")}>
+              <span className="block text-marca-textofuerte text-sm font-bold">📋 Completa</span>
+              <span className="block text-marca-tenue text-[11px]">Varias preguntas · pantalla completa · con puntos</span>
+            </button>
           </div>
 
-          <div>
-            <label htmlFor="encuesta-descripcion" className={claseEtiqueta}>
-              Descripción (opcional)
-            </label>
-            <textarea
-              id="encuesta-descripcion"
-              name="descripcion"
-              rows={2}
-              maxLength={MAX_LARGO_DESCRIPCION}
-              className={claseCampo}
-              placeholder="Ej: Nos ayuda a mejorar. Toma 1 minuto."
-            />
-          </div>
+          {creando === "rapida" ? (
+            <FormEncuestaRapida usuarios={usuarios} onPublicada={publicada} />
+          ) : (
+            <form action={formAction} className="space-y-4">
+              <div>
+                <label htmlFor="encuesta-titulo" className={claseEtiqueta}>
+                  Título
+                </label>
+                <input
+                  id="encuesta-titulo"
+                  name="titulo"
+                  required
+                  maxLength={MAX_LARGO_TITULO}
+                  className={claseCampo}
+                  placeholder="Ej: Clima del equipo · septiembre"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <p className={claseEtiqueta}>Preguntas</p>
-            {preguntas.map((p, i) => (
-              <EditorPregunta
-                key={i}
-                indice={i}
-                total={preguntas.length}
-                pregunta={p}
-                onCambiar={(nueva) => setPreguntas(preguntas.map((x, j) => (j === i ? nueva : x)))}
-                onQuitar={() => setPreguntas(preguntas.filter((_, j) => j !== i))}
-                onMover={(d) => moverPregunta(i, d)}
-              />
-            ))}
-            {preguntas.length < MAX_PREGUNTAS && (
-              <button
-                type="button"
-                onClick={() => setPreguntas([...preguntas, preguntaNueva("unica")])}
-                className="text-[11px] font-bold uppercase tracking-wide text-marca-tenue hover:text-marca-texto flex items-center gap-1.5"
-              >
-                <Plus className="w-3 h-3" /> Agregar pregunta
-              </button>
-            )}
-            <input type="hidden" name="preguntas" value={JSON.stringify(preguntas)} />
-          </div>
+              <div>
+                <label htmlFor="encuesta-descripcion" className={claseEtiqueta}>
+                  Descripción (opcional)
+                </label>
+                <textarea
+                  id="encuesta-descripcion"
+                  name="descripcion"
+                  rows={2}
+                  maxLength={MAX_LARGO_DESCRIPCION}
+                  className={claseCampo}
+                  placeholder="Ej: Nos ayuda a mejorar. Toma 1 minuto."
+                />
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="encuesta-puntos" className={claseEtiqueta}>
-                Puntos por responder
+              <div className="space-y-2">
+                <p className={claseEtiqueta}>Preguntas</p>
+                {preguntas.map((p, i) => (
+                  <EditorPregunta
+                    key={i}
+                    indice={i}
+                    total={preguntas.length}
+                    pregunta={p}
+                    onCambiar={(nueva) => setPreguntas(preguntas.map((x, j) => (j === i ? nueva : x)))}
+                    onQuitar={() => setPreguntas(preguntas.filter((_, j) => j !== i))}
+                    onMover={(d) => moverPregunta(i, d)}
+                  />
+                ))}
+                {preguntas.length < MAX_PREGUNTAS && (
+                  <button
+                    type="button"
+                    onClick={() => setPreguntas([...preguntas, preguntaNueva("unica")])}
+                    className="text-[11px] font-bold uppercase tracking-wide text-marca-tenue hover:text-marca-texto flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3 h-3" /> Agregar pregunta
+                  </button>
+                )}
+                <input type="hidden" name="preguntas" value={JSON.stringify(preguntas)} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="encuesta-puntos" className={claseEtiqueta}>
+                    Puntos por responder
+                  </label>
+                  <input
+                    id="encuesta-puntos"
+                    name="puntos"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={MAX_PUNTOS_ENCUESTA}
+                    step={1}
+                    defaultValue={10}
+                    className={claseCampo}
+                  />
+                  <p className="text-marca-tenue text-[10px] mt-1">Se suman a sus puntos al enviar. 0 = sin premio.</p>
+                </div>
+                <div>
+                  <label htmlFor="encuesta-cierra" className={claseEtiqueta}>
+                    Se puede responder hasta (opcional)
+                  </label>
+                  <input id="encuesta-cierra" name="cierra" type="date" min={hoyPeru()} className={claseCampo} />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-marca-texto text-sm">
+                <input id="encuesta-anonima" type="checkbox" name="anonima" defaultChecked className="accent-marca-rojo" />
+                Anónima (en los resultados no aparece quién respondió qué)
               </label>
-              <input
-                id="encuesta-puntos"
-                name="puntos"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={MAX_PUNTOS_ENCUESTA}
-                step={1}
-                defaultValue={10}
-                className={claseCampo}
-              />
-              <p className="text-marca-tenue text-[10px] mt-1">Se suman a sus puntos al enviar. 0 = sin premio.</p>
-            </div>
-            <div>
-              <label htmlFor="encuesta-cierra" className={claseEtiqueta}>
-                Se puede responder hasta (opcional)
-              </label>
-              <input id="encuesta-cierra" name="cierra" type="date" min={hoyPeru()} className={claseCampo} />
-            </div>
-          </div>
 
-          <label className="flex items-center gap-2 text-marca-texto text-sm">
-            <input id="encuesta-anonima" type="checkbox" name="anonima" defaultChecked className="accent-marca-rojo" />
-            Anónima (en los resultados no aparece quién respondió qué)
-          </label>
+              <div>
+                <p className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">Destinatarios (opcional)</p>
+                <SelectorDestinatarios usuarios={usuarios} seleccionados={destinatarios} onCambiar={setDestinatarios} />
+              </div>
 
-          <div>
-            <p className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">Destinatarios (opcional)</p>
-            <SelectorDestinatarios usuarios={usuarios} seleccionados={destinatarios} onCambiar={setDestinatarios} />
-          </div>
-
-          <BotonPublicar />
-          {estado.mensaje && !estado.exito && (
-            <p className="text-xs font-bold text-center text-marca-rojoclaro">{estado.mensaje}</p>
+              <BotonPublicar />
+              {estado.mensaje && !estado.exito && (
+                <p className="text-xs font-bold text-center text-marca-rojoclaro">{estado.mensaje}</p>
+              )}
+            </form>
           )}
-        </form>
+        </div>
       )}
 
-      {estado.exito && estado.mensaje && !creando && (
-        <p className="text-xs font-bold text-center text-emerald-400">{estado.mensaje}</p>
-      )}
+      {aviso && creando === null && <p className="text-xs font-bold text-center text-emerald-400">{aviso}</p>}
 
       {cargando ? (
         <p className="text-marca-tenue text-sm animate-pulse">Cargando encuestas...</p>
@@ -625,15 +675,13 @@ export default function EncuestasCoordinador() {
             {enCurso.length === 0 ? (
               <p className="text-marca-tenue text-sm italic">No hay encuestas en curso.</p>
             ) : (
-              enCurso.map((e) => <TarjetaResultados key={e.id} e={e} onCambio={cargar} />)
+              enCurso.map(renderItem)
             )}
           </div>
           {cerradas.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-black tracking-widest text-marca-tenue">CERRADAS ({cerradas.length})</h3>
-              {cerradas.map((e) => (
-                <TarjetaResultados key={e.id} e={e} onCambio={cargar} />
-              ))}
+              {cerradas.map(renderItem)}
             </div>
           )}
         </>
