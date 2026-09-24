@@ -2,6 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
+import { textoHorarioEvento } from "@/lib/eventos";
 
 export type TipoEventoCalendario =
   | "ruta"
@@ -18,6 +19,11 @@ export type EventoCalendario = {
   personaId: string | null;
   personaNombre: string | null;
   detalle: string;
+  // Solo para tipo "evento": a quiénes se convocó (null = a todos) y el
+  // horario, si el anuncio lo tiene.
+  convocados?: string[] | null;
+  convocadosNombres?: string[] | null;
+  horario?: string | null;
 };
 
 export type PersonaDescanso = {
@@ -99,7 +105,7 @@ async function cargarCalendario(
 
   const consultaComunicados = supabase
     .from("comunicados")
-    .select("tipo, mensaje, fecha_evento, ubicacion")
+    .select("tipo, mensaje, fecha_evento, hora_inicio, hora_fin, ubicacion, usuarios_destino")
     .not("fecha_evento", "is", null)
     .gte("fecha_evento", inicio)
     .lte("fecha_evento", fin);
@@ -165,13 +171,23 @@ async function cargarCalendario(
     });
   });
 
+  // Un evento con destinatarios elegidos solo aparece en el calendario de
+  // esas personas. En el calendario completo (coordinador/gerente) se ven
+  // todos, con la lista de convocados para poder filtrar por persona.
+  const nombrePorId = new Map((personas ?? []).map((p: any) => [p.id, p.nombre as string]));
   (comunicados ?? []).forEach((c: any) => {
+    const convocados: string[] | null =
+      c.usuarios_destino && c.usuarios_destino.length > 0 ? c.usuarios_destino : null;
+    if (usuarioId && convocados && !convocados.includes(usuarioId)) return;
     eventos.push({
       fecha: c.fecha_evento,
       tipo: "evento",
       personaId: null,
       personaNombre: null,
       detalle: c.ubicacion ? `${c.tipo} — ${c.ubicacion}` : c.tipo,
+      convocados,
+      convocadosNombres: usuarioId || !convocados ? null : convocados.map((id) => nombrePorId.get(id) ?? "—"),
+      horario: textoHorarioEvento(c.hora_inicio, c.hora_fin),
     });
   });
 

@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru } from "@/lib/fechas";
+import { eventoFinalizado } from "@/lib/eventos";
 import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
 import { obtenerDashboardTiendas } from "./analitica/actions";
@@ -210,14 +211,16 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
 
   const { data: proximosComunicados } = await supabase
     .from("comunicados")
-    .select("tipo, fecha_evento, usuarios_destino")
+    .select("tipo, fecha_evento, hora_fin, usuarios_destino")
     .not("fecha_evento", "is", null)
     .gte("fecha_evento", hoy)
     .order("fecha_evento", { ascending: true })
     .limit(10);
 
   const proximoComunicado = (proximosComunicados ?? []).find(
-    (c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)
+    (c) =>
+      (!c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)) &&
+      !eventoFinalizado(c.fecha_evento, c.hora_fin, hoy, horaPeru())
   );
 
   if (proximoComunicado?.fecha_evento) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, Clock, MapPin } from "lucide-react";
 import {
   obtenerAnunciosRecientes,
   obtenerProximosCumpleanos,
@@ -9,6 +9,7 @@ import {
   type ProximoCumpleanos,
 } from "./anuncios-actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { textoHorarioEvento } from "@/lib/eventos";
 import EncuestaTarjeta from "./encuesta-tarjeta";
 
 function textoDiasFaltantes(dias: number): string {
@@ -85,6 +86,11 @@ export default function AnunciosWidget() {
               {c.fechaEvento && (
                 <p className="text-marca-textofuerte text-[11px] font-bold mt-2 flex items-center gap-1.5">
                   <Calendar className="w-3 h-3" /> Evento: {formatearFechaLegible(c.fechaEvento)}
+                </p>
+              )}
+              {textoHorarioEvento(c.horaInicio, c.horaFin) && (
+                <p className="text-marca-textofuerte text-[11px] font-bold mt-1 flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" /> {textoHorarioEvento(c.horaInicio, c.horaFin)}
                 </p>
               )}
               {c.ubicacion && (

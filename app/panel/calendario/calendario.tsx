@@ -98,7 +98,11 @@ export default function Calendario({ modo, hoy }: { modo: "completo" | "propio";
       let descansoChip = false;
 
       if (modo === "completo" && filtroPersona !== "todos") {
-        eventosDia = eventosDia.filter((e) => e.personaId === filtroPersona || e.tipo === "evento");
+        eventosDia = eventosDia.filter(
+          (e) =>
+            e.personaId === filtroPersona ||
+            (e.tipo === "evento" && (!e.convocados || e.convocados.includes(filtroPersona)))
+        );
         const persona = datos?.personas.find((p) => p.id === filtroPersona);
         if (persona && persona.diasDescanso.includes(DIAS_SEMANA[fecha.getDay()])) descansoChip = true;
       } else if (modo === "propio") {
@@ -301,7 +305,13 @@ export default function Calendario({ modo, hoy }: { modo: "completo" | "propio";
                     <p className="text-marca-tenue text-[11px] font-data">
                       {ev.personaNombre ? `${ETIQUETA[ev.tipo]} · ` : ""}
                       {ev.detalle}
+                      {ev.horario ? ` · ${ev.horario}` : ""}
                     </p>
+                    {ev.convocadosNombres && ev.convocadosNombres.length > 0 && (
+                      <p className="text-amber-400 text-[10px] font-bold mt-0.5">
+                        Solo para: {ev.convocadosNombres.join(", ")}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

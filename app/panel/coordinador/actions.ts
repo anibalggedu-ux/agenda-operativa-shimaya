@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { exigirCoordinador, type SesionUsuario } from "@/lib/session";
 import {
   hoyPeru,
+  horaPeru,
   diaSemanaPeru,
   sumarDias,
   formatearFechaLegible,
@@ -35,6 +36,7 @@ import {
   MAX_OPCIONES_ENCUESTA,
   MIN_OPCIONES_ENCUESTA,
 } from "@/lib/encuestas";
+import { eventoFinalizado, normalizarHora, textoHorarioEvento } from "@/lib/eventos";
 
 
 // ---------- Notificaciones por correo ----------
@@ -701,6 +703,8 @@ export type Comunicado = {
   mensaje: string;
   autor: string | null;
   fechaEvento: string | null;
+  horaInicio: string | null;
+  horaFin: string | null;
   ubicacion: string | null;
   vigente: boolean;
   // null/vacío = sin restricción, visible para todos.
@@ -729,11 +733,12 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
   await exigirCoordinador();
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  const ahora = horaPeru();
 
   const { data, error } = await supabase
     .from("comunicados")
     .select(
-      "id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
+      "id, fecha, tipo, mensaje, autor, fecha_evento, hora_inicio, hora_fin, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
     )
     .order("fecha", { ascending: false });
 
@@ -784,8 +789,10 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
       mensaje: c.mensaje,
       autor: c.autor,
       fechaEvento: c.fecha_evento,
+      horaInicio: c.hora_inicio,
+      horaFin: c.hora_fin,
       ubicacion: c.ubicacion,
-      vigente: (!c.fecha_evento || c.fecha_evento >= hoy) && !encuesta?.cerrada,
+      vigente: !eventoFinalizado(c.fecha_evento, c.hora_fin, hoy, ahora) && !encuesta?.cerrada,
       usuariosDestino: c.usuarios_destino,
       encuesta,
     };
@@ -915,11 +922,26 @@ export async function crearComunicado(
   const tipo = String(formData.get("tipo") || "").trim();
   const mensaje = String(formData.get("mensaje") || "").trim();
   const fechaEvento = String(formData.get("fechaEvento") || "").trim();
+  const horaInicioEntrada = String(formData.get("horaInicio") || "").trim();
+  const horaFinEntrada = String(formData.get("horaFin") || "").trim();
   const ubicacion = String(formData.get("ubicacion") || "").trim();
   const usuariosDestino = formData.getAll("usuariosDestino").map(String).filter(Boolean);
 
   if (!tipo || !mensaje) {
     return { exito: false, mensaje: "Completa el tipo y el mensaje del anuncio." };
+  }
+
+  const formatoHora = /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+  if ((horaInicioEntrada && !formatoHora.test(horaInicioEntrada)) || (horaFinEntrada && !formatoHora.test(horaFinEntrada))) {
+    return { exito: false, mensaje: "Revisa el formato de las horas del evento." };
+  }
+  const horaInicio = horaInicioEntrada ? normalizarHora(horaInicioEntrada) : null;
+  const horaFin = horaFinEntrada ? normalizarHora(horaFinEntrada) : null;
+  if ((horaInicio || horaFin) && !fechaEvento) {
+    return { exito: false, mensaje: "Para poner la hora, elige también la fecha del evento." };
+  }
+  if (horaInicio && horaFin && horaFin <= horaInicio) {
+    return { exito: false, mensaje: "La hora de fin tiene que ser después de la hora de inicio." };
   }
 
   // Geocodificar la ubicación (si se dio) para poder mostrar el evento en el
@@ -943,6 +965,8 @@ export async function crearComunicado(
     mensaje,
     autor: sesion.nombre,
     fecha_evento: fechaEvento || null,
+    hora_inicio: horaInicio,
+    hora_fin: horaFin,
     ubicacion: ubicacion || null,
     lat,
     lon,
@@ -982,6 +1006,11 @@ export async function crearComunicado(
       cuerpoHtml: `
         <p>${mensaje}</p>
         ${fechaEvento ? `<p><strong>Fecha del evento:</strong> ${formatearFechaLegible(fechaEvento)}</p>` : ""}
+        ${
+          textoHorarioEvento(horaInicio, horaFin)
+            ? `<p><strong>Horario:</strong> ${textoHorarioEvento(horaInicio, horaFin)}</p>`
+            : ""
+        }
         ${
           ubicacion
             ? `<p><strong>Ubicación:</strong> <a href="${ubicacion}" style="color:#e23744;">Ver en Google Maps</a></p>`

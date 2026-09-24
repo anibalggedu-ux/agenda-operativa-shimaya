@@ -407,6 +407,8 @@ export type Database = {
           encuesta_opciones: string[] | null
           fecha: string
           fecha_evento: string | null
+          hora_fin: string | null
+          hora_inicio: string | null
           id: string
           lat: number | null
           lon: number | null
@@ -424,6 +426,8 @@ export type Database = {
           encuesta_opciones?: string[] | null
           fecha?: string
           fecha_evento?: string | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
           id?: string
           lat?: number | null
           lon?: number | null
@@ -441,6 +445,8 @@ export type Database = {
           encuesta_opciones?: string[] | null
           fecha?: string
           fecha_evento?: string | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
           id?: string
           lat?: number | null
           lon?: number | null
