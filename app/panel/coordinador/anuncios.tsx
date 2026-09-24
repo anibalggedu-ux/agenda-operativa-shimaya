@@ -2,21 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Users, GraduationCap, Calendar, MapPin, Target } from "lucide-react";
+import { Users, GraduationCap, Calendar, MapPin, Target, BarChart3, Lock, Plus, X } from "lucide-react";
 import {
   obtenerComunicados,
   crearComunicado,
   eliminarComunicado,
+  cerrarEncuesta,
   obtenerUsuariosYTiendas,
   type Comunicado,
+  type ResultadosEncuesta,
   type UsuarioBasico,
   type ResultadoAccion,
 } from "./actions";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
+import { MAX_LARGO_OPCION, MAX_OPCIONES_ENCUESTA, MIN_OPCIONES_ENCUESTA } from "@/lib/encuestas";
 
 const estadoInicial: ResultadoAccion = { exito: false };
 
-function BotonPublicar() {
+function BotonPublicar({ esEncuesta }: { esEncuesta: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -24,7 +27,7 @@ function BotonPublicar() {
       disabled={pending}
       className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
     >
-      {pending ? "Publicando..." : "Publicar anuncio"}
+      {pending ? "Publicando..." : esEncuesta ? "Publicar encuesta" : "Publicar anuncio"}
     </button>
   );
 }
@@ -128,14 +131,161 @@ function SelectorDestinatarios({
   );
 }
 
+const claseCampo =
+  "w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
+
+function EditorOpciones({
+  opciones,
+  onCambiar,
+}: {
+  opciones: string[];
+  onCambiar: (siguiente: string[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {opciones.map((texto, i) => (
+        <div key={i} className="flex gap-2">
+          <input
+            id={`encuesta-opcion-${i}`}
+            name="opcion"
+            value={texto}
+            maxLength={MAX_LARGO_OPCION}
+            onChange={(e) => onCambiar(opciones.map((o, j) => (j === i ? e.target.value : o)))}
+            required={i < MIN_OPCIONES_ENCUESTA}
+            className={claseCampo}
+            placeholder={`Opción ${i + 1}`}
+          />
+          {opciones.length > MIN_OPCIONES_ENCUESTA && (
+            <button
+              type="button"
+              onClick={() => onCambiar(opciones.filter((_, j) => j !== i))}
+              aria-label={`Quitar opción ${i + 1}`}
+              className="shrink-0 px-3 border border-marca-borde rounded-[3px] text-marca-tenue hover:text-marca-rojoclaro hover:border-marca-rojoclaro"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      ))}
+      {opciones.length < MAX_OPCIONES_ENCUESTA && (
+        <button
+          type="button"
+          onClick={() => onCambiar([...opciones, ""])}
+          className="text-[11px] font-bold uppercase tracking-wide text-marca-tenue hover:text-marca-texto flex items-center gap-1.5"
+        >
+          <Plus className="w-3 h-3" /> Agregar opción
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ResultadosDeEncuesta({
+  id,
+  encuesta,
+  onCerrada,
+}: {
+  id: string;
+  encuesta: ResultadosEncuesta;
+  onCerrada: () => void;
+}) {
+  const [verPendientes, setVerPendientes] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
+  const totalVotos = encuesta.conteos.reduce((a, b) => a + b, 0);
+  const porcentajeRespuesta =
+    encuesta.publico > 0 ? Math.round((encuesta.votantes * 100) / encuesta.publico) : 0;
+
+  async function handleCerrar() {
+    if (!window.confirm("¿Cerrar la encuesta ahora? Ya nadie podrá votar.")) return;
+    setCerrando(true);
+    const r = await cerrarEncuesta(id);
+    setCerrando(false);
+    if (r.exito) onCerrada();
+    else window.alert(r.mensaje || "No se pudo cerrar la encuesta.");
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      <div className="space-y-2">
+        {encuesta.opciones.map((texto, i) => {
+          const pct = totalVotos > 0 ? Math.round((encuesta.conteos[i] * 100) / totalVotos) : 0;
+          const nombres = encuesta.nombresPorOpcion?.[i] ?? [];
+          return (
+            <div key={i}>
+              <div className="flex justify-between gap-2 text-xs">
+                <span className="text-marca-texto break-words">{texto}</span>
+                <span className="font-data text-marca-tenue tabular-nums shrink-0">
+                  {encuesta.conteos[i]} · {pct}%
+                </span>
+              </div>
+              <div className="h-2 mt-1 bg-marca-superficie2 rounded-[2px] overflow-hidden">
+                <div className="h-full bg-marca-rojo" style={{ width: `${pct}%` }} />
+              </div>
+              {nombres.length > 0 && (
+                <p className="text-marca-tenue text-[10px] mt-1">{nombres.join(", ")}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-marca-texto text-xs">
+        <span className="font-bold">
+          {encuesta.votantes} de {encuesta.publico}
+        </span>{" "}
+        respondieron ({porcentajeRespuesta}%)
+        {encuesta.multiple ? " · Opción múltiple" : ""}
+        {encuesta.cierra
+          ? encuesta.cerrada
+            ? " · Cerrada"
+            : ` · Cierra el ${formatearFechaLegible(encuesta.cierra)}`
+          : " · Sin fecha de cierre"}
+      </p>
+      {encuesta.anonima && (
+        <p className="text-marca-tenue text-[10px] flex items-center gap-1.5">
+          <Lock className="w-3 h-3" /> Anónima: no se muestra qué votó cada uno
+        </p>
+      )}
+
+      {encuesta.pendientes.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setVerPendientes((v) => !v)}
+            className="text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase tracking-widest"
+          >
+            {verPendientes ? "▾" : "▸"} Faltan responder ({encuesta.pendientes.length})
+          </button>
+          {verPendientes && (
+            <p className="text-marca-tenue text-[11px] mt-1">{encuesta.pendientes.join(", ")}</p>
+          )}
+        </div>
+      )}
+
+      {!encuesta.cerrada && (
+        <button
+          type="button"
+          onClick={handleCerrar}
+          disabled={cerrando}
+          className="text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-texto hover:border-marca-rojoclaro disabled:opacity-50"
+        >
+          {cerrando ? "Cerrando..." : "Cerrar encuesta ahora"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function TarjetaAnuncio({
   c,
   usuariosPorId,
   onEliminar,
+  onRecargar,
 }: {
   c: Comunicado;
   usuariosPorId: Map<string, UsuarioBasico>;
   onEliminar: (id: string) => void;
+  onRecargar: () => void;
 }) {
   const destino = c.usuariosDestino ?? [];
   const nombresDestino = destino.map((id) => usuariosPorId.get(id)?.nombre ?? "—");
@@ -146,11 +296,13 @@ function TarjetaAnuncio({
         c.vigente ? "border-marca-borde" : "border-marca-borde/50 opacity-60"
       }`}
     >
-      <div className="min-w-0">
-        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
+      <div className="min-w-0 flex-1">
+        <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+          {c.encuesta && <BarChart3 className="w-3 h-3" />}
           {c.tipo}
         </p>
-        <p className="text-marca-textofuerte text-sm mt-1">{c.mensaje}</p>
+        <p className={`text-marca-textofuerte text-sm mt-1 ${c.encuesta ? "font-bold" : ""}`}>{c.mensaje}</p>
+        {c.encuesta && <ResultadosDeEncuesta id={c.id} encuesta={c.encuesta} onCerrada={onRecargar} />}
         {c.fechaEvento && (
           <p className="text-marca-textofuerte text-[11px] font-bold mt-2 flex items-center gap-1.5">
             <Calendar className="w-3 h-3" /> Evento: {formatearFechaLegible(c.fechaEvento)}
@@ -193,6 +345,8 @@ export default function Anuncios() {
   const [error, setError] = useState<string | null>(null);
   const [verHistorico, setVerHistorico] = useState(false);
   const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set());
+  const [esEncuesta, setEsEncuesta] = useState(false);
+  const [opciones, setOpciones] = useState<string[]>(["", ""]);
 
   const [estado, formAction] = useFormState(crearComunicado, estadoInicial);
 
@@ -217,13 +371,17 @@ export default function Anuncios() {
     if (estado.exito) {
       cargar();
       setDestinatarios(new Set());
+      setOpciones(["", ""]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
   async function handleEliminar(id: string) {
     const anuncio = comunicados.find((c) => c.id === id);
-    if (!window.confirm(`¿Eliminar el anuncio "${anuncio?.tipo ?? ""}"? No se puede deshacer.`)) return;
+    const aviso = anuncio?.encuesta
+      ? "¿Eliminar la encuesta y todos sus votos? No se puede deshacer."
+      : `¿Eliminar el anuncio "${anuncio?.tipo ?? ""}"? No se puede deshacer.`;
+    if (!window.confirm(aviso)) return;
 
     const resultado = await eliminarComunicado(id);
     // Solo se saca de la lista si el servidor confirmó — antes se quitaba de
@@ -251,34 +409,102 @@ export default function Anuncios() {
         className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
       >
         <h3 className="text-xs font-black tracking-widest text-marca-tenue">
-          NUEVO ANUNCIO
+          {esEncuesta ? "NUEVA ENCUESTA" : "NUEVO ANUNCIO"}
         </h3>
 
-        <div>
-          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
-            Tipo
-          </label>
-          <input
-            name="tipo"
-            required
-            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
-            placeholder="Ej: Reunión, Aviso general, Cumpleaños..."
-          />
+        <div className="flex gap-2" role="group" aria-label="Qué publicar">
+          {[
+            { valor: false, texto: "Anuncio" },
+            { valor: true, texto: "📊 Encuesta" },
+          ].map((o) => (
+            <button
+              key={o.texto}
+              type="button"
+              aria-pressed={esEncuesta === o.valor}
+              onClick={() => setEsEncuesta(o.valor)}
+              className={`text-[11px] font-bold uppercase tracking-wide px-4 py-2 rounded-full border transition ${
+                esEncuesta === o.valor
+                  ? "border-marca-rojo bg-marca-rojo/15 text-marca-textofuerte"
+                  : "border-marca-borde bg-marca-fondo text-marca-tenue hover:text-marca-texto"
+              }`}
+            >
+              {o.texto}
+            </button>
+          ))}
         </div>
+        {esEncuesta && <input type="hidden" name="esEncuesta" value="1" />}
+
+        {!esEncuesta && (
+          <div>
+            <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+              Tipo
+            </label>
+            <input
+              id="anuncio-tipo"
+              name="tipo"
+              required
+              className={claseCampo}
+              placeholder="Ej: Reunión, Aviso general, Cumpleaños..."
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
-            Mensaje
+            {esEncuesta ? "Pregunta" : "Mensaje"}
           </label>
           <textarea
+            id="anuncio-mensaje"
             name="mensaje"
             required
-            rows={3}
-            className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
-            placeholder="Escribe el anuncio..."
+            rows={esEncuesta ? 2 : 3}
+            className={claseCampo}
+            placeholder={
+              esEncuesta ? "Ej: ¿Qué día prefieren la capacitación de fin de mes?" : "Escribe el anuncio..."
+            }
           />
         </div>
 
+        {esEncuesta && (
+          <>
+            <div>
+              <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                Opciones
+              </label>
+              <EditorOpciones opciones={opciones} onCambiar={setOpciones} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-marca-texto text-sm">
+                  <input id="encuesta-anonima" type="checkbox" name="anonima" className="accent-marca-rojo" />
+                  Anónima (no se muestra qué votó cada uno)
+                </label>
+                <label className="flex items-center gap-2 text-marca-texto text-sm">
+                  <input id="encuesta-multiple" type="checkbox" name="multiple" className="accent-marca-rojo" />
+                  Permitir marcar varias opciones
+                </label>
+              </div>
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Se puede votar hasta (opcional)
+                </label>
+                <input
+                  id="encuesta-cierra"
+                  type="date"
+                  name="encuestaCierra"
+                  min={hoyPeru()}
+                  className={claseCampo}
+                />
+                <p className="text-marca-tenue text-[10px] mt-1">
+                  Pasada esa fecha la encuesta sale de Anuncios. Tú sigues viendo los resultados aquí.
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {!esEncuesta && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
@@ -309,6 +535,7 @@ export default function Anuncios() {
             </p>
           </div>
         </div>
+        )}
 
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-2">
@@ -321,7 +548,7 @@ export default function Anuncios() {
           />
         </div>
 
-        <BotonPublicar />
+        <BotonPublicar esEncuesta={esEncuesta} />
 
         {estado.mensaje && (
           <p
@@ -343,7 +570,13 @@ export default function Anuncios() {
         ) : (
           <div className="space-y-2">
             {vigentes.map((c) => (
-              <TarjetaAnuncio key={c.id} c={c} usuariosPorId={usuariosPorId} onEliminar={handleEliminar} />
+              <TarjetaAnuncio
+                  key={c.id}
+                  c={c}
+                  usuariosPorId={usuariosPorId}
+                  onEliminar={handleEliminar}
+                  onRecargar={cargar}
+                />
             ))}
           </div>
         )}
@@ -355,12 +588,18 @@ export default function Anuncios() {
             onClick={() => setVerHistorico((v) => !v)}
             className="text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase tracking-widest mb-3"
           >
-            {verHistorico ? "▾" : "▸"} Histórico de eventos vencidos ({historicos.length})
+            {verHistorico ? "▾" : "▸"} Histórico de eventos y encuestas cerradas ({historicos.length})
           </button>
           {verHistorico && (
             <div className="space-y-2">
               {historicos.map((c) => (
-                <TarjetaAnuncio key={c.id} c={c} usuariosPorId={usuariosPorId} onEliminar={handleEliminar} />
+                <TarjetaAnuncio
+                  key={c.id}
+                  c={c}
+                  usuariosPorId={usuariosPorId}
+                  onEliminar={handleEliminar}
+                  onRecargar={cargar}
+                />
               ))}
             </div>
           )}

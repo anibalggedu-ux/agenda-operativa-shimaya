@@ -9,6 +9,7 @@ import {
   type ProximoCumpleanos,
 } from "./anuncios-actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import EncuestaTarjeta from "./encuesta-tarjeta";
 
 function textoDiasFaltantes(dias: number): string {
   if (dias === 0) return "¡Hoy!";
@@ -63,7 +64,8 @@ export default function AnunciosWidget() {
                 </span>
               </p>
             </div>
-          ))}
+            )
+          )}
         </div>
       )}
 
@@ -71,7 +73,10 @@ export default function AnunciosWidget() {
         <p className="text-marca-tenue text-sm italic">No hay anuncios publicados todavía.</p>
       ) : (
         <div className="space-y-2">
-          {anuncios.map((c) => (
+          {anuncios.map((c) =>
+            c.encuesta ? (
+              <EncuestaTarjeta key={c.id} c={{ ...c, encuesta: c.encuesta }} />
+            ) : (
             <div key={c.id} className="bg-marca-fondo border border-marca-borde rounded-[3px] p-4">
               <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest">
                 {c.tipo}

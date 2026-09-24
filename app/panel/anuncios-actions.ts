@@ -6,6 +6,13 @@ import { hoyPeru, diaLaboralPeru, calcularProximaFechaAnual } from "@/lib/fechas
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { sincronizarAsistenciaGeneral } from "./supervisor/actions";
 import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
+import {
+  cargarVotosEncuestas,
+  contarVotos,
+  encuestaCerrada,
+  estaEnPublicoEncuesta,
+  type VotoEncuesta,
+} from "@/lib/encuestas";
 
 const DIAS_ANTICIPACION_CUMPLEANOS = 2;
 
@@ -17,7 +24,46 @@ export type ComunicadoPublico = {
   autor: string | null;
   fechaEvento: string | null;
   ubicacion: string | null;
+  // null = anuncio normal.
+  encuesta: EncuestaPublica | null;
 };
+
+export type EncuestaPublica = {
+  opciones: string[];
+  multiple: boolean;
+  anonima: boolean;
+  cierra: string | null;
+  // false para quien no está en el público de la encuesta (ej. gerente):
+  // ve los resultados pero no vota.
+  puedoVotar: boolean;
+  conteos: number[];
+  votantes: number;
+  misVotos: number[];
+};
+
+function armarEncuestaPublica(
+  c: {
+    encuesta_opciones: string[];
+    encuesta_multiple: boolean;
+    encuesta_anonima: boolean;
+    encuesta_cierra: string | null;
+    usuarios_destino: string[] | null;
+  },
+  votos: VotoEncuesta[],
+  sesion: { id: string; rol: string }
+): EncuestaPublica {
+  const { conteos, votantes } = contarVotos(c.encuesta_opciones.length, votos);
+  return {
+    opciones: c.encuesta_opciones,
+    multiple: c.encuesta_multiple,
+    anonima: c.encuesta_anonima,
+    cierra: c.encuesta_cierra,
+    puedoVotar: estaEnPublicoEncuesta(sesion, c.usuarios_destino),
+    conteos,
+    votantes,
+    misVotos: votos.filter((v) => v.usuario_id === sesion.id).map((v) => v.opcion),
+  };
+}
 
 // Lectura de anuncios para cualquier rol autenticado — a diferencia de
 // app/panel/coordinador/actions.ts, que además permite crear/eliminar y
@@ -40,25 +86,102 @@ export async function obtenerAnunciosRecientes(): Promise<ComunicadoPublico[]> {
   // una columna nullable es más frágil que filtrar los pocos que trae esto.
   const { data, error } = await supabase
     .from("comunicados")
-    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino")
+    .select(
+      "id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
+    )
     .or(`fecha_evento.is.null,fecha_evento.gte.${hoy}`)
     .order("fecha", { ascending: false })
     .limit(30);
 
   if (error) throw new Error("No se pudo cargar los anuncios.");
 
-  return (data ?? [])
+  // Las encuestas ya cerradas salen de aquí igual que los eventos pasados
+  // (el coordinador sigue viendo sus resultados en su pestaña).
+  const visibles = (data ?? [])
     .filter((c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id))
-    .slice(0, 10)
-    .map((c) => ({
-      id: c.id,
-      fecha: c.fecha,
-      tipo: c.tipo,
-      mensaje: c.mensaje,
-      autor: c.autor,
-      fechaEvento: c.fecha_evento,
-      ubicacion: c.ubicacion,
-    }));
+    .filter((c) => !c.encuesta_opciones || !encuestaCerrada(c.encuesta_cierra, hoy))
+    .slice(0, 10);
+
+  const votos = await cargarVotosEncuestas(
+    supabase,
+    visibles.filter((c) => c.encuesta_opciones).map((c) => c.id)
+  );
+
+  return visibles.map((c) => ({
+    id: c.id,
+    fecha: c.fecha,
+    tipo: c.tipo,
+    mensaje: c.mensaje,
+    autor: c.autor,
+    fechaEvento: c.fecha_evento,
+    ubicacion: c.ubicacion,
+    encuesta: c.encuesta_opciones
+      ? armarEncuestaPublica(
+          { ...c, encuesta_opciones: c.encuesta_opciones },
+          votos.filter((v) => v.comunicado_id === c.id),
+          sesion
+        )
+      : null,
+  }));
+}
+
+export type ResultadoVotoEncuesta = {
+  exito: boolean;
+  mensaje?: string;
+  encuesta?: EncuestaPublica;
+};
+
+// El voto es definitivo, como en las encuestas de WhatsApp sin "cambiar
+// voto": simplifica el conteo y evita que alguien vote viendo resultados y
+// luego se cambie.
+export async function votarEncuesta(
+  comunicadoId: string,
+  opcionesElegidas: number[]
+): Promise<ResultadoVotoEncuesta> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  const supabase = supabaseServer();
+  const { data: c, error } = await supabase
+    .from("comunicados")
+    .select("id, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra")
+    .eq("id", comunicadoId)
+    .maybeSingle();
+
+  if (error || !c || !c.encuesta_opciones) return { exito: false, mensaje: "La encuesta ya no existe." };
+  if (encuestaCerrada(c.encuesta_cierra, hoyPeru())) {
+    return { exito: false, mensaje: "La encuesta ya cerró." };
+  }
+  if (!estaEnPublicoEncuesta(sesion, c.usuarios_destino)) {
+    return { exito: false, mensaje: "Esta encuesta no es para tu rol." };
+  }
+
+  const numOpciones = c.encuesta_opciones.length;
+  const elegidas = Array.from(new Set(opcionesElegidas)).filter(
+    (o) => Number.isInteger(o) && o >= 0 && o < numOpciones
+  );
+  if (elegidas.length === 0) return { exito: false, mensaje: "Elige una opción." };
+  if (!c.encuesta_multiple && elegidas.length > 1) {
+    return { exito: false, mensaje: "En esta encuesta solo se puede elegir una opción." };
+  }
+
+  const { count } = await supabase
+    .from("encuesta_votos")
+    .select("id", { count: "exact", head: true })
+    .eq("comunicado_id", c.id)
+    .eq("usuario_id", sesion.id);
+  if ((count ?? 0) > 0) return { exito: false, mensaje: "Ya votaste en esta encuesta." };
+
+  const { error: errorVoto } = await supabase
+    .from("encuesta_votos")
+    .insert(elegidas.map((opcion) => ({ comunicado_id: c.id, usuario_id: sesion.id, opcion })));
+  if (errorVoto) return { exito: false, mensaje: "No se pudo registrar tu voto. Intenta de nuevo." };
+
+  const votos = await cargarVotosEncuestas(supabase, [c.id]);
+  return {
+    exito: true,
+    encuesta: armarEncuestaPublica({ ...c, encuesta_opciones: c.encuesta_opciones }, votos, sesion),
+  };
 }
 
 export type ProximoCumpleanos = {

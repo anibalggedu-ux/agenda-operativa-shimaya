@@ -25,6 +25,16 @@ import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
 import { obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { geocodificarDireccion } from "@/lib/geocodificar";
+import {
+  cargarVotosEncuestas,
+  contarVotos,
+  encuestaCerrada,
+  estaEnPublicoEncuesta,
+  MAX_LARGO_OPCION,
+  MAX_LARGO_PREGUNTA,
+  MAX_OPCIONES_ENCUESTA,
+  MIN_OPCIONES_ENCUESTA,
+} from "@/lib/encuestas";
 
 
 // ---------- Notificaciones por correo ----------
@@ -695,6 +705,24 @@ export type Comunicado = {
   vigente: boolean;
   // null/vacío = sin restricción, visible para todos.
   usuariosDestino: string[] | null;
+  // null = anuncio normal.
+  encuesta: ResultadosEncuesta | null;
+};
+
+export type ResultadosEncuesta = {
+  opciones: string[];
+  multiple: boolean;
+  anonima: boolean;
+  cierra: string | null;
+  cerrada: boolean;
+  conteos: number[];
+  votantes: number;
+  // Tamaño del público de la encuesta (activos a los que les llega).
+  publico: number;
+  // Nombres de quienes todavía no votan.
+  pendientes: string[];
+  // Nombres por opción — null si la encuesta es anónima.
+  nombresPorOpcion: string[][] | null;
 };
 
 export async function obtenerComunicados(): Promise<Comunicado[]> {
@@ -704,22 +732,176 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
 
   const { data, error } = await supabase
     .from("comunicados")
-    .select("id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino")
+    .select(
+      "id, fecha, tipo, mensaje, autor, fecha_evento, ubicacion, usuarios_destino, encuesta_opciones, encuesta_multiple, encuesta_anonima, encuesta_cierra"
+    )
     .order("fecha", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar los anuncios.");
 
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    fecha: c.fecha,
-    tipo: c.tipo,
-    mensaje: c.mensaje,
-    autor: c.autor,
-    fechaEvento: c.fecha_evento,
-    ubicacion: c.ubicacion,
-    vigente: !c.fecha_evento || c.fecha_evento >= hoy,
-    usuariosDestino: c.usuarios_destino,
-  }));
+  const encuestas = (data ?? []).filter((c) => c.encuesta_opciones);
+  const [votos, { data: activos }] = await Promise.all([
+    cargarVotosEncuestas(
+      supabase,
+      encuestas.map((c) => c.id)
+    ),
+    encuestas.length > 0
+      ? supabase.from("usuarios").select("id, nombre, rol").eq("activo", true).order("nombre")
+      : Promise.resolve({ data: [] as { id: string; nombre: string; rol: string }[] }),
+  ]);
+  const nombrePorId = new Map((activos ?? []).map((u) => [u.id, u.nombre]));
+
+  return (data ?? []).map((c) => {
+    let encuesta: ResultadosEncuesta | null = null;
+    if (c.encuesta_opciones) {
+      const votosDeEsta = votos.filter((v) => v.comunicado_id === c.id);
+      const { conteos, votantes, votantesIds } = contarVotos(c.encuesta_opciones.length, votosDeEsta);
+      const publico = (activos ?? []).filter((u) => estaEnPublicoEncuesta(u, c.usuarios_destino));
+      encuesta = {
+        opciones: c.encuesta_opciones,
+        multiple: c.encuesta_multiple,
+        anonima: c.encuesta_anonima,
+        cierra: c.encuesta_cierra,
+        cerrada: encuestaCerrada(c.encuesta_cierra, hoy),
+        conteos,
+        votantes,
+        publico: publico.length,
+        pendientes: publico.filter((u) => !votantesIds.has(u.id)).map((u) => u.nombre),
+        nombresPorOpcion: c.encuesta_anonima
+          ? null
+          : c.encuesta_opciones.map((_, i) =>
+              votosDeEsta
+                .filter((v) => v.opcion === i)
+                .map((v) => nombrePorId.get(v.usuario_id) ?? "Ex colaborador")
+            ),
+      };
+    }
+
+    return {
+      id: c.id,
+      fecha: c.fecha,
+      tipo: c.tipo,
+      mensaje: c.mensaje,
+      autor: c.autor,
+      fechaEvento: c.fecha_evento,
+      ubicacion: c.ubicacion,
+      vigente: (!c.fecha_evento || c.fecha_evento >= hoy) && !encuesta?.cerrada,
+      usuariosDestino: c.usuarios_destino,
+      encuesta,
+    };
+  });
+}
+
+function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Encuesta rápida: la pregunta va en `mensaje` y el tipo queda fijo en
+// "Encuesta", así el resto de la app (correo, listados) la trata como un
+// anuncio más. No lleva fecha de evento ni ubicación, para que no aparezca
+// en el calendario ni pida marcar asistencia.
+async function crearEncuesta(sesion: SesionUsuario, formData: FormData): Promise<ResultadoAccion> {
+  const pregunta = String(formData.get("mensaje") || "").trim();
+  const opciones = formData
+    .getAll("opcion")
+    .map((o) => String(o).trim())
+    .filter(Boolean);
+  const anonima = formData.get("anonima") === "on";
+  const multiple = formData.get("multiple") === "on";
+  const cierra = String(formData.get("encuestaCierra") || "").trim();
+  const usuariosDestino = formData.getAll("usuariosDestino").map(String).filter(Boolean);
+  const hoy = hoyPeru();
+
+  if (!pregunta) return { exito: false, mensaje: "Escribe la pregunta de la encuesta." };
+  if (pregunta.length > MAX_LARGO_PREGUNTA) {
+    return { exito: false, mensaje: `La pregunta puede tener hasta ${MAX_LARGO_PREGUNTA} caracteres.` };
+  }
+  if (opciones.length < MIN_OPCIONES_ENCUESTA || opciones.length > MAX_OPCIONES_ENCUESTA) {
+    return {
+      exito: false,
+      mensaje: `La encuesta necesita entre ${MIN_OPCIONES_ENCUESTA} y ${MAX_OPCIONES_ENCUESTA} opciones.`,
+    };
+  }
+  if (opciones.some((o) => o.length > MAX_LARGO_OPCION)) {
+    return { exito: false, mensaje: `Cada opción puede tener hasta ${MAX_LARGO_OPCION} caracteres.` };
+  }
+  if (new Set(opciones.map((o) => o.toLowerCase())).size !== opciones.length) {
+    return { exito: false, mensaje: "Hay dos opciones iguales." };
+  }
+  if (cierra && (!/^\d{4}-\d{2}-\d{2}$/.test(cierra) || cierra < hoy)) {
+    return { exito: false, mensaje: "La fecha de cierre no puede ser anterior a hoy." };
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("comunicados").insert({
+    fecha: hoy,
+    tipo: "Encuesta",
+    mensaje: pregunta,
+    autor: sesion.nombre,
+    usuarios_destino: usuariosDestino.length > 0 ? usuariosDestino : null,
+    encuesta_opciones: opciones,
+    encuesta_anonima: anonima,
+    encuesta_multiple: multiple,
+    encuesta_cierra: cierra || null,
+  });
+
+  if (error) return { exito: false, mensaje: "No se pudo publicar la encuesta." };
+
+  await notificarPorCorreo(async () => {
+    let consultaDestinatarios = supabase
+      .from("usuarios")
+      .select("email")
+      .eq("activo", true)
+      .not("email", "is", null);
+    consultaDestinatarios =
+      usuariosDestino.length > 0
+        ? consultaDestinatarios.in("id", usuariosDestino)
+        : consultaDestinatarios.in("rol", ["supervisor", "capacitador"]);
+
+    const [{ data: destinatarios }, responderA] = await Promise.all([
+      consultaDestinatarios,
+      obtenerReplyTo(supabase, sesion),
+    ]);
+    const correos = (destinatarios ?? []).map((u) => u.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: [],
+      cco: correos,
+      tituloEmoji: "📊",
+      asunto: "Nueva encuesta para el equipo",
+      responderA,
+      cuerpoHtml: `
+        <p><strong>${escaparHtml(pregunta)}</strong></p>
+        <ul>${opciones.map((o) => `<li>${escaparHtml(o)}</li>`).join("")}</ul>
+        ${cierra ? `<p>Puedes votar hasta el <strong>${formatearFechaLegible(cierra)}</strong>.</p>` : ""}
+        <p><a href="${URL_APP}" style="color:#e23744;">Responde en la Agenda Operativa</a>, en el apartado Anuncios.</p>
+        <p style="color:#8b8d92; font-size:12px;">Publicado por ${escaparHtml(sesion.nombre)}${
+          anonima ? " · Encuesta anónima" : ""
+        }.</p>
+      `,
+    });
+  });
+
+  return { exito: true, mensaje: "Encuesta publicada correctamente." };
+}
+
+// Cierra la encuesta hoy mismo: el cierre es "último día para votar", así
+// que se pone ayer.
+export async function cerrarEncuesta(id: string): Promise<ResultadoAccion> {
+  await exigirCoordinador();
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("comunicados")
+    .update({ encuesta_cierra: sumarDias(hoyPeru(), -1) })
+    .eq("id", id)
+    .not("encuesta_opciones", "is", null);
+  if (error) return { exito: false, mensaje: "No se pudo cerrar la encuesta." };
+  return { exito: true };
 }
 
 export async function crearComunicado(
@@ -727,6 +909,8 @@ export async function crearComunicado(
   formData: FormData
 ): Promise<ResultadoAccion> {
   const sesion = await exigirCoordinador();
+
+  if (formData.get("esEncuesta") === "1") return crearEncuesta(sesion, formData);
 
   const tipo = String(formData.get("tipo") || "").trim();
   const mensaje = String(formData.get("mensaje") || "").trim();
