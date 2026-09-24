@@ -401,6 +401,10 @@ export type Database = {
         Row: {
           autor: string | null
           created_at: string | null
+          encuesta_anonima: boolean
+          encuesta_cierra: string | null
+          encuesta_multiple: boolean
+          encuesta_opciones: string[] | null
           fecha: string
           fecha_evento: string | null
           id: string
@@ -414,6 +418,10 @@ export type Database = {
         Insert: {
           autor?: string | null
           created_at?: string | null
+          encuesta_anonima?: boolean
+          encuesta_cierra?: string | null
+          encuesta_multiple?: boolean
+          encuesta_opciones?: string[] | null
           fecha?: string
           fecha_evento?: string | null
           id?: string
@@ -427,6 +435,10 @@ export type Database = {
         Update: {
           autor?: string | null
           created_at?: string | null
+          encuesta_anonima?: boolean
+          encuesta_cierra?: string | null
+          encuesta_multiple?: boolean
+          encuesta_opciones?: string[] | null
           fecha?: string
           fecha_evento?: string | null
           id?: string
@@ -510,6 +522,45 @@ export type Database = {
           tamano_bytes?: number
         }
         Relationships: []
+      }
+      encuesta_votos: {
+        Row: {
+          comunicado_id: string
+          created_at: string
+          id: string
+          opcion: number
+          usuario_id: string
+        }
+        Insert: {
+          comunicado_id: string
+          created_at?: string
+          id?: string
+          opcion: number
+          usuario_id: string
+        }
+        Update: {
+          comunicado_id?: string
+          created_at?: string
+          id?: string
+          opcion?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuesta_votos_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "comunicados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuesta_votos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       historia_comentarios: {
         Row: {
