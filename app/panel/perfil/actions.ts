@@ -5,7 +5,7 @@ import { obtenerSesion } from "@/lib/session";
 import { calcularAntiguedad, calcularProximaFechaAnual, hoyPeru } from "@/lib/fechas";
 import { progresoProximoBronce, type ConteoMedallas } from "@/lib/trofeos";
 import { obtenerVitrinaTrofeos, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
-import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil } from "@/lib/blob-storage";
+import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil, existeFotoPerfil } from "@/lib/blob-storage";
 import { revalidatePath } from "next/cache";
 
 export type PerfilCompleto = {
@@ -33,6 +33,22 @@ export type PerfilCompleto = {
   totalRecibido: number;
 };
 
+// Foto de perfil sin consultar Vercel Blob en cada vista: se usa
+// usuarios.tiene_foto_perfil. Si todavía es null (usuarios de antes de esta
+// columna), se verifica una sola vez con head() y se guarda el resultado.
+async function urlFotoPerfil(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string,
+  tieneFoto: boolean | null
+): Promise<string | null> {
+  let tiene = tieneFoto;
+  if (tiene === null) {
+    tiene = await existeFotoPerfil(usuarioId);
+    await supabase.from("usuarios").update({ tiene_foto_perfil: tiene }).eq("id", usuarioId);
+  }
+  return tiene ? obtenerUrlTemporalFotoPerfil(usuarioId) : null;
+}
+
 // Sin usuarioId trae el propio. Con uno, cualquiera con sesión iniciada
 // puede ver el perfil de cualquier compañero -- es la vitrina del equipo,
 // no hay nada privado en estos datos (ya son visibles hoy repartidos entre
@@ -44,15 +60,19 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
   const objetivoId = usuarioId ?? sesion.id;
 
   const supabase = supabaseServer();
-  const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido, fotoUrl] = await Promise.all([
-    supabase.from("usuarios").select("nombre, rol, dias_descanso, fecha_ingreso").eq("id", objetivoId).maybeSingle(),
+  const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, tiene_foto_perfil")
+      .eq("id", objetivoId)
+      .maybeSingle(),
     obtenerVitrinaTrofeos(),
     obtenerTotalDonado(objetivoId),
     obtenerTotalRecibido(objetivoId),
-    obtenerUrlTemporalFotoPerfil(objetivoId),
   ]);
 
   if (error || !usuario) throw new Error("No se pudo cargar el perfil.");
+  const fotoUrl = await urlFotoPerfil(supabase, objetivoId, usuario.tiene_foto_perfil);
 
   const fechaIngreso = usuario.fecha_ingreso ?? null;
   let antiguedad: PerfilCompleto["antiguedad"] = null;
@@ -94,6 +114,7 @@ export async function actualizarFotoPerfil(fotoDataUrl: string): Promise<{ ok: b
 
   try {
     await subirFotoPerfil(sesion.id, fotoDataUrl);
+    await supabaseServer().from("usuarios").update({ tiene_foto_perfil: true }).eq("id", sesion.id);
     revalidatePath("/panel");
     return { ok: true };
   } catch (error: any) {
@@ -113,7 +134,7 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol")
+    .select("id, nombre, rol, tiene_foto_perfil")
     .eq("activo", true)
     .neq("id", sesion.id)
     .order("nombre", { ascending: true });
@@ -121,7 +142,7 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
   if (error) return [];
 
   const personas = data ?? [];
-  const fotos = await Promise.all(personas.map((u) => obtenerUrlTemporalFotoPerfil(u.id)));
+  const fotos = await Promise.all(personas.map((u) => urlFotoPerfil(supabase, u.id, u.tiene_foto_perfil)));
 
   return personas.map((u, i) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol, fotoUrl: fotos[i] }));
 }

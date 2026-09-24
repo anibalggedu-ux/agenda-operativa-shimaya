@@ -11,6 +11,7 @@ import {
   type FotoEvidencia,
   type TipoRegistroEvidencia,
 } from "@/lib/evidencias-constantes";
+import type { FotoPdf } from "@/lib/generar-pdf";
 
 // Fotos opcionales al final del checklist de visita y de la auditoría:
 // varias fotos, cada una con su pie. Se comprimen al elegirlas y se suben
@@ -244,4 +245,35 @@ export function GaleriaEvidencias({ fotos }: { fotos: FotoEvidencia[] }) {
       </div>
     </div>
   );
+}
+
+function blobADataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(lector.result as string);
+    lector.onerror = () => reject(new Error("No se pudo leer la foto."));
+    lector.readAsDataURL(blob);
+  });
+}
+
+// Fotos ya guardadas, listas para el PDF (versión liviana, ~50 KB c/u). Las
+// que no se puedan bajar (ej. ya se depuraron) simplemente no salen.
+export async function fotosGuardadasParaPdf(fotos: FotoEvidencia[]): Promise<FotoPdf[]> {
+  const resultados = await Promise.all(
+    fotos.map(async (f) => {
+      try {
+        const respuesta = await fetch(f.rutaPdf);
+        if (!respuesta.ok) return null;
+        return { dataUrl: await blobADataUrl(await respuesta.blob()), pie: f.pie };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return resultados.filter((f): f is FotoPdf => f !== null);
+}
+
+// Fotos recién elegidas (todavía en el celular): no hace falta bajar nada.
+export function fotosPendientesParaPdf(fotos: FotoPendiente[]): FotoPdf[] {
+  return fotos.map((f) => ({ dataUrl: f.miniDataUrl ?? f.dataUrl, pie: f.pie.trim() || null }));
 }

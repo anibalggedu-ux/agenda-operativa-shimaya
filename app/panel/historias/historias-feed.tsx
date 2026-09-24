@@ -18,7 +18,7 @@ import {
   type SaldoRegalo,
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
-import { comprimirFotoComoBase64, reducirDataUrl } from "@/lib/comprimir-imagen";
+import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoExito } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
 
@@ -760,10 +760,10 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     setProgresoPublicacion(items.length > 1 ? { actual: 0, total: items.length } : null);
     try {
       for (let i = 0; i < items.length; i++) {
-        // Si la miniatura no se puede generar, se publica igual con la
-        // foto completa (se mostrará esa).
-        const mini = await reducirDataUrl(items[i].foto, 800, 0.72).catch(() => undefined);
-        const resultado = await crearHistoria(items[i].foto, items[i].texto, mini);
+        // Sin miniatura: en el plan Hobby de Vercel cada archivo subido
+        // gasta una de las ~2.000 operaciones del mes, y las historias son
+        // las que más suben después de las marcaciones.
+        const resultado = await crearHistoria(items[i].foto, items[i].texto);
         if (!resultado.exito) {
           setMensaje(
             items.length > 1
@@ -789,8 +789,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     setMensaje(null);
     setPublicando(true);
     try {
-      const mini = await reducirDataUrl(fotoDataUrl, 800, 0.72).catch(() => undefined);
-      const resultado = await crearHistoria(fotoDataUrl, undefined, mini);
+      const resultado = await crearHistoria(fotoDataUrl);
       if (resultado.exito) {
         setModoTexto(false);
         cargar();

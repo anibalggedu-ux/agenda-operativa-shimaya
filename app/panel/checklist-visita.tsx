@@ -15,6 +15,7 @@ import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib
 import { hoyPeru } from "@/lib/fechas";
 import {
   AvisoFotosPendientes,
+  fotosPendientesParaPdf,
   SelectorFotosEvidencia,
   subirFotosEvidencia,
   type FotoPendiente,
@@ -248,6 +249,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
       secciones: seccionesPdf,
       porcentaje: resultado?.porcentaje ?? null,
       clasificacion: resultado?.clasificacion ?? null,
+      fotos: fotosPendientesParaPdf(fotos),
     });
   }
 

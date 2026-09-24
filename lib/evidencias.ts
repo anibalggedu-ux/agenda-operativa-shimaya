@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
-import { eliminarFotoEvidencia, obtenerUrlTemporalFotoEvidencia } from "./blob-storage";
+import { eliminarFotoEvidencia, obtenerUrlTemporalFotoEvidencia, rutaMiniatura } from "./blob-storage";
 import { DIAS_RETENCION_EVIDENCIAS, type FotoEvidencia, type TipoRegistroEvidencia } from "./evidencias-constantes";
 
 // Solo servidor: lectura y depuración de las fotos de evidencia (tabla
@@ -29,7 +29,14 @@ export async function cargarFotosEvidencia(
         obtenerUrlTemporalFotoEvidencia(f.blob_path),
         f.tiene_miniatura ? obtenerUrlTemporalFotoEvidencia(f.blob_path, 120, true) : Promise.resolve(null),
       ]);
-      return { id: f.id, url: urlMini ?? urlCompleta, urlCompleta, pie: f.pie };
+      const archivoPdf = f.tiene_miniatura ? rutaMiniatura(f.blob_path) : f.blob_path;
+      return {
+        id: f.id,
+        url: urlMini ?? urlCompleta,
+        urlCompleta,
+        rutaPdf: `/api/blob/descargar?carpeta=evidencias&archivo=${encodeURIComponent(archivoPdf)}`,
+        pie: f.pie,
+      };
     })
   );
 }

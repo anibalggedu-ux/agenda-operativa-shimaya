@@ -1382,6 +1382,7 @@ export type Database = {
           puede_registrar: boolean
           puntos_heredados: number
           rol: string
+          tiene_foto_perfil: boolean | null
         }
         Insert: {
           activo?: boolean
@@ -1402,6 +1403,7 @@ export type Database = {
           puede_registrar?: boolean
           puntos_heredados?: number
           rol: string
+          tiene_foto_perfil?: boolean | null
         }
         Update: {
           activo?: boolean
@@ -1422,6 +1424,7 @@ export type Database = {
           puede_registrar?: boolean
           puntos_heredados?: number
           rol?: string
+          tiene_foto_perfil?: boolean | null
         }
         Relationships: []
       }

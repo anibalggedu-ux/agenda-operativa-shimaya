@@ -169,16 +169,21 @@ export async function subirFotoPerfil(usuarioId: string, dataUrl: string): Promi
   await subirFoto(CARPETA_PERFILES, blobPerfil(usuarioId), dataUrl, true);
 }
 
-// null cuando el usuario nunca subió foto -- el front muestra sus iniciales
-// como respaldo en ese caso.
+// Enlace a la foto de perfil. Quien llama ya sabe si existe
+// (usuarios.tiene_foto_perfil), así que no se gasta una operación de Blob
+// en cada vista. Solo cuando ese dato todavía es null se consulta con head()
+// -- ver existeFotoPerfil.
 export async function obtenerUrlTemporalFotoPerfil(usuarioId: string, minutos = 180): Promise<string | null> {
-  const pathname = `${CARPETA_PERFILES}/${blobPerfil(usuarioId)}`;
-  try {
-    await head(pathname);
-  } catch {
-    return null; // BlobNotFoundError -- nunca subió foto
-  }
   return generarUrlTemporal(CARPETA_PERFILES, blobPerfil(usuarioId), minutos);
+}
+
+export async function existeFotoPerfil(usuarioId: string): Promise<boolean> {
+  try {
+    await head(`${CARPETA_PERFILES}/${blobPerfil(usuarioId)}`);
+    return true;
+  } catch {
+    return false; // BlobNotFoundError -- nunca subió foto
+  }
 }
 
 // --- Fotos de evidencia (checklist de visita y auditorías) ---
