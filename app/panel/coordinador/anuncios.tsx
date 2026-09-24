@@ -37,7 +37,7 @@ function BotonPublicar({ esEncuesta }: { esEncuesta: boolean }) {
 // todo ese rol, y cada persona se puede además prender/apagar suelta —
 // mismo mecanismo para "por rol" y "por persona", sin dos sistemas
 // distintos. Vacío = sin restricción (le llega a todos, como siempre).
-function SelectorDestinatarios({
+export function SelectorDestinatarios({
   usuarios,
   seleccionados,
   onCambiar,

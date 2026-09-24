@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, Images, UserCircle } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, Images, UserCircle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -13,6 +13,7 @@ import TiendasPermanentes from "./tiendas-permanentes";
 import DescansosSemanales from "./descansos-semanales";
 import EstadoPersonalHoy from "./estado-personal-hoy";
 import Anuncios from "./anuncios";
+import EncuestasCoordinador from "./encuestas";
 import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
@@ -102,6 +103,7 @@ export default function PanelTabs({
       ),
     },
     { id: "anuncios", etiqueta: "Anuncios", icono: <Megaphone className="w-4 h-4" />, contenido: <Anuncios /> },
+    { id: "encuestas", etiqueta: "Encuestas", icono: <ClipboardCheck className="w-4 h-4" />, contenido: <EncuestasCoordinador /> },
     { id: "historial", etiqueta: "Historial y Monitoreo", icono: <History className="w-4 h-4" />, contenido: <HistorialMonitoreo /> },
     { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica /> },
     { id: "registro", etiqueta: "Registro", icono: <Settings className="w-4 h-4" />, contenido: <Registro esCoordinador={true} /> },

@@ -523,6 +523,48 @@ export type Database = {
         }
         Relationships: []
       }
+      encuesta_respuestas: {
+        Row: {
+          created_at: string
+          encuesta_id: string | null
+          id: string
+          puntos_ganados: number
+          respuestas: Json
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          encuesta_id?: string | null
+          id?: string
+          puntos_ganados?: number
+          respuestas: Json
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          encuesta_id?: string | null
+          id?: string
+          puntos_ganados?: number
+          respuestas?: Json
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuesta_respuestas_encuesta_id_fkey"
+            columns: ["encuesta_id"]
+            isOneToOne: false
+            referencedRelation: "encuestas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuesta_respuestas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       encuesta_votos: {
         Row: {
           comunicado_id: string
@@ -561,6 +603,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      encuestas: {
+        Row: {
+          anonima: boolean
+          autor: string | null
+          cierra: string | null
+          created_at: string
+          descripcion: string | null
+          id: string
+          preguntas: Json
+          puntos: number
+          titulo: string
+          usuarios_destino: string[] | null
+        }
+        Insert: {
+          anonima?: boolean
+          autor?: string | null
+          cierra?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          preguntas: Json
+          puntos?: number
+          titulo: string
+          usuarios_destino?: string[] | null
+        }
+        Update: {
+          anonima?: boolean
+          autor?: string | null
+          cierra?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          preguntas?: Json
+          puntos?: number
+          titulo?: string
+          usuarios_destino?: string[] | null
+        }
+        Relationships: []
       }
       historia_comentarios: {
         Row: {
