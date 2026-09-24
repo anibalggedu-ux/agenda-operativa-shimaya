@@ -19,16 +19,18 @@ export async function cargarFotosEvidencia(
 ): Promise<FotoEvidencia[]> {
   const { data } = await supabase
     .from("fotos_evidencia")
-    .select("id, blob_path, pie")
+    .select("id, blob_path, pie, tiene_miniatura")
     .eq(columnaEvidencia(tipo), registroId)
     .order("created_at", { ascending: true });
 
   return Promise.all(
-    (data ?? []).map(async (f) => ({
-      id: f.id,
-      url: await obtenerUrlTemporalFotoEvidencia(f.blob_path),
-      pie: f.pie,
-    }))
+    (data ?? []).map(async (f) => {
+      const [urlCompleta, urlMini] = await Promise.all([
+        obtenerUrlTemporalFotoEvidencia(f.blob_path),
+        f.tiene_miniatura ? obtenerUrlTemporalFotoEvidencia(f.blob_path, 120, true) : Promise.resolve(null),
+      ]);
+      return { id: f.id, url: urlMini ?? urlCompleta, urlCompleta, pie: f.pie };
+    })
   );
 }
 

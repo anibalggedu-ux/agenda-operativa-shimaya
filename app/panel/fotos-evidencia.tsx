@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Camera, Check, ImagePlus, RotateCcw, X } from "lucide-react";
-import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
+import { comprimirFotoComoBase64, reducirDataUrl } from "@/lib/comprimir-imagen";
 import { subirFotoEvidencia } from "./evidencias-actions";
 import {
   DIAS_RETENCION_EVIDENCIAS,
@@ -19,6 +19,8 @@ import {
 export type FotoPendiente = {
   id: string;
   dataUrl: string;
+  // Versión liviana que se guarda aparte para mostrar en pantalla.
+  miniDataUrl?: string;
   pie: string;
   estado: "lista" | "subiendo" | "subida" | "error";
   error?: string;
@@ -48,9 +50,11 @@ export function SelectorFotosEvidencia({
     for (const archivo of elegidos) {
       try {
         const dataUrl = await comprimirFotoComoBase64(archivo);
+        const miniDataUrl = await reducirDataUrl(dataUrl).catch(() => undefined);
         nuevas.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           dataUrl,
+          miniDataUrl,
           pie: "",
           estado: "lista",
         });
@@ -80,7 +84,7 @@ export function SelectorFotosEvidencia({
           {fotos.map((f, i) => (
             <div key={f.id} className="flex gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={f.dataUrl} alt={f.pie || `Foto ${i + 1}`} className="w-20 h-20 object-cover rounded-[2px] shrink-0" />
+              <img src={f.miniDataUrl ?? f.dataUrl} alt={f.pie || `Foto ${i + 1}`} className="w-20 h-20 object-cover rounded-[2px] shrink-0" />
               <div className="flex-1 min-w-0 space-y-1.5">
                 <textarea
                   id={`foto-evidencia-pie-${f.id}`}
@@ -176,7 +180,7 @@ export async function subirFotosEvidencia(
     if (foto.estado === "subida") continue;
     actualizar(foto.id, { estado: "subiendo", error: undefined });
     try {
-      const r = await subirFotoEvidencia(tipo, registroId, foto.dataUrl, foto.pie);
+      const r = await subirFotoEvidencia(tipo, registroId, foto.dataUrl, foto.pie, foto.miniDataUrl);
       actualizar(foto.id, r.exito ? { estado: "subida" } : { estado: "error", error: r.mensaje });
     } catch {
       actualizar(foto.id, { estado: "error", error: "Sin conexión" });
@@ -225,7 +229,7 @@ export function GaleriaEvidencias({ fotos }: { fotos: FotoEvidencia[] }) {
         {fotos.map((f, i) => (
           <figure key={f.id} className="bg-marca-fondo border border-marca-borde rounded-[3px] overflow-hidden">
             {f.url ? (
-              <a href={f.url} target="_blank" rel="noopener noreferrer">
+              <a href={f.urlCompleta ?? f.url} target="_blank" rel="noopener noreferrer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={f.url} alt={f.pie || `Foto ${i + 1}`} className="w-full aspect-square object-cover" />
               </a>

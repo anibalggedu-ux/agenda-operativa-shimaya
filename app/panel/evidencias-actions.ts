@@ -26,7 +26,9 @@ export async function subirFotoEvidencia(
   tipo: TipoRegistroEvidencia,
   registroId: string,
   dataUrl: string,
-  pie: string
+  pie: string,
+  // Versión de 640px para mostrar en pantalla (opcional).
+  miniDataUrl?: string
 ): Promise<{ exito: boolean; mensaje?: string }> {
   const sesion = await obtenerSesion();
   if (!sesion) return { exito: false, mensaje: "Tu sesión venció. Vuelve a entrar." };
@@ -68,8 +70,10 @@ export async function subirFotoEvidencia(
 
   const extension = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
   const blobPath = `${tipo}/${registroId}/${randomUUID()}.${extension}`;
+  let tieneMiniatura = false;
   try {
-    await subirArchivoEvidencia(blobPath, dataUrl);
+    const miniValida = miniDataUrl && /^data:image\/(jpeg|png|webp);base64,/.test(miniDataUrl) ? miniDataUrl : null;
+    tieneMiniatura = await subirArchivoEvidencia(blobPath, dataUrl, miniValida);
   } catch (error) {
     console.error("No se pudo subir la foto de evidencia:", error);
     return { exito: false, mensaje: "No se pudo subir la foto. Intenta de nuevo." };
@@ -81,6 +85,7 @@ export async function subirFotoEvidencia(
     usuario_id: sesion.id,
     blob_path: blobPath,
     pie: pieLimpio || null,
+    tiene_miniatura: tieneMiniatura,
   });
   if (error) {
     // Sin fila en la base, el archivo quedaría huérfano (el cron no lo vería).
