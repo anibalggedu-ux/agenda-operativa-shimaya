@@ -1,11 +1,11 @@
-import { put, del, head, issueSignedToken, presignUrl } from "@vercel/blob";
+import { almacenActivo } from "./almacen-fotos";
 
-// Reemplaza a Azure Blob Storage (cuenta deshabilitada por Microsoft en
-// sept. 2026 -- ver conversación). Vercel Blob no tiene "contenedores" como
-// Azure: son solo prefijos de carpeta dentro de un mismo Blob Store privado.
-// El store es privado -- para mostrar una foto se firma un enlace temporal
-// (mismo rol que cumplía el SAS token de Azure) en vez de guardar una URL
-// pública permanente.
+// Fotos de la app (marcaciones, historias, perfiles y evidencias). El
+// proveedor (Cloudflare R2 o Vercel Blob) lo elige lib/almacen-fotos.ts
+// según las variables de entorno; aquí solo se arman las rutas. No hay
+// "contenedores": son prefijos de carpeta dentro de un mismo almacén
+// privado. Para mostrar una foto se firma un enlace temporal en vez de
+// guardar una URL pública permanente.
 
 const CARPETA_MARCACIONES = "marcaciones";
 const CARPETA_HISTORIAS = "historias";
@@ -22,18 +22,13 @@ export function decodificarFotoBase64(dataUrl: string): { buffer: Buffer; conten
 
 async function subirFoto(carpeta: string, blobPath: string, dataUrl: string, permitirSobrescribir = false): Promise<void> {
   const { buffer, contentType } = decodificarFotoBase64(dataUrl);
-  await put(`${carpeta}/${blobPath}`, buffer, {
-    access: "private",
-    contentType,
-    addRandomSuffix: false,
-    allowOverwrite: permitirSobrescribir,
-  });
+  await almacenActivo().subir(`${carpeta}/${blobPath}`, buffer, contentType, permitirSobrescribir);
 }
 
 async function eliminarFoto(carpeta: string, blobPath: string): Promise<void> {
-  // del() no falla si el blob ya no existe -- mismo comportamiento que el
-  // deleteIfExists de Azure (ej. una segunda corrida sobre el mismo rango).
-  await del(`${carpeta}/${blobPath}`);
+  // No falla si el archivo ya no existe (ej. una segunda corrida sobre el
+  // mismo rango).
+  await almacenActivo().borrar([`${carpeta}/${blobPath}`]);
 }
 
 // Versión liviana (640-800px, 50-80 KB) que se guarda junto a la foto completa
@@ -65,7 +60,7 @@ async function subirFotoConMiniatura(
 }
 
 async function eliminarFotoConMiniatura(carpeta: string, blobPath: string): Promise<void> {
-  await del([`${carpeta}/${blobPath}`, `${carpeta}/${rutaMiniatura(blobPath)}`]);
+  await almacenActivo().borrar([`${carpeta}/${blobPath}`, `${carpeta}/${rutaMiniatura(blobPath)}`]);
 }
 
 // Los enlaces firmados vencen en bloques fijos de 30 minutos en vez de
@@ -78,23 +73,13 @@ function vencimientoEstable(minutos: number): number {
   return Math.ceil((Date.now() + minutos * 60 * 1000) / VENTANA_ENLACES_MS) * VENTANA_ENLACES_MS;
 }
 
-// Enlace temporal firmado para leer una foto privada -- lo que antes hacía
-// el SAS token de Azure. issueSignedToken() pide el permiso al control plane
-// de Vercel y presignUrl() firma la URL en sí, ambos con el mismo
-// vencimiento (en minutos) que ya usaba cada llamador.
+// Enlace temporal firmado para leer una foto privada. Se firma con el inicio
+// de la ventana actual para que dentro de la misma ventana salga igual.
 async function generarUrlTemporal(carpeta: string, blobPath: string | null, minutos: number): Promise<string | null> {
   if (!blobPath) return null;
   try {
-    const pathname = `${carpeta}/${blobPath}`;
-    const validUntil = vencimientoEstable(minutos);
-    const token = await issueSignedToken({ pathname, operations: ["get"], validUntil });
-    const { presignedUrl } = await presignUrl(token, {
-      operation: "get",
-      pathname,
-      access: "private",
-      validUntil,
-    });
-    return presignedUrl;
+    const firmadoEn = Math.floor(Date.now() / VENTANA_ENLACES_MS) * VENTANA_ENLACES_MS;
+    return await almacenActivo().urlFirmada(`${carpeta}/${blobPath}`, firmadoEn, vencimientoEstable(minutos));
   } catch (error) {
     console.error("No se pudo generar el enlace temporal de la foto:", error);
     return null;
@@ -137,12 +122,10 @@ export async function obtenerUrlTemporalFotoHistoria(
   blobPath: string | null,
   minutos = 180,
   // true = que el navegador la descargue directo al tocar "Descargar" en Mi
-  // Galería, en vez de solo abrirla. Vercel Blob no deja fijar
-  // Content-Disposition en una URL firmada (a diferencia del SAS de Azure),
-  // así que la descarga pasa por una ruta propia de la app que sí puede
-  // fijar ese header -- ver app/api/blob/descargar/route.ts. Esa ruta la
-  // protege la sesión del usuario (misma cookie, mismo dominio), no un
-  // token de Vercel.
+  // Galería, en vez de solo abrirla. La descarga pasa por una ruta propia
+  // de la app que fija Content-Disposition -- ver
+  // app/api/blob/descargar/route.ts. Esa ruta la protege la sesión del
+  // usuario (misma cookie, mismo dominio).
   forzarDescarga = false,
   // true = la versión liviana para mostrar en pantalla (solo si la historia
   // la tiene, ver historias.tiene_miniatura). La descarga siempre es la
@@ -178,12 +161,7 @@ export async function obtenerUrlTemporalFotoPerfil(usuarioId: string, minutos = 
 }
 
 export async function existeFotoPerfil(usuarioId: string): Promise<boolean> {
-  try {
-    await head(`${CARPETA_PERFILES}/${blobPerfil(usuarioId)}`);
-    return true;
-  } catch {
-    return false; // BlobNotFoundError -- nunca subió foto
-  }
+  return almacenActivo().existe(`${CARPETA_PERFILES}/${blobPerfil(usuarioId)}`);
 }
 
 // --- Fotos de evidencia (checklist de visita y auditorías) ---

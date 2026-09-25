@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { get } from "@vercel/blob";
+import { almacenActivo } from "@/lib/almacen-fotos";
 import { obtenerSesion, type SesionUsuario } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase-server";
 
-// Vercel Blob no deja fijar Content-Disposition en una URL firmada (a
-// diferencia del SAS de Azure), así que el botón "Descargar" de Mi Galería
-// pasa por acá -- la sesión del usuario (cookie propia del dominio) protege
-// esta ruta, no un token de Vercel. Solo lee fotos privadas, nunca escribe.
+// El botón "Descargar" de Mi Galería pasa por acá para poder fijar
+// Content-Disposition (la URL firmada del almacén no lo permite) -- la
+// sesión del usuario (cookie propia del dominio) protege esta ruta. Solo lee
+// fotos privadas, nunca escribe.
 //
 // También sirve las fotos de evidencia (checklists/auditorías) al navegador
 // para armarlas dentro del PDF: el enlace firmado de Vercel apunta a otro
@@ -56,14 +56,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
-  const resultado = await get(`${carpeta}/${archivo}`, { access: "private" });
-  if (!resultado || resultado.statusCode !== 200 || !resultado.stream) {
+  const resultado = await almacenActivo().leer(`${carpeta}/${archivo}`);
+  if (!resultado) {
     return NextResponse.json({ error: "No se encontró la foto." }, { status: 404 });
   }
 
   return new NextResponse(resultado.stream, {
     headers: {
-      "Content-Type": resultado.blob.contentType,
+      "Content-Type": resultado.contentType,
       "Content-Disposition":
         carpeta === "evidencias" ? "inline" : 'attachment; filename="historia-shimaya.jpg"',
       "X-Content-Type-Options": "nosniff",
