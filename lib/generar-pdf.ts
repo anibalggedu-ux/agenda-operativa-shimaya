@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { textoPuntajesArea, type PuntajesArea } from "./checklist-puntaje";
+import { textoPuntajesArea, type FaltaChecklist, type PuntajesArea } from "./checklist-puntaje";
 import { formatearFechaLegible, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
 import { formatearMinutos } from "./distancia";
 
@@ -1181,6 +1181,8 @@ export type DatosChecklistVisitaPdf = {
   clasificacion?: string | null;
   // Nota por área (Cocina, Salón...), si el checklist la tiene.
   areas?: PuntajesArea | null;
+  // Faltas que descontaron puntos (ej. contaminación cruzada).
+  faltas?: FaltaChecklist[];
   fotos?: FotoPdf[];
 };
 
@@ -1216,6 +1218,28 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
       doc.text(porArea, 14, y - 2);
       y += 4;
     }
+  }
+
+  if (datos.faltas && datos.faltas.length > 0) {
+    const total = datos.faltas.reduce((t, f) => t + f.descuento, 0);
+    doc.setTextColor(...COLOR_CLASIFICACION["Acción inmediata"]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`Faltas encontradas (−${total} puntos):`, 14, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    datos.faltas.forEach((f) => {
+      const lineas = doc.splitTextToSize(`• ${f.texto} (−${f.descuento})`, ANCHO_UTIL - 4);
+      if (y + lineas.length * 4.5 > ALTO_PAGINA) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lineas, 16, y);
+      y += lineas.length * 4.5;
+    });
+    doc.setTextColor(0, 0, 0);
+    y += 3;
   }
   y += 3;
 

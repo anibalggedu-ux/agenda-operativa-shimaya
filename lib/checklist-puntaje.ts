@@ -18,6 +18,10 @@ export type ItemChecklist = {
   // mayoría de preguntas sí/no son "sí es bueno"), pero algo como
   // "¿Contaminación cruzada?" es al revés (no es lo bueno).
   siNoBueno?: "si" | "no";
+  // Respuestas que son una falta: además de valer lo suyo en el bloque,
+  // restan estos puntos directo de la nota final (ej. contaminación
+  // cruzada). Clave = la opción; en sí/no, "si" o "no".
+  faltas?: Record<string, number>;
 };
 
 export type AreaChecklist = "cocina" | "salon" | "caja" | "jugueria";
@@ -47,11 +51,38 @@ export const AREAS_CHECKLIST: { clave: AreaChecklist; nombre: string; peso: numb
 // Nota 0-100 por área, o null si esa área no tuvo nada puntuable respondido.
 export type PuntajesArea = Partial<Record<AreaChecklist, number | null>>;
 
+// Nota mínima de cada clasificación: de 85% para abajo ya no está bien.
+export const UMBRALES_CHECKLIST = { excelente: 95, bueno: 86, requiereMejora: 70 };
+
 export function clasificarPorcentaje(porcentaje: number): ClasificacionChecklist {
-  if (porcentaje >= 90) return "Excelente";
-  if (porcentaje >= 75) return "Bueno";
-  if (porcentaje >= 60) return "Requiere mejora";
+  if (porcentaje >= UMBRALES_CHECKLIST.excelente) return "Excelente";
+  if (porcentaje >= UMBRALES_CHECKLIST.bueno) return "Bueno";
+  if (porcentaje >= UMBRALES_CHECKLIST.requiereMejora) return "Requiere mejora";
   return "Acción inmediata";
+}
+
+// Una falta encontrada en un checklist, para listarla en el resultado/PDF.
+export type FaltaChecklist = { texto: string; descuento: number };
+
+function valorLegible(it: ItemChecklist, valor: string | number): string {
+  if (it.tipo === "si_no") return valor === "true" ? "Sí" : "No";
+  return String(valor);
+}
+
+export function detectarFaltas(secciones: SeccionChecklist[], respuestas: RespuestasChecklist): FaltaChecklist[] {
+  const faltas: FaltaChecklist[] = [];
+  secciones.forEach((s) =>
+    s.items.forEach((it) => {
+      if (!it.faltas) return;
+      const valor = respuestas[s.clave]?.[it.clave];
+      if (valor === null || valor === undefined || valor === "") return;
+      const clave = it.tipo === "si_no" ? (valor === "true" ? "si" : "no") : String(valor);
+      const descuento = it.faltas[clave];
+      if (!descuento) return;
+      faltas.push({ texto: `${s.titulo}: ${it.etiqueta} — ${valorLegible(it, valor)}`, descuento });
+    })
+  );
+  return faltas;
 }
 
 // Puntaje 0-100 de una sola respuesta, o null si el tipo de pregunta no
@@ -93,14 +124,34 @@ function promedio(valores: number[]): number | null {
   return valores.length === 0 ? null : valores.reduce((a, b) => a + b, 0) / valores.length;
 }
 
-// Nota final. Con áreas: dentro de cada área cada bloque pesa igual (así las
-// 5 mesas refrigeradas no se comen la nota de cocina) y luego se ponderan
-// las áreas con AREAS_CHECKLIST. Un área sin nada respondido no cuenta y su
-// peso se reparte entre las demás (ej. tienda sin juguería).
+// Nota final: la nota base menos los descuentos por faltas (ver
+// detectarFaltas). Base con áreas: dentro de cada área cada bloque pesa
+// igual (así las 5 mesas refrigeradas no se comen la nota de cocina) y
+// luego se ponderan las áreas con AREAS_CHECKLIST. Un área sin nada
+// respondido no cuenta y su peso se reparte entre las demás (ej. tienda sin
+// juguería).
 export function calcularPuntaje(
   secciones: SeccionChecklist[],
   respuestas: RespuestasChecklist
-): { porcentaje: number | null; clasificacion: ClasificacionChecklist | null; areas: PuntajesArea | null } {
+): {
+  porcentaje: number | null;
+  clasificacion: ClasificacionChecklist | null;
+  areas: PuntajesArea | null;
+  faltas: FaltaChecklist[];
+} {
+  const faltas = detectarFaltas(secciones, respuestas);
+  const base = notaBase(secciones, respuestas);
+  if (base.porcentaje === null) return { porcentaje: null, clasificacion: null, areas: base.areas, faltas };
+  // Las faltas se restan de la nota final, sin bajar de 0.
+  const descuento = faltas.reduce((t, f) => t + f.descuento, 0);
+  const porcentaje = Math.max(0, Math.round(base.porcentaje - descuento));
+  return { porcentaje, clasificacion: clasificarPorcentaje(porcentaje), areas: base.areas, faltas };
+}
+
+function notaBase(
+  secciones: SeccionChecklist[],
+  respuestas: RespuestasChecklist
+): { porcentaje: number | null; areas: PuntajesArea | null } {
   const conAreas = secciones.some((s) => s.area);
 
   if (!conAreas) {
@@ -115,9 +166,7 @@ export function calcularPuntaje(
         }
       })
     );
-    if (cantidad === 0) return { porcentaje: null, clasificacion: null, areas: null };
-    const porcentaje = Math.round(suma / cantidad);
-    return { porcentaje, clasificacion: clasificarPorcentaje(porcentaje), areas: null };
+    return { porcentaje: cantidad === 0 ? null : suma / cantidad, areas: null };
   }
 
   const areas: PuntajesArea = {};
@@ -136,9 +185,7 @@ export function calcularPuntaje(
     }
   });
 
-  if (pesoUsado === 0) return { porcentaje: null, clasificacion: null, areas };
-  const porcentaje = Math.round(sumaPonderada / pesoUsado);
-  return { porcentaje, clasificacion: clasificarPorcentaje(porcentaje), areas };
+  return { porcentaje: pesoUsado === 0 ? null : sumaPonderada / pesoUsado, areas };
 }
 
 // "Cocina 80% · Salón 90% · Caja 100%" (omite las áreas sin nota), o null.

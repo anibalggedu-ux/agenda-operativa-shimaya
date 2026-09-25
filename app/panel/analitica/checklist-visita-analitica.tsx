@@ -37,7 +37,7 @@ import {
 } from "../checklist-visita-actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible } from "@/lib/fechas";
-import { textoPuntajesArea } from "@/lib/checklist-puntaje";
+import { textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist } from "@/lib/checklist-puntaje";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 function formatearValor(tipo: string, valor: any): string {
@@ -47,10 +47,28 @@ function formatearValor(tipo: string, valor: any): string {
   return String(valor);
 }
 
+function ListaFaltas({ faltas }: { faltas: FaltaChecklist[] | null | undefined }) {
+  if (!faltas || faltas.length === 0) return null;
+  return (
+    <div className="border border-marca-rojo/40 bg-marca-rojo/10 rounded-[3px] p-2.5">
+      <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest mb-1">
+        Faltas encontradas (−{faltas.reduce((t, f) => t + f.descuento, 0)} puntos)
+      </p>
+      <ul className="space-y-0.5">
+        {faltas.map((f, i) => (
+          <li key={i} className="text-marca-texto text-[11px]">
+            • {f.texto} <span className="text-marca-rojoclaro font-bold">(−{f.descuento})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function colorBarraPorcentaje(promedio: number): string {
-  if (promedio >= 90) return "#34d399";
-  if (promedio >= 75) return "#38bdf8";
-  if (promedio >= 60) return "#fbbf24";
+  if (promedio >= UMBRALES_CHECKLIST.excelente) return "#34d399";
+  if (promedio >= UMBRALES_CHECKLIST.bueno) return "#38bdf8";
+  if (promedio >= UMBRALES_CHECKLIST.requiereMejora) return "#fbbf24";
   return "#e23744";
 }
 
@@ -144,6 +162,7 @@ function DetalleChecklist({
       porcentaje: detalle.porcentaje,
       clasificacion: detalle.clasificacion,
       areas: detalle.areas,
+      faltas: detalle.faltas,
       fotos: await fotosGuardadasParaPdf(detalle.fotos),
     });
   }
@@ -165,6 +184,11 @@ function DetalleChecklist({
               </div>
               {textoPuntajesArea(detalle.areas) && (
                 <p className="text-marca-tenue text-[11px] font-bold mt-1">{textoPuntajesArea(detalle.areas)}</p>
+              )}
+              {detalle.faltas.length > 0 && (
+                <div className="mt-2">
+                  <ListaFaltas faltas={detalle.faltas} />
+                </div>
               )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -298,7 +322,7 @@ export default function ChecklistVisitaAnalitica({
           label="Promedio general"
           valor={datos.promedioGeneral === null ? "—" : `${datos.promedioGeneral}%`}
           sub="de la red"
-          bien={datos.promedioGeneral !== null && datos.promedioGeneral >= 75}
+          bien={datos.promedioGeneral !== null && datos.promedioGeneral >= UMBRALES_CHECKLIST.bueno}
         />
         <Kpi label="Acción inmediata" valor={String(datos.totalAccionInmediata)} sub="checklists críticos" />
         <Kpi
