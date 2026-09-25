@@ -93,6 +93,23 @@ function credencialesR2(): { accessKeyId: string; secretAccessKey: string } | nu
   return { accessKeyId: id, secretAccessKey: secreto };
 }
 
+// Describe la forma de cada variable R2 sin mostrar su valor (solo largo y
+// si es hexadecimal) para diagnosticar una configuración incorrecta.
+export function diagnosticoR2(): string[] {
+  const forma = (nombre: string, esperado: string) => {
+    const v = (process.env[nombre] ?? "").trim();
+    if (!v) return `${nombre}: vacía (debe tener ${esperado})`;
+    const hex = /^[0-9a-f]+$/i.test(v);
+    return `${nombre}: ${v.length} caracteres${hex ? "" : ", no solo 0-9/a-f"} (debe tener ${esperado})`;
+  };
+  return [
+    `R2_ACCOUNT_ID: ${idCuentaR2() ? "válido" : "no contiene un ID de cuenta de 32 caracteres"}`,
+    forma("R2_ACCESS_KEY_ID", "32 caracteres 0-9/a-f"),
+    forma("R2_SECRET_ACCESS_KEY", "64 caracteres 0-9/a-f"),
+    `R2_BUCKET: ${variableR2("R2_BUCKET") ? "con valor" : "vacía"}`,
+  ];
+}
+
 let avisoConfiguracionR2 = false;
 
 export function r2Configurado(): boolean {
@@ -106,7 +123,7 @@ export function r2Configurado(): boolean {
   if (hayAlgo && !completo && !avisoConfiguracionR2) {
     avisoConfiguracionR2 = true;
     console.error(
-      "Cloudflare R2 mal configurado (R2_ACCOUNT_ID: ID de cuenta de 32 caracteres; R2_ACCESS_KEY_ID: 32 caracteres; R2_SECRET_ACCESS_KEY: 64 caracteres; R2_BUCKET): se sigue usando Vercel Blob."
+      `Cloudflare R2 mal configurado, se sigue usando Vercel Blob. ${diagnosticoR2().join("; ")}`
     );
   }
   return completo;
