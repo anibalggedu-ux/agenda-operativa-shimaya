@@ -118,6 +118,8 @@ function VisorHistorias({
   onCerrar,
   onEliminada,
   onVista,
+  onGrupoSiguiente,
+  onGrupoAnterior,
 }: {
   grupo: GrupoHistorias;
   indiceInicial: number;
@@ -126,6 +128,11 @@ function VisorHistorias({
   onCerrar: () => void;
   onEliminada: () => void;
   onVista: (historiaId: string) => void;
+  // Al terminar la última historia (o tocar "Siguiente" en ella) se pasa a
+  // la persona que sigue, como en WhatsApp; si no hay más, se cierra.
+  onGrupoSiguiente: () => void;
+  // Tocar "Anterior" en la primera historia vuelve a la persona anterior.
+  onGrupoAnterior: (() => void) | null;
 }) {
   const [indice, setIndice] = useState(indiceInicial);
   const [confirmando, setConfirmando] = useState(false);
@@ -178,7 +185,7 @@ function VisorHistorias({
   }, [historia.id]);
 
   // Auto-avance: la foto actual se llena sola y pasa a la siguiente, como en
-  // WhatsApp/Instagram -- se detiene en la última en vez de cerrar solo.
+  // WhatsApp/Instagram; al terminar la última pasa a la persona que sigue.
   useEffect(() => {
     setProgreso(0);
     acumuladoRef.current = 0;
@@ -192,6 +199,7 @@ function VisorHistorias({
         setProgreso(p);
         if (p >= 1) {
           if (!esUltima) setIndice((i) => i + 1);
+          else onGrupoSiguiente();
           return;
         }
       }
@@ -240,8 +248,11 @@ function VisorHistorias({
       tapPendienteRef.current = null;
       if (esIzquierda) {
         if (indice > 0) setIndice((i) => i - 1);
+        else onGrupoAnterior?.();
       } else if (!esUltima) {
         setIndice((i) => i + 1);
+      } else {
+        onGrupoSiguiente();
       }
     }, 280);
   }
@@ -322,7 +333,7 @@ function VisorHistorias({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4"
       onClick={onCerrar}
     >
       <div
@@ -521,6 +532,10 @@ function VisorHistorias({
         <div className="flex items-center gap-2 mt-2">
           <input
             value={comentarioTexto}
+            onFocus={pausar}
+            onBlur={() => {
+              if (!comentarioTexto.trim()) reanudar();
+            }}
             onChange={(e) => setComentarioTexto(e.target.value.slice(0, COMENTARIO_MAXIMO))}
             onKeyDown={(e) => {
               if (e.key === "Enter") enviarComentario();
@@ -540,15 +555,14 @@ function VisorHistorias({
 
         <div className="flex justify-between mt-3 text-xs font-bold">
           <button
-            disabled={indice === 0}
-            onClick={() => setIndice((i) => i - 1)}
+            disabled={indice === 0 && !onGrupoAnterior}
+            onClick={() => (indice > 0 ? setIndice((i) => i - 1) : onGrupoAnterior?.())}
             className="text-white/70 hover:text-white disabled:opacity-30 disabled:hover:text-white/70"
           >
             ← Anterior
           </button>
           <button
-            disabled={indice === grupo.historias.length - 1}
-            onClick={() => setIndice((i) => i + 1)}
+            onClick={() => (esUltima ? onGrupoSiguiente() : setIndice((i) => i + 1))}
             className="text-white/70 hover:text-white disabled:opacity-30 disabled:hover:text-white/70"
           >
             Siguiente →
@@ -722,6 +736,25 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
 
+  // Como en WhatsApp: se abre en la primera historia que no has visto (o en
+  // la primera, si ya viste todas).
+  function abrirGrupo(g: GrupoHistorias, desdeElFinal = false) {
+    if (desdeElFinal) {
+      setVisor({ grupo: g, indice: g.historias.length - 1 });
+      return;
+    }
+    const primeraSinVer = g.historias.findIndex((h) => !h.vistoPorMi && !vistosLocalmente.has(h.id));
+    setVisor({ grupo: g, indice: g.usuarioId === miUsuarioId || primeraSinVer < 0 ? 0 : primeraSinVer });
+  }
+
+  const posicionVisor = visor ? grupos.findIndex((g) => g.usuarioId === visor.grupo.usuarioId) : -1;
+
+  function irAlGrupoSiguiente() {
+    const siguiente = posicionVisor >= 0 ? grupos[posicionVisor + 1] : undefined;
+    if (siguiente) abrirGrupo(siguiente);
+    else setVisor(null);
+  }
+
   function cargar() {
     obtenerFeedHistorias()
       .then(setGrupos)
@@ -863,7 +896,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             <button
               key={g.usuarioId}
               type="button"
-              onClick={() => setVisor({ grupo: g, indice: g.historias.length - 1 })}
+              onClick={() => abrirGrupo(g)}
               className="shrink-0 flex flex-col items-center gap-1 w-16"
             >
               <span className="relative w-14 h-14">
@@ -1024,6 +1057,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
 
       {visor && (
         <VisorHistorias
+          key={visor.grupo.usuarioId}
           grupo={visor.grupo}
           indiceInicial={visor.indice}
           miUsuarioId={miUsuarioId}
@@ -1034,6 +1068,8 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             cargar();
           }}
           onVista={(historiaId) => setVistosLocalmente((prev) => new Set(prev).add(historiaId))}
+          onGrupoSiguiente={irAlGrupoSiguiente}
+          onGrupoAnterior={posicionVisor > 0 ? () => abrirGrupo(grupos[posicionVisor - 1], true) : null}
         />
       )}
     </div>
