@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { list } from "@vercel/blob";
 import { obtenerSesion } from "@/lib/session";
-import { almacenes, r2Configurado } from "@/lib/almacen-fotos";
+import { almacenes, diagnosticoR2, r2Configurado } from "@/lib/almacen-fotos";
 
 // Migración única de las fotos que ya estaban en Vercel Blob a Cloudflare R2,
 // con la misma ruta ("carpeta/archivo") para que las referencias guardadas
@@ -31,7 +31,7 @@ export async function GET() {
   if (!r2Configurado()) {
     return pagina(
       "Falta configurar Cloudflare R2",
-      "Agrega en Vercel las variables R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET, vuelve a publicar y abre este enlace de nuevo.",
+      `Revisa en Vercel las variables R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET, vuelve a publicar y abre este enlace de nuevo.<br><br>${diagnosticoR2().join("<br>")}`,
       400
     );
   }
