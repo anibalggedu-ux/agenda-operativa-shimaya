@@ -36,7 +36,10 @@ export function SelectorFotosEvidencia({
   onCambiar: (fotos: FotoPendiente[]) => void;
   bloqueado?: boolean;
 }) {
-  const input = useRef<HTMLInputElement>(null);
+  // Dos entradas: la cámara (capture abre la cámara trasera directo, una
+  // foto por vez) y la galería (varias a la vez), igual que en Historias.
+  const inputCamara = useRef<HTMLInputElement>(null);
+  const inputGaleria = useRef<HTMLInputElement>(null);
   const [procesando, setProcesando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const quedan = MAX_FOTOS_EVIDENCIA - fotos.length;
@@ -65,7 +68,8 @@ export function SelectorFotosEvidencia({
     }
     setProcesando(false);
     onCambiar([...fotos, ...nuevas]);
-    if (input.current) input.current.value = "";
+    if (inputCamara.current) inputCamara.current.value = "";
+    if (inputGaleria.current) inputGaleria.current.value = "";
   }
 
   return (
@@ -139,23 +143,48 @@ export function SelectorFotosEvidencia({
       {!bloqueado && quedan > 0 && (
         <>
           <input
-            ref={input}
-            id="fotos-evidencia-archivos"
+            ref={inputCamara}
+            id="fotos-evidencia-camara"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => agregar(e.target.files)}
+          />
+          <input
+            ref={inputGaleria}
+            id="fotos-evidencia-galeria"
             type="file"
             accept="image/*"
             multiple
             className="hidden"
             onChange={(e) => agregar(e.target.files)}
           />
-          <button
-            type="button"
-            onClick={() => input.current?.click()}
-            disabled={procesando}
-            className="w-full border border-dashed border-marca-borde hover:border-marca-rojoclaro text-marca-tenue hover:text-marca-texto font-bold py-3 rounded-[3px] text-[11px] tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <ImagePlus className="w-4 h-4" />
-            {procesando ? "Preparando fotos..." : fotos.length === 0 ? "Agregar fotos" : `Agregar más (quedan ${quedan})`}
-          </button>
+          {procesando ? (
+            <p className="text-marca-tenue text-[11px] text-center py-3 animate-pulse">Preparando fotos...</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => inputCamara.current?.click()}
+                className="border border-dashed border-marca-borde hover:border-marca-rojoclaro text-marca-tenue hover:text-marca-texto font-bold py-3 rounded-[3px] text-[11px] tracking-widest uppercase flex items-center justify-center gap-2"
+              >
+                <Camera className="w-4 h-4" /> Tomar foto
+              </button>
+              <button
+                type="button"
+                onClick={() => inputGaleria.current?.click()}
+                className="border border-dashed border-marca-borde hover:border-marca-rojoclaro text-marca-tenue hover:text-marca-texto font-bold py-3 rounded-[3px] text-[11px] tracking-widest uppercase flex items-center justify-center gap-2"
+              >
+                <ImagePlus className="w-4 h-4" /> Galería
+              </button>
+            </div>
+          )}
+          {fotos.length > 0 && (
+            <p className="text-marca-tenue text-[10px] text-center">
+              Puedes agregar {quedan} foto{quedan === 1 ? "" : "s"} más.
+            </p>
+          )}
         </>
       )}
       {aviso && <p className="text-amber-400 text-[11px] font-bold">{aviso}</p>}
