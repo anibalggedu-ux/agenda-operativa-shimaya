@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight } from "lucide-react";
+import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -246,6 +246,14 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
               <BedDouble className="w-3.5 h-3.5 text-marca-rojoclaro" /> Descanso semanal
             </span>
             <span className="text-marca-textofuerte text-xs font-bold">{textoDescanso}</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5">
+            <span className="flex items-center gap-2 text-marca-tenue text-xs">
+              <Cake className="w-3.5 h-3.5 text-marca-rojoclaro" /> Edad
+            </span>
+            <span className="text-marca-textofuerte text-xs font-bold">
+              {perfil.edad !== null ? `${perfil.edad} año${perfil.edad !== 1 ? "s" : ""}` : "No registrada"}
+            </span>
           </div>
           <div className="flex items-center justify-between py-2.5">
             <span className="flex items-center gap-2 text-marca-tenue text-xs">
