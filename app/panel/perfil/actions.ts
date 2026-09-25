@@ -19,6 +19,8 @@ export type PerfilCompleto = {
   fotoUrl: string | null;
   diasDescanso: string[];
   antiguedad: { anios: number; meses: number } | null;
+  // Años cumplidos según usuarios.fecha_nacimiento; null si no está cargada.
+  edad: number | null;
   proximoAniversario: { fecha: string; diasFaltantes: number } | null;
   // false para gerente -- no participa del sistema de puntos, así que no
   // aparece en la Vitrina de Trofeos y esta sección no se muestra.
@@ -63,7 +65,7 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
   const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("nombre, rol, dias_descanso, fecha_ingreso, tiene_foto_perfil")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, tiene_foto_perfil")
       .eq("id", objetivoId)
       .maybeSingle(),
     obtenerVitrinaTrofeos(),
@@ -84,6 +86,8 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
     proximoAniversario = calcularProximaFechaAnual(mIng, dIng, hoy);
   }
 
+  const edad = usuario.fecha_nacimiento ? calcularAntiguedad(usuario.fecha_nacimiento, hoyPeru()).anios : null;
+
   const indice = vitrina.findIndex((f) => f.usuarioId === objetivoId);
   const propio = indice >= 0 ? vitrina[indice] : null;
 
@@ -95,6 +99,7 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
     fotoUrl,
     diasDescanso: usuario.dias_descanso ?? [],
     antiguedad,
+    edad,
     proximoAniversario,
     tienePuntos: propio !== null,
     puntos: propio?.puntos ?? 0,
