@@ -67,13 +67,42 @@ const almacenVercel: AlmacenFotos = {
 
 // ---------- Cloudflare R2 (API compatible con S3) ----------
 
+// El ID de cuenta de Cloudflare son 32 caracteres hexadecimales. Se acepta
+// también si se pegó la dirección completa de "API S3"
+// (https://<id>.r2.cloudflarestorage.com): se extrae el ID. Con un ID
+// inválido Cloudflare corta la conexión (SSL handshake failure) y ninguna
+// foto se podría subir, así que en ese caso se sigue usando Vercel Blob.
+function idCuentaR2(): string | null {
+  const m = (process.env.R2_ACCOUNT_ID ?? "").trim().toLowerCase().match(/[0-9a-f]{32}/);
+  return m ? m[0] : null;
+}
+
+function variableR2(nombre: "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" | "R2_BUCKET"): string {
+  return (process.env[nombre] ?? "").trim();
+}
+
+let avisoConfiguracionR2 = false;
+
 export function r2Configurado(): boolean {
-  return !!(
-    process.env.R2_ACCOUNT_ID &&
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
+  const hayAlgo = !!(
+    process.env.R2_ACCOUNT_ID ||
+    process.env.R2_ACCESS_KEY_ID ||
+    process.env.R2_SECRET_ACCESS_KEY ||
     process.env.R2_BUCKET
   );
+  const completo = !!(
+    idCuentaR2() &&
+    variableR2("R2_ACCESS_KEY_ID") &&
+    variableR2("R2_SECRET_ACCESS_KEY") &&
+    variableR2("R2_BUCKET")
+  );
+  if (hayAlgo && !completo && !avisoConfiguracionR2) {
+    avisoConfiguracionR2 = true;
+    console.error(
+      "Cloudflare R2 mal configurado (R2_ACCOUNT_ID debe ser el ID de cuenta de 32 caracteres, y deben estar R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET): se sigue usando Vercel Blob."
+    );
+  }
+  return completo;
 }
 
 let clienteR2: S3Client | null = null;
@@ -82,10 +111,13 @@ function obtenerClienteR2(): S3Client {
   if (!clienteR2) {
     clienteR2 = new S3Client({
       region: "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${idCuentaR2()}.r2.cloudflarestorage.com`,
+      // Dirección "<id>.r2.cloudflarestorage.com/<bucket>/<archivo>" en vez de
+      // "<bucket>.<id>...": no depende de subdominios por bucket.
+      forcePathStyle: true,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
+        accessKeyId: variableR2("R2_ACCESS_KEY_ID"),
+        secretAccessKey: variableR2("R2_SECRET_ACCESS_KEY"),
       },
       // Las versiones nuevas del SDK agregan checksums CRC32 a cada subida
       // por defecto; R2 no los acepta en todos los casos. Solo cuando la
@@ -98,7 +130,7 @@ function obtenerClienteR2(): S3Client {
 }
 
 function bucketR2(): string {
-  return process.env.R2_BUCKET as string;
+  return variableR2("R2_BUCKET");
 }
 
 const almacenR2: AlmacenFotos = {
