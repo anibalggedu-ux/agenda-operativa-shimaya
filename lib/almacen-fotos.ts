@@ -81,6 +81,18 @@ function variableR2(nombre: "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" | "R2_BU
   return (process.env[nombre] ?? "").trim();
 }
 
+// Las credenciales S3 de R2 son un Access Key ID de 32 caracteres
+// hexadecimales y un Secret Access Key de 64. Si se cargaron al revés
+// (pasó en producción: "Credential access key has length 64, should be
+// 32") se acomodan solas; si no tienen esa forma, no se usa R2.
+function credencialesR2(): { accessKeyId: string; secretAccessKey: string } | null {
+  let id = variableR2("R2_ACCESS_KEY_ID");
+  let secreto = variableR2("R2_SECRET_ACCESS_KEY");
+  if (id.length === 64 && secreto.length === 32) [id, secreto] = [secreto, id];
+  if (!/^[0-9a-f]{32}$/i.test(id) || !/^[0-9a-f]{64}$/i.test(secreto)) return null;
+  return { accessKeyId: id, secretAccessKey: secreto };
+}
+
 let avisoConfiguracionR2 = false;
 
 export function r2Configurado(): boolean {
@@ -90,16 +102,11 @@ export function r2Configurado(): boolean {
     process.env.R2_SECRET_ACCESS_KEY ||
     process.env.R2_BUCKET
   );
-  const completo = !!(
-    idCuentaR2() &&
-    variableR2("R2_ACCESS_KEY_ID") &&
-    variableR2("R2_SECRET_ACCESS_KEY") &&
-    variableR2("R2_BUCKET")
-  );
+  const completo = !!(idCuentaR2() && credencialesR2() && variableR2("R2_BUCKET"));
   if (hayAlgo && !completo && !avisoConfiguracionR2) {
     avisoConfiguracionR2 = true;
     console.error(
-      "Cloudflare R2 mal configurado (R2_ACCOUNT_ID debe ser el ID de cuenta de 32 caracteres, y deben estar R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET): se sigue usando Vercel Blob."
+      "Cloudflare R2 mal configurado (R2_ACCOUNT_ID: ID de cuenta de 32 caracteres; R2_ACCESS_KEY_ID: 32 caracteres; R2_SECRET_ACCESS_KEY: 64 caracteres; R2_BUCKET): se sigue usando Vercel Blob."
     );
   }
   return completo;
@@ -115,10 +122,7 @@ function obtenerClienteR2(): S3Client {
       // Dirección "<id>.r2.cloudflarestorage.com/<bucket>/<archivo>" en vez de
       // "<bucket>.<id>...": no depende de subdominios por bucket.
       forcePathStyle: true,
-      credentials: {
-        accessKeyId: variableR2("R2_ACCESS_KEY_ID"),
-        secretAccessKey: variableR2("R2_SECRET_ACCESS_KEY"),
-      },
+      credentials: credencialesR2() as { accessKeyId: string; secretAccessKey: string },
       // Las versiones nuevas del SDK agregan checksums CRC32 a cada subida
       // por defecto; R2 no los acepta en todos los casos. Solo cuando la
       // operación los exige (ej. borrar varios).
