@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { textoPuntajesArea, type PuntajesArea } from "./checklist-puntaje";
 import { formatearFechaLegible, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
 import { formatearMinutos } from "./distancia";
 
@@ -1178,6 +1179,8 @@ export type DatosChecklistVisitaPdf = {
   secciones: SeccionChecklistVisitaPdf[];
   porcentaje?: number | null;
   clasificacion?: string | null;
+  // Nota por área (Cocina, Salón...), si el checklist la tiene.
+  areas?: PuntajesArea | null;
   fotos?: FotoPdf[];
 };
 
@@ -1206,6 +1209,13 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
     doc.text(`Puntaje: ${datos.porcentaje}% — ${datos.clasificacion ?? ""}`, 14, y);
     doc.setTextColor(0, 0, 0);
     y += 8;
+    const porArea = textoPuntajesArea(datos.areas);
+    if (porArea) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text(porArea, 14, y - 2);
+      y += 4;
+    }
   }
   y += 3;
 

@@ -6,6 +6,17 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { enviarCorreo, URL_APP } from "@/lib/email";
 import { formatearFechaLegible } from "@/lib/fechas";
+import {
+  AREAS_CHECKLIST,
+  calcularPuntaje,
+  puntajeSeccion,
+  textoPuntajesArea,
+  type AreaChecklist,
+  type ClasificacionChecklist,
+  type PuntajesArea,
+  type RespuestasChecklist,
+  type SeccionChecklist,
+} from "@/lib/checklist-puntaje";
 
 // ---------------------------------------------------------------------
 // Checklist de rutina de visita: formulario opcional que capacitadores,
@@ -17,83 +28,22 @@ import { formatearFechaLegible } from "@/lib/fechas";
 // cambia una vez creada la pregunta (ver esa nota en el admin).
 // ---------------------------------------------------------------------
 
-export type TipoItemChecklist = "escala_5" | "si_no" | "opciones" | "texto" | "numero";
+export type {
+  TipoItemChecklist,
+  ItemChecklist,
+  SeccionChecklist,
+  RespuestasChecklist,
+  ClasificacionChecklist,
+  AreaChecklist,
+  PuntajesArea,
+} from "@/lib/checklist-puntaje";
 
-export type ItemChecklist = {
-  clave: string;
-  etiqueta: string;
-  tipo: TipoItemChecklist;
-  opciones?: string[];
-  // Puntaje 0-100 por cada opción posible -- solo para tipo "opciones". Si no
-  // está definido, la pregunta es informativa y no cuenta en el puntaje final
-  // (ej. "qué se visualiza" en TV no tiene una respuesta "mejor" que otra).
-  puntajes?: Record<string, number>;
-  // Solo para tipo "si_no": qué respuesta vale 100% -- por defecto "si" (la
-  // mayoría de preguntas sí/no son "sí es bueno"), pero algo como
-  // "¿Contaminación cruzada?" es al revés (no es lo bueno).
-  siNoBueno?: "si" | "no";
-};
-
-export type SeccionChecklist = {
-  clave: string;
-  titulo: string;
-  items: ItemChecklist[];
-};
-
-export type RespuestasChecklist = Record<string, Record<string, string | number | null>>;
-
-export type ClasificacionChecklist = "Excelente" | "Bueno" | "Requiere mejora" | "Acción inmediata";
-
-function clasificarPorcentaje(porcentaje: number): ClasificacionChecklist {
-  if (porcentaje >= 90) return "Excelente";
-  if (porcentaje >= 75) return "Bueno";
-  if (porcentaje >= 60) return "Requiere mejora";
-  return "Acción inmediata";
-}
-
-// Puntaje 0-100 de una sola respuesta, o null si el tipo de pregunta no
-// puntúa (texto, número, opciones sin puntajes configurados) o si no se
-// respondió. Punto único de esta regla -- lo usan tanto el puntaje general
-// de un checklist como el promedio por sección en Central Analítica.
-function puntajeItem(it: ItemChecklist, valor: string | number | null | undefined): number | null {
-  if (valor === null || valor === undefined || valor === "") return null;
-  if (it.tipo === "escala_5" && typeof valor === "number") return (valor / 5) * 100;
-  if (it.tipo === "si_no") {
-    const esSi = valor === "true";
-    const bueno = it.siNoBueno === "no" ? !esSi : esSi;
-    return bueno ? 100 : 0;
-  }
-  if (it.tipo === "opciones" && it.puntajes && typeof valor === "string") {
-    const p = it.puntajes[valor];
-    return p !== undefined ? p : null;
-  }
-  return null;
-}
-
-// Solo escala_5, si_no, y opciones-con-puntajes-definidos cuentan para el
-// puntaje final -- texto, número, y opciones sin puntajes configurados son
-// informativos y se ignoran. Preguntas sin responder tampoco cuentan (no se
-// penaliza por dejar algo en blanco en un checklist opcional).
+// Nota final ponderada por área -- ver lib/checklist-puntaje.ts.
 export async function calcularPuntajeChecklist(
   secciones: SeccionChecklist[],
   respuestas: RespuestasChecklist
-): Promise<{ porcentaje: number | null; clasificacion: ClasificacionChecklist | null }> {
-  let suma = 0;
-  let cantidad = 0;
-
-  secciones.forEach((s) => {
-    s.items.forEach((it) => {
-      const puntaje = puntajeItem(it, respuestas[s.clave]?.[it.clave]);
-      if (puntaje !== null) {
-        suma += puntaje;
-        cantidad++;
-      }
-    });
-  });
-
-  if (cantidad === 0) return { porcentaje: null, clasificacion: null };
-  const porcentaje = Math.round(suma / cantidad);
-  return { porcentaje, clasificacion: clasificarPorcentaje(porcentaje) };
+): Promise<{ porcentaje: number | null; clasificacion: ClasificacionChecklist | null; areas: PuntajesArea | null }> {
+  return calcularPuntaje(secciones, respuestas);
 }
 
 async function exigirRolConChecklist() {
@@ -128,6 +78,7 @@ export type ResultadoChecklist = {
   id?: string;
   porcentaje?: number | null;
   clasificacion?: ClasificacionChecklist | null;
+  areas?: PuntajesArea | null;
 };
 
 const ENLACE_CHECKLIST = (id: string) => `${URL_APP}/panel/supervisor?seccion=analitica&checklist=${id}`;
@@ -143,6 +94,7 @@ async function notificarEncargadoChecklist(
   checklistId: string,
   porcentaje: number | null,
   clasificacion: ClasificacionChecklist | null,
+  areas: PuntajesArea | null,
   usuarioNombre: string,
   fecha: string
 ): Promise<void> {
@@ -175,7 +127,9 @@ async function notificarEncargadoChecklist(
       cuerpoHtml: `
         <p><strong>${usuarioNombre}</strong> llenó el checklist de rutina de visita en tu tienda fija
         <strong>${tiendaNombre}</strong> el ${formatearFechaLegible(fecha)}.</p>
-        <p style="margin:0 0 16px;"><strong>Puntaje:</strong> ${textoPuntaje}</p>
+        <p style="margin:0 0 16px;"><strong>Puntaje:</strong> ${textoPuntaje}${
+          textoPuntajesArea(areas) ? `<br>${textoPuntajesArea(areas)}` : ""
+        }</p>
         <p style="margin:0 0 16px;">
           <a href="${ENLACE_CHECKLIST(checklistId)}" style="color:#e23744; font-weight:700;">Ver los resultados completos →</a>
         </p>
@@ -198,7 +152,7 @@ export async function guardarChecklistVisita(
   }
 
   const secciones = await obtenerPlantillaChecklistVisita();
-  const { porcentaje, clasificacion } = await calcularPuntajeChecklist(secciones, respuestas);
+  const { porcentaje, clasificacion, areas } = calcularPuntaje(secciones, respuestas);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -212,6 +166,7 @@ export async function guardarChecklistVisita(
       respuestas,
       porcentaje,
       clasificacion,
+      puntajes_area: areas,
     })
     .select("id")
     .single();
@@ -224,11 +179,12 @@ export async function guardarChecklistVisita(
     data.id,
     porcentaje,
     clasificacion,
+    areas,
     sesion.nombre,
     fecha
   );
 
-  return { exito: true, id: data.id, porcentaje, clasificacion };
+  return { exito: true, id: data.id, porcentaje, clasificacion, areas };
 }
 
 export type ChecklistVisitaResumen = {
@@ -281,10 +237,13 @@ export type ChecklistVisitaDetalle = {
   respuestas: RespuestasChecklist;
   porcentaje: number | null;
   clasificacion: ClasificacionChecklist | null;
+  // null en checklists guardados antes de la nota por áreas.
+  areas: PuntajesArea | null;
 };
 
 export type PromedioTienda = { tiendaNombre: string; promedio: number };
 export type PromedioSeccion = { seccion: string; promedio: number };
+export type PromedioArea = { area: AreaChecklist; nombre: string; peso: number; promedio: number };
 export type ChecklistsPorDia = { fecha: string; cantidad: number };
 export type AlertaChecklistCritica = {
   id: string;
@@ -304,6 +263,7 @@ export type AgregadosChecklistVisita = {
   checklistsPorDia: ChecklistsPorDia[];
   promedioGeneralPorTienda: PromedioTienda[];
   promedioPorSeccion: PromedioSeccion[];
+  promedioPorArea: PromedioArea[];
 };
 
 export async function obtenerAgregadosChecklistVisita(
@@ -317,7 +277,7 @@ export async function obtenerAgregadosChecklistVisita(
   const [{ data, error }, secciones] = await Promise.all([
     supabase
       .from("checklists_visita")
-      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
+      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, tiendas(nombre)")
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
@@ -388,17 +348,8 @@ export async function obtenerAgregadosChecklistVisita(
   const seccionAcum = new Map<string, { suma: number; n: number }>();
   filas.forEach((c) => {
     secciones.forEach((s) => {
-      let suma = 0;
-      let cantidad = 0;
-      s.items.forEach((it) => {
-        const puntaje = puntajeItem(it, c.respuestas?.[s.clave]?.[it.clave]);
-        if (puntaje !== null) {
-          suma += puntaje;
-          cantidad++;
-        }
-      });
-      if (cantidad === 0) return;
-      const subPuntaje = suma / cantidad;
+      const subPuntaje = puntajeSeccion(s, c.respuestas);
+      if (subPuntaje === null) return;
       const actual = seccionAcum.get(s.titulo) ?? { suma: 0, n: 0 };
       seccionAcum.set(s.titulo, { suma: actual.suma + subPuntaje, n: actual.n + 1 });
     });
@@ -406,6 +357,23 @@ export async function obtenerAgregadosChecklistVisita(
   const promedioPorSeccion = Array.from(seccionAcum.entries())
     .map(([seccion, { suma, n }]) => ({ seccion, promedio: Math.round(suma / n) }))
     .sort((a, b) => b.promedio - a.promedio);
+
+  // ---- Promedio por área: de la nota por área guardada en cada checklist
+  // (solo los guardados desde que existe la nota por áreas). ----
+  const promedioPorArea: PromedioArea[] = AREAS_CHECKLIST.flatMap((a) => {
+    const notas = filas
+      .map((c) => (c.puntajes_area as PuntajesArea | null)?.[a.clave])
+      .filter((n): n is number => typeof n === "number");
+    if (notas.length === 0) return [];
+    return [
+      {
+        area: a.clave,
+        nombre: a.nombre,
+        peso: a.peso,
+        promedio: Math.round(notas.reduce((x, y) => x + y, 0) / notas.length),
+      },
+    ];
+  });
 
   return {
     resumen,
@@ -417,6 +385,7 @@ export async function obtenerAgregadosChecklistVisita(
     checklistsPorDia,
     promedioGeneralPorTienda,
     promedioPorSeccion,
+    promedioPorArea,
   };
 }
 
@@ -427,7 +396,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -442,6 +411,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     respuestas: data.respuestas as unknown as RespuestasChecklist,
     porcentaje: data.porcentaje,
     clasificacion: data.clasificacion as ClasificacionChecklist | null,
+    areas: ((data as any).puntajes_area as PuntajesArea | null) ?? null,
     fotos: await cargarFotosEvidencia(supabase, "checklist", data.id),
   };
 }
