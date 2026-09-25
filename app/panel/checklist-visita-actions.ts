@@ -13,6 +13,7 @@ import {
   textoPuntajesArea,
   type AreaChecklist,
   type ClasificacionChecklist,
+  type FaltaChecklist,
   type PuntajesArea,
   type RespuestasChecklist,
   type SeccionChecklist,
@@ -36,13 +37,14 @@ export type {
   ClasificacionChecklist,
   AreaChecklist,
   PuntajesArea,
+  FaltaChecklist,
 } from "@/lib/checklist-puntaje";
 
 // Nota final ponderada por área -- ver lib/checklist-puntaje.ts.
 export async function calcularPuntajeChecklist(
   secciones: SeccionChecklist[],
   respuestas: RespuestasChecklist
-): Promise<{ porcentaje: number | null; clasificacion: ClasificacionChecklist | null; areas: PuntajesArea | null }> {
+): Promise<ReturnType<typeof calcularPuntaje>> {
   return calcularPuntaje(secciones, respuestas);
 }
 
@@ -79,6 +81,7 @@ export type ResultadoChecklist = {
   porcentaje?: number | null;
   clasificacion?: ClasificacionChecklist | null;
   areas?: PuntajesArea | null;
+  faltas?: FaltaChecklist[];
 };
 
 const ENLACE_CHECKLIST = (id: string) => `${URL_APP}/panel/supervisor?seccion=analitica&checklist=${id}`;
@@ -95,6 +98,7 @@ async function notificarEncargadoChecklist(
   porcentaje: number | null,
   clasificacion: ClasificacionChecklist | null,
   areas: PuntajesArea | null,
+  faltas: FaltaChecklist[],
   usuarioNombre: string,
   fecha: string
 ): Promise<void> {
@@ -130,6 +134,13 @@ async function notificarEncargadoChecklist(
         <p style="margin:0 0 16px;"><strong>Puntaje:</strong> ${textoPuntaje}${
           textoPuntajesArea(areas) ? `<br>${textoPuntajesArea(areas)}` : ""
         }</p>
+        ${
+          faltas.length > 0
+            ? `<p style="margin:0 0 6px;"><strong>Faltas encontradas:</strong></p><ul style="margin:0 0 16px;">${faltas
+                .map((f) => `<li>${f.texto} (−${f.descuento})</li>`)
+                .join("")}</ul>`
+            : ""
+        }
         <p style="margin:0 0 16px;">
           <a href="${ENLACE_CHECKLIST(checklistId)}" style="color:#e23744; font-weight:700;">Ver los resultados completos →</a>
         </p>
@@ -152,7 +163,7 @@ export async function guardarChecklistVisita(
   }
 
   const secciones = await obtenerPlantillaChecklistVisita();
-  const { porcentaje, clasificacion, areas } = calcularPuntaje(secciones, respuestas);
+  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(secciones, respuestas);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -167,6 +178,7 @@ export async function guardarChecklistVisita(
       porcentaje,
       clasificacion,
       puntajes_area: areas,
+      faltas,
     })
     .select("id")
     .single();
@@ -180,11 +192,12 @@ export async function guardarChecklistVisita(
     porcentaje,
     clasificacion,
     areas,
+    faltas,
     sesion.nombre,
     fecha
   );
 
-  return { exito: true, id: data.id, porcentaje, clasificacion, areas };
+  return { exito: true, id: data.id, porcentaje, clasificacion, areas, faltas };
 }
 
 export type ChecklistVisitaResumen = {
@@ -239,6 +252,7 @@ export type ChecklistVisitaDetalle = {
   clasificacion: ClasificacionChecklist | null;
   // null en checklists guardados antes de la nota por áreas.
   areas: PuntajesArea | null;
+  faltas: FaltaChecklist[];
 };
 
 export type PromedioTienda = { tiendaNombre: string; promedio: number };
@@ -396,7 +410,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -412,6 +426,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     porcentaje: data.porcentaje,
     clasificacion: data.clasificacion as ClasificacionChecklist | null,
     areas: ((data as any).puntajes_area as PuntajesArea | null) ?? null,
+    faltas: ((data as any).faltas as FaltaChecklist[] | null) ?? [],
     fotos: await cargarFotosEvidencia(supabase, "checklist", data.id),
   };
 }

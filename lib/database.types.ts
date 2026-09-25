@@ -349,6 +349,7 @@ export type Database = {
           leido: boolean | null
           porcentaje: number | null
           puntajes_area: Json | null
+          faltas: Json | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -363,6 +364,7 @@ export type Database = {
           leido?: boolean | null
           porcentaje?: number | null
           puntajes_area?: Json | null
+          faltas?: Json | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -377,6 +379,7 @@ export type Database = {
           leido?: boolean | null
           porcentaje?: number | null
           puntajes_area?: Json | null
+          faltas?: Json | null
           respuestas?: Json
           rol?: string
           tienda_id?: string

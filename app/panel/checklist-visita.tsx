@@ -13,7 +13,7 @@ import {
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { hoyPeru } from "@/lib/fechas";
-import { textoPuntajesArea, type PuntajesArea } from "@/lib/checklist-puntaje";
+import { textoPuntajesArea, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
 import {
   AvisoFotosPendientes,
   fotosPendientesParaPdf,
@@ -24,6 +24,24 @@ import {
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
+
+function ListaFaltas({ faltas }: { faltas: FaltaChecklist[] | null | undefined }) {
+  if (!faltas || faltas.length === 0) return null;
+  return (
+    <div className="border border-marca-rojo/40 bg-marca-rojo/10 rounded-[3px] p-2.5">
+      <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest mb-1">
+        Faltas encontradas (−{faltas.reduce((t, f) => t + f.descuento, 0)} puntos)
+      </p>
+      <ul className="space-y-0.5">
+        {faltas.map((f, i) => (
+          <li key={i} className="text-marca-texto text-[11px]">
+            • {f.texto} <span className="text-marca-rojoclaro font-bold">(−{f.descuento})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function claseColorClasificacion(clasificacion: ClasificacionChecklist | null): string {
   switch (clasificacion) {
@@ -176,6 +194,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     porcentaje: number | null;
     clasificacion: ClasificacionChecklist | null;
     areas: PuntajesArea | null;
+    faltas: FaltaChecklist[];
   } | null>(null);
 
   useEffect(() => {
@@ -220,6 +239,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         porcentaje: resp.porcentaje ?? null,
         clasificacion: resp.clasificacion ?? null,
         areas: resp.areas ?? null,
+        faltas: resp.faltas ?? [],
       });
       if (resp.id && fotos.length > 0) {
         setRegistroId(resp.id);
@@ -256,6 +276,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
       porcentaje: resultado?.porcentaje ?? null,
       clasificacion: resultado?.clasificacion ?? null,
       areas: resultado?.areas ?? null,
+      faltas: resultado?.faltas ?? [],
       fotos: fotosPendientesParaPdf(fotos),
     });
   }
@@ -357,6 +378,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           {textoPuntajesArea(resultado?.areas) && (
             <p className="text-center text-marca-tenue text-xs font-bold">{textoPuntajesArea(resultado?.areas)}</p>
           )}
+          <ListaFaltas faltas={resultado?.faltas} />
           <div className="flex gap-2">
             <button
               type="button"
