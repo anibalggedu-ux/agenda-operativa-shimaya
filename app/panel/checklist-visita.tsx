@@ -13,6 +13,7 @@ import {
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { hoyPeru } from "@/lib/fechas";
+import { textoPuntajesArea, type PuntajesArea } from "@/lib/checklist-puntaje";
 import {
   AvisoFotosPendientes,
   fotosPendientesParaPdf,
@@ -174,6 +175,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   const [resultado, setResultado] = useState<{
     porcentaje: number | null;
     clasificacion: ClasificacionChecklist | null;
+    areas: PuntajesArea | null;
   } | null>(null);
 
   useEffect(() => {
@@ -214,7 +216,11 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     setGuardando(false);
     if (resp.exito) {
       setGuardado(true);
-      setResultado({ porcentaje: resp.porcentaje ?? null, clasificacion: resp.clasificacion ?? null });
+      setResultado({
+        porcentaje: resp.porcentaje ?? null,
+        clasificacion: resp.clasificacion ?? null,
+        areas: resp.areas ?? null,
+      });
       if (resp.id && fotos.length > 0) {
         setRegistroId(resp.id);
         await subirFotos(resp.id);
@@ -249,6 +255,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
       secciones: seccionesPdf,
       porcentaje: resultado?.porcentaje ?? null,
       clasificacion: resultado?.clasificacion ?? null,
+      areas: resultado?.areas ?? null,
       fotos: fotosPendientesParaPdf(fotos),
     });
   }
@@ -346,6 +353,9 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
               {resultado.porcentaje}%{" "}
               <span className="text-sm font-bold">({resultado.clasificacion})</span>
             </p>
+          )}
+          {textoPuntajesArea(resultado?.areas) && (
+            <p className="text-center text-marca-tenue text-xs font-bold">{textoPuntajesArea(resultado?.areas)}</p>
           )}
           <div className="flex gap-2">
             <button

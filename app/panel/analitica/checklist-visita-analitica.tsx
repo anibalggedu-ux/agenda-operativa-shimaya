@@ -37,6 +37,7 @@ import {
 } from "../checklist-visita-actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { textoPuntajesArea } from "@/lib/checklist-puntaje";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 function formatearValor(tipo: string, valor: any): string {
@@ -142,6 +143,7 @@ function DetalleChecklist({
       secciones: seccionesPdf,
       porcentaje: detalle.porcentaje,
       clasificacion: detalle.clasificacion,
+      areas: detalle.areas,
       fotos: await fotosGuardadasParaPdf(detalle.fotos),
     });
   }
@@ -161,6 +163,9 @@ function DetalleChecklist({
               <div className="mt-1.5">
                 <BadgePuntaje porcentaje={detalle.porcentaje} clasificacion={detalle.clasificacion} />
               </div>
+              {textoPuntajesArea(detalle.areas) && (
+                <p className="text-marca-tenue text-[11px] font-bold mt-1">{textoPuntajesArea(detalle.areas)}</p>
+              )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <button
@@ -489,12 +494,26 @@ export default function ChecklistVisitaAnalitica({
           <p className="text-marca-tenue text-[11px] mb-4">
             Qué área del negocio está mejor o peor, en toda la red, en el rango seleccionado.
           </p>
+          {datos.promedioPorArea.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+              {datos.promedioPorArea.map((a) => (
+                <div key={a.area} className="bg-marca-fondo border border-marca-borde rounded-[3px] p-2 text-center">
+                  <p className="text-marca-tenue text-[10px] font-bold uppercase">
+                    {a.nombre} · {a.peso}%
+                  </p>
+                  <p className="font-display text-lg font-bold" style={{ color: colorBarraPorcentaje(a.promedio) }}>
+                    {a.promedio}%
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
           {datos.promedioPorSeccion.length === 0 ? (
             <p className="text-marca-tenue text-sm italic py-6 text-center">
               No hay preguntas puntuables respondidas en este rango.
             </p>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={Math.max(240, datos.promedioPorSeccion.length * 24)}>
               <BarChart data={datos.promedioPorSeccion} layout="vertical" margin={{ left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={colores.grilla} />
                 <XAxis type="number" domain={[0, 100]} unit="%" stroke={colores.eje} tick={{ fontSize: 10 }} />
