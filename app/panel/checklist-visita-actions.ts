@@ -200,6 +200,95 @@ export async function guardarChecklistVisita(
   return { exito: true, id: data.id, porcentaje, clasificacion, areas, faltas };
 }
 
+// ---- Corregir un checklist ya guardado ----
+// Quien lo llenó (o un coordinador) puede corregir las respuestas durante
+// las primeras 24 horas; después queda fijo para que nadie cambie una nota
+// semanas más tarde. Al corregir se recalculan nota, áreas y faltas, y queda
+// registrado quién y cuándo (editado_por / editado_en).
+const HORAS_PARA_EDITAR = 24;
+
+function dentroDelPlazoDeEdicion(creadoEn: string): boolean {
+  return Date.now() - new Date(creadoEn).getTime() <= HORAS_PARA_EDITAR * 60 * 60 * 1000;
+}
+
+export type ChecklistEditable = {
+  id: string;
+  tiendaId: string;
+  tiendaNombre: string;
+  usuarioNombre: string;
+  fecha: string;
+  porcentaje: number | null;
+  clasificacion: ClasificacionChecklist | null;
+  respuestas: RespuestasChecklist;
+  // Hasta cuándo se puede corregir (ISO).
+  editableHasta: string;
+};
+
+export async function obtenerChecklistsEditables(): Promise<ChecklistEditable[]> {
+  const sesion = await exigirRolConChecklist();
+  const supabase = supabaseServer();
+  const desde = new Date(Date.now() - HORAS_PARA_EDITAR * 60 * 60 * 1000).toISOString();
+
+  let consulta = supabase
+    .from("checklists_visita")
+    .select("id, tienda_id, usuario_id, usuario_nombre, fecha, porcentaje, clasificacion, respuestas, created_at, tiendas(nombre)")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false });
+  if (sesion.rol !== "coordinador") consulta = consulta.eq("usuario_id", sesion.id);
+
+  const { data, error } = await consulta;
+  if (error) throw new Error("No se pudo cargar tus checklists recientes.");
+
+  return (data ?? []).map((c: any) => ({
+    id: c.id,
+    tiendaId: c.tienda_id,
+    tiendaNombre: c.tiendas?.nombre ?? "—",
+    usuarioNombre: c.usuario_nombre,
+    fecha: c.fecha,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
+    respuestas: c.respuestas as RespuestasChecklist,
+    editableHasta: new Date(new Date(c.created_at).getTime() + HORAS_PARA_EDITAR * 60 * 60 * 1000).toISOString(),
+  }));
+}
+
+export async function editarChecklistVisita(id: string, respuestas: RespuestasChecklist): Promise<ResultadoChecklist> {
+  const sesion = await exigirRolConChecklist();
+  const supabase = supabaseServer();
+
+  const { data: actual, error: errorActual } = await supabase
+    .from("checklists_visita")
+    .select("id, usuario_id, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (errorActual || !actual) return { exito: false, mensaje: "No se encontró el checklist." };
+  if (actual.usuario_id !== sesion.id && sesion.rol !== "coordinador") {
+    return { exito: false, mensaje: "Solo quien llenó el checklist puede corregirlo." };
+  }
+  if (!dentroDelPlazoDeEdicion(actual.created_at)) {
+    return { exito: false, mensaje: `Ya pasaron más de ${HORAS_PARA_EDITAR} horas: este checklist ya no se puede corregir.` };
+  }
+
+  const secciones = await obtenerPlantillaChecklistVisita();
+  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(secciones, respuestas);
+
+  const { error } = await supabase
+    .from("checklists_visita")
+    .update({
+      respuestas,
+      porcentaje,
+      clasificacion,
+      puntajes_area: areas,
+      faltas,
+      editado_en: new Date().toISOString(),
+      editado_por: sesion.nombre,
+    })
+    .eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo guardar la corrección." };
+
+  return { exito: true, id, porcentaje, clasificacion, areas, faltas };
+}
+
 export type ChecklistVisitaResumen = {
   id: string;
   tiendaId: string;
@@ -253,6 +342,8 @@ export type ChecklistVisitaDetalle = {
   // null en checklists guardados antes de la nota por áreas.
   areas: PuntajesArea | null;
   faltas: FaltaChecklist[];
+  editadoPor: string | null;
+  editadoEn: string | null;
 };
 
 export type PromedioTienda = { tiendaNombre: string; promedio: number };
@@ -410,7 +501,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, editado_por, editado_en, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -427,6 +518,8 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     clasificacion: data.clasificacion as ClasificacionChecklist | null,
     areas: ((data as any).puntajes_area as PuntajesArea | null) ?? null,
     faltas: ((data as any).faltas as FaltaChecklist[] | null) ?? [],
+    editadoPor: (data as any).editado_por ?? null,
+    editadoEn: (data as any).editado_en ?? null,
     fotos: await cargarFotosEvidencia(supabase, "checklist", data.id),
   };
 }

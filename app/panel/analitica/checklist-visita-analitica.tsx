@@ -179,6 +179,12 @@ function DetalleChecklist({
               <p className="text-marca-tenue text-[11px]">
                 {formatearFechaLegible(detalle.fecha)} · {detalle.usuarioNombre} ({detalle.rol})
               </p>
+              {detalle.editadoPor && detalle.editadoEn && (
+                <p className="text-amber-300 text-[10px] font-bold">
+                  ✏️ Corregido por {detalle.editadoPor} el{" "}
+                  {new Date(detalle.editadoEn).toLocaleString("es-PE", { timeZone: "America/Lima", dateStyle: "short", timeStyle: "short" })}
+                </p>
+              )}
               <div className="mt-1.5">
                 <BadgePuntaje porcentaje={detalle.porcentaje} clasificacion={detalle.clasificacion} />
               </div>
