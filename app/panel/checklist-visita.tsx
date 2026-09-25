@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ClipboardList, Check, FileDown } from "lucide-react";
+import { ClipboardList, Check, FileDown, Pencil } from "lucide-react";
 import {
   obtenerPlantillaChecklistVisita,
   guardarChecklistVisita,
+  editarChecklistVisita,
+  obtenerChecklistsEditables,
+  type ChecklistEditable,
   type SeccionChecklist,
   type ItemChecklist,
   type RespuestasChecklist,
@@ -12,7 +15,7 @@ import {
 } from "./checklist-visita-actions";
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
-import { hoyPeru } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import { textoPuntajesArea, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
 import {
   AvisoFotosPendientes,
@@ -196,6 +199,30 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     areas: PuntajesArea | null;
     faltas: FaltaChecklist[];
   } | null>(null);
+  // Corrección de un checklist ya guardado (hasta 24 h después).
+  const [editables, setEditables] = useState<ChecklistEditable[]>([]);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [ultimoGuardadoId, setUltimoGuardadoId] = useState<string | null>(null);
+
+  function cargarEditables() {
+    obtenerChecklistsEditables()
+      .then(setEditables)
+      .catch(() => setEditables([]));
+  }
+
+  useEffect(cargarEditables, []);
+
+  function iniciarEdicion(c: ChecklistEditable) {
+    setEditandoId(c.id);
+    setTiendaId(c.tiendaId);
+    setFecha(c.fecha);
+    setRespuestas(c.respuestas ?? {});
+    setFotos([]);
+    setRegistroId(null);
+    setGuardado(false);
+    setResultado(null);
+    setError(null);
+  }
 
   useEffect(() => {
     Promise.all([obtenerPlantillaChecklistVisita(), obtenerTodasLasTiendas()])
@@ -222,6 +249,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     setGuardado(false);
     setResultado(null);
     setError(null);
+    setEditandoId(null);
   }
 
   async function handleGuardar() {
@@ -231,10 +259,14 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     }
     setGuardando(true);
     setError(null);
-    const resp = await guardarChecklistVisita(tiendaId, fecha, respuestas);
+    const resp = editandoId
+      ? await editarChecklistVisita(editandoId, respuestas)
+      : await guardarChecklistVisita(tiendaId, fecha, respuestas);
     setGuardando(false);
     if (resp.exito) {
       setGuardado(true);
+      setUltimoGuardadoId(resp.id ?? null);
+      cargarEditables();
       setResultado({
         porcentaje: resp.porcentaje ?? null,
         clasificacion: resp.clasificacion ?? null,
@@ -295,13 +327,52 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         </p>
       </div>
 
+      {!guardado && !editandoId && editables.length > 0 && (
+        <div className="border border-marca-borde rounded-[3px] p-2.5 space-y-1.5">
+          <p className="text-marca-tenue text-[10px] font-black uppercase tracking-widest">
+            ¿Te equivocaste? Puedes corregir (hasta 24 h después)
+          </p>
+          {editables.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-marca-texto truncate">
+                {c.tiendaNombre} · {formatearFechaLegible(c.fecha)}
+                {c.usuarioNombre !== nombreUsuario ? ` · ${c.usuarioNombre}` : ""}
+                {c.porcentaje !== null ? ` · ${c.porcentaje}%` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => iniciarEdicion(c)}
+                className="shrink-0 flex items-center gap-1 text-marca-rojoclaro hover:text-marca-rojo font-bold uppercase text-[10px]"
+              >
+                <Pencil className="w-3 h-3" /> Corregir
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editandoId && !guardado && (
+        <div className="flex items-center justify-between gap-2 border border-amber-600/40 bg-amber-950/20 rounded-[3px] p-2.5">
+          <p className="text-amber-300 text-[11px] font-bold">
+            Corrigiendo un checklist ya guardado — la nota se recalcula al guardar.
+          </p>
+          <button
+            type="button"
+            onClick={handleNuevo}
+            className="shrink-0 text-marca-tenue hover:text-marca-texto text-[10px] font-bold uppercase"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Tienda</label>
           <select
             value={tiendaId}
             onChange={(e) => setTiendaId(e.target.value)}
-            disabled={guardado}
+            disabled={guardado || !!editandoId}
             className={clasesInput}
           >
             <option value="">Selecciona...</option>
@@ -318,7 +389,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             type="date"
             value={fecha}
             max={hoyPeru()}
-            disabled={guardado}
+            disabled={guardado || !!editandoId}
             onChange={(e) => setFecha(e.target.value)}
             className={clasesInput}
           />
@@ -337,7 +408,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         </fieldset>
       )}
 
-      {secciones.length > 0 && (
+      {secciones.length > 0 && !editandoId && (
         <SelectorFotosEvidencia fotos={fotos} onCambiar={setFotos} bloqueado={guardado || guardando} />
       )}
 
@@ -350,12 +421,13 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           disabled={guardando || secciones.length === 0}
           className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3 rounded-[3px] text-xs tracking-widest uppercase transition"
         >
-          {guardando ? "Guardando..." : "Guardar checklist"}
+          {guardando ? "Guardando..." : editandoId ? "Guardar corrección" : "Guardar checklist"}
         </button>
       ) : (
         <div className="space-y-2">
           <p className="flex items-center justify-center gap-1.5 text-emerald-400 text-xs font-bold text-center">
-            <Check className="w-3.5 h-3.5" /> Checklist guardado — ya se puede ver en Central Analítica.
+            <Check className="w-3.5 h-3.5" />{" "}
+            {editandoId ? "Corrección guardada — nota recalculada." : "Checklist guardado — ya se puede ver en Central Analítica."}
           </p>
           {subiendoFotos && (
             <p className="text-marca-tenue text-xs text-center animate-pulse">
@@ -379,6 +451,20 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             <p className="text-center text-marca-tenue text-xs font-bold">{textoPuntajesArea(resultado?.areas)}</p>
           )}
           <ListaFaltas faltas={resultado?.faltas} />
+          {ultimoGuardadoId && !subiendoFotos && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditandoId(ultimoGuardadoId);
+                setGuardado(false);
+                setResultado(null);
+                setFotos([]);
+              }}
+              className="w-full flex items-center justify-center gap-1.5 text-marca-tenue hover:text-marca-texto text-[11px] font-bold uppercase py-1"
+            >
+              <Pencil className="w-3 h-3" /> ¿Te equivocaste? Corregir respuestas
+            </button>
+          )}
           <div className="flex gap-2">
             <button
               type="button"
