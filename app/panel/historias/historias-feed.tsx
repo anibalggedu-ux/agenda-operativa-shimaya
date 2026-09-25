@@ -384,17 +384,24 @@ function VisorHistorias({
           onTouchStart={pausar}
           onTouchEnd={reanudar}
         >
-          <img
-            src={historia.url}
-            alt={`Historia de ${grupo.nombre}`}
-            className="w-full max-h-[48vh] object-contain rounded-[3px] bg-black"
-            draggable={false}
-          />
-          {historia.texto && (
-            <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent text-white text-sm font-semibold px-3 pt-6 pb-3 rounded-b-[3px]">
-              {historia.texto}
-            </p>
-          )}
+          {/* El texto va dentro de los bordes de la foto (no del recuadro
+              completo), en una franja oscura para que se lea aunque la foto
+              sea clara. */}
+          <div className="flex justify-center">
+            <div className="relative inline-block max-w-full">
+              <img
+                src={historia.url}
+                alt={`Historia de ${grupo.nombre}`}
+                className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
+                draggable={false}
+              />
+              {historia.texto && (
+                <p className="absolute bottom-2 inset-x-2 bg-black/70 backdrop-blur-sm text-white text-[13px] font-semibold leading-snug text-center whitespace-pre-line break-words px-3 py-2 rounded-lg [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                  {historia.texto}
+                </p>
+              )}
+            </div>
+          </div>
 
           {corazonAnimado && <CorazonAnimado key={corazonAnimado.clave} x={corazonAnimado.x} y={corazonAnimado.y} />}
 
