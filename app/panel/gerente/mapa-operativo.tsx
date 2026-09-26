@@ -2,8 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { obtenerMapaOperativoHoy, type MapaOperativoHoy } from "./actions";
+import { obtenerMapaOperativoHoy, type MapaOperativoHoy, type PersonaEnMapa } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
+
+// Texto del chip de aviso cuando el GPS de la marcación quedó lejos de la
+// tienda — el pin sigue siendo la dirección real de la tienda, esto solo
+// avisa junto al nombre de la persona en el popup.
+function textoLejos(p: PersonaEnMapa): string | null {
+  if (p.distanciaMetros === null || p.distanciaMetros <= UMBRAL_LEJOS_METROS) return null;
+  const texto = p.distanciaMetros >= 1000 ? `${(p.distanciaMetros / 1000).toFixed(1)} km` : `${p.distanciaMetros} m`;
+  return `⚠️ marcó a ${texto}`;
+}
 
 const COLOR_ROL: Record<string, string> = { supervisor: "#e23744", capacitador: "#fbbf24" };
 const ETIQUETA_ROL: Record<string, string> = { supervisor: "Supervisor", capacitador: "Capacitador" };
@@ -64,12 +74,19 @@ export default function MapaOperativo() {
         }).addTo(mapa);
 
         const listaPersonas = t.personas
-          .map(
-            (p) =>
-              `<div style="margin-top:4px;display:flex;align-items:center;gap:6px;">` +
-              `<span style="width:8px;height:8px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};flex:none;"></span>` +
-              `<span><b>${p.usuarioNombre}</b> — ${ETIQUETA_ROL[p.rol] ?? p.rol}</span></div>`
-          )
+          .map((p) => {
+            const aviso = textoLejos(p);
+            return (
+              `<div style="margin-top:4px;display:flex;align-items:flex-start;gap:6px;">` +
+              `<span style="width:8px;height:8px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};flex:none;margin-top:4px;"></span>` +
+              `<div><div><b>${p.usuarioNombre}</b> — ${ETIQUETA_ROL[p.rol] ?? p.rol}</div>` +
+              (aviso
+                ? `<div style="display:inline-block;margin-top:2px;background:#f59e0b26;color:#b45309;` +
+                  `font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;">${aviso}</div>`
+                : "") +
+              `</div></div>`
+            );
+          })
           .join("");
 
         marcador.bindPopup(

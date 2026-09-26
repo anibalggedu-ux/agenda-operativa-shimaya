@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirGerente, exigirGerenteOCoordinador } from "@/lib/session";
 import { diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
+import { coordsDeUrlMaps, distanciaMetros } from "@/lib/distancia-recta";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
 
 function diasEntre(desdeISO: string, hastaISO: string): number {
@@ -130,7 +131,16 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
 // criterio de "visita" que el resto del sistema: reportada o pendiente de
 // reportar, sin duplicar) cruzado con la ubicación real de cada tienda.
 
-export type PersonaEnMapa = { usuarioId: string; usuarioNombre: string; rol: string };
+export type PersonaEnMapa = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  // Cuánto quedó el GPS de su marcación de llegada respecto a la dirección
+  // registrada de la tienda — null si no marcó llegada todavía, o si esa
+  // marcación no trae ubicación. El pin de la tienda no se mueve por esto;
+  // solo avisa junto al nombre de la persona (ver UMBRAL_LEJOS_METROS).
+  distanciaMetros: number | null;
+};
 
 export type TiendaEnMapa = {
   tiendaId: string;
@@ -202,7 +212,16 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
       personas: [],
     };
     if (!entrada.personas.some((p) => p.usuarioId === v.usuarioId)) {
-      entrada.personas.push({ usuarioId: v.usuarioId, usuarioNombre: v.usuarioNombre, rol: v.rol });
+      const coordsMarcacion = coordsDeUrlMaps(v.ubicacionLlegada);
+      const distancia = coordsMarcacion
+        ? distanciaMetros(coordsMarcacion.lat, coordsMarcacion.lng, Number(tienda.lat), Number(tienda.lon))
+        : null;
+      entrada.personas.push({
+        usuarioId: v.usuarioId,
+        usuarioNombre: v.usuarioNombre,
+        rol: v.rol,
+        distanciaMetros: distancia,
+      });
     }
     porTienda.set(v.tiendaId, entrada);
   });
@@ -226,6 +245,9 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
         usuarioId: e.usuario_id,
         usuarioNombre: e.usuarios?.nombre ?? "—",
         rol: e.usuarios?.rol ?? "—",
+        // Los eventos no tienen tienda de referencia contra la cual medir
+        // distancia — solo aplica a visitas a tienda.
+        distanciaMetros: null,
       });
     }
     porEvento.set(e.comunicado_id, entrada);

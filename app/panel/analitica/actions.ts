@@ -167,6 +167,11 @@ export type VisitaAnalitica = {
   // auto-asignación de último momento hecha estando en otra tienda — null
   // significa que el viaje sale del domicilio del colaborador (caso normal).
   origenTiendaId: string | null;
+  // GPS capturado al marcar la llegada, como link de Google Maps (mismo
+  // formato que arma marcarLlegadaTienda) — null si no se marcó llegada
+  // todavía (asignación pendiente) o si la tienda no tiene esa columna.
+  // Se usa para avisar si quedó lejos de la tienda (ver gerente/actions.ts).
+  ubicacionLlegada: string | null;
 };
 
 export async function obtenerVisitasEnRangoAnalitica(
@@ -183,7 +188,9 @@ export async function obtenerVisitasEnRangoAnalitica(
 
   let consultaReportes = supabase
     .from("rutas_diarias")
-    .select("fecha, tienda_id, usuario_id, rol, origen_tienda_id, created_at, usuarios(nombre)")
+    .select(
+      "fecha, tienda_id, usuario_id, rol, origen_tienda_id, created_at, ubicacion_llegada, usuarios(nombre)"
+    )
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("created_at", { ascending: false });
@@ -191,7 +198,9 @@ export async function obtenerVisitasEnRangoAnalitica(
 
   let consultaAsignaciones = supabase
     .from("rutas_activas")
-    .select("fecha_planificada, tienda_id, usuario_id, origen_tienda_id, usuarios(nombre, rol)")
+    .select(
+      "fecha_planificada, tienda_id, usuario_id, origen_tienda_id, ubicacion_llegada, usuarios(nombre, rol)"
+    )
     .gte("fecha_planificada", desde)
     .lte("fecha_planificada", hasta);
   if (tiendaId) consultaAsignaciones = consultaAsignaciones.eq("tienda_id", tiendaId);
@@ -222,6 +231,7 @@ export async function obtenerVisitasEnRangoAnalitica(
     rol: r.rol ?? "—",
     tieneObservacion: true,
     origenTiendaId: r.origen_tienda_id ?? null,
+    ubicacionLlegada: r.ubicacion_llegada ?? null,
   }));
 
   const asignacionesUnicas = new Map<string, any>();
@@ -240,6 +250,7 @@ export async function obtenerVisitasEnRangoAnalitica(
       rol: a.usuarios?.rol ?? "—",
       tieneObservacion: false,
       origenTiendaId: a.origen_tienda_id ?? null,
+      ubicacionLlegada: a.ubicacion_llegada ?? null,
     });
   });
 

@@ -27,6 +27,7 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { distanciaMetros, UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 
 const ESTILOS_URGENCIA: Record<
   TiendaClasificada["urgencia"],
@@ -218,6 +219,22 @@ function TrazoCheckDorado() {
   );
 }
 
+// Aviso (nunca bloquea la marcación) cuando el GPS capturado quedó a más de
+// UMBRAL_LEJOS_METROS de la tienda — puede ser una marcación equivocada, o
+// simplemente el GPS fallando dentro de un edificio o estacionamiento.
+function AvisoUbicacionLejos({ metros }: { metros: number }) {
+  const texto = metros >= 1000 ? `${(metros / 1000).toFixed(1)} km` : `${metros} m`;
+  return (
+    <p className="flex items-start gap-1.5 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 text-amber-400 text-[11px] leading-snug">
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <span>
+        Tu ubicación quedó a <b>{texto}</b> de la tienda. Puede ser que tu GPS haya fallado — si estás seguro que
+        marcaste en la tienda correcta, no hace falta hacer nada.
+      </span>
+    </p>
+  );
+}
+
 function MarcadoVisitaTienda({
   tienda,
   onMarcado,
@@ -240,6 +257,10 @@ function MarcadoVisitaTienda({
   // Trazo dorado que se dibuja solo, justo al confirmar la marcación (no en
   // cada recarga en que ya venga marcada de antes).
   const [marcadoRecien, setMarcadoRecien] = useState<"llegada" | "salida" | null>(null);
+  // Aviso (no bloquea nada) cuando el GPS de la marcación quedó lejos de la
+  // dirección registrada de la tienda — puede ser una marcación equivocada
+  // o simplemente el GPS fallando dentro de un edificio.
+  const [avisoLejos, setAvisoLejos] = useState<{ tipo: "llegada" | "salida"; metros: number } | null>(null);
 
   const ETIQUETA_PASO: Record<Paso, string> = {
     comprimiendo: "Preparando la foto...",
@@ -271,6 +292,12 @@ function MarcadoVisitaTienda({
         reproducirSonidoExito();
         setMarcadoRecien(tipo);
         window.setTimeout(() => setMarcadoRecien(null), 900);
+        if (tienda.tiendaLat !== null && tienda.tiendaLon !== null) {
+          const metros = distanciaMetros(coords.lat, coords.lng, tienda.tiendaLat, tienda.tiendaLon);
+          setAvisoLejos(metros > UMBRAL_LEJOS_METROS ? { tipo, metros } : null);
+        } else {
+          setAvisoLejos(null);
+        }
         onMarcado();
       } else {
         reproducirSonidoAlerta();
@@ -389,7 +416,9 @@ function MarcadoVisitaTienda({
             </a>
           )}
         </p>
-      ) : (
+      ) : null}
+      {avisoLejos?.tipo === "llegada" && <AvisoUbicacionLejos metros={avisoLejos.metros} />}
+      {!tienda.horaLlegada && (
         <button
           type="button"
           onClick={() => abrirCamara(inputLlegada)}
@@ -446,6 +475,7 @@ function MarcadoVisitaTienda({
           )}
         </p>
       )}
+      {avisoLejos?.tipo === "salida" && <AvisoUbicacionLejos metros={avisoLejos.metros} />}
 
       {mensaje && (
         <div className="bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3 space-y-2">
