@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight, Volume2, Smartphone } from "lucide-react";
+import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -305,26 +305,112 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
       </div>
 
       {esPropio && directorio.length > 0 && (
-        <div>
-          <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Perfil de tu equipo</p>
-          <p className="text-marca-tenue text-[10.5px] mb-2">Toca un nombre para ver su perfil.</p>
-          <div className="bg-marca-superficie border border-marca-borde rounded-[3px] divide-y divide-marca-borde">
-            {directorio.map((persona) => {
-              const color = COLOR_ROL[persona.rol] ?? "#8b8d92";
-              return (
-                <button
-                  key={persona.usuarioId}
-                  type="button"
-                  onClick={() => onAbrirPerfil(persona.usuarioId)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-marca-superficie2 transition"
+        <CarruselEquipo directorio={directorio} onAbrirPerfil={onAbrirPerfil} />
+      )}
+    </div>
+  );
+}
+
+const PLURAL_ROL: Record<string, string> = {
+  coordinador: "Coordinadores",
+  supervisor: "Supervisores",
+  capacitador: "Capacitadores",
+  gerente: "Gerencia",
+};
+
+// "Perfil de tu equipo": una tarjeta grande por compañero (portada del
+// color de su rol, foto, puntos, medallas y racha) que se pasan deslizando,
+// con puntitos abajo que marcan en cuál vas. El anillo de la foto se pone
+// rojo-naranja si tiene historias sin ver, y el punto verde indica que hoy
+// está en campo (marcó llegada a una tienda y no ha salido).
+function CarruselEquipo({
+  directorio,
+  onAbrirPerfil,
+}: {
+  directorio: PersonaDirectorio[];
+  onAbrirPerfil: (usuarioId: string) => void;
+}) {
+  const [filtro, setFiltro] = useState<string>("todos");
+  const [actual, setActual] = useState(0);
+  const pistaRef = useRef<HTMLDivElement>(null);
+
+  const roles = ["coordinador", "supervisor", "capacitador", "gerente"].filter((r) =>
+    directorio.some((p) => p.rol === r)
+  );
+  const lista = filtro === "todos" ? directorio : directorio.filter((p) => p.rol === filtro);
+
+  function alDeslizar() {
+    const pista = pistaRef.current;
+    if (!pista || !pista.firstElementChild) return;
+    const ancho = (pista.firstElementChild as HTMLElement).offsetWidth + 12;
+    setActual(Math.min(lista.length - 1, Math.round(pista.scrollLeft / ancho)));
+  }
+
+  function cambiarFiltro(r: string) {
+    setFiltro(r);
+    setActual(0);
+    pistaRef.current?.scrollTo({ left: 0 });
+  }
+
+  function irA(i: number) {
+    const pista = pistaRef.current;
+    if (!pista || !pista.firstElementChild) return;
+    const ancho = (pista.firstElementChild as HTMLElement).offsetWidth + 12;
+    pista.scrollTo({ left: i * ancho, behavior: "smooth" });
+  }
+
+  // Con muchos compañeros, los puntitos se vuelven un contador ("3 / 24").
+  const muchos = lista.length > 12;
+
+  return (
+    <div className="space-y-2.5">
+      <div>
+        <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest">Perfil de tu equipo</p>
+        <p className="text-marca-tenue text-[10.5px]">Desliza para conocer a tu equipo.</p>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {["todos", ...roles].map((r) => (
+          <button
+            key={r}
+            type="button"
+            onClick={() => cambiarFiltro(r)}
+            className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition ${
+              filtro === r
+                ? "bg-marca-textofuerte text-marca-fondo border-marca-textofuerte"
+                : "border-marca-borde text-marca-tenue"
+            }`}
+          >
+            {r === "todos" ? "Todos" : (PLURAL_ROL[r] ?? r)}
+          </button>
+        ))}
+      </div>
+
+      <div
+        ref={pistaRef}
+        onScroll={alDeslizar}
+        className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {lista.map((persona) => {
+          const color = COLOR_ROL[persona.rol] ?? "#8b8d92";
+          return (
+            <div
+              key={persona.usuarioId}
+              className="snap-center shrink-0 w-[82%] max-w-[300px] rounded-2xl overflow-hidden bg-marca-superficie border border-marca-borde"
+            >
+              <div className="h-20" style={{ background: `linear-gradient(135deg, ${color}, ${color}10)` }} />
+              <div className="-mt-11 flex justify-center">
+                <div
+                  className="relative w-20 h-20 rounded-full p-[3px]"
+                  style={{
+                    background: persona.historiasSinVer
+                      ? "conic-gradient(from 200deg, #e23744, #f59e0b, #e23744)"
+                      : color,
+                  }}
                 >
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 overflow-hidden"
-                    style={{
-                      border: `2px solid ${color}`,
-                      background: persona.fotoUrl ? undefined : `${color}26`,
-                      color: persona.fotoUrl ? undefined : color,
-                    }}
+                    className="w-full h-full rounded-full overflow-hidden flex items-center justify-center text-lg font-black border-[3px] border-marca-superficie"
+                    style={{ background: persona.fotoUrl ? undefined : `${color}26`, color }}
                   >
                     {persona.fotoUrl ? (
                       <img src={persona.fotoUrl} alt="" className="w-full h-full object-cover" />
@@ -332,19 +418,74 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                       iniciales(persona.nombre)
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-marca-textofuerte text-[13px] font-bold truncate">{persona.nombre}</p>
-                    <p className="text-[10.5px] font-bold" style={{ color }}>
-                      {ETIQUETA_ROL[persona.rol] ?? persona.rol}
-                    </p>
+                  {persona.enCampo && (
+                    <span
+                      title="En campo hoy"
+                      className="absolute right-1 bottom-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-marca-superficie"
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="px-4 pt-2 pb-4 text-center space-y-1">
+                <p className="text-marca-textofuerte text-[15px] font-bold leading-tight">{persona.nombre}</p>
+                <p className="text-[11.5px] font-bold" style={{ color }}>
+                  {ETIQUETA_ROL[persona.rol] ?? persona.rol}
+                  {persona.enCampo ? <span className="text-emerald-400"> · en campo</span> : null}
+                </p>
+                <p className="text-base leading-none min-h-[20px]">
+                  {persona.medallas
+                    ? UMBRALES_MEDALLAS.flatMap((u) =>
+                        Array.from({ length: Math.min(persona.medallas![u.id], 3) }, () => u.emoji)
+                      ).join("") || "—"
+                    : "—"}
+                </p>
+                <div className="grid grid-cols-3 pt-1.5 tabular-nums">
+                  <div>
+                    <p className="text-marca-textofuerte text-sm font-black">{persona.puntos.toLocaleString("es-PE")}</p>
+                    <p className="text-marca-tenue text-[10px]">puntos</p>
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-marca-tenue shrink-0" />
+                  <div>
+                    <p className="text-marca-textofuerte text-sm font-black">{persona.rachaActual}</p>
+                    <p className="text-marca-tenue text-[10px]">días de racha</p>
+                  </div>
+                  <div>
+                    <p className="text-marca-textofuerte text-sm font-black">
+                      {persona.historiasSinVer ? "Nuevas" : persona.tieneHistorias ? "Vistas" : "—"}
+                    </p>
+                    <p className="text-marca-tenue text-[10px]">historias</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onAbrirPerfil(persona.usuarioId)}
+                  className="w-full mt-2 bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2 rounded-lg text-[12px]"
+                >
+                  Ver perfil
                 </button>
-              );
-            })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {lista.length > 1 &&
+        (muchos ? (
+          <p className="text-center text-marca-tenue text-[11px] font-bold tabular-nums">
+            {actual + 1} / {lista.length}
+          </p>
+        ) : (
+          <div className="flex justify-center gap-1.5">
+            {lista.map((p, i) => (
+              <button
+                key={p.usuarioId}
+                type="button"
+                aria-label={`Ir a ${p.nombre}`}
+                onClick={() => irA(i)}
+                className={`h-1.5 rounded-full transition-all ${i === actual ? "w-4 bg-marca-textofuerte" : "w-1.5 bg-marca-borde"}`}
+              />
+            ))}
           </div>
-        </div>
-      )}
+        ))}
     </div>
   );
 }
