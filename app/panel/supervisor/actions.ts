@@ -217,7 +217,13 @@ export async function obtenerTiendasClasificadas(): Promise<{
       _lon: r.tiendas?.lon === null || r.tiendas?.lon === undefined ? null : Number(r.tiendas.lon),
     }));
 
-  const todas = [...pendientes, ...editables];
+  // Una asignación de un día ya pasado que ya no se puede reportar (pasaron
+  // las 48h) no tiene nada que hacer en la lista: antes quedaba "estancada"
+  // como tarjeta de "antes de ayer" para siempre. El registro no se borra
+  // -- sigue contando como visita no reportada en Central Analítica y el
+  // calendario --, solo deja de mostrarse aquí.
+  const pendientesVigentes = pendientes.filter((t) => t.puedeReportar || t.fechaPlanificada >= hoy);
+  const todas = [...pendientesVigentes, ...editables];
 
   // Se pide el pronóstico una sola vez por ubicación única (varias tarjetas
   // pueden compartir tienda) y se reparte a cada tarjeta según su fecha.
