@@ -352,6 +352,7 @@ export type Database = {
           faltas: Json | null
           editado_en: string | null
           editado_por: string | null
+          plantilla_id: string | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -369,6 +370,7 @@ export type Database = {
           faltas?: Json | null
           editado_en?: string | null
           editado_por?: string | null
+          plantilla_id?: string | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -386,6 +388,7 @@ export type Database = {
           faltas?: Json | null
           editado_en?: string | null
           editado_por?: string | null
+          plantilla_id?: string | null
           respuestas?: Json
           rol?: string
           tienda_id?: string
@@ -1033,16 +1036,22 @@ export type Database = {
         Row: {
           actualizado_en: string
           id: string
+          nombre: string | null
+          pesos_areas: Json | null
           secciones: Json
         }
         Insert: {
           actualizado_en?: string
           id?: string
+          nombre?: string | null
+          pesos_areas?: Json | null
           secciones: Json
         }
         Update: {
           actualizado_en?: string
           id?: string
+          nombre?: string | null
+          pesos_areas?: Json | null
           secciones?: Json
         }
         Relationships: []
@@ -1316,6 +1325,7 @@ export type Database = {
           lat: number | null
           lon: number | null
           nombre: string
+          plantilla_checklist: string | null
         }
         Insert: {
           direccion?: string | null
@@ -1324,6 +1334,7 @@ export type Database = {
           lat?: number | null
           lon?: number | null
           nombre: string
+          plantilla_checklist?: string | null
         }
         Update: {
           direccion?: string | null
@@ -1332,6 +1343,7 @@ export type Database = {
           lat?: number | null
           lon?: number | null
           nombre?: string
+          plantilla_checklist?: string | null
         }
         Relationships: []
       }
