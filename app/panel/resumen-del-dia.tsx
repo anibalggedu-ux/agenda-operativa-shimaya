@@ -457,7 +457,7 @@ export default function ResumenDelDia({
                 personal.rutaHoyEstado === "pendiente"
                   ? "bg-marca-rojo/10 border-marca-rojo/40"
                   : "bg-marca-superficie border-marca-borde"
-              }`}
+              } ${personal.rutaHoyNombre ? "borde-dorado-animado" : ""}`}
             >
               <p className="mb-1 leading-none">
                 <MapPin className="w-4 h-4 text-marca-rojoclaro" />

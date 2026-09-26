@@ -89,12 +89,112 @@ body {
   animation: onda-dorada 0.6s ease-out forwards;
 }
 
+/* 4 · Borde dorado en la tarjeta de "Tu ruta de hoy" (Inicio) — un pulso
+   suave para que la ruta del día resalte sin gritar. */
+@keyframes borde-dorado {
+  0%,
+  100% {
+    border-color: rgb(var(--marca-oro) / 0.3);
+    box-shadow: 0 0 0 0 rgb(var(--marca-oro) / 0);
+  }
+  50% {
+    border-color: rgb(var(--marca-oro) / 0.85);
+    box-shadow: 0 0 14px 1px rgb(var(--marca-oro) / 0.3);
+  }
+}
+.borde-dorado-animado {
+  animation: borde-dorado 2.6s ease-in-out infinite;
+}
+
+/* 2 · Telón dorado de bienvenida, una vez al día (ver
+   app/panel/telon-bienvenida.tsx): dos paneles que se abren desde el centro
+   hacia los costados, dejando ver el saludo antes de desaparecer. */
+@keyframes telon-abre-izq {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes telon-abre-der {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.telon-panel-izq {
+  animation: telon-abre-izq 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.65s both;
+  border-right: 1px solid rgb(var(--marca-oro) / 0.5);
+}
+.telon-panel-der {
+  animation: telon-abre-der 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.65s both;
+  border-left: 1px solid rgb(var(--marca-oro) / 0.5);
+}
+@keyframes telon-texto {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  25%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.telon-texto {
+  animation: telon-texto 1.5s ease both;
+}
+
+/* 5 · Brasas: puntitos dorados que suben lento por Inicio (ver
+   app/panel/brasas.tsx). Puramente ambiental, muy tenue. */
+@keyframes brasa-sube {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.55;
+  }
+  88% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-92vh) translateX(var(--brasa-deriva, 12px));
+    opacity: 0;
+  }
+}
+.brasa {
+  position: absolute;
+  bottom: -10px;
+  border-radius: 9999px;
+  background: rgb(var(--marca-oro) / 0.85);
+  box-shadow: 0 0 6px 1px rgb(var(--marca-oro) / 0.55);
+  animation-name: brasa-sube;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animar-tinta,
-  .onda-dorada {
+  .onda-dorada,
+  .borde-dorado-animado,
+  .telon-panel-izq,
+  .telon-panel-der,
+  .telon-texto,
+  .brasa {
     animation: none;
   }
-  .onda-dorada {
+  .onda-dorada,
+  .telon-panel-izq,
+  .telon-panel-der,
+  .telon-texto,
+  .brasa {
     display: none;
   }
 }
