@@ -5,7 +5,7 @@ import type { FotoEvidencia } from "@/lib/evidencias-constantes";
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion } from "@/lib/session";
 import { enviarCorreo, URL_APP } from "@/lib/email";
-import { formatearFechaLegible } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru, sumarDias, diasEntreFechas } from "@/lib/fechas";
 import {
   AREAS_CHECKLIST,
   calcularPuntaje,
@@ -68,6 +68,11 @@ export type PlantillaChecklist = {
   nombre: string | null;
   secciones: SeccionChecklist[];
   pesos: PesoArea[] | undefined;
+  // Aviso (no bloquea nada) de que esta tienda ya tuvo un checklist en los
+  // últimos 3 días — para que quien va a llenar uno nuevo lo sepa, por si
+  // conviene reforzar otra tienda en su lugar. null = no hubo, o no se pidió
+  // (tiendaId null).
+  checklistReciente: { fecha: string; usuarioNombre: string; diasAtras: number } | null;
 };
 
 async function cargarPlantilla(supabase: ReturnType<typeof supabaseServer>, id: string): Promise<PlantillaChecklist> {
@@ -83,6 +88,31 @@ async function cargarPlantilla(supabase: ReturnType<typeof supabaseServer>, id: 
     nombre: data?.nombre ?? null,
     secciones: (data?.secciones as unknown as SeccionChecklist[]) ?? [],
     pesos: (data?.pesos_areas as unknown as PesoArea[] | null) ?? undefined,
+    checklistReciente: null,
+  };
+}
+
+// Último checklist de esta tienda en los últimos 3 días (cualquier
+// persona) — solo aviso, nunca impide llenar uno nuevo.
+async function checklistRecienteDeTienda(
+  supabase: ReturnType<typeof supabaseServer>,
+  tiendaId: string
+): Promise<PlantillaChecklist["checklistReciente"]> {
+  const hoy = hoyPeru();
+  const desde = sumarDias(hoy, -3);
+  const { data } = await supabase
+    .from("checklists_visita")
+    .select("fecha, usuario_nombre")
+    .eq("tienda_id", tiendaId)
+    .gte("fecha", desde)
+    .order("fecha", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    fecha: data.fecha,
+    usuarioNombre: data.usuario_nombre,
+    diasAtras: diasEntreFechas(data.fecha, hoy),
   };
 }
 
@@ -104,7 +134,11 @@ export async function obtenerPlantillaParaTienda(tiendaId: string | null): Promi
   if (!sesion) throw new Error("No autorizado.");
   const supabase = supabaseServer();
   const id = tiendaId ? await idPlantillaDeTienda(supabase, tiendaId) : "principal";
-  return cargarPlantilla(supabase, id);
+  const [plantilla, checklistReciente] = await Promise.all([
+    cargarPlantilla(supabase, id),
+    tiendaId ? checklistRecienteDeTienda(supabase, tiendaId) : Promise.resolve(null),
+  ]);
+  return { ...plantilla, checklistReciente };
 }
 
 export type ResultadoChecklist = {
