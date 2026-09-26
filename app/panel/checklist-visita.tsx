@@ -12,12 +12,13 @@ import {
   type ItemChecklist,
   type RespuestasChecklist,
   type ClasificacionChecklist,
+  type PlantillaChecklist,
 } from "./checklist-visita-actions";
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
-import { textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
+import { puntajeItem, textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
 import {
   AvisoFotosPendientes,
   fotosPendientesParaPdf,
@@ -237,6 +238,9 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   const [editables, setEditables] = useState<ChecklistEditable[]>([]);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [ultimoGuardadoId, setUltimoGuardadoId] = useState<string | null>(null);
+  // Aviso (no bloquea nada) de que esta tienda ya tuvo un checklist en los
+  // últimos 3 días.
+  const [checklistReciente, setChecklistReciente] = useState<PlantillaChecklist["checklistReciente"]>(null);
 
   function cargarEditables() {
     obtenerChecklistsEditables()
@@ -275,7 +279,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   // respuestas ya marcadas no aplican y se limpian (salvo al corregir un
   // checklist guardado, que trae sus propias respuestas).
   useEffect(() => {
-    if (!tiendaId) return;
+    if (!tiendaId) {
+      setChecklistReciente(null);
+      return;
+    }
     let vigente = true;
     obtenerPlantillaParaTienda(tiendaId)
       .then((p) => {
@@ -285,6 +292,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         if (plantillaIdRef.current !== p.id && !editandoId) setRespuestas({});
         plantillaIdRef.current = p.id;
         setPlantillaId(p.id);
+        setChecklistReciente(p.checklistReciente);
       })
       .catch(() => {});
     return () => {
@@ -358,11 +366,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     const tienda = tiendas.find((t) => t.id === tiendaId);
     const seccionesPdf: SeccionChecklistVisitaPdf[] = secciones.map((s) => ({
       titulo: s.titulo,
-      items: s.items.map((it) => ({
-        etiqueta: it.etiqueta,
-        tipo: it.tipo,
-        valor: respuestas[s.clave]?.[it.clave] ?? null,
-      })),
+      items: s.items.map((it) => {
+        const valor = respuestas[s.clave]?.[it.clave] ?? null;
+        return { etiqueta: it.etiqueta, tipo: it.tipo, valor, puntaje: puntajeItem(it, valor) };
+      }),
     }));
     await generarPdfChecklistVisita({
       tiendaNombre: tienda?.nombre ?? "—",
@@ -464,6 +471,18 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           />
         </div>
       </div>
+
+      {checklistReciente && !editandoId && !guardado && (
+        <p className="flex items-start gap-1.5 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 text-amber-400 text-[11.5px] leading-snug">
+          <ClipboardList className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>
+            Esta tienda ya tuvo un checklist{" "}
+            {checklistReciente.diasAtras === 0 ? "hoy" : `hace ${checklistReciente.diasAtras} día${checklistReciente.diasAtras === 1 ? "" : "s"}`}{" "}
+            ({checklistReciente.usuarioNombre}, {formatearFechaLegible(checklistReciente.fecha)}). Puedes llenar otro igual —
+            es solo un aviso.
+          </span>
+        </p>
+      )}
 
       {secciones.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">

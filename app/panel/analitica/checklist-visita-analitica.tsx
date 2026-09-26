@@ -37,7 +37,7 @@ import {
 } from "../checklist-visita-actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible } from "@/lib/fechas";
-import { textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist } from "@/lib/checklist-puntaje";
+import { puntajeItem, textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist } from "@/lib/checklist-puntaje";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 
 function formatearValor(tipo: string, valor: any): string {
@@ -153,11 +153,10 @@ function DetalleChecklist({
   async function generarPdfConFotos(detalle: ChecklistVisitaDetalle) {
     const seccionesPdf: SeccionChecklistVisitaPdf[] = seccionesDe(detalle).map((s) => ({
       titulo: s.titulo,
-      items: s.items.map((it) => ({
-        etiqueta: it.etiqueta,
-        tipo: it.tipo,
-        valor: detalle.respuestas[s.clave]?.[it.clave] ?? null,
-      })),
+      items: s.items.map((it) => {
+        const valor = detalle.respuestas[s.clave]?.[it.clave] ?? null;
+        return { etiqueta: it.etiqueta, tipo: it.tipo, valor, puntaje: puntajeItem(it, valor) };
+      }),
     }));
     await generarPdfChecklistVisita({
       tiendaNombre: detalle.tiendaNombre,

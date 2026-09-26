@@ -890,6 +890,17 @@ const COLOR_CLASIFICACION: Record<string, [number, number, number]> = {
   "Acción inmediata": [200, 30, 40],
 };
 
+// Color del ítem según cuánto puntuó (ver ItemChecklistVisitaPdf.puntaje) —
+// para que de un vistazo se vea dónde están las fallas, sin tener que leer
+// cada línea. null = pregunta que no puntúa (texto, número...), se deja en
+// negro normal.
+function colorPorPuntaje(puntaje: number | null | undefined): [number, number, number] | null {
+  if (puntaje === null || puntaje === undefined || puntaje >= 100) return null;
+  if (puntaje <= 0) return COLOR_CLASIFICACION["Acción inmediata"];
+  if (puntaje < 70) return COLOR_CLASIFICACION["Requiere mejora"];
+  return [190, 150, 20]; // ámbar suave: perdió algo pero no es grave
+}
+
 // ---------- Fotos de evidencia (checklist y auditoría) ----------
 
 export type FotoPdf = { dataUrl: string; pie: string | null };
@@ -1164,6 +1175,11 @@ export type ItemChecklistVisitaPdf = {
   etiqueta: string;
   tipo: "escala_5" | "si_no" | "opciones" | "texto" | "numero";
   valor: string | number | boolean | null;
+  // 0-100, o null si esta pregunta no puntúa (texto, número, opción
+  // informativa) — ver puntajeItem en lib/checklist-puntaje.ts. Se usa acá
+  // solo para colorear el ítem en el PDF; el cálculo real de la nota ya
+  // viene hecho en `porcentaje`/`areas`.
+  puntaje?: number | null;
 };
 
 export type SeccionChecklistVisitaPdf = {
@@ -1277,11 +1293,17 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
         doc.addPage();
         y = 20;
       }
+      const color = colorPorPuntaje(item.puntaje);
+      const perdidos = item.puntaje !== null && item.puntaje !== undefined ? Math.round(100 - item.puntaje) : 0;
+      const sufijoPuntos = color && perdidos > 0 ? ` (−${perdidos})` : "";
+
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
+      if (color) doc.setTextColor(...color);
       doc.text(item.etiqueta, 18, y);
       doc.setFont("helvetica", "bold");
-      doc.text(formatearValorChecklist(item), 175, y, { align: "right" });
+      doc.text(formatearValorChecklist(item) + sufijoPuntos, 175, y, { align: "right" });
+      if (color) doc.setTextColor(0, 0, 0);
       y += 5.5;
     });
 
