@@ -297,6 +297,19 @@ export default function ChecklistVisitaAnalitica({
       .finally(() => setCargando(false));
   }, [desde, hasta]);
 
+  // Al tocar una alerta crítica, se abre su detalle en la lista de abajo —
+  // primero se limpian los filtros que podrían estar ocultando esa fila
+  // (búsqueda por nombre, clasificación), y recién ahí se hace scroll,
+  // esperando al siguiente frame para que la fila ya exista en el DOM.
+  function irAChecklist(id: string) {
+    setBusquedaTienda("");
+    setFiltroClasificacion("todos");
+    setDetalleAbierto(id);
+    requestAnimationFrame(() => {
+      document.getElementById(`checklist-fila-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando checklist de rutina...</p>;
   if (error) return <p className="text-marca-rojoclaro text-sm">{error}</p>;
   if (!datos) return null;
@@ -354,9 +367,12 @@ export default function ChecklistVisitaAnalitica({
           </p>
           <div className="space-y-2">
             {datos.alertasCriticas.map((a) => (
-              <div
+              <button
                 key={a.id}
-                className="flex items-center justify-between flex-wrap gap-2 bg-marca-fondo border border-marca-rojo/30 rounded-[3px] p-3"
+                type="button"
+                onClick={() => irAChecklist(a.id)}
+                className="w-full flex items-center justify-between flex-wrap gap-2 bg-marca-fondo border border-marca-rojo/30 hover:border-marca-rojoclaro/60 hover:bg-marca-superficie2 rounded-[3px] p-3 text-left transition"
+                title="Ver este checklist"
               >
                 <div>
                   <p className="text-marca-textofuerte font-semibold text-sm">{a.tiendaNombre}</p>
@@ -365,7 +381,7 @@ export default function ChecklistVisitaAnalitica({
                   </p>
                 </div>
                 <span className="text-marca-rojoclaro font-black text-sm shrink-0">{a.porcentaje}%</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -686,7 +702,12 @@ export default function ChecklistVisitaAnalitica({
               <tbody>
                 {filas.map((c) => (
                   <Fragment key={c.id}>
-                    <tr className="border-b border-marca-borde/60 hover:bg-marca-superficie2 transition">
+                    <tr
+                      id={`checklist-fila-${c.id}`}
+                      className={`border-b border-marca-borde/60 hover:bg-marca-superficie2 transition ${
+                        detalleAbierto === c.id ? "bg-marca-rojo/10" : ""
+                      }`}
+                    >
                       <td className="py-2.5 pr-3 font-data text-[12.5px] whitespace-nowrap">
                         {formatearFechaLegible(c.fecha)}
                       </td>
