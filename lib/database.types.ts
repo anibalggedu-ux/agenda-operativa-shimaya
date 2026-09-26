@@ -46,6 +46,32 @@ export type Database = {
           },
         ]
       }
+      alertas_atrasadas_leidas: {
+        Row: {
+          leido_en: string
+          leido_por_nombre: string
+          ruta_activa_id: string
+        }
+        Insert: {
+          leido_en?: string
+          leido_por_nombre: string
+          ruta_activa_id: string
+        }
+        Update: {
+          leido_en?: string
+          leido_por_nombre?: string
+          ruta_activa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_atrasadas_leidas_ruta_activa_id_fkey"
+            columns: ["ruta_activa_id"]
+            isOneToOne: true
+            referencedRelation: "rutas_activas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_puntualidad_atendidas: {
         Row: {
           atendido_por_nombre: string
@@ -344,15 +370,15 @@ export type Database = {
         Row: {
           clasificacion: string | null
           created_at: string
+          editado_en: string | null
+          editado_por: string | null
+          faltas: Json | null
           fecha: string
           id: string
           leido: boolean | null
+          plantilla_id: string | null
           porcentaje: number | null
           puntajes_area: Json | null
-          faltas: Json | null
-          editado_en: string | null
-          editado_por: string | null
-          plantilla_id: string | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -362,15 +388,15 @@ export type Database = {
         Insert: {
           clasificacion?: string | null
           created_at?: string
+          editado_en?: string | null
+          editado_por?: string | null
+          faltas?: Json | null
           fecha: string
           id?: string
           leido?: boolean | null
+          plantilla_id?: string | null
           porcentaje?: number | null
           puntajes_area?: Json | null
-          faltas?: Json | null
-          editado_en?: string | null
-          editado_por?: string | null
-          plantilla_id?: string | null
           respuestas: Json
           rol: string
           tienda_id: string
@@ -380,15 +406,15 @@ export type Database = {
         Update: {
           clasificacion?: string | null
           created_at?: string
+          editado_en?: string | null
+          editado_por?: string | null
+          faltas?: Json | null
           fecha?: string
           id?: string
           leido?: boolean | null
+          plantilla_id?: string | null
           porcentaje?: number | null
           puntajes_area?: Json | null
-          faltas?: Json | null
-          editado_en?: string | null
-          editado_por?: string | null
-          plantilla_id?: string | null
           respuestas?: Json
           rol?: string
           tienda_id?: string
@@ -487,24 +513,6 @@ export type Database = {
           activo?: boolean
           id?: boolean
           puntos?: number
-        }
-        Relationships: []
-      }
-      intentos_login: {
-        Row: {
-          created_at: string
-          id: number
-          ip: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          ip: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          ip?: string
         }
         Relationships: []
       }
@@ -985,6 +993,24 @@ export type Database = {
           },
         ]
       }
+      intentos_login: {
+        Row: {
+          created_at: string
+          id: number
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ip?: string
+        }
+        Relationships: []
+      }
       notificaciones_estado: {
         Row: {
           usuario_id: string
@@ -1345,7 +1371,15 @@ export type Database = {
           nombre?: string
           plantilla_checklist?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tiendas_plantilla_checklist_fkey"
+            columns: ["plantilla_checklist"]
+            isOneToOne: false
+            referencedRelation: "plantilla_checklist_visita"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tiendas_permanentes: {
         Row: {
@@ -1396,19 +1430,19 @@ export type Database = {
           email: string | null
           fecha_ingreso: string | null
           fecha_nacimiento: string | null
-          mostrar_edad: boolean
-          ultima_actividad: string | null
           hora_limite_ingreso: string | null
           horario_por_dia: Json | null
           id: string
           lat: number | null
           lon: number | null
+          mostrar_edad: boolean
           nombre: string
           puede_auditar: boolean
           puede_registrar: boolean
           puntos_heredados: number
           rol: string
           tiene_foto_perfil: boolean | null
+          ultima_actividad: string | null
         }
         Insert: {
           activo?: boolean
@@ -1419,19 +1453,19 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
-          mostrar_edad?: boolean
-          ultima_actividad?: string | null
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
           lat?: number | null
           lon?: number | null
+          mostrar_edad?: boolean
           nombre: string
           puede_auditar?: boolean
           puede_registrar?: boolean
           puntos_heredados?: number
           rol: string
           tiene_foto_perfil?: boolean | null
+          ultima_actividad?: string | null
         }
         Update: {
           activo?: boolean
@@ -1442,19 +1476,19 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
-          mostrar_edad?: boolean
-          ultima_actividad?: string | null
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
           lat?: number | null
           lon?: number | null
+          mostrar_edad?: boolean
           nombre?: string
           puede_auditar?: boolean
           puede_registrar?: boolean
           puntos_heredados?: number
           rol?: string
           tiene_foto_perfil?: boolean | null
+          ultima_actividad?: string | null
         }
         Relationships: []
       }
