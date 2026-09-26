@@ -12,6 +12,7 @@ import {
   type ResultadoAuditoria,
 } from "./actions";
 import { hoyPeru } from "@/lib/fechas";
+import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import {
   AvisoFotosPendientes,
   SelectorFotosEvidencia,
@@ -141,6 +142,15 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
   }
 
   useEffect(() => {
+    // Sonido según el resultado: logro si salió excelente, alerta si
+    // requiere acción inmediata o si no se pudo guardar.
+    if (estado.exito) {
+      if (estado.clasificacion === "Excelente") reproducirSonidoLogro();
+      else if (estado.clasificacion === "Acción inmediata") reproducirSonidoAlerta();
+      else reproducirSonidoExito();
+    } else if (estado.mensaje) {
+      reproducirSonidoAlerta();
+    }
     if (estado.exito) {
       formRef.current?.reset();
       try {

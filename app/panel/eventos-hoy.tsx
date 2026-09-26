@@ -10,7 +10,7 @@ import {
 } from "./anuncios-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { reproducirSonidoExito } from "@/lib/sonido";
+import { recordarUnaVez, reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { formatearHora } from "@/lib/fechas";
 import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 
@@ -39,6 +39,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
       setPaso("ubicando");
       coords = await obtenerUbicacionActual();
     } catch (err: any) {
+      reproducirSonidoAlerta();
       setMensaje(err?.message || "Ocurrió un error.");
       setPaso(null);
       return;
@@ -56,6 +57,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
         reproducirSonidoExito();
         onMarcado();
       } else {
+        reproducirSonidoAlerta();
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
       }
     } catch (err: any) {
@@ -246,7 +248,10 @@ export default function EventosDeHoy() {
 
   function cargar() {
     obtenerEventosDeHoyParaMi()
-      .then(setEventos)
+      .then((lista) => {
+        setEventos(lista);
+        if (lista.length > 0) recordarUnaVez(`eventos-${lista.map((e) => e.comunicadoId).join(",")}`);
+      })
       .catch(() => setEventos([]))
       .finally(() => setCargando(false));
   }

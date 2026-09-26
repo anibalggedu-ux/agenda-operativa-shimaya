@@ -19,7 +19,7 @@ import {
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
-import { reproducirSonidoExito } from "@/lib/sonido";
+import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
@@ -793,6 +793,19 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     }
   }
 
+  // Tras publicar: "logro" si la racha de días publicando subió, si no el
+  // "éxito" de siempre.
+  function sonarPublicada() {
+    const previa = racha;
+    obtenerRachaPublicacion()
+      .then((nueva) => {
+        setRacha(nueva);
+        if (nueva > previa) reproducirSonidoLogro();
+        else reproducirSonidoExito();
+      })
+      .catch(() => reproducirSonidoExito());
+  }
+
   async function publicar(items: ItemPublicar[]) {
     if (items.length === 0) return;
     setMensaje(null);
@@ -805,6 +818,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         // las que más suben después de las marcaciones.
         const resultado = await crearHistoria(items[i].foto, items[i].texto);
         if (!resultado.exito) {
+          reproducirSonidoAlerta();
           setMensaje(
             items.length > 1
               ? resultado.mensaje || `No se pudo publicar la foto ${i + 1} de ${items.length}.`
@@ -816,8 +830,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       }
       setBorradores(null);
       cargar();
-      obtenerRachaPublicacion().then(setRacha).catch(() => {});
+      sonarPublicada();
     } catch (err: any) {
+      reproducirSonidoAlerta();
       setMensaje(err?.message || "No se pudo publicar la foto.");
     } finally {
       setPublicando(false);
@@ -833,11 +848,13 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       if (resultado.exito) {
         setModoTexto(false);
         cargar();
-        obtenerRachaPublicacion().then(setRacha).catch(() => {});
+        sonarPublicada();
       } else {
+        reproducirSonidoAlerta();
         setMensaje(resultado.mensaje || "No se pudo publicar la historia.");
       }
     } catch (err: any) {
+      reproducirSonidoAlerta();
       setMensaje(err?.message || "No se pudo publicar la historia.");
     } finally {
       setPublicando(false);

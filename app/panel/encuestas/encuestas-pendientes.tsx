@@ -5,7 +5,7 @@ import { ChevronRight, Lock, X } from "lucide-react";
 import { obtenerEncuestasPendientes, responderEncuesta, type EncuestaPendiente } from "./actions";
 import { CARITAS, MAX_LARGO_RESPUESTA_TEXTO, estaRespondida, type Respuesta } from "@/lib/encuestas-completas";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
-import { reproducirSonidoExito } from "@/lib/sonido";
+import { recordarUnaVez, reproducirSonidoExito } from "@/lib/sonido";
 
 // Aviso fijo al inicio del panel mientras haya encuestas sin responder. Al
 // tocarlo se abre la encuesta a pantalla completa, una pregunta por
@@ -16,7 +16,10 @@ export default function EncuestasPendientes() {
 
   useEffect(() => {
     obtenerEncuestasPendientes()
-      .then(setPendientes)
+      .then((lista) => {
+        setPendientes(lista);
+        if (lista.length > 0) recordarUnaVez(`encuestas-${lista.map((e) => e.id).join(",")}`);
+      })
       .catch(() => {});
   }, []);
 

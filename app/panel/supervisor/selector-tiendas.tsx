@@ -24,7 +24,7 @@ import {
   esMadrugadaPeru,
 } from "@/lib/fechas";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
-import { reproducirSonidoExito } from "@/lib/sonido";
+import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 
@@ -233,6 +233,7 @@ function MarcadoVisitaTienda({
       setPaso("ubicando");
       coords = await obtenerUbicacionActual();
     } catch (err: any) {
+      reproducirSonidoAlerta();
       setMensaje(err?.message || "Ocurrió un error.");
       setPaso(null);
       return;
@@ -250,6 +251,7 @@ function MarcadoVisitaTienda({
         reproducirSonidoExito();
         onMarcado();
       } else {
+        reproducirSonidoAlerta();
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
       }
     } catch (err: any) {
@@ -269,8 +271,10 @@ function MarcadoVisitaTienda({
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         });
         setPendiente(null);
+        reproducirSonidoAlerta();
         setMensaje("Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
       } else {
+        reproducirSonidoAlerta();
         setMensaje(err?.message || "Ocurrió un error.");
       }
     } finally {
@@ -522,6 +526,14 @@ export default function SelectorTiendas({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoNuevo.exito, estadoEditar.exito]);
+
+  // Si el reporte no se pudo enviar, alerta (el mensaje ya se muestra).
+  useEffect(() => {
+    if (estadoNuevo.mensaje && !estadoNuevo.exito) reproducirSonidoAlerta();
+  }, [estadoNuevo]);
+  useEffect(() => {
+    if (estadoEditar.mensaje && !estadoEditar.exito) reproducirSonidoAlerta();
+  }, [estadoEditar]);
 
   const grupos = useMemo(() => {
     if (!tiendas) return [];

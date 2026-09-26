@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight } from "lucide-react";
+import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, ChevronRight, Volume2, Smartphone } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -12,6 +12,13 @@ import {
 import { obtenerGaleriaDeUsuario, type FotoGaleria } from "../historias/actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
+import {
+  cambiarSonido,
+  cambiarVibracion,
+  reproducirSonidoExito,
+  sonidoActivado,
+  vibracionActivada,
+} from "@/lib/sonido";
 
 const ETIQUETA_ROL: Record<string, string> = {
   supervisor: "Supervisor",
@@ -281,6 +288,8 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
         </div>
       </div>
 
+      {esPropio && <AjustesSonido />}
+
       <div>
         <p className="flex items-center gap-1.5 text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-2.5">
           <Images className="w-3.5 h-3.5" /> {esPropio ? "Tus fotos recientes" : "Sus fotos recientes"}
@@ -342,6 +351,72 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Interruptores de sonido y vibración de la app. Se guardan en este celular
+// (no en la cuenta): alguien puede querer silencio en el celular del trabajo
+// y sonido en el propio.
+function AjustesSonido() {
+  const [sonido, setSonido] = useState(true);
+  const [vibracion, setVibracion] = useState(true);
+
+  useEffect(() => {
+    setSonido(sonidoActivado());
+    setVibracion(vibracionActivada());
+  }, []);
+
+  function alternarSonido() {
+    const nuevo = !sonido;
+    cambiarSonido(nuevo);
+    setSonido(nuevo);
+    if (nuevo) reproducirSonidoExito();
+  }
+
+  function alternarVibracion() {
+    const nueva = !vibracion;
+    cambiarVibracion(nueva);
+    setVibracion(nueva);
+    if (nueva) {
+      try {
+        navigator.vibrate?.(60);
+      } catch {}
+    }
+  }
+
+  const filas = [
+    { etiqueta: "Sonidos de la app", icono: Volume2, activo: sonido, alternar: alternarSonido },
+    { etiqueta: "Vibración", icono: Smartphone, activo: vibracion, alternar: alternarVibracion },
+  ];
+
+  return (
+    <div>
+      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Sonido y vibración</p>
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
+        {filas.map(({ etiqueta, icono: Icono, activo, alternar }) => (
+          <button
+            key={etiqueta}
+            type="button"
+            role="switch"
+            aria-checked={activo}
+            onClick={alternar}
+            className="w-full flex items-center justify-between py-2.5"
+          >
+            <span className="flex items-center gap-2 text-marca-tenue text-xs">
+              <Icono className="w-3.5 h-3.5 text-marca-rojoclaro" /> {etiqueta}
+            </span>
+            <span
+              className={`relative w-9 h-5 rounded-full transition-colors ${activo ? "bg-marca-rojo" : "bg-marca-borde"}`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${activo ? "left-[18px]" : "left-0.5"}`}
+              />
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="text-marca-tenue text-[10px] mt-1">Solo en este celular. En iPhone no hay vibración.</p>
     </div>
   );
 }

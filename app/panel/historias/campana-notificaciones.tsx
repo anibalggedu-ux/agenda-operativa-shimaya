@@ -8,7 +8,7 @@ import {
   marcarNotificacionesVistas,
   type NotificacionItem,
 } from "./social-actions";
-import { reproducirSonidoNotificacion } from "@/lib/sonido";
+import { reproducirSonidoLogro, reproducirSonidoNotificacion } from "@/lib/sonido";
 
 // Cada cuánto se fija si hay algo nuevo mientras la persona tiene la app
 // abierta -- no es tiempo real (no hay websockets), pero alcanza para que
@@ -35,7 +35,16 @@ export default function CampanaNotificaciones() {
   function revisar() {
     obtenerNotificacionesPendientes()
       .then((n) => {
-        if (n > pendientesRef.current) reproducirSonidoNotificacion();
+        // Si entre lo nuevo hay un regalo de puntos, suena "logro"; si no,
+        // la notificación de siempre.
+        if (n > pendientesRef.current) {
+          obtenerNotificaciones(n)
+            .then((lista) => {
+              if (lista.some((it) => it.mensaje.startsWith("te regaló"))) reproducirSonidoLogro();
+              else reproducirSonidoNotificacion();
+            })
+            .catch(() => reproducirSonidoNotificacion());
+        }
         pendientesRef.current = n;
         setPendientes(n);
       })
