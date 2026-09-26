@@ -102,7 +102,7 @@ export default function CampanaNotificaciones() {
       >
         <Bell className="w-4 h-4" />
         {pendientes > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full bg-marca-rojo text-white text-[9px] font-black">
+          <span className="vela-parpadeo absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full bg-marca-rojo text-white text-[9px] font-black">
             {pendientes > 9 ? "9+" : pendientes}
           </span>
         )}
