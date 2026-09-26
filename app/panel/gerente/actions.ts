@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirGerente, exigirGerenteOCoordinador } from "@/lib/session";
-import { hoyPeru, diaSemanaPeru } from "@/lib/fechas";
+import { diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
 
 function diasEntre(desdeISO: string, hastaISO: string): number {
@@ -51,8 +51,12 @@ export type DashboardGerente = {
 export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
   await exigirGerente();
   const supabase = supabaseServer();
-  const hoy = hoyPeru();
-  const diaSemana = diaSemanaPeru();
+  // Día laboral, no calendario: rutas_diarias y asistencia se guardan bajo
+  // diaLaboralPeru() (ver comentario en obtenerMapaOperativoHoy), así que
+  // estos KPIs deben pedir el mismo día o se desalinean entre medianoche y
+  // las 6am.
+  const hoy = diaLaboralPeru();
+  const diaSemana = diaSemanaPeru(hoy);
 
   const [
     visitasHoy,
@@ -158,7 +162,13 @@ export type MapaOperativoHoy = {
 export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
   await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
-  const hoy = hoyPeru();
+  // "Día laboral", no el día calendario: las visitas y marcaciones de
+  // madrugada (antes de las 6am) se guardan bajo el día que recién termina
+  // (ver diaLaboralPeru en lib/fechas.ts). Si acá se usara hoyPeru(), entre
+  // medianoche y las 6am el mapa pediría "las visitas de hoy" mientras esas
+  // mismas visitas quedaron guardadas "de ayer" — el mapa se veía mezclar un
+  // día con otro.
+  const hoy = diaLaboralPeru();
 
   const [visitas, { data: tiendas, error: errorTiendas }, { data: eventosHoy, error: errorEventos }] =
     await Promise.all([
