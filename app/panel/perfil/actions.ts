@@ -5,6 +5,7 @@ import { obtenerSesion } from "@/lib/session";
 import { calcularAntiguedad, calcularProximaFechaAnual, hoyPeru } from "@/lib/fechas";
 import { progresoProximoBronce, type ConteoMedallas } from "@/lib/trofeos";
 import { obtenerVitrinaTrofeos, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
+import { obtenerFeedHistorias } from "../historias/actions";
 import { subirFotoPerfil, obtenerUrlTemporalFotoPerfil, existeFotoPerfil } from "@/lib/blob-storage";
 import { revalidatePath } from "next/cache";
 
@@ -149,29 +150,80 @@ export async function actualizarFotoPerfil(fotoDataUrl: string): Promise<{ ok: b
   }
 }
 
-export type PersonaDirectorio = { usuarioId: string; nombre: string; rol: string; fotoUrl: string | null };
+export type PersonaDirectorio = {
+  usuarioId: string;
+  nombre: string;
+  rol: string;
+  fotoUrl: string | null;
+  puntos: number;
+  medallas: ConteoMedallas | null;
+  rachaActual: number;
+  // Tiene historias activas que todavía no viste.
+  historiasSinVer: boolean;
+  tieneHistorias: boolean;
+  // Hoy ya marcó llegada a una tienda y todavía no marcó salida.
+  enCampo: boolean;
+};
 
-// Lista de todo el equipo activo para "Perfil de tu equipo" -- cualquier
-// usuario con sesión puede verla, es la misma idea que ya existe en
-// Historias (ver quién publicó qué) llevada a una lista de nombres.
+// Todo el equipo activo para "Perfil de tu equipo" (tarjetas deslizables):
+// cualquier usuario con sesión puede verlo, es la misma información que ya
+// se ve en Historias y en la Vitrina de Trofeos. Las cuentas de prueba
+// ("...-generico") no se muestran.
 export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select("id, nombre, rol, tiene_foto_perfil")
-    .eq("activo", true)
-    .neq("id", sesion.id)
-    .order("nombre", { ascending: true });
+  const hoy = hoyPeru();
+  const [{ data, error }, vitrina, feed, { data: activasHoy }, { data: reportadasHoy }] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol, tiene_foto_perfil")
+      .eq("activo", true)
+      .neq("id", sesion.id)
+      .not("nombre", "ilike", "%generico%")
+      .order("nombre", { ascending: true }),
+    obtenerVitrinaTrofeos().catch(() => []),
+    obtenerFeedHistorias().catch(() => []),
+    supabase
+      .from("rutas_activas")
+      .select("usuario_id")
+      .eq("fecha_planificada", hoy)
+      .not("hora_llegada", "is", null)
+      .is("hora_salida", null),
+    supabase
+      .from("rutas_diarias")
+      .select("usuario_id")
+      .eq("fecha", hoy)
+      .not("hora_llegada", "is", null)
+      .is("hora_salida", null),
+  ]);
 
   if (error) return [];
+
+  const puntosPorUsuario = new Map(vitrina.map((f) => [f.usuarioId, f]));
+  const historiasPorUsuario = new Map(feed.map((g) => [g.usuarioId, g]));
+  const enCampo = new Set([...(activasHoy ?? []), ...(reportadasHoy ?? [])].map((r) => r.usuario_id));
 
   const personas = data ?? [];
   const fotos = await Promise.all(personas.map((u) => urlFotoPerfil(supabase, u.id, u.tiene_foto_perfil)));
 
-  return personas.map((u, i) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol, fotoUrl: fotos[i] }));
+  return personas.map((u, i) => {
+    const puntos = puntosPorUsuario.get(u.id);
+    const grupo = historiasPorUsuario.get(u.id);
+    return {
+      usuarioId: u.id,
+      nombre: u.nombre,
+      rol: u.rol,
+      fotoUrl: fotos[i],
+      puntos: puntos?.puntos ?? 0,
+      medallas: puntos?.medallas ?? null,
+      rachaActual: puntos?.rachaActual ?? 0,
+      tieneHistorias: !!grupo && grupo.historias.length > 0,
+      historiasSinVer: !!grupo && grupo.historias.some((h) => !h.vistoPorMi),
+      enCampo: enCampo.has(u.id),
+    };
+  });
 }
 
 // Mostrar u ocultar la propia edad a los demás (ver obtenerPerfil).
