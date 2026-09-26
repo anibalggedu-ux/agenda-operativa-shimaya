@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru } from "@/lib/fechas";
+import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
 import { eventoFinalizado } from "@/lib/eventos";
 import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
@@ -57,8 +57,15 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
 
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  // Día laboral, no calendario: la asistencia se guarda con diaLaboralPeru()
+  // (ver sincronizarAsistenciaGeneral en supervisor/actions.ts), así que la
+  // alerta de puntualidad tiene que leer y comparar contra el mismo día —
+  // si no, entre medianoche y las 6am aparecía "todavía no marca su
+  // llegada hoy" para alguien que ya había marcado, porque esa marcación
+  // había quedado guardada "de ayer".
+  const diaLaboral = diaLaboralPeru();
   const horaActual = horaPeru();
-  const desdeAlerta = sumarDias(hoy, -45);
+  const desdeAlerta = sumarDias(diaLaboral, -45);
 
   const [
     { tiendas },
@@ -85,7 +92,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .select("fecha, hora_ingreso, hora_salida")
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeAlerta)
-      .lte("fecha", hoy),
+      .lte("fecha", diaLaboral),
     // Vacaciones, permisos, descanso semanal, licencia o misión especial —
     // esos días no deben contar como tardanza ni salida faltante (ver
     // lib/puntualidad.ts).
@@ -94,7 +101,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .select("fecha_inicio, fecha_fin")
       .eq("usuario_id", sesion.id)
       .gte("fecha_fin", desdeAlerta)
-      .lte("fecha_inicio", hoy),
+      .lte("fecha_inicio", diaLaboral),
   ]);
 
   // Mismo filtro por destinatario que obtenerAnunciosRecientes — este
@@ -118,7 +125,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     sesion.rol,
     usuarioPropio?.dias_descanso ?? [],
     asistenciaPorFecha,
-    hoy,
+    diaLaboral,
     horaActual,
     diasExentosPropios,
     usuarioPropio?.fecha_ingreso ?? null,
@@ -301,8 +308,14 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
 
   const supabase = supabaseServer();
   const hoy = hoyPeru();
+  // Día laboral, no calendario: rutas_diarias, rutas_activas y asistencia se
+  // guardan con diaLaboralPeru() (ver comentario en obtenerResumenPersonal
+  // más arriba), así que todo lo que cuenta visitas/asistencia/tardanza de
+  // "hoy" debe leer el mismo día — si no, entre medianoche y las 6am
+  // aparecían alertas de tardanza para gente que ya había marcado.
+  const diaLaboral = diaLaboralPeru();
   const horaActual = horaPeru();
-  const desdeAlerta = sumarDias(hoy, -45);
+  const desdeAlerta = sumarDias(diaLaboral, -45);
 
   const [
     { data: tiendas },
@@ -318,20 +331,20 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: atendidas },
   ] = await Promise.all([
     supabase.from("tiendas").select("id, nombre"),
-    supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
-    supabase.from("rutas_activas").select("tienda_id").eq("fecha_planificada", hoy),
+    supabase.from("rutas_diarias").select("tienda_id").eq("fecha", diaLaboral),
+    supabase.from("rutas_activas").select("tienda_id").eq("fecha_planificada", diaLaboral),
     supabase
       .from("asignaciones_especiales")
       .select("tipo, usuarios(nombre)")
-      .lte("fecha_inicio", hoy)
-      .gte("fecha_fin", hoy),
+      .lte("fecha_inicio", diaLaboral)
+      .gte("fecha_fin", diaLaboral),
     supabase
       .from("comunicados")
       .select("tipo, created_at")
       .gte("created_at", sumarDias(hoy, -6) + "T00:00:00")
       .order("created_at", { ascending: false }),
     obtenerVitrinaTrofeos(),
-    obtenerDashboardTiendas(sumarDias(hoy, -30), hoy),
+    obtenerDashboardTiendas(sumarDias(diaLaboral, -30), diaLaboral),
     supabase
       .from("usuarios")
       .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
@@ -341,7 +354,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .from("asistencia")
       .select("usuario_id, fecha, hora_ingreso, hora_salida")
       .gte("fecha", desdeAlerta)
-      .lte("fecha", hoy),
+      .lte("fecha", diaLaboral),
     // Vacaciones, permisos, descanso médico o misión especial de todo el
     // equipo en la ventana — esos días no cuentan como tardanza ni salida
     // faltante (ver lib/puntualidad.ts). Aparte de "especialesHoy" de arriba,
@@ -350,7 +363,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .from("asignaciones_especiales")
       .select("usuario_id, fecha_inicio, fecha_fin")
       .gte("fecha_fin", desdeAlerta)
-      .lte("fecha_inicio", hoy),
+      .lte("fecha_inicio", diaLaboral),
     supabase.from("alertas_puntualidad_atendidas").select("usuario_id, tipo, fecha_referencia"),
   ]);
 
@@ -383,7 +396,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       u.rol,
       u.dias_descanso ?? [],
       asistenciaPorUsuario.get(u.id) ?? new Map(),
-      hoy,
+      diaLaboral,
       horaActual,
       diasExentosPorUsuario.get(u.id) ?? new Set(),
       u.fecha_ingreso ?? null,
@@ -393,7 +406,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   );
 
   const alertasPuntualidad: AlertaPuntualidadItem[] = estadosEquipo
-    .flatMap((e) => construirItemsAlerta(e, hoy, atendidoPorUsuario.get(e.usuarioId)))
+    .flatMap((e) => construirItemsAlerta(e, diaLaboral, atendidoPorUsuario.get(e.usuarioId)))
     .sort((a, b) => {
       if (a.tipo !== b.tipo) return a.tipo === "tardanza" ? -1 : 1;
       return b.severidad - a.severidad; // racha más grave primero
@@ -465,7 +478,12 @@ export async function marcarAlertaAtendida(
     {
       usuario_id: usuarioId,
       tipo,
-      fecha_referencia: hoyPeru(),
+      // Mismo día laboral que usa construirItemsAlerta/fechaProblemaTardanza
+      // para fechar el problema (ver el comentario en obtenerResumenOperativo
+      // más arriba) — si no, un "atendido" marcado de madrugada no calzaba
+      // con la fecha del problema y la alerta podía no desaparecer, o
+      // desaparecer de más.
+      fecha_referencia: diaLaboralPeru(),
       atendido_por_nombre: sesion.nombre,
       updated_at: new Date().toISOString(),
     },
