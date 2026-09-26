@@ -144,8 +144,14 @@ function DetalleChecklist({
     }
   }
 
+  // Cada checklist se muestra con la plantilla con la que se llenó (ej. la
+  // de fast food de Las Begonias); la principal queda de respaldo.
+  function seccionesDe(d: ChecklistVisitaDetalle): SeccionChecklist[] {
+    return d.secciones.length > 0 ? d.secciones : secciones;
+  }
+
   async function generarPdfConFotos(detalle: ChecklistVisitaDetalle) {
-    const seccionesPdf: SeccionChecklistVisitaPdf[] = secciones.map((s) => ({
+    const seccionesPdf: SeccionChecklistVisitaPdf[] = seccionesDe(detalle).map((s) => ({
       titulo: s.titulo,
       items: s.items.map((it) => ({
         etiqueta: it.etiqueta,
@@ -215,7 +221,7 @@ function DetalleChecklist({
           </div>
 
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-            {secciones.map((s) => {
+            {seccionesDe(detalle).map((s) => {
               const respSeccion = detalle.respuestas[s.clave];
               const itemsConValor = s.items.filter(
                 (it) => respSeccion?.[it.clave] !== undefined && respSeccion?.[it.clave] !== null && respSeccion?.[it.clave] !== ""

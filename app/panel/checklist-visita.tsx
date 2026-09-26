@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClipboardList, Check, FileDown, Pencil } from "lucide-react";
 import {
-  obtenerPlantillaChecklistVisita,
+  obtenerPlantillaParaTienda,
   guardarChecklistVisita,
   editarChecklistVisita,
   obtenerChecklistsEditables,
@@ -181,6 +181,10 @@ function SeccionForm({
 
 export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario: string; rol: string }) {
   const [secciones, setSecciones] = useState<SeccionChecklist[]>([]);
+  // Plantilla según la tienda elegida (Las Begonias tiene la de fast food).
+  const [plantillaId, setPlantillaId] = useState("principal");
+  const [plantillaNombre, setPlantillaNombre] = useState<string | null>(null);
+  const plantillaIdRef = useRef("principal");
   const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tiendaId, setTiendaId] = useState("");
@@ -225,14 +229,39 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   }
 
   useEffect(() => {
-    Promise.all([obtenerPlantillaChecklistVisita(), obtenerTodasLasTiendas()])
-      .then(([s, t]) => {
-        setSecciones(s);
+    Promise.all([obtenerPlantillaParaTienda(null), obtenerTodasLasTiendas()])
+      .then(([p, t]) => {
+        setSecciones(p.secciones);
+        setPlantillaId(p.id);
+        plantillaIdRef.current = p.id;
+        setPlantillaNombre(p.nombre);
         setTiendas(t);
       })
       .catch((e) => setError(e.message || "No se pudo cargar el checklist."))
       .finally(() => setCargando(false));
   }, []);
+
+  // Al cambiar de tienda se carga su plantilla; si es otra distinta, las
+  // respuestas ya marcadas no aplican y se limpian (salvo al corregir un
+  // checklist guardado, que trae sus propias respuestas).
+  useEffect(() => {
+    if (!tiendaId) return;
+    let vigente = true;
+    obtenerPlantillaParaTienda(tiendaId)
+      .then((p) => {
+        if (!vigente) return;
+        setSecciones(p.secciones);
+        setPlantillaNombre(p.nombre);
+        if (plantillaIdRef.current !== p.id && !editandoId) setRespuestas({});
+        plantillaIdRef.current = p.id;
+        setPlantillaId(p.id);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiendaId]);
 
   function handleCambiar(seccionClave: string, itemClave: string, valor: string | number | null) {
     setRespuestas((prev) => ({
@@ -364,6 +393,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             Cancelar
           </button>
         </div>
+      )}
+
+      {plantillaId !== "principal" && plantillaNombre && (
+        <p className="text-marca-rojoclaro text-[11px] font-bold">📋 {plantillaNombre}</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

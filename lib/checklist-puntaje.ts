@@ -48,6 +48,11 @@ export const AREAS_CHECKLIST: { clave: AreaChecklist; nombre: string; peso: numb
   { clave: "jugueria", nombre: "Juguería", peso: 10 },
 ];
 
+// Peso de cada área en una plantilla. La plantilla principal usa
+// AREAS_CHECKLIST; otra (ej. la de fast food de Las Begonias) puede traer
+// los suyos (plantilla_checklist_visita.pesos_areas).
+export type PesoArea = { clave: AreaChecklist; peso: number };
+
 // Nota 0-100 por área, o null si esa área no tuvo nada puntuable respondido.
 export type PuntajesArea = Partial<Record<AreaChecklist, number | null>>;
 
@@ -132,7 +137,8 @@ function promedio(valores: number[]): number | null {
 // juguería).
 export function calcularPuntaje(
   secciones: SeccionChecklist[],
-  respuestas: RespuestasChecklist
+  respuestas: RespuestasChecklist,
+  pesos: PesoArea[] = AREAS_CHECKLIST
 ): {
   porcentaje: number | null;
   clasificacion: ClasificacionChecklist | null;
@@ -140,7 +146,7 @@ export function calcularPuntaje(
   faltas: FaltaChecklist[];
 } {
   const faltas = detectarFaltas(secciones, respuestas);
-  const base = notaBase(secciones, respuestas);
+  const base = notaBase(secciones, respuestas, pesos);
   if (base.porcentaje === null) return { porcentaje: null, clasificacion: null, areas: base.areas, faltas };
   // Las faltas se restan de la nota final, sin bajar de 0.
   const descuento = faltas.reduce((t, f) => t + f.descuento, 0);
@@ -150,7 +156,8 @@ export function calcularPuntaje(
 
 function notaBase(
   secciones: SeccionChecklist[],
-  respuestas: RespuestasChecklist
+  respuestas: RespuestasChecklist,
+  pesos: PesoArea[]
 ): { porcentaje: number | null; areas: PuntajesArea | null } {
   const conAreas = secciones.some((s) => s.area);
 
@@ -172,7 +179,7 @@ function notaBase(
   const areas: PuntajesArea = {};
   let sumaPonderada = 0;
   let pesoUsado = 0;
-  AREAS_CHECKLIST.forEach((a) => {
+  pesos.forEach((a) => {
     const notas = secciones
       .filter((s) => s.area === a.clave)
       .map((s) => puntajeSeccion(s, respuestas))

@@ -14,6 +14,7 @@ import {
   type AreaChecklist,
   type ClasificacionChecklist,
   type FaltaChecklist,
+  type PesoArea,
   type PuntajesArea,
   type RespuestasChecklist,
   type SeccionChecklist,
@@ -59,19 +60,51 @@ async function exigirRolConChecklist() {
   return sesion;
 }
 
+// Plantillas: "principal" para todas las tiendas, salvo las que tengan otra
+// asignada en tiendas.plantilla_checklist (ej. Las Begonias, fast food, sin
+// baños ni salón). Cada plantilla puede traer sus propios pesos por área.
+export type PlantillaChecklist = {
+  id: string;
+  nombre: string | null;
+  secciones: SeccionChecklist[];
+  pesos: PesoArea[] | undefined;
+};
+
+async function cargarPlantilla(supabase: ReturnType<typeof supabaseServer>, id: string): Promise<PlantillaChecklist> {
+  const { data, error } = await supabase
+    .from("plantilla_checklist_visita")
+    .select("id, nombre, secciones, pesos_areas")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error("No se pudo cargar el checklist.");
+  if (!data && id !== "principal") return cargarPlantilla(supabase, "principal");
+  return {
+    id: data?.id ?? id,
+    nombre: data?.nombre ?? null,
+    secciones: (data?.secciones as unknown as SeccionChecklist[]) ?? [],
+    pesos: (data?.pesos_areas as unknown as PesoArea[] | null) ?? undefined,
+  };
+}
+
+async function idPlantillaDeTienda(supabase: ReturnType<typeof supabaseServer>, tiendaId: string): Promise<string> {
+  const { data } = await supabase.from("tiendas").select("plantilla_checklist").eq("id", tiendaId).maybeSingle();
+  return data?.plantilla_checklist ?? "principal";
+}
+
+// Plantilla principal (Registro y Central Analítica).
 export async function obtenerPlantillaChecklistVisita(): Promise<SeccionChecklist[]> {
   const sesion = await obtenerSesion();
   if (!sesion) throw new Error("No autorizado.");
+  return (await cargarPlantilla(supabaseServer(), "principal")).secciones;
+}
 
+// La que corresponde a una tienda (formulario del checklist).
+export async function obtenerPlantillaParaTienda(tiendaId: string | null): Promise<PlantillaChecklist> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("plantilla_checklist_visita")
-    .select("secciones")
-    .eq("id", "principal")
-    .maybeSingle();
-
-  if (error) throw new Error("No se pudo cargar el checklist.");
-  return (data?.secciones as unknown as SeccionChecklist[]) ?? [];
+  const id = tiendaId ? await idPlantillaDeTienda(supabase, tiendaId) : "principal";
+  return cargarPlantilla(supabase, id);
 }
 
 export type ResultadoChecklist = {
@@ -162,10 +195,10 @@ export async function guardarChecklistVisita(
     return { exito: false, mensaje: "Selecciona la tienda y la fecha." };
   }
 
-  const secciones = await obtenerPlantillaChecklistVisita();
-  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(secciones, respuestas);
-
   const supabase = supabaseServer();
+  const plantilla = await cargarPlantilla(supabase, await idPlantillaDeTienda(supabase, tiendaId));
+  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(plantilla.secciones, respuestas, plantilla.pesos);
+
   const { data, error } = await supabase
     .from("checklists_visita")
     .insert({
@@ -179,6 +212,7 @@ export async function guardarChecklistVisita(
       clasificacion,
       puntajes_area: areas,
       faltas,
+      plantilla_id: plantilla.id,
     })
     .select("id")
     .single();
@@ -258,7 +292,7 @@ export async function editarChecklistVisita(id: string, respuestas: RespuestasCh
 
   const { data: actual, error: errorActual } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_id, created_at")
+    .select("id, usuario_id, created_at, plantilla_id")
     .eq("id", id)
     .maybeSingle();
   if (errorActual || !actual) return { exito: false, mensaje: "No se encontró el checklist." };
@@ -269,8 +303,8 @@ export async function editarChecklistVisita(id: string, respuestas: RespuestasCh
     return { exito: false, mensaje: `Ya pasaron más de ${HORAS_PARA_EDITAR} horas: este checklist ya no se puede corregir.` };
   }
 
-  const secciones = await obtenerPlantillaChecklistVisita();
-  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(secciones, respuestas);
+  const plantilla = await cargarPlantilla(supabase, actual.plantilla_id ?? "principal");
+  const { porcentaje, clasificacion, areas, faltas } = calcularPuntaje(plantilla.secciones, respuestas, plantilla.pesos);
 
   const { error } = await supabase
     .from("checklists_visita")
@@ -344,6 +378,8 @@ export type ChecklistVisitaDetalle = {
   faltas: FaltaChecklist[];
   editadoPor: string | null;
   editadoEn: string | null;
+  // Plantilla con la que se llenó (para mostrar/armar el PDF con sus preguntas).
+  secciones: SeccionChecklist[];
 };
 
 export type PromedioTienda = { tiendaNombre: string; promedio: number };
@@ -379,15 +415,18 @@ export async function obtenerAgregadosChecklistVisita(
   if (!sesion) throw new Error("No autorizado.");
 
   const supabase = supabaseServer();
-  const [{ data, error }, secciones] = await Promise.all([
+  const [{ data, error }, { data: plantillas }] = await Promise.all([
     supabase
       .from("checklists_visita")
-      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, tiendas(nombre)")
+      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, plantilla_id, tiendas(nombre)")
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
-    obtenerPlantillaChecklistVisita(),
+    supabase.from("plantilla_checklist_visita").select("id, secciones"),
   ]);
+  const seccionesPorPlantilla = new Map<string, SeccionChecklist[]>(
+    (plantillas ?? []).map((p) => [p.id, p.secciones as unknown as SeccionChecklist[]])
+  );
 
   if (error) throw new Error("No se pudo cargar los checklists.");
   const filas = (data ?? []) as any[];
@@ -452,6 +491,7 @@ export async function obtenerAgregadosChecklistVisita(
   // puntaje general (cada checklist pesa igual, no cada pregunta suelta). ----
   const seccionAcum = new Map<string, { suma: number; n: number }>();
   filas.forEach((c) => {
+    const secciones = seccionesPorPlantilla.get(c.plantilla_id ?? "principal") ?? [];
     secciones.forEach((s) => {
       const subPuntaje = puntajeSeccion(s, c.respuestas);
       if (subPuntaje === null) return;
@@ -501,7 +541,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, editado_por, editado_en, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, editado_por, editado_en, plantilla_id, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -520,6 +560,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     faltas: ((data as any).faltas as FaltaChecklist[] | null) ?? [],
     editadoPor: (data as any).editado_por ?? null,
     editadoEn: (data as any).editado_en ?? null,
+    secciones: (await cargarPlantilla(supabase, (data as any).plantilla_id ?? "principal")).secciones,
     fotos: await cargarFotosEvidencia(supabase, "checklist", data.id),
   };
 }
