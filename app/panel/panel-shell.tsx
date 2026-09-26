@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Menu, X, RefreshCw, MoreHorizontal } from "lucide-react";
+import { X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 import SincronizadorOffline from "./sincronizador-offline";
@@ -197,13 +197,6 @@ export default function PanelShell({
       />
       <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-marca-borde bg-marca-superficie px-4 sm:px-6 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => setDrawerAbierto(true)}
-            className="lg:hidden bg-marca-superficie2 border border-marca-borde text-marca-texto w-9 h-9 rounded-[3px] shrink-0 flex items-center justify-center"
-            aria-label="Abrir menú"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
           <p className="font-display text-sm sm:text-base font-semibold text-marca-textofuerte truncate">
             Shimaya <span className="text-marca-tenue font-body font-normal text-[11px]">· {tituloPortal}</span>
           </p>
