@@ -202,6 +202,38 @@ body {
   animation: profundidad-tab 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* 8 · Celebración: confeti dorado al sacar Excelente en un checklist o
+   auditoría, al recibir puntos de un regalo, o al subir de racha en
+   historias (ver app/panel/celebracion.tsx). Cae desde arriba con una
+   deriva lateral y un giro, como confeti de verdad. */
+@keyframes celebracion-cae {
+  0% {
+    transform: translateY(-10vh) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) translateX(var(--celebracion-deriva, 24px)) rotate(340deg);
+    opacity: 0;
+  }
+}
+.celebracion-particula {
+  position: absolute;
+  top: 0;
+  border-radius: 2px;
+  background: rgb(var(--marca-oro) / 0.9);
+  box-shadow: 0 0 5px 0 rgb(var(--marca-oro) / 0.5);
+  animation-name: celebracion-cae;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  animation-iteration-count: 1;
+}
+.celebracion-particula:nth-child(3n) {
+  background: rgb(var(--marca-textofuerte) / 0.85);
+  border-radius: 9999px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animar-tinta,
   .onda-dorada,
@@ -210,14 +242,16 @@ body {
   .telon-panel-der,
   .telon-texto,
   .brasa,
-  .profundidad-activo {
+  .profundidad-activo,
+  .celebracion-particula {
     animation: none;
   }
   .onda-dorada,
   .telon-panel-izq,
   .telon-panel-der,
   .telon-texto,
-  .brasa {
+  .brasa,
+  .celebracion-particula {
     display: none;
   }
   .profundidad-activo {

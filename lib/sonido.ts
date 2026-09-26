@@ -168,8 +168,15 @@ export function reproducirSonidoAlerta(): void {
 }
 
 // Premio o buen resultado (puntos recibidos, nota alta): arpegio ascendente.
+// También dispara la animación de celebración (ver app/panel/celebracion.tsx,
+// que escucha este mismo evento) — así los 4 lugares que ya llamaban a este
+// sonido (checklist Excelente, auditoría Excelente, regalo de puntos y
+// racha de historias) se benefician sin tocar cada pantalla.
 export function reproducirSonidoLogro(): void {
   tocar([659, 698, 880, 988, 1319], 0.085, [40, 40, 40, 40, 120]);
+  try {
+    window.dispatchEvent(new Event("shimaya:celebracion"));
+  } catch {}
 }
 
 // Aviso suave de algo pendiente (evento o encuesta nueva): dos La iguales.

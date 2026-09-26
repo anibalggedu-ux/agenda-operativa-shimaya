@@ -9,6 +9,7 @@ import SincronizadorOffline from "./sincronizador-offline";
 import OndaDorada from "./onda-dorada";
 import TelonBienvenida from "./telon-bienvenida";
 import Brasas from "./brasas";
+import Celebracion from "./celebracion";
 
 export type ItemMenuPanel = {
   id: string;
@@ -293,6 +294,7 @@ export default function PanelShell({
       <SincronizadorOffline />
       <OndaDorada />
       <TelonBienvenida nombre={nombre} />
+      <Celebracion />
     </div>
   );
 }
