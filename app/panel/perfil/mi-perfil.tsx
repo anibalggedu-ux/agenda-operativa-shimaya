@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -32,6 +32,7 @@ import {
   sonidoActivado,
   vibracionActivada,
 } from "@/lib/sonido";
+import { brasasActivadas, cambiarBrasas } from "@/lib/preferencias-visuales";
 
 const ETIQUETA_ROL: Record<string, string> = {
   supervisor: "Supervisor",
@@ -704,10 +705,12 @@ function FilaEdad({ perfil }: { perfil: PerfilCompleto }) {
 function AjustesSonido() {
   const [sonido, setSonido] = useState(true);
   const [vibracion, setVibracion] = useState(true);
+  const [brasas, setBrasas] = useState(true);
 
   useEffect(() => {
     setSonido(sonidoActivado());
     setVibracion(vibracionActivada());
+    setBrasas(brasasActivadas());
   }, []);
 
   function alternarSonido() {
@@ -728,14 +731,21 @@ function AjustesSonido() {
     }
   }
 
+  function alternarBrasas() {
+    const nuevo = !brasas;
+    cambiarBrasas(nuevo);
+    setBrasas(nuevo);
+  }
+
   const filas = [
     { etiqueta: "Sonidos de la app", icono: Volume2, activo: sonido, alternar: alternarSonido },
     { etiqueta: "Vibración", icono: Smartphone, activo: vibracion, alternar: alternarVibracion },
+    { etiqueta: "Brasas en Inicio", icono: Flame, activo: brasas, alternar: alternarBrasas },
   ];
 
   return (
     <div>
-      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Sonido y vibración</p>
+      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Sonido y efectos</p>
       <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
         {filas.map(({ etiqueta, icono: Icono, activo, alternar }) => (
           <button
@@ -754,6 +764,7 @@ function AjustesSonido() {
         ))}
       </div>
       <p className="text-marca-tenue text-[10px] mt-1">Solo en este celular. En iPhone no hay vibración.</p>
+      <p className="text-marca-tenue text-[10px]">Brasas: puntitos dorados de fondo en Inicio. Se apagan solos si tu celular tiene &quot;reducir movimiento&quot;.</p>
     </div>
   );
 }
