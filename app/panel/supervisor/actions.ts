@@ -475,7 +475,6 @@ export async function enviarReporte(
   }
 
   const supabase = supabaseServer();
-  const fecha = diaLaboralPeru();
 
   // El momento de la asignación (no el de envío) es lo que ancla la ventana
   // de 48 horas para poder editar el reporte después — se guarda tal cual
@@ -483,6 +482,15 @@ export async function enviarReporte(
   // llegada/salida a la tienda (si ya se hizo) también se arrastra, para no
   // perderla al pasar de "pendiente" a "reportado".
   let asignadoEn: string | null = null;
+  // La visita quedó registrada el día que se PLANIFICÓ/marcó (fecha_planificada
+  // de rutas_activas), no el día en que por fin se escribe la observación y
+  // se aprieta "enviar" — sin esto, una visita del lunes reportada recién el
+  // miércoles (dentro de la ventana de 48h) quedaba fechada como si hubiera
+  // sido el miércoles, mezclándose con las visitas de ese día en el mapa y
+  // en Central Analítica. Se usa diaLaboralPeru() solo como respaldo, para
+  // el caso (no debería darse en el flujo normal) de un reporte sin
+  // rutaActivaId detrás.
+  let fecha = diaLaboralPeru();
   let marcacionTienda: {
     hora_llegada: string | null;
     ubicacion_llegada: string | null;
@@ -504,11 +512,12 @@ export async function enviarReporte(
     const { data: activa } = await supabase
       .from("rutas_activas")
       .select(
-        "created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id"
+        "created_at, fecha_planificada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id"
       )
       .eq("id", rutaActivaId)
       .maybeSingle();
     asignadoEn = activa?.created_at ?? null;
+    if (activa?.fecha_planificada) fecha = activa.fecha_planificada;
     if (activa) {
       marcacionTienda = {
         hora_llegada: activa.hora_llegada,
