@@ -6,6 +6,7 @@ import {
   obtenerPerfil,
   actualizarFotoPerfil,
   obtenerDirectorioEquipo,
+  cambiarMostrarEdad,
   type PerfilCompleto,
   type PersonaDirectorio,
 } from "./actions";
@@ -254,14 +255,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
             </span>
             <span className="text-marca-textofuerte text-xs font-bold">{textoDescanso}</span>
           </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="flex items-center gap-2 text-marca-tenue text-xs">
-              <Cake className="w-3.5 h-3.5 text-marca-rojoclaro" /> Edad
-            </span>
-            <span className="text-marca-textofuerte text-xs font-bold">
-              {perfil.edad !== null ? `${perfil.edad} año${perfil.edad !== 1 ? "s" : ""}` : "No registrada"}
-            </span>
-          </div>
+          <FilaEdad key={perfil.usuarioId} perfil={perfil} />
           <div className="flex items-center justify-between py-2.5">
             <span className="flex items-center gap-2 text-marca-tenue text-xs">
               <Calendar className="w-3.5 h-3.5 text-marca-rojoclaro" /> Antigüedad
@@ -355,6 +349,71 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   );
 }
 
+// Interruptor con el mismo estilo en toda la pantalla de perfil.
+function Interruptor({ activo }: { activo: boolean }) {
+  return (
+    <span className={`relative inline-block w-9 h-5 rounded-full transition-colors ${activo ? "bg-marca-rojo" : "bg-marca-borde"}`}>
+      <span
+        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${activo ? "left-[18px]" : "left-0.5"}`}
+      />
+    </span>
+  );
+}
+
+// Edad en "Datos". En tu perfil: la ves siempre y eliges si los demás la
+// ven. En el de otro: se ve solo si esa persona la muestra y tú también
+// muestras la tuya (recíproco, como la "última vez" de WhatsApp).
+function FilaEdad({ perfil }: { perfil: PerfilCompleto }) {
+  const [mostrar, setMostrar] = useState(perfil.mostrarEdad);
+  const [guardando, setGuardando] = useState(false);
+
+  async function alternar() {
+    if (guardando) return;
+    const nuevo = !mostrar;
+    setMostrar(nuevo);
+    setGuardando(true);
+    const r = await cambiarMostrarEdad(nuevo).catch(() => ({ ok: false }));
+    if (!r.ok) setMostrar(!nuevo);
+    setGuardando(false);
+  }
+
+  const textoEdad =
+    perfil.edad !== null
+      ? `${perfil.edad} año${perfil.edad !== 1 ? "s" : ""}`
+      : perfil.edadOculta
+        ? "Oculta"
+        : "No registrada";
+
+  return (
+    <div className="py-2.5 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-marca-tenue text-xs">
+          <Cake className="w-3.5 h-3.5 text-marca-rojoclaro" /> Edad
+        </span>
+        <span className="text-marca-textofuerte text-xs font-bold">{textoEdad}</span>
+      </div>
+      {perfil.esPropio && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={mostrar}
+          onClick={alternar}
+          disabled={guardando}
+          className="w-full flex items-center justify-between disabled:opacity-60"
+        >
+          <span className="text-marca-tenue text-[11px] text-left">
+            {mostrar ? "Los demás pueden ver tu edad" : "Tu edad está oculta (tampoco verás la de otros)"}
+          </span>
+          <Interruptor activo={mostrar} />
+        </button>
+      )}
+      {perfil.edadOculta === "tuya" && (
+        <p className="text-marca-tenue text-[10px]">Activa tu edad en tu perfil para ver la de los demás.</p>
+      )}
+    </div>
+  );
+}
+
 // Interruptores de sonido y vibración de la app. Se guardan en este celular
 // (no en la cuenta): alguien puede querer silencio en el celular del trabajo
 // y sonido en el propio.
@@ -406,13 +465,7 @@ function AjustesSonido() {
             <span className="flex items-center gap-2 text-marca-tenue text-xs">
               <Icono className="w-3.5 h-3.5 text-marca-rojoclaro" /> {etiqueta}
             </span>
-            <span
-              className={`relative w-9 h-5 rounded-full transition-colors ${activo ? "bg-marca-rojo" : "bg-marca-borde"}`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${activo ? "left-[18px]" : "left-0.5"}`}
-              />
-            </span>
+            <Interruptor activo={activo} />
           </button>
         ))}
       </div>
