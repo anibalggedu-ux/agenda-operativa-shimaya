@@ -61,6 +61,11 @@ export type TiendaClasificada = {
   etaKm: number | null;
   googleMapsUrl: string;
   wazeUrl: string;
+  // Coordenadas de la tienda (null si no las tiene cargadas) — se usan en
+  // el celular para avisar si el GPS de una marcación de llegada/salida
+  // quedó lejos de acá (ver TrazoCheckDorado/aviso en selector-tiendas.tsx).
+  tiendaLat: number | null;
+  tiendaLon: number | null;
 };
 
 function clasificarUrgencia(fecha: string, hoy: string, manana: string, ayer: string): Urgencia {
@@ -173,6 +178,10 @@ export async function obtenerTiendasClasificadas(): Promise<{
     etaKm: null,
     googleMapsUrl: "",
     wazeUrl: "",
+    // Se completan más abajo, en el mapeo final -- acá solo hace falta que
+    // el literal cumpla el tipo completo de TiendaClasificada.
+    tiendaLat: null,
+    tiendaLon: null,
     _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
     _fotoSalidaBlob: r.foto_salida_blob ?? null,
     _lat: r.tiendas.lat === null ? null : Number(r.tiendas.lat),
@@ -211,6 +220,8 @@ export async function obtenerTiendasClasificadas(): Promise<{
       etaKm: null,
       googleMapsUrl: "",
       wazeUrl: "",
+      tiendaLat: null,
+      tiendaLon: null,
       _fotoLlegadaBlob: r.foto_llegada_blob ?? null,
       _fotoSalidaBlob: r.foto_salida_blob ?? null,
       _lat: r.tiendas?.lat === null || r.tiendas?.lat === undefined ? null : Number(r.tiendas.lat),
@@ -289,6 +300,8 @@ export async function obtenerTiendasClasificadas(): Promise<{
         etaKm: eta?.km ?? null,
         googleMapsUrl: construirUrlGoogleMaps(_lat, _lon, t.tiendaNombre),
         wazeUrl: construirUrlWaze(_lat, _lon, t.tiendaNombre),
+        tiendaLat: _lat,
+        tiendaLon: _lon,
       };
     })
   );
