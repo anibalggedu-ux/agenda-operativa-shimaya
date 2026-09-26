@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, BedDouble, ClipboardList } from "lucide-react";
-import { obtenerDashboardGerente, type DashboardGerente } from "./actions";
+import { AlertTriangle, BedDouble, Check, ClipboardList } from "lucide-react";
+import { obtenerDashboardGerente, marcarAlertaAtrasadaLeida, type DashboardGerente } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
 function TarjetaKpi({
@@ -28,6 +28,10 @@ export default function Dashboard() {
   const [datos, setDatos] = useState<DashboardGerente | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Mientras se confirma con el servidor, para no dejar tocar "Leído" dos
+  // veces en la misma alerta ni que se sienta trabada si tarda un poco.
+  const [marcandoLeida, setMarcandoLeida] = useState<string | null>(null);
+  const [errorAlerta, setErrorAlerta] = useState<string | null>(null);
 
   useEffect(() => {
     obtenerDashboardGerente()
@@ -35,6 +39,27 @@ export default function Dashboard() {
       .catch((e) => setError(e.message || "Error al cargar el dashboard."))
       .finally(() => setCargando(false));
   }, []);
+
+  async function handleMarcarLeida(id: string) {
+    setMarcandoLeida(id);
+    // Optimista: la quita de la lista al toque; si falla, se vuelve a poner
+    // y se avisa por qué.
+    const alertaRemovida = datos?.alertasAtrasadas.find((a) => a.id === id) ?? null;
+    setDatos((prev) =>
+      prev ? { ...prev, alertasAtrasadas: prev.alertasAtrasadas.filter((a) => a.id !== id) } : prev
+    );
+    const resultado = await marcarAlertaAtrasadaLeida(id).catch(() => ({
+      exito: false as const,
+      mensaje: "No se pudo conectar con el servidor.",
+    }));
+    setMarcandoLeida(null);
+    if (!resultado.exito && alertaRemovida) {
+      setDatos((prev) =>
+        prev ? { ...prev, alertasAtrasadas: [...prev.alertasAtrasadas, alertaRemovida] } : prev
+      );
+      setErrorAlerta(resultado.mensaje || "No se pudo marcar la alerta como leída.");
+    }
+  }
 
   if (cargando) {
     return <p className="text-marca-tenue text-sm animate-pulse">Cargando dashboard...</p>;
@@ -79,6 +104,17 @@ export default function Dashboard() {
           <AlertTriangle className="w-3.5 h-3.5 text-marca-rojoclaro" /> ALERTAS CRÍTICAS — REPORTES
           ATRASADOS
         </h2>
+        {errorAlerta && (
+          <div className="mb-2 flex items-center justify-between gap-2 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5">
+            <p className="text-amber-400 text-xs font-semibold">{errorAlerta}</p>
+            <button
+              onClick={() => setErrorAlerta(null)}
+              className="shrink-0 text-[10px] font-bold text-amber-400/70 hover:text-amber-300"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
         {datos.alertasAtrasadas.length === 0 ? (
           <p className="text-marca-tenue text-sm italic">
             No hay reportes atrasados. Todo al día.
@@ -88,9 +124,9 @@ export default function Dashboard() {
             {datos.alertasAtrasadas.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center justify-between bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-4"
+                className="flex items-center justify-between gap-2 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-4"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="text-marca-textofuerte font-semibold text-sm">
                     {a.usuarioNombre} → {a.tiendaNombre}
                   </p>
@@ -98,9 +134,20 @@ export default function Dashboard() {
                     Planificado: {formatearFechaLegible(a.fechaPlanificada)}
                   </p>
                 </div>
-                <span className="text-marca-rojoclaro font-black text-xs shrink-0 ml-3">
-                  {a.diasAtraso} día{a.diasAtraso === 1 ? "" : "s"} atrasado
-                </span>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <span className="text-marca-rojoclaro font-black text-xs whitespace-nowrap">
+                    {a.diasAtraso} día{a.diasAtraso === 1 ? "" : "s"} atrasado
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleMarcarLeida(a.id)}
+                    disabled={marcandoLeida === a.id}
+                    className="flex items-center gap-1 text-[10.5px] font-bold text-marca-tenue hover:text-emerald-400 border border-marca-borde hover:border-emerald-500/40 rounded-[3px] px-2 py-1 transition whitespace-nowrap disabled:opacity-50"
+                    title="Ya lo sé — quitar esta alerta de la lista"
+                  >
+                    <Check className="w-3 h-3" /> Leído
+                  </button>
+                </div>
               </div>
             ))}
           </div>

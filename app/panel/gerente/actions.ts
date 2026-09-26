@@ -65,6 +65,7 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
     usuariosDescanso,
     asignacionesEspeciales,
     enCampoHoy,
+    alertasLeidas,
   ] = await Promise.all([
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
     supabase
@@ -83,15 +84,20 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
       .eq("fecha", hoy)
       .not("hora_ingreso", "is", null)
       .is("hora_salida", null),
+    // Alertas de reporte atrasado que el gerente ya marcó como leídas — se
+    // ocultan de la lista, sin borrar la asignación pendiente de verdad
+    // (rutas_activas sigue igual; ver alertas_atrasadas_leidas).
+    supabase.from("alertas_atrasadas_leidas").select("ruta_activa_id"),
   ]);
 
   if (visitasHoy.error || rutasActivas.error || usuariosDescanso.error || asignacionesEspeciales.error) {
     throw new Error("No se pudo cargar el dashboard.");
   }
 
+  const idsLeidas = new Set((alertasLeidas.data ?? []).map((a) => a.ruta_activa_id));
   const activas = (rutasActivas.data ?? []) as any[];
   const pendientesHoy = activas.filter((r) => r.fecha_planificada === hoy);
-  const atrasadas = activas.filter((r) => r.fecha_planificada < hoy);
+  const atrasadas = activas.filter((r) => r.fecha_planificada < hoy && !idsLeidas.has(r.id));
 
   // Tiendas distintas, no filas: si una tienda recibió dos reportes hoy (o
   // fue asignada dos veces, ej. a dos personas), sigue contando una sola vez.
@@ -259,4 +265,24 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
     eventos: Array.from(porEvento.values()),
     totalPersonas: usuariosUnicos.size,
   };
+}
+
+// ---------- Alertas de reporte atrasado (Dashboard del gerente) ----------
+//
+// "Leído" no borra ni resuelve la asignación pendiente — sigue en
+// rutas_activas tal cual, reportable si la persona todavía puede hacerlo, y
+// contando para el resto del sistema. Solo saca esa alerta puntual de esta
+// lista, para que el gerente pueda ir vaciándola sin perder de vista nada.
+
+export async function marcarAlertaAtrasadaLeida(rutaActivaId: string): Promise<{ exito: boolean; mensaje?: string }> {
+  const sesion = await exigirGerente();
+  const supabase = supabaseServer();
+
+  const { error } = await supabase.from("alertas_atrasadas_leidas").upsert(
+    { ruta_activa_id: rutaActivaId, leido_por_nombre: sesion.nombre },
+    { onConflict: "ruta_activa_id" }
+  );
+
+  if (error) return { exito: false, mensaje: "No se pudo marcar como leída." };
+  return { exito: true };
 }
