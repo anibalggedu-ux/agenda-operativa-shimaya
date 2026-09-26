@@ -29,6 +29,8 @@ export type PerfilCompleto = {
   edadOculta: "suya" | "tuya" | null;
   // Solo en el propio perfil: si tu edad está visible para los demás.
   mostrarEdad: boolean;
+  // Última vez que usó la app (para "En línea", ver lib/presencia.ts).
+  ultimaActividad: string | null;
   proximoAniversario: { fecha: string; diasFaltantes: number } | null;
   // false para gerente -- no participa del sistema de puntos, así que no
   // aparece en la Vitrina de Trofeos y esta sección no se muestra.
@@ -73,7 +75,7 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
   const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, tiene_foto_perfil, mostrar_edad")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, tiene_foto_perfil, mostrar_edad, ultima_actividad")
       .eq("id", objetivoId)
       .maybeSingle(),
     obtenerVitrinaTrofeos(),
@@ -123,6 +125,7 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
     edad,
     edadOculta,
     mostrarEdad: suyaVisible,
+    ultimaActividad: usuario.ultima_actividad ?? null,
     proximoAniversario,
     tienePuntos: propio !== null,
     puntos: propio?.puntos ?? 0,
@@ -163,6 +166,7 @@ export type PersonaDirectorio = {
   tieneHistorias: boolean;
   // Hoy ya marcó llegada a una tienda y todavía no marcó salida.
   enCampo: boolean;
+  ultimaActividad: string | null;
 };
 
 // Todo el equipo activo para "Perfil de tu equipo" (tarjetas deslizables):
@@ -178,7 +182,7 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
   const [{ data, error }, vitrina, feed, { data: activasHoy }, { data: reportadasHoy }] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, tiene_foto_perfil")
+      .select("id, nombre, rol, tiene_foto_perfil, ultima_actividad")
       .eq("activo", true)
       .neq("id", sesion.id)
       .not("nombre", "ilike", "%generico%")
@@ -222,6 +226,7 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
       tieneHistorias: !!grupo && grupo.historias.length > 0,
       historiasSinVer: !!grupo && grupo.historias.some((h) => !h.vistoPorMi),
       enCampo: enCampo.has(u.id),
+      ultimaActividad: u.ultima_actividad ?? null,
     };
   });
 }

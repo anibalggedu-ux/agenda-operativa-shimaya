@@ -9,6 +9,7 @@ import {
   type NotificacionItem,
 } from "./social-actions";
 import { reproducirSonidoLogro, reproducirSonidoNotificacion } from "@/lib/sonido";
+import { marcarActividad } from "../presencia-actions";
 
 // Cada cuánto se fija si hay algo nuevo mientras la persona tiene la app
 // abierta -- no es tiempo real (no hay websockets), pero alcanza para que
@@ -33,6 +34,8 @@ export default function CampanaNotificaciones() {
   const contenedorRef = useRef<HTMLDivElement>(null);
 
   function revisar() {
+    // De paso marca "En línea" (solo si la pantalla está a la vista).
+    if (document.visibilityState === "visible") marcarActividad().catch(() => {});
     obtenerNotificacionesPendientes()
       .then((n) => {
         // Si entre lo nuevo hay un regalo de puntos, suena "logro"; si no,
@@ -54,7 +57,15 @@ export default function CampanaNotificaciones() {
   useEffect(() => {
     revisar();
     const intervalo = setInterval(revisar, INTERVALO_REVISION_MS);
-    return () => clearInterval(intervalo);
+    // Al volver a la app (desbloquear el celular), marcar al tiro.
+    const alVolver = () => {
+      if (document.visibilityState === "visible") marcarActividad().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

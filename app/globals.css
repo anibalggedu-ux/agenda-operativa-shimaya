@@ -144,3 +144,13 @@ body {
     transform: none;
   }
 }
+
+/* Entrada suave de bloques (perfil). Parte visible, así nunca queda oculto. */
+@keyframes aparecer {
+  from { transform: translateY(8px); opacity: 0.25; }
+  to { transform: none; opacity: 1; }
+}
+.aparecer { animation: aparecer 0.45s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .aparecer { animation: none; }
+}
