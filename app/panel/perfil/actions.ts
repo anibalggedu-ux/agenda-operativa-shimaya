@@ -19,8 +19,15 @@ export type PerfilCompleto = {
   fotoUrl: string | null;
   diasDescanso: string[];
   antiguedad: { anios: number; meses: number } | null;
-  // Años cumplidos según usuarios.fecha_nacimiento; null si no está cargada.
+  // Años cumplidos según usuarios.fecha_nacimiento; null si no está cargada
+  // o si no se puede ver (ver edadOculta).
   edad: number | null;
+  // Por qué no se ve la edad de otro: "suya" = esa persona la ocultó;
+  // "tuya" = la ocultaste tú (como en WhatsApp, si ocultas la tuya no ves
+  // la de los demás). null = se ve (o es tu propio perfil).
+  edadOculta: "suya" | "tuya" | null;
+  // Solo en el propio perfil: si tu edad está visible para los demás.
+  mostrarEdad: boolean;
   proximoAniversario: { fecha: string; diasFaltantes: number } | null;
   // false para gerente -- no participa del sistema de puntos, así que no
   // aparece en la Vitrina de Trofeos y esta sección no se muestra.
@@ -65,7 +72,7 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
   const [{ data: usuario, error }, vitrina, totalDonado, totalRecibido] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, tiene_foto_perfil")
+      .select("nombre, rol, dias_descanso, fecha_ingreso, fecha_nacimiento, tiene_foto_perfil, mostrar_edad")
       .eq("id", objetivoId)
       .maybeSingle(),
     obtenerVitrinaTrofeos(),
@@ -86,20 +93,35 @@ export async function obtenerPerfil(usuarioId?: string): Promise<PerfilCompleto>
     proximoAniversario = calcularProximaFechaAnual(mIng, dIng, hoy);
   }
 
-  const edad = usuario.fecha_nacimiento ? calcularAntiguedad(usuario.fecha_nacimiento, hoyPeru()).anios : null;
+  // Edad recíproca, como la "última vez" de WhatsApp: se ve la de otro solo
+  // si esa persona la tiene visible Y tú también tienes la tuya visible.
+  const esPropio = objetivoId === sesion.id;
+  const suyaVisible = usuario.mostrar_edad !== false;
+  let tuyaVisible = suyaVisible;
+  if (!esPropio) {
+    const { data: yo } = await supabase.from("usuarios").select("mostrar_edad").eq("id", sesion.id).maybeSingle();
+    tuyaVisible = yo?.mostrar_edad !== false;
+  }
+  const edadOculta: PerfilCompleto["edadOculta"] = esPropio ? null : !suyaVisible ? "suya" : !tuyaVisible ? "tuya" : null;
+  const edad =
+    usuario.fecha_nacimiento && edadOculta === null
+      ? calcularAntiguedad(usuario.fecha_nacimiento, hoyPeru()).anios
+      : null;
 
   const indice = vitrina.findIndex((f) => f.usuarioId === objetivoId);
   const propio = indice >= 0 ? vitrina[indice] : null;
 
   return {
     usuarioId: objetivoId,
-    esPropio: objetivoId === sesion.id,
+    esPropio,
     nombre: usuario.nombre ?? sesion.nombre,
     rol: usuario.rol ?? sesion.rol,
     fotoUrl,
     diasDescanso: usuario.dias_descanso ?? [],
     antiguedad,
     edad,
+    edadOculta,
+    mostrarEdad: suyaVisible,
     proximoAniversario,
     tienePuntos: propio !== null,
     puntos: propio?.puntos ?? 0,
@@ -150,4 +172,13 @@ export async function obtenerDirectorioEquipo(): Promise<PersonaDirectorio[]> {
   const fotos = await Promise.all(personas.map((u) => urlFotoPerfil(supabase, u.id, u.tiene_foto_perfil)));
 
   return personas.map((u, i) => ({ usuarioId: u.id, nombre: u.nombre, rol: u.rol, fotoUrl: fotos[i] }));
+}
+
+// Mostrar u ocultar la propia edad a los demás (ver obtenerPerfil).
+export async function cambiarMostrarEdad(mostrar: boolean): Promise<{ ok: boolean; mensaje?: string }> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { ok: false, mensaje: "No autorizado." };
+  const { error } = await supabaseServer().from("usuarios").update({ mostrar_edad: mostrar }).eq("id", sesion.id);
+  if (error) return { ok: false, mensaje: "No se pudo guardar el cambio." };
+  return { ok: true };
 }

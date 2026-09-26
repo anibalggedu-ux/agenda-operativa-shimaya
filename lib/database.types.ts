@@ -1396,6 +1396,7 @@ export type Database = {
           email: string | null
           fecha_ingreso: string | null
           fecha_nacimiento: string | null
+          mostrar_edad: boolean
           hora_limite_ingreso: string | null
           horario_por_dia: Json | null
           id: string
@@ -1417,6 +1418,7 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
+          mostrar_edad?: boolean
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
@@ -1438,6 +1440,7 @@ export type Database = {
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
+          mostrar_edad?: boolean
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
