@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { reproducirSonidoAlerta } from "@/lib/sonido";
 import { Camera, Check, ImagePlus, RotateCcw, X } from "lucide-react";
 import { comprimirFotoComoBase64, reducirDataUrl } from "@/lib/comprimir-imagen";
 import { subirFotoEvidencia } from "./evidencias-actions";
@@ -216,7 +217,9 @@ export async function subirFotosEvidencia(
       actualizar(foto.id, { estado: "error", error: "Sin conexión" });
     }
   }
-  return actuales.filter((f) => f.estado !== "subida").length;
+  const fallidas = actuales.filter((f) => f.estado !== "subida").length;
+  if (fallidas > 0) reproducirSonidoAlerta();
+  return fallidas;
 }
 
 // Aviso con reintento para cuando alguna foto no se pudo subir.

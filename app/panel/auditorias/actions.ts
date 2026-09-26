@@ -61,7 +61,13 @@ function clasificar(porcentaje: number): string {
   return "Acción inmediata";
 }
 
-export type ResultadoAuditoria = { exito: boolean; mensaje?: string; id?: string };
+export type ResultadoAuditoria = {
+  exito: boolean;
+  mensaje?: string;
+  id?: string;
+  porcentaje?: number;
+  clasificacion?: string;
+};
 
 const FILAS_COMPROMISOS = 5;
 
@@ -310,7 +316,13 @@ export async function crearAuditoria(
     items,
   });
 
-  return { exito: true, id: creada.id, mensaje: `Auditoría guardada — ${porcentaje}% (${clasificacion}).` };
+  return {
+    exito: true,
+    id: creada.id,
+    porcentaje,
+    clasificacion,
+    mensaje: `Auditoría guardada — ${porcentaje}% (${clasificacion}).`,
+  };
 }
 
 export type AuditoriaResumen = {

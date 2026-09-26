@@ -16,7 +16,8 @@ import {
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
-import { textoPuntajesArea, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
+import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
+import { textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
 import {
   AvisoFotosPendientes,
   fotosPendientesParaPdf,
@@ -293,6 +294,11 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
       : await guardarChecklistVisita(tiendaId, fecha, respuestas);
     setGuardando(false);
     if (resp.exito) {
+      // Sonido según la nota: logro si quedó bien (86% o más), alerta si
+      // salió "Acción inmediata".
+      if (resp.porcentaje != null && resp.porcentaje >= UMBRALES_CHECKLIST.bueno) reproducirSonidoLogro();
+      else if (resp.clasificacion === "Acción inmediata") reproducirSonidoAlerta();
+      else reproducirSonidoExito();
       setGuardado(true);
       setUltimoGuardadoId(resp.id ?? null);
       cargarEditables();
@@ -307,6 +313,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         await subirFotos(resp.id);
       }
     } else {
+      reproducirSonidoAlerta();
       setError(resp.mensaje || "No se pudo guardar el checklist.");
     }
   }

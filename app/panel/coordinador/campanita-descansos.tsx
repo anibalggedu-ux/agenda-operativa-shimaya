@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Bell } from "lucide-react";
 import {
@@ -14,6 +14,7 @@ import {
   type SolicitudPermisoPendiente,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import { reproducirSonidoNotificacion } from "@/lib/sonido";
 
 type ItemSolicitud =
   | { tipo: "descanso"; datos: SolicitudDescansoPendiente }
@@ -22,13 +23,21 @@ type ItemSolicitud =
 export default function CampanitaDescansos() {
   const [abierto, setAbierto] = useState(false);
   const [conteo, setConteo] = useState(0);
+  // null = todavía no se cargó la primera vez (no suena al abrir la app,
+  // solo cuando llega una solicitud nueva mientras está abierta).
+  const conteoAnteriorRef = useRef<number | null>(null);
   const [items, setItems] = useState<ItemSolicitud[] | null>(null);
   const [respondiendoId, setRespondiendoId] = useState<string | null>(null);
   const parametros = useSearchParams();
 
   function cargarConteo() {
     Promise.all([contarSolicitudesDescansoPendientes(), contarSolicitudesPermisoPendientes()])
-      .then(([descansos, permisos]) => setConteo(descansos + permisos))
+      .then(([descansos, permisos]) => {
+        const total = descansos + permisos;
+        if (conteoAnteriorRef.current !== null && total > conteoAnteriorRef.current) reproducirSonidoNotificacion();
+        conteoAnteriorRef.current = total;
+        setConteo(total);
+      })
       .catch(() => {});
   }
 
