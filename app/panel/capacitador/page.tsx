@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, Images, UserCircle } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -21,7 +21,6 @@ import {
   LazyCalendario as Calendario,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
-  LazyMiGaleria as MiGaleria,
   LazyMiPerfil as MiPerfil,
   LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
@@ -111,17 +110,11 @@ export default async function PanelCapacitador() {
       contenido: <ConsultorioIA />,
     },
     {
-      id: "galeria",
-      etiqueta: "Mi Galería",
-      icono: <Images className="w-4 h-4" />,
-      contenido: <MiGaleria miUsuarioId={sesion.id} miRol={sesion.rol} />,
-      badge: notificacionesPendientes,
-    },
-    {
       id: "perfil",
       etiqueta: "Mi Perfil",
       icono: <UserCircle className="w-4 h-4" />,
       contenido: <MiPerfil />,
+      badge: notificacionesPendientes,
     },
   ];
 

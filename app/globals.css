@@ -7,29 +7,96 @@
   --marca-rojo: 211 30 43;
   --marca-rojoclaro: 226 55 68;
   --marca-rojooscuro: 166 18 29;
+  /* Oro "Noche": detalles finos (líneas, anillos, etiquetas). */
+  --marca-oro: 217 178 106;
 
-  /* Tema oscuro (el que ya existía) — por defecto. */
-  --marca-fondo: 13 14 16;
-  --marca-superficie: 24 25 29;
-  --marca-superficie2: 31 32 37;
-  --marca-borde: 42 44 49;
-  --marca-texto: 241 238 230;
-  --marca-textofuerte: 247 245 242;
-  --marca-tenue: 139 141 146;
+  /* Tema oscuro "Noche" (por defecto): negro profundo con grises cálidos. */
+  --marca-fondo: 10 10 11;
+  --marca-superficie: 20 19 18;
+  --marca-superficie2: 29 27 25;
+  --marca-borde: 44 41 37;
+  --marca-texto: 239 233 223;
+  --marca-textofuerte: 248 243 235;
+  --marca-tenue: 146 138 126;
 }
 
 :root[data-theme="light"] {
-  --marca-fondo: 245 243 239;
+  --marca-oro: 166 124 52;
+  --marca-fondo: 246 243 237;
   --marca-superficie: 255 255 255;
-  --marca-superficie2: 238 236 231;
-  --marca-borde: 217 214 207;
-  --marca-texto: 36 34 31;
-  --marca-textofuerte: 20 18 15;
-  --marca-tenue: 107 104 98;
+  --marca-superficie2: 239 235 228;
+  --marca-borde: 222 215 204;
+  --marca-texto: 36 32 27;
+  --marca-textofuerte: 20 17 13;
+  --marca-tenue: 112 104 93;
 }
 
 body {
   background-color: rgb(var(--marca-fondo));
+}
+
+/* ===== Estilo "Noche" (etapa 1 del rediseño) =====
+   Esquinas suaves en toda la app sin tocar cada archivo: las ~425 tarjetas,
+   botones e inputs que usaban esquinas casi rectas (3px) pasan a 12px. */
+.rounded-\[3px\] {
+  border-radius: 12px;
+}
+.rounded-\[2px\] {
+  border-radius: 8px;
+}
+
+/* Títulos con serifa japonesa (Shippori Mincho): un poco más de aire. */
+.font-display {
+  letter-spacing: 0.005em;
+}
+
+/* 1 · "Tinta": cada sección aparece desde un leve desenfoque al abrirla.
+   Arranca visible (opacidad .4), así nunca queda contenido oculto. */
+@keyframes tinta {
+  from {
+    opacity: 0.4;
+    filter: blur(6px);
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+.animar-tinta {
+  animation: tinta 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 7 · Onda dorada al tocar botones (ver app/panel/onda-dorada.tsx). Se
+   dibuja en una capa fija encima de la pantalla: no se mete dentro del
+   botón, así no altera ningún diseño existente. */
+@keyframes onda-dorada {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+.onda-dorada {
+  position: fixed;
+  z-index: 100;
+  width: 140px;
+  height: 140px;
+  border-radius: 9999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.1);
+  background: radial-gradient(circle, rgb(var(--marca-oro) / 0.4), rgb(var(--marca-oro) / 0) 70%);
+  animation: onda-dorada 0.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animar-tinta,
+  .onda-dorada {
+    animation: none;
+  }
+  .onda-dorada {
+    display: none;
+  }
 }
 
 /* "Vidrio Shimaya": las ~150 tarjetas que ya usan bg-marca-superficie en

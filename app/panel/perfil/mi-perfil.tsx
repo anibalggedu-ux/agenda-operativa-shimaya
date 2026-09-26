@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -10,7 +10,18 @@ import {
   type PerfilCompleto,
   type PersonaDirectorio,
 } from "./actions";
-import { obtenerGaleriaDeUsuario, type FotoGaleria } from "../historias/actions";
+import {
+  obtenerGaleriaDeUsuario,
+  obtenerMiSaldoDeRegalo,
+  type FotoGaleria,
+  type SaldoRegalo,
+} from "../historias/actions";
+import {
+  marcarNotificacionesVistas,
+  obtenerRankingRegalos,
+  type FilaRankingRegalos,
+} from "../historias/social-actions";
+import { FranjaPuntos, RankingRegalos, TarjetaFoto } from "../historias/mi-galeria";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { calcularPresencia } from "@/lib/presencia";
@@ -82,7 +93,27 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [mensaje, setMensaje] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const ajustesRef = useRef<HTMLDivElement>(null);
-  const [pestana, setPestana] = useState<"fotos" | "medallas" | "datos">("fotos");
+  const [pestana, setPestana] = useState<"fotos" | "medallas" | "regalos" | "datos">("fotos");
+  // Pestaña "Regalos" (antes en Mi Galería): se carga al abrirla.
+  const [saldoRegalo, setSaldoRegalo] = useState<SaldoRegalo | null>(null);
+  const [rankingRegalos, setRankingRegalos] = useState<FilaRankingRegalos[] | null>(null);
+
+  // Al abrir tu propio perfil (que ahora incluye la galería) se dan por
+  // vistas las notificaciones de regalos y comentarios, como hacía Mi Galería.
+  const esPerfilPropio = perfil?.esPropio ?? false;
+  useEffect(() => {
+    if (esPerfilPropio) marcarNotificacionesVistas().catch(() => {});
+  }, [esPerfilPropio]);
+
+  useEffect(() => {
+    if (pestana !== "regalos" || rankingRegalos !== null) return;
+    Promise.all([obtenerMiSaldoDeRegalo(), obtenerRankingRegalos()])
+      .then(([s, r]) => {
+        setSaldoRegalo(s);
+        setRankingRegalos(r);
+      })
+      .catch(() => setRankingRegalos([]));
+  }, [pestana, rankingRegalos]);
 
   async function cargar() {
     const p = await obtenerPerfil(usuarioId);
@@ -268,13 +299,14 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
 
       {/* Pestañas: Fotos · Medallas · Datos */}
       <div>
-        <div className="grid grid-cols-3 border-b border-marca-borde" role="tablist">
+        <div className={`grid ${esPropio ? "grid-cols-4" : "grid-cols-3"} border-b border-marca-borde`} role="tablist">
           {(
             [
               { id: "fotos", etiqueta: "Fotos", icono: Images },
               { id: "medallas", etiqueta: "Medallas", icono: Trophy },
+              ...(esPropio ? [{ id: "regalos", etiqueta: "Regalos", icono: Gift }] : []),
               { id: "datos", etiqueta: "Datos", icono: Calendar },
-            ] as const
+            ] as { id: "fotos" | "medallas" | "regalos" | "datos"; etiqueta: string; icono: typeof Images }[]
           ).map(({ id, etiqueta, icono: Icono }) => (
             <button
               key={id}
@@ -298,6 +330,14 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                 <p className="text-marca-tenue text-sm py-6 text-center">
                   {esPropio ? "Aún no tienes fotos activas en tu galería." : "Todavía no tiene fotos activas."}
                 </p>
+              ) : esPropio ? (
+                // Tu galería (antes "Mi Galería"): cuántos días le quedan a
+                // cada foto, descargar y compartir.
+                <div className="grid grid-cols-2 gap-2.5">
+                  {fotos.map((f) => (
+                    <TarjetaFoto key={f.id} foto={f} />
+                  ))}
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-1">
                   {fotos.map((f) => (
@@ -307,7 +347,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                   ))}
                 </div>
               )}
-              <p className="text-marca-tenue text-[10.5px] mt-2">Se ven aquí hasta 7 días, igual que en Mi Galería.</p>
+              <p className="text-marca-tenue text-[10.5px] mt-2">Las fotos de historias se ven aquí hasta 7 días.</p>
             </>
           )}
 
@@ -338,6 +378,22 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                     <div className="h-full bg-marca-rojo rounded-full transition-all duration-700" style={{ width: progreso + "%" }} />
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {pestana === "regalos" && esPropio && (
+            <div className="space-y-3">
+              {rankingRegalos === null ? (
+                <p className="text-marca-tenue text-sm animate-pulse py-6 text-center">Cargando regalos...</p>
+              ) : (
+                <>
+                  {saldoRegalo && <FranjaPuntos saldo={saldoRegalo} />}
+                  <RankingRegalos filas={rankingRegalos} />
+                  {rankingRegalos.every((f) => f.donado === 0 && f.recibido === 0) && (
+                    <p className="text-marca-tenue text-sm text-center py-4">Todavía no hay regalos en el equipo.</p>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, Images, UserCircle } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -27,7 +27,6 @@ import {
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
-  LazyMiGaleria as MiGaleria,
   LazyMiPerfil as MiPerfil,
   LazyCampanaNotificaciones as CampanaNotificaciones,
 } from "../panel-lazy";
@@ -117,17 +116,11 @@ export default function PanelTabs({
     { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <HistorialAuditorias modo="todas" /> },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
     {
-      id: "galeria",
-      etiqueta: "Mi Galería",
-      icono: <Images className="w-4 h-4" />,
-      contenido: <MiGaleria miUsuarioId={id} miRol={rol} />,
-      badge: notificacionesPendientes,
-    },
-    {
       id: "perfil",
       etiqueta: "Mi Perfil",
       icono: <UserCircle className="w-4 h-4" />,
       contenido: <MiPerfil />,
+      badge: notificacionesPendientes,
     },
   ];
 
