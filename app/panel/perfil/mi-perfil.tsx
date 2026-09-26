@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Star, Flame, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -13,6 +13,7 @@ import {
 import { obtenerGaleriaDeUsuario, type FotoGaleria } from "../historias/actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
+import { calcularPresencia } from "@/lib/presencia";
 import {
   cambiarSonido,
   cambiarVibracion,
@@ -50,17 +51,25 @@ function textoAntiguedad(a: PerfilCompleto["antiguedad"], esPropio: boolean): st
   return `${esPropio ? "Miembro" : "En el equipo"} desde hace ${anios}${meses}`;
 }
 
-function Tile({ icono, etiqueta, valor, unidad }: { icono: React.ReactNode; etiqueta: string; valor: string; unidad?: string }) {
-  return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 py-3">
-      <p className="flex items-center gap-1.5 text-marca-rojoclaro text-[9px] font-black uppercase tracking-widest">
-        {icono} {etiqueta}
-      </p>
-      <p className="font-display text-marca-textofuerte text-[22px] font-extrabold mt-1">
-        {valor} {unidad && <span className="text-xs font-bold text-marca-tenue">{unidad}</span>}
-      </p>
-    </div>
-  );
+// Número que cuenta hacia arriba al abrir el perfil (menos de 1 s).
+function Contador({ valor }: { valor: number }) {
+  const [mostrado, setMostrado] = useState(valor);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || valor === 0) {
+      setMostrado(valor);
+      return;
+    }
+    let cuadro = 0;
+    const inicio = performance.now();
+    const paso = (t: number) => {
+      const p = Math.min(1, (t - inicio) / 800);
+      setMostrado(Math.round(valor * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) cuadro = requestAnimationFrame(paso);
+    };
+    cuadro = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(cuadro);
+  }, [valor]);
+  return <>{mostrado}</>;
 }
 
 function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrirPerfil: (id: string) => void }) {
@@ -72,6 +81,8 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [fotoRecienSubida, setFotoRecienSubida] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ajustesRef = useRef<HTMLDivElement>(null);
+  const [pestana, setPestana] = useState<"fotos" | "medallas" | "datos">("fotos");
 
   async function cargar() {
     const p = await obtenerPerfil(usuarioId);
@@ -134,175 +145,245 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
     perfil.diasDescanso.length === 0 ? "Sin descanso fijo asignado" : perfil.diasDescanso.join(" y ");
   const caption = textoAntiguedad(perfil.antiguedad, esPropio);
 
+  const color = COLOR_ROL[perfil.rol] ?? "#8b8d92";
+  const presencia = calcularPresencia(perfil.ultimaActividad);
+  const fotoPerfil = (perfil.esPropio && fotoRecienSubida) || perfil.fotoUrl;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="h-[92px] rounded-t-[6px]" style={{ background: "linear-gradient(135deg,#e23744,#a6121d)" }} />
-        <div className="px-1">
-          <div className="relative w-24 h-24 -mt-12">
-            <div className="w-24 h-24 rounded-full border-4 border-marca-fondo bg-marca-superficie2 flex items-center justify-center overflow-hidden">
-              {(perfil.esPropio && fotoRecienSubida) || perfil.fotoUrl ? (
-                <img src={(perfil.esPropio && fotoRecienSubida) || perfil.fotoUrl || ""} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
+    <div className="space-y-5">
+      {/* Cabecera estilo Instagram: foto a la izquierda y los números al lado. */}
+      <div className="flex items-center gap-5 aparecer">
+        <div className="relative shrink-0">
+          <div className="w-[88px] h-[88px] rounded-full p-[3px]" style={{ background: color }}>
+            <div className="w-full h-full rounded-full overflow-hidden border-[3px] border-marca-fondo bg-marca-superficie2 flex items-center justify-center">
+              {fotoPerfil ? (
+                <img src={fotoPerfil} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-marca-textofuerte text-2xl font-extrabold">{iniciales(perfil.nombre)}</span>
               )}
             </div>
-            {esPropio && (
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={subiendo}
-                aria-label="Cambiar foto de perfil"
-                className="absolute -bottom-0.5 -right-0.5 w-8 h-8 rounded-full bg-marca-rojoclaro border-[3px] border-marca-fondo flex items-center justify-center disabled:opacity-50"
-              >
-                <Camera className="w-3.5 h-3.5 text-white" />
-              </button>
-            )}
-            {esPropio && (
-              <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={alElegirFoto} />
-            )}
           </div>
-
-          <div className="mt-2.5">
-            <h2 className="font-display text-xl font-extrabold text-marca-textofuerte">{perfil.nombre}</h2>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="bg-marca-superficie2 border border-marca-borde rounded-full px-2.5 py-1 text-[9.5px] font-black uppercase tracking-widest text-marca-rojoclaro">
-                {ETIQUETA_ROL[perfil.rol] ?? perfil.rol}
-              </span>
-              {subiendo && <span className="text-marca-tenue text-[11px]">Subiendo foto...</span>}
-            </div>
-            {caption && <p className="text-marca-tenue text-[11px] mt-1.5">{caption}</p>}
-            {mensaje && <p className="text-marca-rojoclaro text-[11px] mt-1.5">{mensaje}</p>}
+          {presencia?.enLinea && (
+            <span className="absolute right-1 bottom-1 w-4 h-4 rounded-full bg-emerald-400 border-[3px] border-marca-fondo">
+              <span className="absolute -inset-[3px] rounded-full border-2 border-emerald-400 animate-ping opacity-60" />
+            </span>
+          )}
+        </div>
+        <div className="flex-1 grid grid-cols-3 text-center tabular-nums">
+          <div>
+            <p className="font-display text-marca-textofuerte text-lg font-extrabold">
+              <Contador valor={perfil.puntos} />
+            </p>
+            <p className="text-marca-tenue text-[10.5px]">puntos</p>
+          </div>
+          <div>
+            <p className="font-display text-marca-textofuerte text-lg font-extrabold">
+              {perfil.ranking ? (
+                <>
+                  #<Contador valor={perfil.ranking.posicion} />
+                </>
+              ) : (
+                "—"
+              )}
+            </p>
+            <p className="text-marca-tenue text-[10.5px]">{perfil.ranking ? `de ${perfil.ranking.total}` : "ranking"}</p>
+          </div>
+          <div>
+            <p className="font-display text-marca-textofuerte text-lg font-extrabold">
+              <Contador valor={perfil.rachaActual} />
+            </p>
+            <p className="text-marca-tenue text-[10.5px]">días racha</p>
           </div>
         </div>
       </div>
 
-      {perfil.tienePuntos && (
-        <div className="grid grid-cols-2 gap-2.5">
-          <Tile icono={<Star className="w-2.5 h-2.5" />} etiqueta="Puntos" valor={String(perfil.puntos)} />
-          <Tile
-            icono={<Flame className="w-2.5 h-2.5" />}
-            etiqueta="Racha actual"
-            valor={String(perfil.rachaActual)}
-            unidad={perfil.rachaActual === 1 ? "día" : "días"}
-          />
-          <Tile
-            icono={<Trophy className="w-2.5 h-2.5" />}
-            etiqueta="Ranking"
-            valor={perfil.ranking ? `#${perfil.ranking.posicion}` : "—"}
-            unidad={perfil.ranking ? `de ${perfil.ranking.total}` : undefined}
-          />
-          <Tile
-            icono={<Plane className="w-2.5 h-2.5" />}
-            etiqueta="Viajes a provincia"
-            valor={String(perfil.viajesProvincia)}
-          />
+      <div className="space-y-1 aparecer [animation-delay:60ms]">
+        <h2 className="font-display text-lg font-extrabold text-marca-textofuerte leading-tight">{perfil.nombre}</h2>
+        <div className="flex items-center flex-wrap gap-2">
+          <span
+            className="rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest"
+            style={{ color, background: `${color}1f` }}
+          >
+            {ETIQUETA_ROL[perfil.rol] ?? perfil.rol}
+          </span>
+          {presencia && (
+            <span className={`flex items-center gap-1 text-[11px] font-bold ${presencia.enLinea ? "text-emerald-400" : "text-marca-tenue"}`}>
+              {presencia.enLinea && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+              {presencia.texto}
+            </span>
+          )}
+          {subiendo && <span className="text-marca-tenue text-[11px]">Subiendo foto...</span>}
+        </div>
+        <p className="text-marca-tenue text-[11.5px]">
+          {caption ? `${caption} · ` : ""}🎁 {esPropio ? "donaste" : "donó"} {perfil.totalDonado} · 🎉{" "}
+          {esPropio ? "recibiste" : "recibió"} {perfil.totalRecibido}
+        </p>
+        {mensaje && <p className="text-marca-rojoclaro text-[11px]">{mensaje}</p>}
+      </div>
+
+      {esPropio && (
+        <div className="grid grid-cols-2 gap-2 aparecer [animation-delay:120ms]">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={subiendo}
+            className="flex items-center justify-center gap-1.5 bg-marca-superficie2 hover:bg-marca-superficie text-marca-textofuerte text-[12.5px] font-bold py-2 rounded-lg disabled:opacity-50"
+          >
+            <Camera className="w-3.5 h-3.5" /> Cambiar foto
+          </button>
+          <button
+            type="button"
+            onClick={() => ajustesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            className="flex items-center justify-center gap-1.5 bg-marca-superficie2 hover:bg-marca-superficie text-marca-textofuerte text-[12.5px] font-bold py-2 rounded-lg"
+          >
+            <Volume2 className="w-3.5 h-3.5" /> Ajustes
+          </button>
+          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={alElegirFoto} />
         </div>
       )}
 
-      <div className="flex gap-2.5">
-        <div className="flex-1 bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 py-3">
-          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">
-            🎁 {esPropio ? "Has donado" : "Ha donado"}
-          </p>
-          <p className="font-display text-lg font-extrabold text-marca-rojoclaro mt-1">
-            {perfil.totalDonado} <span className="text-[11px] font-bold text-marca-tenue">pts</span>
-          </p>
-        </div>
-        <div className="flex-1 bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 py-3">
-          <p className="text-marca-tenue text-[9px] font-black uppercase tracking-widest">
-            🎉 {esPropio ? "Te han donado" : "Le han donado"}
-          </p>
-          <p className="font-display text-lg font-extrabold text-emerald-400 mt-1">
-            {perfil.totalRecibido} <span className="text-[11px] font-bold text-marca-tenue">pts</span>
-          </p>
-        </div>
-      </div>
-
+      {/* "Destacadas": medallas y viajes en círculos, como en Instagram. */}
       {perfil.tienePuntos && (
-        <div>
-          <h3 className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-marca-tenue uppercase mb-2.5">
-            <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> {esPropio ? "Tus medallas" : "Sus medallas"}
-          </h3>
-          <div className="flex gap-2">
-            {UMBRALES_MEDALLAS.map((u) => (
-              <div key={u.id} className="flex-1 bg-marca-superficie2 border border-marca-borde rounded-[3px] py-2.5 text-center">
-                <div className="text-2xl leading-none">{u.emoji}</div>
-                <div className="text-marca-texto font-black text-sm mt-1">{perfil.medallas[u.id]}</div>
-              </div>
-            ))}
+        <div className="flex gap-3.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden aparecer [animation-delay:180ms]">
+          {UMBRALES_MEDALLAS.map((u) => (
+            <div key={u.id} className={`shrink-0 flex flex-col items-center gap-1 ${perfil.medallas[u.id] === 0 ? "opacity-40" : ""}`}>
+              <span className="w-14 h-14 rounded-full border-2 border-marca-borde bg-marca-superficie flex items-center justify-center text-2xl">
+                {u.emoji}
+              </span>
+              <span className="text-marca-tenue text-[10.5px]">
+                {perfil.medallas[u.id]} {u.etiqueta.toLowerCase()}
+              </span>
+            </div>
+          ))}
+          <div className={`shrink-0 flex flex-col items-center gap-1 ${perfil.viajesProvincia === 0 ? "opacity-40" : ""}`}>
+            <span className="w-14 h-14 rounded-full border-2 border-marca-borde bg-marca-superficie flex items-center justify-center">
+              <Plane className="w-5 h-5 text-marca-rojoclaro" />
+            </span>
+            <span className="text-marca-tenue text-[10.5px]">
+              {perfil.viajesProvincia} viaje{perfil.viajesProvincia !== 1 ? "s" : ""}
+            </span>
           </div>
-          {esPropio && (
-            <div className="mt-2.5">
-              <p className="text-marca-tenue text-[10.5px] mb-1.5">
-                Te faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para
-                tu próxima medalla 🥉
-              </p>
-              <div className="h-[5px] bg-marca-borde rounded-full overflow-hidden">
-                <div className="h-full bg-marca-rojo rounded-full" style={{ width: progreso + "%" }} />
+        </div>
+      )}
+
+      {/* Pestañas: Fotos · Medallas · Datos */}
+      <div>
+        <div className="grid grid-cols-3 border-b border-marca-borde" role="tablist">
+          {(
+            [
+              { id: "fotos", etiqueta: "Fotos", icono: Images },
+              { id: "medallas", etiqueta: "Medallas", icono: Trophy },
+              { id: "datos", etiqueta: "Datos", icono: Calendar },
+            ] as const
+          ).map(({ id, etiqueta, icono: Icono }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={pestana === id}
+              onClick={() => setPestana(id)}
+              className={`flex items-center justify-center gap-1.5 py-2.5 text-[12px] font-bold border-b-2 -mb-px transition ${
+                pestana === id ? "text-marca-textofuerte border-marca-textofuerte" : "text-marca-tenue border-transparent"
+              }`}
+            >
+              <Icono className="w-3.5 h-3.5" /> {etiqueta}
+            </button>
+          ))}
+        </div>
+
+        <div className="pt-3">
+          {pestana === "fotos" && (
+            <>
+              {fotos.length === 0 ? (
+                <p className="text-marca-tenue text-sm py-6 text-center">
+                  {esPropio ? "Aún no tienes fotos activas en tu galería." : "Todavía no tiene fotos activas."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1">
+                  {fotos.map((f) => (
+                    <div key={f.id} className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo">
+                      <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-marca-tenue text-[10.5px] mt-2">Se ven aquí hasta 7 días, igual que en Mi Galería.</p>
+            </>
+          )}
+
+          {pestana === "medallas" && (
+            <div className="space-y-3">
+              {perfil.tienePuntos ? (
+                <div className="bg-marca-superficie rounded-xl divide-y divide-marca-borde">
+                  {UMBRALES_MEDALLAS.map((u) => (
+                    <div key={u.id} className="flex items-center justify-between px-3.5 py-2.5">
+                      <span className="flex items-center gap-2 text-marca-tenue text-xs">
+                        <span className="text-lg leading-none">{u.emoji}</span> {u.etiqueta}
+                        <span className="text-[10px]">· cada {u.puntos} pts</span>
+                      </span>
+                      <span className="text-marca-textofuerte text-sm font-black tabular-nums">{perfil.medallas[u.id]}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-marca-tenue text-sm py-6 text-center">Todavía no suma puntos.</p>
+              )}
+              {esPropio && perfil.tienePuntos && (
+                <div>
+                  <p className="text-marca-tenue text-[10.5px] mb-1.5">
+                    Te faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para
+                    tu próxima medalla 🥉
+                  </p>
+                  <div className="h-[6px] bg-marca-borde rounded-full overflow-hidden">
+                    <div className="h-full bg-marca-rojo rounded-full transition-all duration-700" style={{ width: progreso + "%" }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {pestana === "datos" && (
+            <div className="bg-marca-superficie rounded-xl px-3.5 divide-y divide-marca-borde">
+              <div className="flex items-center justify-between py-2.5">
+                <span className="flex items-center gap-2 text-marca-tenue text-xs">
+                  <BedDouble className="w-3.5 h-3.5 text-marca-rojoclaro" /> Descanso semanal
+                </span>
+                <span className="text-marca-textofuerte text-xs font-bold">{textoDescanso}</span>
+              </div>
+              <FilaEdad key={perfil.usuarioId} perfil={perfil} />
+              <div className="flex items-center justify-between py-2.5">
+                <span className="flex items-center gap-2 text-marca-tenue text-xs">
+                  <Calendar className="w-3.5 h-3.5 text-marca-rojoclaro" /> Antigüedad
+                </span>
+                <span className="text-marca-textofuerte text-xs font-bold">
+                  {perfil.antiguedad
+                    ? `${perfil.antiguedad.anios} año${perfil.antiguedad.anios !== 1 ? "s" : ""}` +
+                      (perfil.antiguedad.meses > 0 ? ` y ${perfil.antiguedad.meses} mes${perfil.antiguedad.meses !== 1 ? "es" : ""}` : "")
+                    : "No registrada"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <span className="flex items-center gap-2 text-marca-tenue text-xs">
+                  <PartyPopper className="w-3.5 h-3.5 text-marca-rojoclaro" /> Próximo aniversario
+                </span>
+                <span className="text-marca-textofuerte text-xs font-bold">
+                  {perfil.proximoAniversario
+                    ? perfil.proximoAniversario.diasFaltantes === 0
+                      ? "¡Hoy!"
+                      : `En ${perfil.proximoAniversario.diasFaltantes} día${perfil.proximoAniversario.diasFaltantes !== 1 ? "s" : ""}`
+                    : "—"}
+                </span>
               </div>
             </div>
           )}
         </div>
-      )}
+      </div>
 
-      <div>
-        <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Datos</p>
-        <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
-          <div className="flex items-center justify-between py-2.5">
-            <span className="flex items-center gap-2 text-marca-tenue text-xs">
-              <BedDouble className="w-3.5 h-3.5 text-marca-rojoclaro" /> Descanso semanal
-            </span>
-            <span className="text-marca-textofuerte text-xs font-bold">{textoDescanso}</span>
-          </div>
-          <FilaEdad key={perfil.usuarioId} perfil={perfil} />
-          <div className="flex items-center justify-between py-2.5">
-            <span className="flex items-center gap-2 text-marca-tenue text-xs">
-              <Calendar className="w-3.5 h-3.5 text-marca-rojoclaro" /> Antigüedad
-            </span>
-            <span className="text-marca-textofuerte text-xs font-bold">
-              {perfil.antiguedad
-                ? `${perfil.antiguedad.anios} año${perfil.antiguedad.anios !== 1 ? "s" : ""}` +
-                  (perfil.antiguedad.meses > 0 ? ` y ${perfil.antiguedad.meses} mes${perfil.antiguedad.meses !== 1 ? "es" : ""}` : "")
-                : "No registrada"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between py-2.5">
-            <span className="flex items-center gap-2 text-marca-tenue text-xs">
-              <PartyPopper className="w-3.5 h-3.5 text-marca-rojoclaro" /> Próximo aniversario
-            </span>
-            <span className="text-marca-textofuerte text-xs font-bold">
-              {perfil.proximoAniversario
-                ? perfil.proximoAniversario.diasFaltantes === 0
-                  ? "¡Hoy!"
-                  : `En ${perfil.proximoAniversario.diasFaltantes} día${perfil.proximoAniversario.diasFaltantes !== 1 ? "s" : ""}`
-                : "—"}
-            </span>
-          </div>
+      {esPropio && (
+        <div ref={ajustesRef}>
+          <AjustesSonido />
         </div>
-      </div>
-
-      {esPropio && <AjustesSonido />}
-
-      <div>
-        <p className="flex items-center gap-1.5 text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-2.5">
-          <Images className="w-3.5 h-3.5" /> {esPropio ? "Tus fotos recientes" : "Sus fotos recientes"}
-        </p>
-        {fotos.length === 0 ? (
-          <p className="text-marca-tenue text-sm">
-            {esPropio ? "Aún no tienes fotos activas en tu galería." : "Todavía no tiene fotos activas."}
-          </p>
-        ) : (
-          <div className="grid grid-cols-3 gap-1.5">
-            {fotos.map((f) => (
-              <div key={f.id} className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo">
-                <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="text-marca-tenue text-[10.5px] mt-2">Se ven aquí hasta 7 días, igual que en Mi Galería.</p>
-      </div>
+      )}
 
       {esPropio && directorio.length > 0 && (
         <CarruselEquipo directorio={directorio} onAbrirPerfil={onAbrirPerfil} />
@@ -321,8 +402,8 @@ const PLURAL_ROL: Record<string, string> = {
 // "Perfil de tu equipo": una tarjeta grande por compañero (portada del
 // color de su rol, foto, puntos, medallas y racha) que se pasan deslizando,
 // con puntitos abajo que marcan en cuál vas. El anillo de la foto se pone
-// rojo-naranja si tiene historias sin ver, y el punto verde indica que hoy
-// está en campo (marcó llegada a una tienda y no ha salido).
+// rojo-naranja si tiene historias sin ver, el punto verde indica que está
+// en línea, y "📍 en campo" que hoy marcó llegada a una tienda y no ha salido.
 function CarruselEquipo({
   directorio,
   onAbrirPerfil,
@@ -393,6 +474,7 @@ function CarruselEquipo({
       >
         {lista.map((persona) => {
           const color = COLOR_ROL[persona.rol] ?? "#8b8d92";
+          const presencia = calcularPresencia(persona.ultimaActividad);
           return (
             <div
               key={persona.usuarioId}
@@ -418,9 +500,9 @@ function CarruselEquipo({
                       iniciales(persona.nombre)
                     )}
                   </div>
-                  {persona.enCampo && (
+                  {presencia?.enLinea && (
                     <span
-                      title="En campo hoy"
+                      title="En línea"
                       className="absolute right-1 bottom-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-marca-superficie"
                     />
                   )}
@@ -430,8 +512,13 @@ function CarruselEquipo({
                 <p className="text-marca-textofuerte text-[15px] font-bold leading-tight">{persona.nombre}</p>
                 <p className="text-[11.5px] font-bold" style={{ color }}>
                   {ETIQUETA_ROL[persona.rol] ?? persona.rol}
-                  {persona.enCampo ? <span className="text-emerald-400"> · en campo</span> : null}
+                  {persona.enCampo ? <span className="text-marca-tenue"> · 📍 en campo</span> : null}
                 </p>
+                {presencia && (
+                  <p className={`text-[11px] font-bold ${presencia.enLinea ? "text-emerald-400" : "text-marca-tenue"}`}>
+                    {presencia.texto}
+                  </p>
+                )}
                 <p className="text-base leading-none min-h-[20px]">
                   {persona.medallas
                     ? UMBRALES_MEDALLAS.flatMap((u) =>

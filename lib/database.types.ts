@@ -1397,6 +1397,7 @@ export type Database = {
           fecha_ingreso: string | null
           fecha_nacimiento: string | null
           mostrar_edad: boolean
+          ultima_actividad: string | null
           hora_limite_ingreso: string | null
           horario_por_dia: Json | null
           id: string
@@ -1419,6 +1420,7 @@ export type Database = {
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
           mostrar_edad?: boolean
+          ultima_actividad?: string | null
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
@@ -1441,6 +1443,7 @@ export type Database = {
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
           mostrar_edad?: boolean
+          ultima_actividad?: string | null
           hora_limite_ingreso?: string | null
           horario_por_dia?: Json | null
           id?: string
