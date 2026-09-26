@@ -180,6 +180,28 @@ body {
   animation-iteration-count: infinite;
 }
 
+/* 6 · Profundidad: el ícono activo de la barra flotante (ver
+   app/panel/panel-shell.tsx) "sube" sobre una placa dorada con sombra al
+   quedar seleccionado. */
+@keyframes profundidad-tab {
+  from {
+    transform: scale(0.6) translateY(6px);
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgb(var(--marca-oro) / 0);
+  }
+  60% {
+    transform: scale(1.08) translateY(-2px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    box-shadow: 0 6px 16px -4px rgb(var(--marca-oro) / 0.45);
+  }
+}
+.profundidad-activo {
+  animation: profundidad-tab 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animar-tinta,
   .onda-dorada,
@@ -187,7 +209,8 @@ body {
   .telon-panel-izq,
   .telon-panel-der,
   .telon-texto,
-  .brasa {
+  .brasa,
+  .profundidad-activo {
     animation: none;
   }
   .onda-dorada,
@@ -196,6 +219,9 @@ body {
   .telon-texto,
   .brasa {
     display: none;
+  }
+  .profundidad-activo {
+    box-shadow: 0 6px 16px -4px rgb(var(--marca-oro) / 0.45);
   }
 }
 
