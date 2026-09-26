@@ -6,6 +6,7 @@ import { Menu, X, RefreshCw } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 import SincronizadorOffline from "./sincronizador-offline";
+import OndaDorada from "./onda-dorada";
 
 export type ItemMenuPanel = {
   id: string;
@@ -82,7 +83,10 @@ export default function PanelShell({
   // "Home" de cada portal -- no siempre se llama "inicio" (coordinador usa
   // "rutas"), así que se toma de defaultId en vez de un id fijo.
   const idHome = defaultId ?? items[0]?.id;
-  const idInicial = seccionUrl && items.some((i) => i.id === seccionUrl) ? seccionUrl : idHome;
+  // "Mi Galería" ahora vive dentro de Mi Perfil: los enlaces viejos a
+  // ?seccion=galeria abren el perfil.
+  const seccionPedida = seccionUrl === "galeria" && !items.some((i) => i.id === "galeria") ? "perfil" : seccionUrl;
+  const idInicial = seccionPedida && items.some((i) => i.id === seccionPedida) ? seccionPedida : idHome;
 
   const [activo, setActivo] = useState(idInicial);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
@@ -164,7 +168,7 @@ export default function PanelShell({
           Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
         </div>
 
-        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde border-r-4 border-r-marca-rojoclaro rounded-lg px-4 py-3">
+        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde border-r-2 border-r-marca-oro/70 rounded-2xl px-4 py-3">
           <span className="shrink-0 text-marca-rojoclaro [&>svg]:w-5 [&>svg]:h-5">{seccionActiva?.icono}</span>
           <p className="font-display text-lg sm:text-xl font-bold text-marca-textofuerte truncate">
             {seccionActiva?.etiqueta}
@@ -183,7 +187,9 @@ export default function PanelShell({
           </aside>
 
           <div className="flex-1 min-w-0 flex flex-col bg-marca-fondo">
-            <div className="flex-1 p-4 sm:p-6">
+            {/* key: al cambiar de sección se vuelve a montar y corre la
+                animación "tinta" de entrada. */}
+            <div key={activo} className="flex-1 p-4 sm:p-6 animar-tinta">
               {seccionActiva?.contenido}
             </div>
           </div>
@@ -191,6 +197,7 @@ export default function PanelShell({
       </div>
 
       <SincronizadorOffline />
+      <OndaDorada />
     </div>
   );
 }

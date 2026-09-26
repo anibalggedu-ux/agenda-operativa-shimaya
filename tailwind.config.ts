@@ -19,6 +19,7 @@ const config: Config = {
           rojo: "rgb(var(--marca-rojo) / <alpha-value>)",
           rojoclaro: "rgb(var(--marca-rojoclaro) / <alpha-value>)",
           rojooscuro: "rgb(var(--marca-rojooscuro) / <alpha-value>)",
+          oro: "rgb(var(--marca-oro) / <alpha-value>)",
         },
       },
       // Nombres propios (no "sans"/"mono") para no cambiar de golpe la

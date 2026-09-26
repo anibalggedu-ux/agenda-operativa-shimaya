@@ -18,7 +18,7 @@ function textoVencimiento(diasRestantes: number): string {
   return `vence en ${diasRestantes} días`;
 }
 
-function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
+export function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   async function compartir() {
@@ -72,7 +72,7 @@ function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
   );
 }
 
-function FranjaPuntos({ saldo }: { saldo: SaldoRegalo }) {
+export function FranjaPuntos({ saldo }: { saldo: SaldoRegalo }) {
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-[3px] flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-marca-borde">
       <div className="flex-1 p-4">
@@ -97,7 +97,7 @@ function FranjaPuntos({ saldo }: { saldo: SaldoRegalo }) {
   );
 }
 
-function RankingRegalos({ filas }: { filas: FilaRankingRegalos[] }) {
+export function RankingRegalos({ filas }: { filas: FilaRankingRegalos[] }) {
   const topDonadores = [...filas].filter((f) => f.donado > 0).sort((a, b) => b.donado - a.donado).slice(0, 5);
   const topReceptores = [...filas].filter((f) => f.recibido > 0).sort((a, b) => b.recibido - a.recibido).slice(0, 5);
 
