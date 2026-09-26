@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Menu, X, RefreshCw } from "lucide-react";
+import { Menu, X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 import SincronizadorOffline from "./sincronizador-offline";
@@ -23,6 +23,94 @@ export type ItemMenuPanel = {
   // en Mi Galería). Se calcula en el servidor al cargar la página.
   badge?: number;
 };
+
+// Barra de pestañas flotante para celular (reemplaza tener que abrir el
+// menú hamburguesa para cambiar de sección). El ícono activo "flota" con la
+// animación de profundidad (ver .profundidad-activo en globals.css): sube
+// sobre una placa dorada con sombra, como el ícono activo en apps nativas.
+const MAX_BOTONES_BARRA = 4;
+
+function BotonBarra({
+  item,
+  activo,
+  onClick,
+}: {
+  item: ItemMenuPanel;
+  activo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0"
+      aria-current={activo}
+    >
+      <span
+        className={`relative flex items-center justify-center w-9 h-9 rounded-full transition-colors [&>svg]:w-[18px] [&>svg]:h-[18px] ${
+          activo ? "bg-oro/20 text-marca-rojoclaro profundidad-activo" : "text-marca-tenue"
+        }`}
+      >
+        {item.icono}
+        {!!item.badge && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-marca-rojo text-white text-[9px] font-black">
+            {item.badge > 9 ? "9+" : item.badge}
+          </span>
+        )}
+      </span>
+      <span
+        className={`text-[9.5px] font-bold truncate max-w-full ${
+          activo ? "text-marca-textofuerte" : "text-marca-tenue"
+        }`}
+      >
+        {item.etiqueta}
+      </span>
+    </button>
+  );
+}
+
+function BarraFlotante({
+  items,
+  activo,
+  onSeleccionar,
+  onAbrirMas,
+}: {
+  items: ItemMenuPanel[];
+  activo: string;
+  onSeleccionar: (id: string) => void;
+  onAbrirMas: () => void;
+}) {
+  const hayMas = items.length > MAX_BOTONES_BARRA;
+  const visibles = hayMas ? items.slice(0, MAX_BOTONES_BARRA - 1) : items;
+  const activoEnMas = hayMas && !visibles.some((i) => i.id === activo);
+
+  return (
+    <nav
+      className="lg:hidden fixed left-3 right-3 z-30 flex items-center bg-marca-superficie/95 backdrop-blur border border-marca-borde rounded-2xl shadow-lg px-1"
+      style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+    >
+      {visibles.map((item) => (
+        <BotonBarra key={item.id} item={item} activo={activo === item.id} onClick={() => onSeleccionar(item.id)} />
+      ))}
+      {hayMas && (
+        <button
+          onClick={onAbrirMas}
+          className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0"
+        >
+          <span
+            className={`flex items-center justify-center w-9 h-9 rounded-full [&>svg]:w-[18px] [&>svg]:h-[18px] ${
+              activoEnMas ? "bg-oro/20 text-marca-rojoclaro profundidad-activo" : "text-marca-tenue"
+            }`}
+          >
+            <MoreHorizontal />
+          </span>
+          <span className={`text-[9.5px] font-bold ${activoEnMas ? "text-marca-textofuerte" : "text-marca-tenue"}`}>
+            Más
+          </span>
+        </button>
+      )}
+    </nav>
+  );
+}
 
 function BotonItem({
   item,
@@ -165,7 +253,7 @@ export default function PanelShell({
         </div>
       )}
 
-      <div className="relative z-10 p-4 sm:p-6">
+      <div className="relative z-10 p-4 sm:p-6 pb-24 lg:pb-6">
         <div className="sm:hidden mb-3 text-marca-tenue text-[11px]">
           Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
         </div>
@@ -197,6 +285,8 @@ export default function PanelShell({
           </div>
         </div>
       </div>
+
+      <BarraFlotante items={items} activo={activo} onSeleccionar={seleccionar} onAbrirMas={() => setDrawerAbierto(true)} />
 
       {activo === idHome && <Brasas />}
 
