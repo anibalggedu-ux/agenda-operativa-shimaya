@@ -201,6 +201,23 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
 // ubicación) — para cuando el día tiene varias rutas asignadas y hace falta
 // dejar constancia de cada visita por separado, no solo el ingreso/salida
 // general del día.
+// Check dorado que se dibuja de un trazo (ver .trazo-check en globals.css),
+// justo al confirmar una marcación de llegada o salida.
+function TrazoCheckDorado() {
+  return (
+    <svg viewBox="0 0 24 24" className="trazo-check marcado w-3 h-3 shrink-0" aria-hidden>
+      <path
+        d="M4 12.5 L9.5 18 L20 5.5"
+        fill="none"
+        stroke="rgb(var(--marca-oro))"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function MarcadoVisitaTienda({
   tienda,
   onMarcado,
@@ -220,6 +237,9 @@ function MarcadoVisitaTienda({
   );
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
+  // Trazo dorado que se dibuja solo, justo al confirmar la marcación (no en
+  // cada recarga en que ya venga marcada de antes).
+  const [marcadoRecien, setMarcadoRecien] = useState<"llegada" | "salida" | null>(null);
 
   const ETIQUETA_PASO: Record<Paso, string> = {
     comprimiendo: "Preparando la foto...",
@@ -249,6 +269,8 @@ function MarcadoVisitaTienda({
       if (resultado.exito) {
         setPendiente(null);
         reproducirSonidoExito();
+        setMarcadoRecien(tipo);
+        window.setTimeout(() => setMarcadoRecien(null), 900);
         onMarcado();
       } else {
         reproducirSonidoAlerta();
@@ -347,6 +369,7 @@ function MarcadoVisitaTienda({
 
       {tienda.horaLlegada ? (
         <p className="flex items-center gap-1 text-[10.5px] text-marca-tenue">
+          {marcadoRecien === "llegada" && <TrazoCheckDorado />}
           <MapPin className="w-3 h-3" /> Llegada:{" "}
           {tienda.ubicacionLlegada ? (
             <a
@@ -402,6 +425,7 @@ function MarcadoVisitaTienda({
 
       {tienda.horaSalidaTienda && (
         <p className="flex items-center gap-1 text-[10.5px] text-marca-tenue">
+          {marcadoRecien === "salida" && <TrazoCheckDorado />}
           <DoorOpen className="w-3 h-3" /> Salida:{" "}
           {tienda.ubicacionSalidaTienda ? (
             <a

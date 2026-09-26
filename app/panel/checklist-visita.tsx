@@ -154,15 +154,44 @@ function SeccionForm({
   onCambiar: (seccionClave: string, itemClave: string, valor: string | number | null) => void;
 }) {
   const [abierta, setAbierta] = useState(false);
+  // Bloque "completo": todos sus ítems ya tienen respuesta. Al pasar de
+  // incompleto a completo (no en cada render), el bloque se enciende un
+  // instante en dorado — ver .brillo-bloque en globals.css.
+  const completo =
+    seccion.items.length > 0 &&
+    seccion.items.every((it) => (respuestas[seccion.clave]?.[it.clave] ?? null) !== null);
+  const [brillar, setBrillar] = useState(false);
+  const eraCompletoRef = useRef(false);
+  useEffect(() => {
+    if (completo && !eraCompletoRef.current) {
+      setBrillar(true);
+      const t = window.setTimeout(() => setBrillar(false), 1100);
+      eraCompletoRef.current = true;
+      return () => window.clearTimeout(t);
+    }
+    eraCompletoRef.current = completo;
+  }, [completo]);
+
   return (
-    <div className="bg-marca-fondo border border-marca-borde rounded-[3px] overflow-hidden">
+    <div
+      className={`bg-marca-fondo border rounded-[3px] overflow-hidden ${
+        brillar ? "brillo-bloque border-marca-oro/70" : "border-marca-borde"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setAbierta((v) => !v)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-marca-superficie2 transition"
       >
-        <span className="text-marca-textofuerte font-bold text-sm">{seccion.titulo}</span>
-        <span className={`text-marca-tenue text-[10px] transition-transform ${abierta ? "rotate-180" : ""}`}>▾</span>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="text-marca-textofuerte font-bold text-sm truncate">{seccion.titulo}</span>
+          {completo && (
+            <span className="shrink-0 text-[9.5px] font-black uppercase tracking-wide text-oro flex items-center gap-1">
+              ✓ Completo
+            </span>
+          )}
+        </span>
+        <span className={`text-marca-tenue text-[10px] transition-transform shrink-0 ${abierta ? "rotate-180" : ""}`}>▾</span>
       </button>
       {abierta && (
         <div className="px-3 pb-3.5 pt-1 border-t border-marca-borde space-y-3">

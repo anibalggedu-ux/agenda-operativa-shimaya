@@ -508,7 +508,14 @@ export default function ResumenDelDia({
             {personal.rutaHoyGoogleMapsUrl && (
               <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                  <Navigation className="w-4 h-4 text-marca-rojoclaro shrink-0" />
+                  <span className="relative w-4 h-4 shrink-0 flex items-center justify-center">
+                    {/* Anillo tipo radar mientras la ETA viene de tu GPS en vivo
+                        (no del domicilio) — ver .ping-ubicacion en globals.css. */}
+                    {etaEnVivo?.minutos !== null && etaEnVivo?.minutos !== undefined && (
+                      <span className="ping-ubicacion w-2 h-2 left-1/2 top-1/2" />
+                    )}
+                    <Navigation className="w-4 h-4 text-marca-rojoclaro relative" />
+                  </span>
                   <div>
                     <p className="text-xs">
                       <span className="text-marca-tenue">Camino a </span>

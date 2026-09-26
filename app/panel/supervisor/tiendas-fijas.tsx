@@ -350,8 +350,10 @@ export default function TiendasFijas() {
           </p>
         ) : (
           <div className="space-y-2">
-            {checklists.map((c) => (
-              <ChecklistItem key={c.id} checklist={c} onLeido={cargarChecklists} />
+            {checklists.map((c, i) => (
+              <div key={c.id} className="cascada-fila" style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}>
+                <ChecklistItem checklist={c} onLeido={cargarChecklists} />
+              </div>
             ))}
           </div>
         )}

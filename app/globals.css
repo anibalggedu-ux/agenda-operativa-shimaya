@@ -381,3 +381,177 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .aparecer { animation: none; }
 }
+
+/* ---- 8 animaciones elegidas, segunda tanda ---- */
+
+/* 1 · Brillo dorado cuando un bloque del checklist queda 100% completo. */
+@keyframes brillo-bloque {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--marca-oro) / 0);
+    background-color: transparent;
+  }
+  35% {
+    box-shadow: 0 0 22px 2px rgb(var(--marca-oro) / 0.35);
+    background-color: rgb(var(--marca-oro) / 0.08);
+  }
+}
+.brillo-bloque {
+  animation: brillo-bloque 1.1s ease-out;
+}
+
+/* 2 · Parpadeo de vela en el numerito de notificaciones sin ver. */
+@keyframes vela-parpadeo {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(var(--marca-rojo) / 0.55);
+  }
+  50% {
+    transform: scale(1.14);
+    box-shadow: 0 0 7px 2px rgb(var(--marca-rojo) / 0.5);
+  }
+}
+.vela-parpadeo {
+  animation: vela-parpadeo 1.15s ease-in-out infinite;
+}
+
+/* 3 · Rebote elástico al pasar a la siguiente persona en Historias. */
+@keyframes resorte-entrada {
+  0% {
+    transform: scale(0.85) translateY(4px);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.04) translateY(-1px);
+    opacity: 1;
+  }
+  78% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+.resorte-entrada {
+  animation: resorte-entrada 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* 4 · Aparición en cascada de listas (Directorio de equipo, checklists de
+   una tienda fija) — cada fila usa esta misma clase con su propio
+   "animation-delay" en línea según su posición. */
+@keyframes cascada-fila {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cascada-fila {
+  animation: cascada-fila 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 5 · "+N" dorado que sube flotando al ganar puntos. */
+@keyframes puntos-suben {
+  0% {
+    transform: translate(-50%, 0) scale(0.7);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -6px) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -46px) scale(1);
+    opacity: 0;
+  }
+}
+.puntos-suben {
+  position: absolute;
+  left: 50%;
+  color: rgb(var(--marca-oro));
+  font-weight: 800;
+  pointer-events: none;
+  animation: puntos-suben 1.3s ease-out both;
+}
+
+/* 6 · Pulso de ubicación en vivo (radar) en el mapa/ruta del día. */
+@keyframes ping-ubicacion {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(4.2);
+    opacity: 0;
+  }
+}
+.ping-ubicacion {
+  position: absolute;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--marca-oro) / 0.7);
+  animation: ping-ubicacion 1.4s cubic-bezier(0, 0, 0.3, 1) infinite;
+}
+
+/* 7 · Zoom con desenfoque al abrir una foto en grande. */
+@keyframes foto-abre {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+.foto-abre {
+  animation: foto-abre 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 8 · Trazo dorado que se dibuja al marcar asistencia. */
+@keyframes trazo-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.trazo-check path {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+}
+.trazo-check.marcado path {
+  animation: trazo-check 0.5s ease-out 0.05s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brillo-bloque,
+  .vela-parpadeo,
+  .resorte-entrada,
+  .cascada-fila,
+  .puntos-suben,
+  .ping-ubicacion,
+  .foto-abre {
+    animation: none;
+  }
+  .cascada-fila {
+    opacity: 1;
+    transform: none;
+  }
+  .foto-abre {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+  .puntos-suben,
+  .ping-ubicacion {
+    display: none;
+  }
+  .trazo-check.marcado path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

@@ -354,7 +354,7 @@ function VisorHistorias({
           ))}
         </div>
 
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 resorte-entrada">
           <div className="flex items-center gap-3 min-w-0">
             <p className="text-white text-sm font-bold truncate">
               {grupo.nombre} <span className="text-white/50 font-normal text-xs capitalize">· {grupo.rol}</span>
@@ -482,7 +482,12 @@ function VisorHistorias({
               )}
             </div>
 
-            <div className="flex items-end gap-2 flex-wrap">
+            <div className="relative flex items-end gap-2 flex-wrap">
+              {montoConfirmado && (
+                <span key={`regalo-${montoConfirmado}`} className="puntos-suben text-base -top-1">
+                  +{montoConfirmado}
+                </span>
+              )}
               {BOTONES_REGALO.map(({ monto, clase }) => (
                 <button
                   key={monto}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -92,6 +92,9 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [subiendo, setSubiendo] = useState(false);
   const [fotoRecienSubida, setFotoRecienSubida] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  // Foto de historia abierta en grande (solo en el perfil de otra persona;
+  // en el tuyo cada foto ya se ve grande en TarjetaFoto).
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const ajustesRef = useRef<HTMLDivElement>(null);
   const [pestana, setPestana] = useState<"fotos" | "medallas" | "regalos" | "datos">("fotos");
@@ -342,9 +345,14 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
               ) : (
                 <div className="grid grid-cols-3 gap-1">
                   {fotos.map((f) => (
-                    <div key={f.id} className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo">
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFotoAmpliada(f.url)}
+                      className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo"
+                    >
                       <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -445,6 +453,29 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
       {esPropio && directorio.length > 0 && (
         <CarruselEquipo directorio={directorio} onAbrirPerfil={onAbrirPerfil} />
       )}
+
+      {fotoAmpliada && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setFotoAmpliada(null)}
+        >
+          {/* Zoom con desenfoque al abrir (ver .foto-abre en globals.css). */}
+          <img
+            key={fotoAmpliada}
+            src={fotoAmpliada}
+            alt="Foto de historia ampliada"
+            className="foto-abre max-w-full max-h-full rounded-[3px] object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => setFotoAmpliada(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
+            aria-label="Cerrar"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -529,13 +560,14 @@ function CarruselEquipo({
         onScroll={alDeslizar}
         className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {lista.map((persona) => {
+        {lista.map((persona, i) => {
           const color = COLOR_ROL[persona.rol] ?? "#8b8d92";
           const presencia = calcularPresencia(persona.ultimaActividad);
           return (
             <div
               key={persona.usuarioId}
-              className="snap-center shrink-0 w-[82%] max-w-[300px] rounded-2xl overflow-hidden bg-marca-superficie border border-marca-borde"
+              className="cascada-fila snap-center shrink-0 w-[82%] max-w-[300px] rounded-2xl overflow-hidden bg-marca-superficie border border-marca-borde"
+              style={{ animationDelay: `${Math.min(i, 6) * 70}ms` }}
             >
               <div className="h-20" style={{ background: `linear-gradient(135deg, ${color}, ${color}10)` }} />
               <div className="-mt-11 flex justify-center">
