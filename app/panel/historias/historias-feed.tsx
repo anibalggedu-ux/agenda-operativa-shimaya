@@ -415,7 +415,8 @@ function VisorHistorias({
       onClick={onCerrar}
     >
       <div
-        className="relative w-full max-w-sm max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-sm max-h-[80vh] overflow-y-auto"
+        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-1 mb-2">
