@@ -118,6 +118,37 @@ export async function eliminarFotoHistoria(blobPath: string): Promise<void> {
   await eliminarFotoConMiniatura(CARPETA_HISTORIAS, blobPath);
 }
 
+const EXTENSIONES_VIDEO: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+
+// El video se sube DIRECTO desde el navegador a R2 con esta URL firmada, sin
+// pasar por un Server Action: un video de pocos segundos ya pesa más de los
+// ~4.5 MB que acepta el body de un Server Action en Vercel. Solo funciona
+// con R2 configurado (ver subirUrlFirmada en lib/almacen-fotos.ts) -- con
+// Vercel Blob como respaldo, la subida de video queda deshabilitada en vez
+// de romperse a medias.
+export async function prepararSubidaVideoHistoriaEnAlmacen(
+  usuarioId: string,
+  contentType: string
+): Promise<{ blobPath: string; urlSubida: string } | null> {
+  const almacen = almacenActivo();
+  if (!almacen.subirUrlFirmada) return null;
+  const extension = EXTENSIONES_VIDEO[contentType] ?? "mp4";
+  const blobPath = `${usuarioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const urlSubida = await almacen.subirUrlFirmada(`${CARPETA_HISTORIAS}/${blobPath}`, contentType, 600);
+  return { blobPath, urlSubida };
+}
+
+// Confirma que el archivo ya llegó a R2 antes de crear la fila en la base --
+// si el navegador se quedó a medio subir, es mejor avisar que "no se pudo
+// publicar" en vez de guardar una historia que apunta a nada.
+export async function existeVideoHistoria(blobPath: string): Promise<boolean> {
+  return almacenActivo().existe(`${CARPETA_HISTORIAS}/${blobPath}`);
+}
+
 export async function obtenerUrlTemporalFotoHistoria(
   blobPath: string | null,
   minutos = 180,

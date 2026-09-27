@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type } from "lucide-react";
+import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import {
   obtenerFeedHistorias,
   crearHistoria,
@@ -23,6 +23,7 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
 import RecortarFoto from "./recortar-foto";
+import ComposerVideoHistoria from "./composer-video";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -31,6 +32,28 @@ const TEXTO_MAXIMO = 200;
 const COMENTARIO_MAXIMO = 300;
 // Cuánto dura cada foto antes de avanzar sola, como en WhatsApp/Instagram.
 const DURACION_AUTOAVANCE_MS = 5000;
+// Tope de duración de un video de historia -- ver obtenerDuracionVideo.
+const DURACION_MAXIMA_VIDEO_SEG = 30;
+
+// Lee la duración real del archivo sin subirlo, para poder rechazar uno
+// demasiado largo antes de gastar datos móviles. No se recorta ni
+// re-codifica el video en el navegador (sería pesado y poco confiable en
+// iOS) -- si dura de más, se avisa y la persona lo recorta desde su galería.
+function obtenerDuracionVideo(archivo: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      reject(new Error("No se pudo leer el video."));
+    };
+    video.src = URL.createObjectURL(archivo);
+  });
+}
 
 // Solo +50 va relleno -- el tratamiento más celebratorio se reserva para el
 // regalo más generoso, el resto queda como contorno discreto.
@@ -220,10 +243,19 @@ function VisorHistorias({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
 
+  function avanzar() {
+    if (!esUltima) setIndice((i) => i + 1);
+    else onGrupoSiguiente();
+  }
+
   // Auto-avance: la foto actual se llena sola y pasa a la siguiente, como en
   // WhatsApp/Instagram; al terminar la última pasa a la persona que sigue.
+  // Un video no se autoavanza con este cronómetro -- avanza solo al
+  // terminar de reproducirse (ver onEnded más abajo), porque su duración no
+  // es fija como la de una foto.
   useEffect(() => {
     setProgreso(0);
+    if (historia.esVideo) return;
     acumuladoRef.current = 0;
     inicioRef.current = performance.now();
     pausadoRef.current = false;
@@ -234,8 +266,7 @@ function VisorHistorias({
         const p = Math.min(transcurrido / DURACION_AUTOAVANCE_MS, 1);
         setProgreso(p);
         if (p >= 1) {
-          if (!esUltima) setIndice((i) => i + 1);
-          else onGrupoSiguiente();
+          avanzar();
           return;
         }
       }
@@ -417,24 +448,36 @@ function VisorHistorias({
 
         <div
           className="relative select-none"
-          onClick={confirmando ? undefined : alTocarImagen}
-          onMouseDown={pausar}
-          onMouseUp={reanudar}
-          onMouseLeave={reanudar}
-          onTouchStart={pausar}
-          onTouchEnd={reanudar}
+          onClick={confirmando || historia.esVideo ? undefined : alTocarImagen}
+          onMouseDown={historia.esVideo ? undefined : pausar}
+          onMouseUp={historia.esVideo ? undefined : reanudar}
+          onMouseLeave={historia.esVideo ? undefined : reanudar}
+          onTouchStart={historia.esVideo ? undefined : pausar}
+          onTouchEnd={historia.esVideo ? undefined : reanudar}
         >
           {/* El texto va dentro de los bordes de la foto (no del recuadro
               completo), en una franja oscura para que se lea aunque la foto
               sea clara. */}
           <div className="flex justify-center">
             <div className="relative inline-block max-w-full">
-              <img
-                src={historia.url}
-                alt={`Historia de ${grupo.nombre}`}
-                className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
-                draggable={false}
-              />
+              {historia.esVideo ? (
+                <video
+                  key={historia.id}
+                  src={historia.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  onEnded={avanzar}
+                  className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px] bg-black"
+                />
+              ) : (
+                <img
+                  src={historia.url}
+                  alt={`Historia de ${grupo.nombre}`}
+                  className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
+                  draggable={false}
+                />
+              )}
               {historia.texto && (
                 <p className="absolute bottom-2 inset-x-2 bg-black/70 backdrop-blur-sm text-white text-[13px] font-semibold leading-snug text-center whitespace-pre-line break-words px-3 py-2 rounded-lg [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
                   {historia.texto}
@@ -829,10 +872,14 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [vistosLocalmente, setVistosLocalmente] = useState<Set<string>>(new Set());
   const [racha, setRacha] = useState(0);
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [menuVideoAbierto, setMenuVideoAbierto] = useState(false);
   const [modoTexto, setModoTexto] = useState(false);
+  const [borradorVideo, setBorradorVideo] = useState<{ archivo: File; previewUrl: string } | null>(null);
   const inputTraseraRef = useRef<HTMLInputElement>(null);
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
+  const inputVideoGrabarRef = useRef<HTMLInputElement>(null);
+  const inputVideoGaleriaRef = useRef<HTMLInputElement>(null);
 
   // Como en WhatsApp: se abre en la primera historia que no has visto (o en
   // la primera, si ya viste todas).
@@ -882,6 +929,31 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
     }
+  }
+
+  async function handleArchivoVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+
+    setMensaje(null);
+    try {
+      const duracion = await obtenerDuracionVideo(archivo);
+      if (duracion > DURACION_MAXIMA_VIDEO_SEG + 0.5) {
+        setMensaje(
+          `Ese video dura ${Math.round(duracion)} segundos. El máximo son ${DURACION_MAXIMA_VIDEO_SEG} -- recórtalo desde tu galería antes de subirlo.`
+        );
+        return;
+      }
+      setBorradorVideo({ archivo, previewUrl: URL.createObjectURL(archivo) });
+    } catch (err: any) {
+      setMensaje(err?.message || "No se pudo leer el video. Prueba con otro archivo.");
+    }
+  }
+
+  function cancelarVideo() {
+    if (borradorVideo) URL.revokeObjectURL(borradorVideo.previewUrl);
+    setBorradorVideo(null);
   }
 
   // Tras publicar: "logro" si la racha de días publicando subió, si no el
@@ -989,6 +1061,21 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         className="hidden"
         onChange={handleArchivo}
       />
+      <input
+        ref={inputVideoGrabarRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleArchivoVideo}
+      />
+      <input
+        ref={inputVideoGaleriaRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleArchivoVideo}
+      />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <button
@@ -1021,9 +1108,11 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                   }`}
                 >
                   <span
-                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo"
-                    style={{ backgroundImage: `url(${ultima.url})` }}
-                  />
+                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
+                    style={!ultima.esVideo ? { backgroundImage: `url(${ultima.url})` } : undefined}
+                  >
+                    {ultima.esVideo && <VideoIcon className="w-5 h-5 text-white/85" />}
+                  </span>
                 </span>
                 {ultima.interacciones > 0 && (
                   <span className="absolute -bottom-1 -right-1 min-w-[17px] h-[17px] px-1 flex items-center justify-center rounded-full bg-marca-rojo border-2 border-marca-fondo text-white text-[9px] font-black">
@@ -1164,13 +1253,103 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                 </span>
                 <span className="text-[11px] text-marca-texto font-bold">Galería</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  setMensaje(null);
+                  setMenuVideoAbierto(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <VideoIcon className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Video</span>
+              </button>
             </div>
 
             <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
-              En Galería puedes elegir varias fotos a la vez.
+              En Galería puedes elegir varias fotos a la vez. Un video dura hasta {DURACION_MAXIMA_VIDEO_SEG} segundos.
             </p>
           </div>
         </div>
+      )}
+
+      {menuVideoAbierto && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+          onClick={() => setMenuVideoAbierto(false)}
+        >
+          <div
+            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl pb-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2.5 pb-3">
+              <span className="w-9 h-1 rounded-full bg-marca-borde" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 pb-5">
+              <span className="w-5" />
+              <p className="text-marca-textofuerte text-sm font-black">Nuevo video</p>
+              <button
+                onClick={() => setMenuVideoAbierto(false)}
+                aria-label="Cerrar"
+                className="text-marca-tenue hover:text-marca-texto"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex justify-around px-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuVideoAbierto(false);
+                  inputVideoGrabarRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Camera className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Grabar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuVideoAbierto(false);
+                  inputVideoGaleriaRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Images className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">De galería</span>
+              </button>
+            </div>
+
+            <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
+              Máximo {DURACION_MAXIMA_VIDEO_SEG} segundos. Uno más largo se rechaza -- recórtalo en tu galería primero.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {borradorVideo && (
+        <ComposerVideoHistoria
+          archivo={borradorVideo.archivo}
+          previewUrl={borradorVideo.previewUrl}
+          onCancelar={cancelarVideo}
+          onPublicado={() => {
+            cancelarVideo();
+            cargar();
+            sonarPublicada();
+          }}
+        />
       )}
 
       {visor && (

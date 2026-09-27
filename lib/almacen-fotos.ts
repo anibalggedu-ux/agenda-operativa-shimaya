@@ -28,6 +28,12 @@ export type AlmacenFotos = {
   // vencimientoEstable en lib/blob-storage.ts).
   urlFirmada(ruta: string, firmadoEnMs: number, venceEnMs: number): Promise<string>;
   leer(ruta: string): Promise<ArchivoLeido | null>;
+  // Enlace firmado para SUBIR directo desde el navegador (PUT), sin pasar
+  // por un Server Action -- los necesita el video de historias, que pesa
+  // más de lo que acepta el body de un Server Action en Vercel. Solo R2 lo
+  // implementa por ahora: sin él, la subida de video queda deshabilitada
+  // (ver prepararSubidaVideoHistoriaEnAlmacen en lib/blob-storage.ts).
+  subirUrlFirmada?(ruta: string, contentType: string, expiraSegundos: number): Promise<string>;
 };
 
 // ---------- Vercel Blob ----------
@@ -192,6 +198,13 @@ const almacenR2: AlmacenFotos = {
       expiresIn,
       signingDate: new Date(firmadoEnMs),
     });
+  },
+  async subirUrlFirmada(ruta, contentType, expiraSegundos) {
+    return getSignedUrl(
+      obtenerClienteR2(),
+      new PutObjectCommand({ Bucket: bucketR2(), Key: ruta, ContentType: contentType }),
+      { expiresIn: expiraSegundos }
+    );
   },
   async leer(ruta) {
     try {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -95,7 +95,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [mensaje, setMensaje] = useState<string | null>(null);
   // Foto de historia abierta en grande (solo en el perfil de otra persona;
   // en el tuyo cada foto ya se ve grande en TarjetaFoto).
-  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
+  const [fotoAmpliada, setFotoAmpliada] = useState<{ url: string; esVideo: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const ajustesRef = useRef<HTMLDivElement>(null);
   const [pestana, setPestana] = useState<"fotos" | "medallas" | "regalos" | "datos">("fotos");
@@ -369,10 +369,16 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                     <button
                       key={f.id}
                       type="button"
-                      onClick={() => setFotoAmpliada(f.url)}
-                      className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo"
+                      onClick={() => setFotoAmpliada({ url: f.url, esVideo: f.esVideo })}
+                      className="aspect-square rounded-[3px] overflow-hidden bg-marca-fondo relative"
                     >
-                      <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
+                      {f.esVideo ? (
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                          <VideoIcon className="w-6 h-6 text-white/70" />
+                        </div>
+                      ) : (
+                        <img src={f.url} alt="Foto de historia" className="w-full h-full object-cover" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -481,12 +487,24 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
           onClick={() => setFotoAmpliada(null)}
         >
           {/* Zoom con desenfoque al abrir (ver .foto-abre en globals.css). */}
-          <img
-            key={fotoAmpliada}
-            src={fotoAmpliada}
-            alt="Foto de historia ampliada"
-            className="foto-abre max-w-full max-h-full rounded-[3px] object-contain"
-          />
+          {fotoAmpliada.esVideo ? (
+            <video
+              key={fotoAmpliada.url}
+              src={fotoAmpliada.url}
+              controls
+              autoPlay
+              playsInline
+              className="foto-abre max-w-full max-h-full rounded-[3px]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <img
+              key={fotoAmpliada.url}
+              src={fotoAmpliada.url}
+              alt="Foto de historia ampliada"
+              className="foto-abre max-w-full max-h-full rounded-[3px] object-contain"
+            />
+          )}
           <button
             type="button"
             onClick={() => setFotoAmpliada(null)}
