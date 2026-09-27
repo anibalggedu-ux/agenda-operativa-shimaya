@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import {
   obtenerNotificaciones,
@@ -32,6 +33,19 @@ export default function CampanaNotificaciones() {
   const [abierta, setAbierta] = useState(false);
   const pendientesRef = useRef(0);
   const contenedorRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  // Comentario, reacción y regalo son siempre sobre una historia tuya —
+  // llevar directo a esa foto en Mi Perfil, en vez de solo marcar como
+  // vista y dejar a la persona sin saber a dónde ir. Navegación completa
+  // (no un cambio de pestaña en vivo) para reusar el mismo mecanismo que ya
+  // usan los enlaces de correo (?seccion=perfil&foto=...), simple y probado.
+  function irANotificacion(n: NotificacionItem) {
+    const destino = n.historiaId
+      ? `${pathname}?seccion=perfil&foto=${n.historiaId}`
+      : `${pathname}?seccion=perfil`;
+    window.location.assign(destino);
+  }
 
   function revisar() {
     // De paso marca "En línea" (solo si la pantalla está a la vista).
@@ -117,12 +131,17 @@ export default function CampanaNotificaciones() {
             <p className="px-3 py-4 text-marca-tenue text-xs">No tienes notificaciones nuevas.</p>
           ) : (
             items.map((n) => (
-              <div key={n.id} className="px-3 py-2.5 border-b border-marca-borde last:border-b-0 text-xs bg-marca-rojo/5">
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => irANotificacion(n)}
+                className="w-full text-left px-3 py-2.5 border-b border-marca-borde last:border-b-0 text-xs bg-marca-rojo/5 hover:bg-marca-rojo/10 transition"
+              >
                 <p className="text-marca-texto">
                   <span className="font-bold">{n.usuarioNombre}</span> <span className="text-marca-tenue">{n.mensaje}</span>
                 </p>
                 <p className="text-marca-tenue text-[10px] mt-0.5">{tiempoRelativo(n.creadoEn)}</p>
-              </div>
+              </button>
             ))
           )}
         </div>

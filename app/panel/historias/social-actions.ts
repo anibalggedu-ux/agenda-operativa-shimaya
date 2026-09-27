@@ -57,6 +57,10 @@ export type NotificacionItem = {
   usuarioNombre: string;
   mensaje: string;
   creadoEn: string;
+  // A qué foto de tu historia pertenece — comentario, reacción o regalo son
+  // siempre sobre una historia TUYA, así que al tocar la notificación se
+  // puede llevar directo a esa foto en Mi Perfil (ver campana-notificaciones.tsx).
+  historiaId: string | null;
 };
 
 // Lista para la campanita -- solo lo que pasó DESPUÉS de tu última visita
@@ -82,7 +86,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
     const [comentariosRes, reaccionesRes] = await Promise.all([
       supabase
         .from("historia_comentarios")
-        .select("id, texto, created_at, usuarios(nombre)")
+        .select("id, texto, created_at, historia_id, usuarios(nombre)")
         .in("historia_id", idsMisHistorias)
         .neq("usuario_id", sesion.id)
         .gt("created_at", desde)
@@ -90,7 +94,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         .limit(limite),
       supabase
         .from("historia_reacciones")
-        .select("id, emoji, created_at, usuarios(nombre)")
+        .select("id, emoji, created_at, historia_id, usuarios(nombre)")
         .in("historia_id", idsMisHistorias)
         .neq("usuario_id", sesion.id)
         .gt("created_at", desde)
@@ -104,6 +108,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         usuarioNombre: c.usuarios?.nombre ?? "—",
         mensaje: `comentó tu foto: "${c.texto.length > 60 ? c.texto.slice(0, 60) + "…" : c.texto}"`,
         creadoEn: c.created_at,
+        historiaId: c.historia_id,
       });
     });
 
@@ -113,13 +118,14 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         usuarioNombre: r.usuarios?.nombre ?? "—",
         mensaje: `reaccionó ${r.emoji} a tu foto`,
         creadoEn: r.created_at,
+        historiaId: r.historia_id,
       });
     });
   }
 
   const { data: regalos } = await supabase
     .from("historia_regalos")
-    .select("id, puntos, created_at, usuarios!historia_regalos_usuario_id_regala_fkey(nombre)")
+    .select("id, puntos, created_at, historia_id, usuarios!historia_regalos_usuario_id_regala_fkey(nombre)")
     .eq("usuario_id_recibe", sesion.id)
     .gt("created_at", desde)
     .order("created_at", { ascending: false })
@@ -131,6 +137,7 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
       usuarioNombre: g.usuarios?.nombre ?? "—",
       mensaje: `te regaló 🎁 ${g.puntos} pts`,
       creadoEn: g.created_at,
+      historiaId: g.historia_id,
     });
   });
 
