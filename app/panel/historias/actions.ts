@@ -8,6 +8,8 @@ import {
   eliminarFotoHistoria,
   prepararSubidaVideoHistoriaEnAlmacen,
   existeVideoHistoria,
+  obtenerUrlTemporalFotoPerfil,
+  existeFotoPerfil,
 } from "@/lib/blob-storage";
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 import { hoyPeru } from "@/lib/fechas";
@@ -447,10 +449,31 @@ export type GrupoHistorias = {
   usuarioId: string;
   nombre: string;
   rol: string;
+  // Para el círculo de un video en el feed -- de fondo no se puede poner un
+  // cuadro del video sin generar una miniatura real, así que se usa la foto
+  // de perfil de la persona en su lugar (null si no tiene una puesta).
+  fotoPerfilUrl: string | null;
   // De la más antigua a la más reciente -- se navegan en el orden en que se
   // publicaron, igual que WhatsApp/Instagram.
   historias: HistoriaFoto[];
 };
+
+// Mismo patrón que urlFotoPerfil en app/panel/perfil/actions.ts: usa
+// usuarios.tiene_foto_perfil para no gastar una consulta al almacén en cada
+// vista del feed; si todavía es null (usuario de antes de esa columna), se
+// verifica una vez y se guarda el resultado.
+async function urlFotoPerfilFeed(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string,
+  tieneFoto: boolean | null
+): Promise<string | null> {
+  let tiene = tieneFoto;
+  if (tiene === null) {
+    tiene = await existeFotoPerfil(usuarioId);
+    await supabase.from("usuarios").update({ tiene_foto_perfil: tiene }).eq("id", usuarioId);
+  }
+  return tiene ? obtenerUrlTemporalFotoPerfil(usuarioId) : null;
+}
 
 export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   const sesion = await exigirSesion();
@@ -460,11 +483,25 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, usuario_id, foto_blob, texto, created_at, tiene_miniatura, es_video, usuarios(nombre, rol)")
+    .select("id, usuario_id, foto_blob, texto, created_at, tiene_miniatura, es_video, usuarios(nombre, rol, tiene_foto_perfil)")
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
 
   if (error || !data) return [];
+
+  const tieneFotoPorUsuario = new Map<string, boolean | null>();
+  (data as any[]).forEach((f) => {
+    if (!tieneFotoPorUsuario.has(f.usuario_id)) {
+      tieneFotoPorUsuario.set(f.usuario_id, f.usuarios?.tiene_foto_perfil ?? null);
+    }
+  });
+  const fotoPerfilPorUsuario = new Map<string, string | null>(
+    await Promise.all(
+      Array.from(tieneFotoPorUsuario.entries()).map(
+        async ([usuarioId, tieneFoto]) => [usuarioId, await urlFotoPerfilFeed(supabase, usuarioId, tieneFoto)] as const
+      )
+    )
+  );
 
   const idsHistorias = (data as any[]).map((f) => f.id);
   const [reaccionesRes, comentariosRes, vistasRes] = await Promise.all([
@@ -499,6 +536,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
       usuarioId: fila.usuario_id,
       nombre: fila.usuarios?.nombre ?? "—",
       rol: fila.usuarios?.rol ?? "",
+      fotoPerfilUrl: fotoPerfilPorUsuario.get(fila.usuario_id) ?? null,
       historias: [],
     };
     grupo.historias.push({

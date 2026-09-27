@@ -1108,10 +1108,19 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                   }`}
                 >
                   <span
-                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
-                    style={!ultima.esVideo ? { backgroundImage: `url(${ultima.url})` } : undefined}
+                    className="relative block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
+                    style={{
+                      backgroundImage: `url(${ultima.esVideo ? g.fotoPerfilUrl ?? "" : ultima.url})`,
+                    }}
                   >
-                    {ultima.esVideo && <VideoIcon className="w-5 h-5 text-white/85" />}
+                    {ultima.esVideo &&
+                      (g.fotoPerfilUrl ? (
+                        <span className="absolute -top-0.5 -left-0.5 w-4 h-4 rounded-full bg-black/70 border border-marca-fondo flex items-center justify-center">
+                          <VideoIcon className="w-2.5 h-2.5 text-white" />
+                        </span>
+                      ) : (
+                        <VideoIcon className="w-5 h-5 text-white/85" />
+                      ))}
                   </span>
                 </span>
                 {ultima.interacciones > 0 && (
@@ -1173,11 +1182,12 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
 
       {menuAbierto && (
         <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
           onClick={() => setMenuAbierto(false)}
         >
           <div
-            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl pb-6"
+            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl"
+            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-2.5 pb-3">
@@ -1279,11 +1289,12 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
 
       {menuVideoAbierto && (
         <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
           onClick={() => setMenuVideoAbierto(false)}
         >
           <div
-            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl pb-6"
+            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl"
+            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-2.5 pb-3">
