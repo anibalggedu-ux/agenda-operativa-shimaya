@@ -165,6 +165,7 @@ export type ComentarioHistoria = {
   rol: string;
   texto: string;
   creadoEn: string;
+  padreId: string | null;
 };
 
 export type ReaccionResumen = {
@@ -195,7 +196,7 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
   const [comentariosRes, reaccionesRes, historiaRes] = await Promise.all([
     supabase
       .from("historia_comentarios")
-      .select("id, usuario_id, texto, created_at, usuarios(nombre, rol)")
+      .select("id, usuario_id, texto, created_at, padre_id, usuarios(nombre, rol)")
       .eq("historia_id", historiaId)
       .order("created_at", { ascending: true }),
     supabase.from("historia_reacciones").select("usuario_id, emoji, usuarios(nombre)").eq("historia_id", historiaId),
@@ -209,6 +210,7 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
     rol: c.usuarios?.rol ?? "",
     texto: c.texto,
     creadoEn: c.created_at,
+    padreId: c.padre_id ?? null,
   }));
 
   const esDueno = historiaRes.data?.usuario_id === sesion.id;
@@ -266,7 +268,11 @@ export async function registrarVista(historiaId: string): Promise<void> {
     .upsert({ historia_id: historiaId, usuario_id: sesion.id }, { onConflict: "historia_id,usuario_id", ignoreDuplicates: true });
 }
 
-export async function agregarComentario(historiaId: string, texto: string): Promise<ResultadoHistoria> {
+export async function agregarComentario(
+  historiaId: string,
+  texto: string,
+  padreId?: string | null
+): Promise<ResultadoHistoria> {
   try {
     const sesion = await exigirSesion();
     const limpio = texto.trim().slice(0, TEXTO_COMENTARIO_MAXIMO);
@@ -277,7 +283,7 @@ export async function agregarComentario(historiaId: string, texto: string): Prom
     const supabase = supabaseServer();
     const { error } = await supabase
       .from("historia_comentarios")
-      .insert({ historia_id: historiaId, usuario_id: sesion.id, texto: limpio });
+      .insert({ historia_id: historiaId, usuario_id: sesion.id, texto: limpio, padre_id: padreId ?? null });
 
     if (error) {
       return { exito: false, mensaje: "No se pudo publicar el comentario." };

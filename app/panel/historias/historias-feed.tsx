@@ -16,6 +16,7 @@ import {
   type GrupoHistorias,
   type DetalleHistoria,
   type SaldoRegalo,
+  type ComentarioHistoria,
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
@@ -110,6 +111,38 @@ function BarraReacciones({
   );
 }
 
+function ComentarioFila({
+  c,
+  puedeBorrar,
+  onBorrar,
+  onResponder,
+}: {
+  c: ComentarioHistoria;
+  puedeBorrar: boolean;
+  onBorrar: () => void;
+  onResponder: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2 bg-white/5 rounded-[3px] px-2.5 py-1.5">
+      <div className="min-w-0">
+        <p className="text-white text-xs break-words">
+          <span className="font-bold">{c.nombre}</span>{" "}
+          <span className="text-white/40 text-[10px] uppercase">({c.rol})</span>{" "}
+          <span className="text-white/85">{c.texto}</span>
+        </p>
+        <button onClick={onResponder} className="text-white/40 hover:text-white/80 text-[10px] font-bold mt-0.5">
+          Responder
+        </button>
+      </div>
+      {puedeBorrar && (
+        <button onClick={onBorrar} className="shrink-0 text-white/40 hover:text-marca-rojoclaro" aria-label="Borrar comentario">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function VisorHistorias({
   grupo,
   indiceInicial,
@@ -143,6 +176,7 @@ function VisorHistorias({
   const [reaccionando, setReaccionando] = useState(false);
   const [comentarioTexto, setComentarioTexto] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [respondiendoA, setRespondiendoA] = useState<{ id: string; nombre: string } | null>(null);
 
   const [saldoRegalo, setSaldoRegalo] = useState<SaldoRegalo | null>(null);
   const [enviandoRegalo, setEnviandoRegalo] = useState(false);
@@ -174,6 +208,7 @@ function VisorHistorias({
   useEffect(() => {
     setDetalle(null);
     setComentarioTexto("");
+    setRespondiendoA(null);
     obtenerDetalleHistoria(historia.id)
       .then(setDetalle)
       .catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null, vistas: [] }));
@@ -310,9 +345,10 @@ function VisorHistorias({
     const texto = comentarioTexto.trim();
     if (!texto) return;
     setEnviandoComentario(true);
-    const resultado = await agregarComentario(historia.id, texto);
+    const resultado = await agregarComentario(historia.id, texto, respondiendoA?.id ?? null);
     if (resultado.exito) {
       setComentarioTexto("");
+      setRespondiendoA(null);
       const actualizado = await obtenerDetalleHistoria(historia.id);
       setDetalle(actualizado);
       reproducirSonidoExito();
@@ -325,7 +361,10 @@ function VisorHistorias({
   async function borrarComentario(comentarioId: string) {
     const resultado = await eliminarComentario(comentarioId);
     if (resultado.exito) {
-      setDetalle((d) => (d ? { ...d, comentarios: d.comentarios.filter((c) => c.id !== comentarioId) } : d));
+      // Se vuelve a pedir el detalle (en vez de filtrar localmente) porque
+      // borrar un comentario con respuestas las borra en cascada en la base.
+      const actualizado = await obtenerDetalleHistoria(historia.id);
+      setDetalle(actualizado);
     } else {
       setMensaje(resultado.mensaje || "No se pudo borrar el comentario.");
     }
@@ -518,28 +557,50 @@ function VisorHistorias({
           {detalle && detalle.comentarios.length === 0 && (
             <p className="text-white/40 text-[11px]">Todavía no hay comentarios.</p>
           )}
-          {detalle?.comentarios.map((c) => {
-            const puedeBorrar = c.usuarioId === miUsuarioId || esModerador;
-            return (
-              <div key={c.id} className="flex items-start justify-between gap-2 bg-white/5 rounded-[3px] px-2.5 py-1.5">
-                <p className="text-white text-xs min-w-0 break-words">
-                  <span className="font-bold">{c.nombre}</span>{" "}
-                  <span className="text-white/40 text-[10px] uppercase">({c.rol})</span>{" "}
-                  <span className="text-white/85">{c.texto}</span>
-                </p>
-                {puedeBorrar && (
-                  <button
-                    onClick={() => borrarComentario(c.id)}
-                    className="shrink-0 text-white/40 hover:text-marca-rojoclaro"
-                    aria-label="Borrar comentario"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {detalle?.comentarios
+            .filter((c) => !c.padreId)
+            .map((c) => {
+              const respuestas = detalle.comentarios.filter((r) => r.padreId === c.id);
+              return (
+                <div key={c.id} className="space-y-1.5">
+                  <ComentarioFila
+                    c={c}
+                    puedeBorrar={c.usuarioId === miUsuarioId || esModerador}
+                    onBorrar={() => borrarComentario(c.id)}
+                    onResponder={() => setRespondiendoA({ id: c.id, nombre: c.nombre.split(" ")[0] })}
+                  />
+                  {respuestas.length > 0 && (
+                    <div className="pl-4 space-y-1.5 border-l border-white/10">
+                      {respuestas.map((r) => (
+                        <ComentarioFila
+                          key={r.id}
+                          c={r}
+                          puedeBorrar={r.usuarioId === miUsuarioId || esModerador}
+                          onBorrar={() => borrarComentario(r.id)}
+                          onResponder={() => setRespondiendoA({ id: c.id, nombre: c.nombre.split(" ")[0] })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
+
+        {respondiendoA && (
+          <div className="flex items-center justify-between gap-2 mt-2 bg-white/10 rounded-[3px] px-2.5 py-1">
+            <p className="text-white/70 text-[11px]">
+              Respondiendo a <span className="font-bold text-white/90">{respondiendoA.nombre}</span>
+            </p>
+            <button
+              onClick={() => setRespondiendoA(null)}
+              className="text-white/40 hover:text-white/80"
+              aria-label="Cancelar respuesta"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mt-2">
           <input
@@ -552,7 +613,7 @@ function VisorHistorias({
             onKeyDown={(e) => {
               if (e.key === "Enter") enviarComentario();
             }}
-            placeholder="Escribe un comentario..."
+            placeholder={respondiendoA ? `Responder a ${respondiendoA.nombre}...` : "Escribe un comentario..."}
             className="flex-1 bg-white/10 border border-white/20 rounded-full px-3.5 py-2 text-xs text-white placeholder:text-white/40"
           />
           <button

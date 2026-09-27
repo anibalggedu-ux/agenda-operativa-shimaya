@@ -732,6 +732,7 @@ export type Database = {
           created_at: string
           historia_id: string
           id: string
+          padre_id: string | null
           texto: string
           usuario_id: string
         }
@@ -739,6 +740,7 @@ export type Database = {
           created_at?: string
           historia_id: string
           id?: string
+          padre_id?: string | null
           texto: string
           usuario_id: string
         }
@@ -746,6 +748,7 @@ export type Database = {
           created_at?: string
           historia_id?: string
           id?: string
+          padre_id?: string | null
           texto?: string
           usuario_id?: string
         }
@@ -755,6 +758,13 @@ export type Database = {
             columns: ["historia_id"]
             isOneToOne: false
             referencedRelation: "historias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_comentarios_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "historia_comentarios"
             referencedColumns: ["id"]
           },
           {
