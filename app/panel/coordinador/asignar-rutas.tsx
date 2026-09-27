@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Camera, AlertTriangle, MapPin, Check, Ruler, Zap, Ban, BedDouble } from "lucide-react";
 import {
@@ -171,11 +171,17 @@ export default function AsignarRutas() {
     cargarTodo();
   }, []);
 
+  const formRef = useRef<HTMLFormElement>(null);
+
   useEffect(() => {
     if (estado.exito) {
       cargarTodo();
       setUsuarioId(null);
       setTiendaId(null);
+      // Al recargar la lista de rutas de abajo, la página puede crecer y el
+      // celular termina desplazado hasta el final -- se vuelve arriba, al
+      // formulario, donde justo aparece el aviso de "guardado con éxito".
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
@@ -333,6 +339,7 @@ export default function AsignarRutas() {
       )}
 
       <form
+        ref={formRef}
         action={formAction}
         onSubmit={handleSubmit}
         className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4"
