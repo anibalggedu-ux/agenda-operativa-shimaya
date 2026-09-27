@@ -475,6 +475,16 @@ async function urlFotoPerfilFeed(
   return tiene ? obtenerUrlTemporalFotoPerfil(usuarioId) : null;
 }
 
+// Para el botón "Publicar" (el círculo con el +), que se ve aunque la
+// persona no tenga ninguna historia todavía -- por eso no se puede sacar
+// del feed como fotoPerfilUrl en GrupoHistorias.
+export async function obtenerMiFotoPerfil(): Promise<string | null> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  const { data } = await supabase.from("usuarios").select("tiene_foto_perfil").eq("id", sesion.id).maybeSingle();
+  return urlFotoPerfilFeed(supabase, sesion.id, data?.tiene_foto_perfil ?? null);
+}
+
 export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
   const sesion = await exigirSesion();
 

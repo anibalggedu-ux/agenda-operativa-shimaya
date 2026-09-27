@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import {
   obtenerFeedHistorias,
+  obtenerMiFotoPerfil,
   crearHistoria,
   eliminarHistoria,
   obtenerDetalleHistoria,
@@ -871,6 +872,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [visor, setVisor] = useState<{ grupo: GrupoHistorias; indice: number } | null>(null);
   const [vistosLocalmente, setVistosLocalmente] = useState<Set<string>>(new Set());
   const [racha, setRacha] = useState(0);
+  const [miFotoPerfil, setMiFotoPerfil] = useState<string | null>(null);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [menuVideoAbierto, setMenuVideoAbierto] = useState(false);
   const [modoTexto, setModoTexto] = useState(false);
@@ -910,6 +912,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   useEffect(cargar, []);
   useEffect(() => {
     obtenerRachaPublicacion().then(setRacha).catch(() => {});
+  }, []);
+  useEffect(() => {
+    obtenerMiFotoPerfil().then(setMiFotoPerfil).catch(() => {});
   }, []);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1083,8 +1088,19 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
           onClick={() => setMenuAbierto(true)}
           className="shrink-0 flex flex-col items-center gap-1 w-16"
         >
-          <span className="w-14 h-14 rounded-full border-2 border-dashed border-marca-rojo/50 flex items-center justify-center text-marca-rojoclaro">
-            <Plus className="w-5 h-5" />
+          <span
+            className={`relative w-14 h-14 rounded-full bg-cover bg-center flex items-center justify-center text-marca-rojoclaro ${
+              miFotoPerfil ? "border-2 border-marca-borde" : "border-2 border-dashed border-marca-rojo/50"
+            }`}
+            style={miFotoPerfil ? { backgroundImage: `url(${miFotoPerfil})` } : undefined}
+          >
+            {miFotoPerfil ? (
+              <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-marca-rojo border-2 border-marca-fondo flex items-center justify-center">
+                <Plus className="w-3.5 h-3.5 text-white" />
+              </span>
+            ) : (
+              <Plus className="w-5 h-5" />
+            )}
           </span>
           <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
         </button>
@@ -1187,7 +1203,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         >
           <div
             className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl"
-            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+            style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-2.5 pb-3">
@@ -1294,7 +1310,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         >
           <div
             className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl"
-            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+            style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-2.5 pb-3">
