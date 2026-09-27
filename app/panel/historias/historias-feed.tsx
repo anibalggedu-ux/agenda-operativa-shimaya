@@ -22,6 +22,7 @@ import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
+import RecortarFoto from "./recortar-foto";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -652,6 +653,7 @@ function ComposerHistoria({
   fotos,
   onCancelar,
   onPublicar,
+  onCambiarFoto,
   publicando,
   mensaje,
   progresoPublicacion,
@@ -659,12 +661,14 @@ function ComposerHistoria({
   fotos: string[];
   onCancelar: () => void;
   onPublicar: (items: ItemPublicar[]) => void;
+  onCambiarFoto: (indice: number, foto: string) => void;
   publicando: boolean;
   mensaje: string | null;
   progresoPublicacion: { actual: number; total: number } | null;
 }) {
   const [indice, setIndice] = useState(0);
   const [textos, setTextos] = useState<string[]>(() => fotos.map(() => ""));
+  const [recortando, setRecortando] = useState(false);
   const esMultiple = fotos.length > 1;
   const textoActual = textos[indice] ?? "";
 
@@ -719,11 +723,32 @@ function ComposerHistoria({
           </div>
         )}
 
-        <img
-          src={fotos[indice]}
-          alt="Foto a publicar"
-          className="w-full max-h-[45vh] object-contain rounded-[3px] bg-black"
-        />
+        <div className="relative">
+          <img
+            src={fotos[indice]}
+            alt="Foto a publicar"
+            className="w-full max-h-[45vh] object-contain rounded-[3px] bg-black"
+          />
+          <button
+            type="button"
+            onClick={() => setRecortando(true)}
+            disabled={publicando}
+            className="absolute top-2 right-2 bg-black/60 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-[3px] hover:bg-black/80 disabled:opacity-40"
+          >
+            Recortar
+          </button>
+        </div>
+
+        {recortando && (
+          <RecortarFoto
+            src={fotos[indice]}
+            onCancelar={() => setRecortando(false)}
+            onConfirmar={(recortada) => {
+              onCambiarFoto(indice, recortada);
+              setRecortando(false);
+            }}
+          />
+        )}
 
         <textarea
           value={textoActual}
@@ -1031,6 +1056,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       {borradores && (
         <ComposerHistoria
           fotos={borradores}
+          onCambiarFoto={(i, foto) =>
+            setBorradores((prev) => (prev ? prev.map((f, idx) => (idx === i ? foto : f)) : prev))
+          }
           onCancelar={() => {
             setBorradores(null);
             setMensaje(null);
