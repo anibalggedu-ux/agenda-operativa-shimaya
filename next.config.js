@@ -7,6 +7,13 @@ const nextConfig = {
       // lib/comprimir-imagen.ts); esto es solo un margen de seguridad.
       bodySizeLimit: "4mb",
     },
+    // El binario de ffmpeg-static no se detecta solo al empaquetar la
+    // función serverless (no lo referencia un require() estático, sino un
+    // spawn() con una ruta armada en tiempo de ejecución) -- sin esto, la
+    // ruta de recorte de video fallaría en producción con "spawn ENOENT".
+    outputFileTracingIncludes: {
+      "/api/historias/recortar-video": ["./node_modules/ffmpeg-static/ffmpeg"],
+    },
   },
 };
 

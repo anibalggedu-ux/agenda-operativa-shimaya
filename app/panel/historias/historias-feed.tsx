@@ -25,6 +25,7 @@ import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } 
 import ComposerTexto from "./composer-texto";
 import RecortarFoto from "./recortar-foto";
 import ComposerVideoHistoria from "./composer-video";
+import RecortarVideo from "./recortar-video";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -35,6 +36,11 @@ const COMENTARIO_MAXIMO = 300;
 const DURACION_AUTOAVANCE_MS = 5000;
 // Tope de duración de un video de historia -- ver obtenerDuracionVideo.
 const DURACION_MAXIMA_VIDEO_SEG = 30;
+// Hasta acá se puede elegir un tramo de 30s (ver RecortarVideo); más largo
+// que esto, se pide recortarlo desde la galería del celular -- protege el
+// respaldo del servidor de tener que procesar archivos enormes.
+const DURACION_MAXIMA_ORIGINAL_SEG = 120;
+const TAMANO_MAXIMO_ORIGINAL_BYTES = 250 * 1024 * 1024;
 
 // Lee la duración real del archivo sin subirlo, para poder rechazar uno
 // demasiado largo antes de gastar datos móviles. No se recorta ni
@@ -877,6 +883,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [menuVideoAbierto, setMenuVideoAbierto] = useState(false);
   const [modoTexto, setModoTexto] = useState(false);
   const [borradorVideo, setBorradorVideo] = useState<{ archivo: File; previewUrl: string } | null>(null);
+  const [videoParaRecortar, setVideoParaRecortar] = useState<{ archivo: File; duracionTotal: number } | null>(null);
   const inputTraseraRef = useRef<HTMLInputElement>(null);
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
@@ -944,13 +951,17 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     setMensaje(null);
     try {
       const duracion = await obtenerDuracionVideo(archivo);
-      if (duracion > DURACION_MAXIMA_VIDEO_SEG + 0.5) {
+      if (duracion <= DURACION_MAXIMA_VIDEO_SEG + 0.5) {
+        setBorradorVideo({ archivo, previewUrl: URL.createObjectURL(archivo) });
+        return;
+      }
+      if (duracion > DURACION_MAXIMA_ORIGINAL_SEG || archivo.size > TAMANO_MAXIMO_ORIGINAL_BYTES) {
         setMensaje(
-          `Ese video dura ${Math.round(duracion)} segundos. El máximo son ${DURACION_MAXIMA_VIDEO_SEG} -- recórtalo desde tu galería antes de subirlo.`
+          `Ese video dura ${Math.round(duracion)} segundos. El máximo para elegir un tramo son ${DURACION_MAXIMA_ORIGINAL_SEG} -- recórtalo desde tu galería antes de subirlo.`
         );
         return;
       }
-      setBorradorVideo({ archivo, previewUrl: URL.createObjectURL(archivo) });
+      setVideoParaRecortar({ archivo, duracionTotal: duracion });
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo leer el video. Prueba con otro archivo.");
     }
@@ -1297,7 +1308,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             </div>
 
             <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
-              En Galería puedes elegir varias fotos a la vez. Un video dura hasta {DURACION_MAXIMA_VIDEO_SEG} segundos.
+              En Galería puedes elegir varias fotos a la vez. Un video se publica hasta {DURACION_MAXIMA_VIDEO_SEG} segundos -- si dura más, eliges qué tramo usar.
             </p>
           </div>
         </div>
@@ -1360,10 +1371,23 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
             </div>
 
             <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
-              Máximo {DURACION_MAXIMA_VIDEO_SEG} segundos. Uno más largo se rechaza -- recórtalo en tu galería primero.
+              Se publican hasta {DURACION_MAXIMA_VIDEO_SEG} segundos -- si dura más, eliges qué tramo usar.
             </p>
           </div>
         </div>
+      )}
+
+      {videoParaRecortar && (
+        <RecortarVideo
+          archivo={videoParaRecortar.archivo}
+          duracionTotal={videoParaRecortar.duracionTotal}
+          onCancelar={() => setVideoParaRecortar(null)}
+          onPublicado={() => {
+            setVideoParaRecortar(null);
+            cargar();
+            sonarPublicada();
+          }}
+        />
       )}
 
       {borradorVideo && (

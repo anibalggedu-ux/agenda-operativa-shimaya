@@ -2,30 +2,10 @@
 
 import { useState } from "react";
 import { X, AlertTriangle, Send } from "lucide-react";
-import { prepararSubidaVideoHistoria, crearHistoriaVideo } from "./actions";
+import { publicarVideoDirecto } from "./subir-video";
 
 const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
 const TEXTO_MAXIMO = 200;
-
-// Sube el archivo directo a R2 con la URL firmada (no pasa por un Server
-// Action) -- XMLHttpRequest en vez de fetch porque es la única forma de
-// enterarse del progreso de la subida mientras corre.
-function subirConProgreso(url: string, archivo: File, onProgreso: (fraccion: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", archivo.type || "video/mp4");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgreso(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error("No se pudo subir el video."));
-    };
-    xhr.onerror = () => reject(new Error("No se pudo subir el video. Revisa tu conexión."));
-    xhr.send(archivo);
-  });
-}
 
 export default function ComposerVideoHistoria({
   archivo,
@@ -52,17 +32,7 @@ export default function ComposerVideoHistoria({
     setPublicando(true);
     setProgreso(0);
     try {
-      const preparado = await prepararSubidaVideoHistoria(archivo.type || "video/mp4");
-      if (!preparado.exito || !preparado.blobPath || !preparado.urlSubida) {
-        setMensaje(preparado.mensaje || "No se pudo preparar la subida del video.");
-        return;
-      }
-      await subirConProgreso(preparado.urlSubida, archivo, setProgreso);
-      const resultado = await crearHistoriaVideo(preparado.blobPath, texto.trim());
-      if (!resultado.exito) {
-        setMensaje(resultado.mensaje || "No se pudo publicar el video.");
-        return;
-      }
+      await publicarVideoDirecto(archivo, archivo.type || "video/mp4", texto.trim(), setProgreso);
       onPublicado();
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo publicar el video.");
