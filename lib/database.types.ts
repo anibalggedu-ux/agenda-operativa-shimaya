@@ -732,6 +732,7 @@ export type Database = {
           created_at: string
           historia_id: string
           id: string
+          padre_id: string | null
           texto: string
           usuario_id: string
         }
@@ -739,6 +740,7 @@ export type Database = {
           created_at?: string
           historia_id: string
           id?: string
+          padre_id?: string | null
           texto: string
           usuario_id: string
         }
@@ -746,6 +748,7 @@ export type Database = {
           created_at?: string
           historia_id?: string
           id?: string
+          padre_id?: string | null
           texto?: string
           usuario_id?: string
         }
@@ -755,6 +758,13 @@ export type Database = {
             columns: ["historia_id"]
             isOneToOne: false
             referencedRelation: "historias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historia_comentarios_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "historia_comentarios"
             referencedColumns: ["id"]
           },
           {
@@ -961,6 +971,7 @@ export type Database = {
       historias: {
         Row: {
           created_at: string
+          es_video: boolean
           foto_blob: string
           id: string
           texto: string | null
@@ -969,6 +980,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          es_video?: boolean
           foto_blob: string
           id?: string
           texto?: string | null
@@ -977,6 +989,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          es_video?: boolean
           foto_blob?: string
           id?: string
           texto?: string | null

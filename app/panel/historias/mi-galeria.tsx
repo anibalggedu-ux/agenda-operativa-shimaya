@@ -38,7 +38,11 @@ export function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-[3px] overflow-hidden flex flex-col">
       <div className="relative aspect-square bg-marca-fondo">
-        <img src={foto.url} alt="Foto de mi historia" className="w-full h-full object-cover" />
+        {foto.esVideo ? (
+          <video src={foto.url} controls playsInline className="w-full h-full object-cover" />
+        ) : (
+          <img src={foto.url} alt="Foto de mi historia" className="w-full h-full object-cover" />
+        )}
         <span
           className={`absolute top-2 right-2 text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${claseBadge(
             foto.diasRestantes
@@ -47,7 +51,7 @@ export function TarjetaFoto({ foto }: { foto: FotoGaleria }) {
           {textoVencimiento(foto.diasRestantes)}
         </span>
         {foto.texto && (
-          <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 to-transparent text-white text-[11px] font-semibold px-2.5 pt-5 pb-2 line-clamp-2">
+          <p className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 to-transparent text-white text-[11px] font-semibold px-2.5 pt-5 pb-2 line-clamp-2 pointer-events-none">
             {foto.texto}
           </p>
         )}

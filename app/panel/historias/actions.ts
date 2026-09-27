@@ -2,7 +2,13 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
-import { subirFotoHistoria, obtenerUrlTemporalFotoHistoria, eliminarFotoHistoria } from "@/lib/blob-storage";
+import {
+  subirFotoHistoria,
+  obtenerUrlTemporalFotoHistoria,
+  eliminarFotoHistoria,
+  prepararSubidaVideoHistoriaEnAlmacen,
+  existeVideoHistoria,
+} from "@/lib/blob-storage";
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -25,6 +31,7 @@ export type FotoGaleria = {
   texto: string | null;
   creadoEn: string;
   diasRestantes: number;
+  esVideo: boolean;
 };
 
 async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> {
@@ -33,7 +40,7 @@ async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> 
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, foto_blob, texto, created_at, tiene_miniatura")
+    .select("id, foto_blob, texto, created_at, tiene_miniatura, es_video")
     .eq("usuario_id", usuarioId)
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
@@ -56,6 +63,7 @@ async function obtenerGaleriaInterna(usuarioId: string): Promise<FotoGaleria[]> 
         texto: fila.texto,
         creadoEn: fila.created_at,
         diasRestantes: Math.max(DIAS_VISIBLE_GALERIA - diasTranscurridos, 0),
+        esVideo: fila.es_video,
       };
     })
   );
@@ -122,6 +130,69 @@ export async function crearHistoria(
   }
 }
 
+export type PrepararVideoResultado = {
+  exito: boolean;
+  blobPath?: string;
+  urlSubida?: string;
+  mensaje?: string;
+};
+
+// Paso 1 de subir un video: arma una URL firmada para que el navegador lo
+// suba directo a R2 (ver prepararSubidaVideoHistoriaEnAlmacen). Sin R2
+// configurado no hay forma segura de subir un archivo de este tamaño, así
+// que se avisa en vez de intentarlo a medias.
+export async function prepararSubidaVideoHistoria(contentType: string): Promise<PrepararVideoResultado> {
+  try {
+    const sesion = await exigirSesion();
+    if (!contentType.startsWith("video/")) {
+      return { exito: false, mensaje: "El archivo no es un video válido." };
+    }
+    const preparado = await prepararSubidaVideoHistoriaEnAlmacen(sesion.id, contentType);
+    if (!preparado) {
+      return { exito: false, mensaje: "La subida de video no está disponible en este momento." };
+    }
+    return { exito: true, blobPath: preparado.blobPath, urlSubida: preparado.urlSubida };
+  } catch (err: any) {
+    return { exito: false, mensaje: err?.message || "No se pudo preparar la subida del video." };
+  }
+}
+
+// Paso 2: el navegador ya subió el archivo directo a R2 con la URL del paso
+// 1 -- acá solo se confirma que llegó y se crea la fila.
+export async function crearHistoriaVideo(blobPath: string, texto?: string): Promise<ResultadoHistoria> {
+  try {
+    const sesion = await exigirSesion();
+    if (!blobPath.startsWith(`${sesion.id}/`)) {
+      return { exito: false, mensaje: "Video inválido." };
+    }
+    if (!(await existeVideoHistoria(blobPath))) {
+      return { exito: false, mensaje: "El video no terminó de subirse. Intenta de nuevo." };
+    }
+
+    const textoLimpio = texto?.trim().slice(0, TEXTO_MAXIMO) || null;
+    const supabase = supabaseServer();
+    const { error } = await supabase.from("historias").insert({
+      usuario_id: sesion.id,
+      foto_blob: blobPath,
+      texto: textoLimpio,
+      tiene_miniatura: false,
+      es_video: true,
+    });
+
+    if (error) {
+      return { exito: false, mensaje: "No se pudo guardar el video." };
+    }
+
+    await supabase
+      .from("historia_publicaciones")
+      .upsert({ usuario_id: sesion.id, fecha: hoyPeru() }, { onConflict: "usuario_id,fecha", ignoreDuplicates: true });
+
+    return { exito: true };
+  } catch (err: any) {
+    return { exito: false, mensaje: err?.message || "No se pudo publicar el video." };
+  }
+}
+
 // El propio autor puede borrar su historia (ej. la subió por error), y
 // coordinador/gerente pueden borrar la de cualquiera por moderación.
 function puedeModerar(rol: string): boolean {
@@ -165,6 +236,7 @@ export type ComentarioHistoria = {
   rol: string;
   texto: string;
   creadoEn: string;
+  padreId: string | null;
 };
 
 export type ReaccionResumen = {
@@ -195,7 +267,7 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
   const [comentariosRes, reaccionesRes, historiaRes] = await Promise.all([
     supabase
       .from("historia_comentarios")
-      .select("id, usuario_id, texto, created_at, usuarios(nombre, rol)")
+      .select("id, usuario_id, texto, created_at, padre_id, usuarios(nombre, rol)")
       .eq("historia_id", historiaId)
       .order("created_at", { ascending: true }),
     supabase.from("historia_reacciones").select("usuario_id, emoji, usuarios(nombre)").eq("historia_id", historiaId),
@@ -209,6 +281,7 @@ export async function obtenerDetalleHistoria(historiaId: string): Promise<Detall
     rol: c.usuarios?.rol ?? "",
     texto: c.texto,
     creadoEn: c.created_at,
+    padreId: c.padre_id ?? null,
   }));
 
   const esDueno = historiaRes.data?.usuario_id === sesion.id;
@@ -266,7 +339,11 @@ export async function registrarVista(historiaId: string): Promise<void> {
     .upsert({ historia_id: historiaId, usuario_id: sesion.id }, { onConflict: "historia_id,usuario_id", ignoreDuplicates: true });
 }
 
-export async function agregarComentario(historiaId: string, texto: string): Promise<ResultadoHistoria> {
+export async function agregarComentario(
+  historiaId: string,
+  texto: string,
+  padreId?: string | null
+): Promise<ResultadoHistoria> {
   try {
     const sesion = await exigirSesion();
     const limpio = texto.trim().slice(0, TEXTO_COMENTARIO_MAXIMO);
@@ -277,7 +354,7 @@ export async function agregarComentario(historiaId: string, texto: string): Prom
     const supabase = supabaseServer();
     const { error } = await supabase
       .from("historia_comentarios")
-      .insert({ historia_id: historiaId, usuario_id: sesion.id, texto: limpio });
+      .insert({ historia_id: historiaId, usuario_id: sesion.id, texto: limpio, padre_id: padreId ?? null });
 
     if (error) {
       return { exito: false, mensaje: "No se pudo publicar el comentario." };
@@ -363,6 +440,7 @@ export type HistoriaFoto = {
   // Si quien pregunta ya vio esta foto -- pinta el anillo del círculo del
   // feed gris (vista) o rojo (sin ver), igual que WhatsApp/Instagram.
   vistoPorMi: boolean;
+  esVideo: boolean;
 };
 
 export type GrupoHistorias = {
@@ -382,7 +460,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
 
   const { data, error } = await supabase
     .from("historias")
-    .select("id, usuario_id, foto_blob, texto, created_at, tiene_miniatura, usuarios(nombre, rol)")
+    .select("id, usuario_id, foto_blob, texto, created_at, tiene_miniatura, es_video, usuarios(nombre, rol)")
     .gte("created_at", desde)
     .order("created_at", { ascending: false });
 
@@ -430,6 +508,7 @@ export async function obtenerFeedHistorias(): Promise<GrupoHistorias[]> {
       creadoEn: fila.created_at,
       interacciones: conteoInteracciones.get(fila.id) ?? 0,
       vistoPorMi: idsVistas.has(fila.id),
+      esVideo: fila.es_video,
     });
     porUsuario.set(fila.usuario_id, grupo);
   }

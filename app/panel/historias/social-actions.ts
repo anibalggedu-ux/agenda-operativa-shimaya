@@ -21,27 +21,57 @@ export async function obtenerNotificacionesPendientes(): Promise<number> {
   const { data: misHistorias } = await supabase.from("historias").select("id").eq("usuario_id", sesion.id);
   const idsMisHistorias = (misHistorias ?? []).map((h) => h.id);
 
-  let comentarios = 0;
+  const { data: misComentarios } = await supabase
+    .from("historia_comentarios")
+    .select("id")
+    .eq("usuario_id", sesion.id);
+  const idsMisComentarios = (misComentarios ?? []).map((c) => c.id);
+
   let reacciones = 0;
+  const idsComentariosNuevos = new Set<string>();
+
+  const promesas: PromiseLike<void>[] = [];
 
   if (idsMisHistorias.length > 0) {
-    const [comentariosRes, reaccionesRes] = await Promise.all([
+    promesas.push(
       supabase
         .from("historia_comentarios")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .in("historia_id", idsMisHistorias)
         .gt("created_at", desde)
-        .neq("usuario_id", sesion.id),
+        .neq("usuario_id", sesion.id)
+        .then(({ data }) => {
+          (data ?? []).forEach((c) => idsComentariosNuevos.add(c.id));
+        })
+    );
+    promesas.push(
       supabase
         .from("historia_reacciones")
         .select("id", { count: "exact", head: true })
         .in("historia_id", idsMisHistorias)
         .gt("created_at", desde)
-        .neq("usuario_id", sesion.id),
-    ]);
-    comentarios = comentariosRes.count ?? 0;
-    reacciones = reaccionesRes.count ?? 0;
+        .neq("usuario_id", sesion.id)
+        .then(({ count }) => {
+          reacciones = count ?? 0;
+        })
+    );
   }
+
+  if (idsMisComentarios.length > 0) {
+    promesas.push(
+      supabase
+        .from("historia_comentarios")
+        .select("id")
+        .in("padre_id", idsMisComentarios)
+        .gt("created_at", desde)
+        .neq("usuario_id", sesion.id)
+        .then(({ data }) => {
+          (data ?? []).forEach((c) => idsComentariosNuevos.add(c.id));
+        })
+    );
+  }
+
+  await Promise.all(promesas);
 
   const { count: regalos } = await supabase
     .from("historia_regalos")
@@ -49,7 +79,7 @@ export async function obtenerNotificacionesPendientes(): Promise<number> {
     .eq("usuario_id_recibe", sesion.id)
     .gt("created_at", desde);
 
-  return comentarios + reacciones + (regalos ?? 0);
+  return idsComentariosNuevos.size + reacciones + (regalos ?? 0);
 }
 
 export type NotificacionItem = {
@@ -57,9 +87,11 @@ export type NotificacionItem = {
   usuarioNombre: string;
   mensaje: string;
   creadoEn: string;
-  // A qué foto de tu historia pertenece — comentario, reacción o regalo son
-  // siempre sobre una historia TUYA, así que al tocar la notificación se
-  // puede llevar directo a esa foto en Mi Perfil (ver campana-notificaciones.tsx).
+  // A qué foto pertenece -- comentario/reacción/regalo sobre tu historia
+  // llevan directo a esa foto en Mi Perfil (ver campana-notificaciones.tsx).
+  // Una respuesta a tu comentario puede ser sobre la historia de OTRA
+  // persona, así que ese caso puede no encontrar la foto en tu galería --
+  // no rompe nada, simplemente no resalta nada al llegar.
   historiaId: string | null;
 };
 
@@ -80,7 +112,39 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
   const { data: misHistorias } = await supabase.from("historias").select("id").eq("usuario_id", sesion.id);
   const idsMisHistorias = (misHistorias ?? []).map((h) => h.id);
 
+  const { data: misComentarios } = await supabase
+    .from("historia_comentarios")
+    .select("id")
+    .eq("usuario_id", sesion.id);
+  const idsMisComentarios = (misComentarios ?? []).map((c) => c.id);
+
   const items: NotificacionItem[] = [];
+
+  // Respuestas a mis comentarios -- se resuelven primero para poder excluir
+  // estas mismas filas de "comentó tu foto" más abajo y no notificar dos
+  // veces la misma fila cuando la respuesta cae además en tu propia historia.
+  const idsRespuestas = new Set<string>();
+  if (idsMisComentarios.length > 0) {
+    const { data: respuestas } = await supabase
+      .from("historia_comentarios")
+      .select("id, texto, created_at, historia_id, usuarios(nombre)")
+      .in("padre_id", idsMisComentarios)
+      .neq("usuario_id", sesion.id)
+      .gt("created_at", desde)
+      .order("created_at", { ascending: false })
+      .limit(limite);
+
+    ((respuestas ?? []) as any[]).forEach((r) => {
+      idsRespuestas.add(r.id);
+      items.push({
+        id: `respuesta-${r.id}`,
+        usuarioNombre: r.usuarios?.nombre ?? "—",
+        mensaje: `te respondió: "${r.texto.length > 60 ? r.texto.slice(0, 60) + "…" : r.texto}"`,
+        creadoEn: r.created_at,
+        historiaId: r.historia_id,
+      });
+    });
+  }
 
   if (idsMisHistorias.length > 0) {
     const [comentariosRes, reaccionesRes] = await Promise.all([
@@ -102,15 +166,17 @@ export async function obtenerNotificaciones(limite = 20): Promise<NotificacionIt
         .limit(limite),
     ]);
 
-    ((comentariosRes.data ?? []) as any[]).forEach((c) => {
-      items.push({
-        id: `comentario-${c.id}`,
-        usuarioNombre: c.usuarios?.nombre ?? "—",
-        mensaje: `comentó tu foto: "${c.texto.length > 60 ? c.texto.slice(0, 60) + "…" : c.texto}"`,
-        creadoEn: c.created_at,
-        historiaId: c.historia_id,
+    ((comentariosRes.data ?? []) as any[])
+      .filter((c) => !idsRespuestas.has(c.id))
+      .forEach((c) => {
+        items.push({
+          id: `comentario-${c.id}`,
+          usuarioNombre: c.usuarios?.nombre ?? "—",
+          mensaje: `comentó tu foto: "${c.texto.length > 60 ? c.texto.slice(0, 60) + "…" : c.texto}"`,
+          creadoEn: c.created_at,
+          historiaId: c.historia_id,
+        });
       });
-    });
 
     ((reaccionesRes.data ?? []) as any[]).forEach((r) => {
       items.push({

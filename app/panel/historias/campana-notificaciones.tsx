@@ -35,11 +35,12 @@ export default function CampanaNotificaciones() {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  // Comentario, reacción y regalo son siempre sobre una historia tuya —
-  // llevar directo a esa foto en Mi Perfil, en vez de solo marcar como
-  // vista y dejar a la persona sin saber a dónde ir. Navegación completa
-  // (no un cambio de pestaña en vivo) para reusar el mismo mecanismo que ya
-  // usan los enlaces de correo (?seccion=perfil&foto=...), simple y probado.
+  // Reacción y regalo son siempre sobre una historia tuya; comentario
+  // también, salvo una respuesta a un comentario que dejaste en la historia
+  // de otra persona. Igual se lleva a Mi Perfil con el mismo mecanismo que
+  // ya usan los enlaces de correo (?seccion=perfil&foto=...) -- si la foto
+  // no está en tu galería simplemente no resalta nada, no rompe la página.
+  // Navegación completa (no un cambio de pestaña en vivo) a propósito.
   function irANotificacion(n: NotificacionItem) {
     const destino = n.historiaId
       ? `${pathname}?seccion=perfil&foto=${n.historiaId}`

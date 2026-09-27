@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type } from "lucide-react";
+import { Plus, X, AlertTriangle, Trash2, Send, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import {
   obtenerFeedHistorias,
   crearHistoria,
@@ -16,11 +16,14 @@ import {
   type GrupoHistorias,
   type DetalleHistoria,
   type SaldoRegalo,
+  type ComentarioHistoria,
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
+import RecortarFoto from "./recortar-foto";
+import ComposerVideoHistoria from "./composer-video";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -29,6 +32,28 @@ const TEXTO_MAXIMO = 200;
 const COMENTARIO_MAXIMO = 300;
 // Cuánto dura cada foto antes de avanzar sola, como en WhatsApp/Instagram.
 const DURACION_AUTOAVANCE_MS = 5000;
+// Tope de duración de un video de historia -- ver obtenerDuracionVideo.
+const DURACION_MAXIMA_VIDEO_SEG = 30;
+
+// Lee la duración real del archivo sin subirlo, para poder rechazar uno
+// demasiado largo antes de gastar datos móviles. No se recorta ni
+// re-codifica el video en el navegador (sería pesado y poco confiable en
+// iOS) -- si dura de más, se avisa y la persona lo recorta desde su galería.
+function obtenerDuracionVideo(archivo: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      reject(new Error("No se pudo leer el video."));
+    };
+    video.src = URL.createObjectURL(archivo);
+  });
+}
 
 // Solo +50 va relleno -- el tratamiento más celebratorio se reserva para el
 // regalo más generoso, el resto queda como contorno discreto.
@@ -110,6 +135,38 @@ function BarraReacciones({
   );
 }
 
+function ComentarioFila({
+  c,
+  puedeBorrar,
+  onBorrar,
+  onResponder,
+}: {
+  c: ComentarioHistoria;
+  puedeBorrar: boolean;
+  onBorrar: () => void;
+  onResponder: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2 bg-white/5 rounded-[3px] px-2.5 py-1.5">
+      <div className="min-w-0">
+        <p className="text-white text-xs break-words">
+          <span className="font-bold">{c.nombre}</span>{" "}
+          <span className="text-white/40 text-[10px] uppercase">({c.rol})</span>{" "}
+          <span className="text-white/85">{c.texto}</span>
+        </p>
+        <button onClick={onResponder} className="text-white/40 hover:text-white/80 text-[10px] font-bold mt-0.5">
+          Responder
+        </button>
+      </div>
+      {puedeBorrar && (
+        <button onClick={onBorrar} className="shrink-0 text-white/40 hover:text-marca-rojoclaro" aria-label="Borrar comentario">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function VisorHistorias({
   grupo,
   indiceInicial,
@@ -143,6 +200,7 @@ function VisorHistorias({
   const [reaccionando, setReaccionando] = useState(false);
   const [comentarioTexto, setComentarioTexto] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [respondiendoA, setRespondiendoA] = useState<{ id: string; nombre: string } | null>(null);
 
   const [saldoRegalo, setSaldoRegalo] = useState<SaldoRegalo | null>(null);
   const [enviandoRegalo, setEnviandoRegalo] = useState(false);
@@ -174,6 +232,7 @@ function VisorHistorias({
   useEffect(() => {
     setDetalle(null);
     setComentarioTexto("");
+    setRespondiendoA(null);
     obtenerDetalleHistoria(historia.id)
       .then(setDetalle)
       .catch(() => setDetalle({ comentarios: [], reacciones: [], miReaccion: null, vistas: [] }));
@@ -184,10 +243,19 @@ function VisorHistorias({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historia.id]);
 
+  function avanzar() {
+    if (!esUltima) setIndice((i) => i + 1);
+    else onGrupoSiguiente();
+  }
+
   // Auto-avance: la foto actual se llena sola y pasa a la siguiente, como en
   // WhatsApp/Instagram; al terminar la última pasa a la persona que sigue.
+  // Un video no se autoavanza con este cronómetro -- avanza solo al
+  // terminar de reproducirse (ver onEnded más abajo), porque su duración no
+  // es fija como la de una foto.
   useEffect(() => {
     setProgreso(0);
+    if (historia.esVideo) return;
     acumuladoRef.current = 0;
     inicioRef.current = performance.now();
     pausadoRef.current = false;
@@ -198,8 +266,7 @@ function VisorHistorias({
         const p = Math.min(transcurrido / DURACION_AUTOAVANCE_MS, 1);
         setProgreso(p);
         if (p >= 1) {
-          if (!esUltima) setIndice((i) => i + 1);
-          else onGrupoSiguiente();
+          avanzar();
           return;
         }
       }
@@ -310,9 +377,10 @@ function VisorHistorias({
     const texto = comentarioTexto.trim();
     if (!texto) return;
     setEnviandoComentario(true);
-    const resultado = await agregarComentario(historia.id, texto);
+    const resultado = await agregarComentario(historia.id, texto, respondiendoA?.id ?? null);
     if (resultado.exito) {
       setComentarioTexto("");
+      setRespondiendoA(null);
       const actualizado = await obtenerDetalleHistoria(historia.id);
       setDetalle(actualizado);
       reproducirSonidoExito();
@@ -325,7 +393,10 @@ function VisorHistorias({
   async function borrarComentario(comentarioId: string) {
     const resultado = await eliminarComentario(comentarioId);
     if (resultado.exito) {
-      setDetalle((d) => (d ? { ...d, comentarios: d.comentarios.filter((c) => c.id !== comentarioId) } : d));
+      // Se vuelve a pedir el detalle (en vez de filtrar localmente) porque
+      // borrar un comentario con respuestas las borra en cascada en la base.
+      const actualizado = await obtenerDetalleHistoria(historia.id);
+      setDetalle(actualizado);
     } else {
       setMensaje(resultado.mensaje || "No se pudo borrar el comentario.");
     }
@@ -377,24 +448,36 @@ function VisorHistorias({
 
         <div
           className="relative select-none"
-          onClick={confirmando ? undefined : alTocarImagen}
-          onMouseDown={pausar}
-          onMouseUp={reanudar}
-          onMouseLeave={reanudar}
-          onTouchStart={pausar}
-          onTouchEnd={reanudar}
+          onClick={confirmando || historia.esVideo ? undefined : alTocarImagen}
+          onMouseDown={historia.esVideo ? undefined : pausar}
+          onMouseUp={historia.esVideo ? undefined : reanudar}
+          onMouseLeave={historia.esVideo ? undefined : reanudar}
+          onTouchStart={historia.esVideo ? undefined : pausar}
+          onTouchEnd={historia.esVideo ? undefined : reanudar}
         >
           {/* El texto va dentro de los bordes de la foto (no del recuadro
               completo), en una franja oscura para que se lea aunque la foto
               sea clara. */}
           <div className="flex justify-center">
             <div className="relative inline-block max-w-full">
-              <img
-                src={historia.url}
-                alt={`Historia de ${grupo.nombre}`}
-                className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
-                draggable={false}
-              />
+              {historia.esVideo ? (
+                <video
+                  key={historia.id}
+                  src={historia.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  onEnded={avanzar}
+                  className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px] bg-black"
+                />
+              ) : (
+                <img
+                  src={historia.url}
+                  alt={`Historia de ${grupo.nombre}`}
+                  className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
+                  draggable={false}
+                />
+              )}
               {historia.texto && (
                 <p className="absolute bottom-2 inset-x-2 bg-black/70 backdrop-blur-sm text-white text-[13px] font-semibold leading-snug text-center whitespace-pre-line break-words px-3 py-2 rounded-lg [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
                   {historia.texto}
@@ -518,28 +601,50 @@ function VisorHistorias({
           {detalle && detalle.comentarios.length === 0 && (
             <p className="text-white/40 text-[11px]">Todavía no hay comentarios.</p>
           )}
-          {detalle?.comentarios.map((c) => {
-            const puedeBorrar = c.usuarioId === miUsuarioId || esModerador;
-            return (
-              <div key={c.id} className="flex items-start justify-between gap-2 bg-white/5 rounded-[3px] px-2.5 py-1.5">
-                <p className="text-white text-xs min-w-0 break-words">
-                  <span className="font-bold">{c.nombre}</span>{" "}
-                  <span className="text-white/40 text-[10px] uppercase">({c.rol})</span>{" "}
-                  <span className="text-white/85">{c.texto}</span>
-                </p>
-                {puedeBorrar && (
-                  <button
-                    onClick={() => borrarComentario(c.id)}
-                    className="shrink-0 text-white/40 hover:text-marca-rojoclaro"
-                    aria-label="Borrar comentario"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {detalle?.comentarios
+            .filter((c) => !c.padreId)
+            .map((c) => {
+              const respuestas = detalle.comentarios.filter((r) => r.padreId === c.id);
+              return (
+                <div key={c.id} className="space-y-1.5">
+                  <ComentarioFila
+                    c={c}
+                    puedeBorrar={c.usuarioId === miUsuarioId || esModerador}
+                    onBorrar={() => borrarComentario(c.id)}
+                    onResponder={() => setRespondiendoA({ id: c.id, nombre: c.nombre.split(" ")[0] })}
+                  />
+                  {respuestas.length > 0 && (
+                    <div className="pl-4 space-y-1.5 border-l border-white/10">
+                      {respuestas.map((r) => (
+                        <ComentarioFila
+                          key={r.id}
+                          c={r}
+                          puedeBorrar={r.usuarioId === miUsuarioId || esModerador}
+                          onBorrar={() => borrarComentario(r.id)}
+                          onResponder={() => setRespondiendoA({ id: c.id, nombre: c.nombre.split(" ")[0] })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
+
+        {respondiendoA && (
+          <div className="flex items-center justify-between gap-2 mt-2 bg-white/10 rounded-[3px] px-2.5 py-1">
+            <p className="text-white/70 text-[11px]">
+              Respondiendo a <span className="font-bold text-white/90">{respondiendoA.nombre}</span>
+            </p>
+            <button
+              onClick={() => setRespondiendoA(null)}
+              className="text-white/40 hover:text-white/80"
+              aria-label="Cancelar respuesta"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mt-2">
           <input
@@ -552,7 +657,7 @@ function VisorHistorias({
             onKeyDown={(e) => {
               if (e.key === "Enter") enviarComentario();
             }}
-            placeholder="Escribe un comentario..."
+            placeholder={respondiendoA ? `Responder a ${respondiendoA.nombre}...` : "Escribe un comentario..."}
             className="flex-1 bg-white/10 border border-white/20 rounded-full px-3.5 py-2 text-xs text-white placeholder:text-white/40"
           />
           <button
@@ -591,6 +696,7 @@ function ComposerHistoria({
   fotos,
   onCancelar,
   onPublicar,
+  onCambiarFoto,
   publicando,
   mensaje,
   progresoPublicacion,
@@ -598,12 +704,14 @@ function ComposerHistoria({
   fotos: string[];
   onCancelar: () => void;
   onPublicar: (items: ItemPublicar[]) => void;
+  onCambiarFoto: (indice: number, foto: string) => void;
   publicando: boolean;
   mensaje: string | null;
   progresoPublicacion: { actual: number; total: number } | null;
 }) {
   const [indice, setIndice] = useState(0);
   const [textos, setTextos] = useState<string[]>(() => fotos.map(() => ""));
+  const [recortando, setRecortando] = useState(false);
   const esMultiple = fotos.length > 1;
   const textoActual = textos[indice] ?? "";
 
@@ -658,11 +766,32 @@ function ComposerHistoria({
           </div>
         )}
 
-        <img
-          src={fotos[indice]}
-          alt="Foto a publicar"
-          className="w-full max-h-[45vh] object-contain rounded-[3px] bg-black"
-        />
+        <div className="relative">
+          <img
+            src={fotos[indice]}
+            alt="Foto a publicar"
+            className="w-full max-h-[45vh] object-contain rounded-[3px] bg-black"
+          />
+          <button
+            type="button"
+            onClick={() => setRecortando(true)}
+            disabled={publicando}
+            className="absolute top-2 right-2 bg-black/60 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-[3px] hover:bg-black/80 disabled:opacity-40"
+          >
+            Recortar
+          </button>
+        </div>
+
+        {recortando && (
+          <RecortarFoto
+            src={fotos[indice]}
+            onCancelar={() => setRecortando(false)}
+            onConfirmar={(recortada) => {
+              onCambiarFoto(indice, recortada);
+              setRecortando(false);
+            }}
+          />
+        )}
 
         <textarea
           value={textoActual}
@@ -743,10 +872,14 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
   const [vistosLocalmente, setVistosLocalmente] = useState<Set<string>>(new Set());
   const [racha, setRacha] = useState(0);
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [menuVideoAbierto, setMenuVideoAbierto] = useState(false);
   const [modoTexto, setModoTexto] = useState(false);
+  const [borradorVideo, setBorradorVideo] = useState<{ archivo: File; previewUrl: string } | null>(null);
   const inputTraseraRef = useRef<HTMLInputElement>(null);
   const inputSelfieRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
+  const inputVideoGrabarRef = useRef<HTMLInputElement>(null);
+  const inputVideoGaleriaRef = useRef<HTMLInputElement>(null);
 
   // Como en WhatsApp: se abre en la primera historia que no has visto (o en
   // la primera, si ya viste todas).
@@ -796,6 +929,31 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
     }
+  }
+
+  async function handleArchivoVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+
+    setMensaje(null);
+    try {
+      const duracion = await obtenerDuracionVideo(archivo);
+      if (duracion > DURACION_MAXIMA_VIDEO_SEG + 0.5) {
+        setMensaje(
+          `Ese video dura ${Math.round(duracion)} segundos. El máximo son ${DURACION_MAXIMA_VIDEO_SEG} -- recórtalo desde tu galería antes de subirlo.`
+        );
+        return;
+      }
+      setBorradorVideo({ archivo, previewUrl: URL.createObjectURL(archivo) });
+    } catch (err: any) {
+      setMensaje(err?.message || "No se pudo leer el video. Prueba con otro archivo.");
+    }
+  }
+
+  function cancelarVideo() {
+    if (borradorVideo) URL.revokeObjectURL(borradorVideo.previewUrl);
+    setBorradorVideo(null);
   }
 
   // Tras publicar: "logro" si la racha de días publicando subió, si no el
@@ -903,6 +1061,21 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         className="hidden"
         onChange={handleArchivo}
       />
+      <input
+        ref={inputVideoGrabarRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleArchivoVideo}
+      />
+      <input
+        ref={inputVideoGaleriaRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleArchivoVideo}
+      />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <button
@@ -935,9 +1108,11 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                   }`}
                 >
                   <span
-                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo"
-                    style={{ backgroundImage: `url(${ultima.url})` }}
-                  />
+                    className="block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
+                    style={!ultima.esVideo ? { backgroundImage: `url(${ultima.url})` } : undefined}
+                  >
+                    {ultima.esVideo && <VideoIcon className="w-5 h-5 text-white/85" />}
+                  </span>
                 </span>
                 {ultima.interacciones > 0 && (
                   <span className="absolute -bottom-1 -right-1 min-w-[17px] h-[17px] px-1 flex items-center justify-center rounded-full bg-marca-rojo border-2 border-marca-fondo text-white text-[9px] font-black">
@@ -970,6 +1145,9 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
       {borradores && (
         <ComposerHistoria
           fotos={borradores}
+          onCambiarFoto={(i, foto) =>
+            setBorradores((prev) => (prev ? prev.map((f, idx) => (idx === i ? foto : f)) : prev))
+          }
           onCancelar={() => {
             setBorradores(null);
             setMensaje(null);
@@ -1075,13 +1253,103 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                 </span>
                 <span className="text-[11px] text-marca-texto font-bold">Galería</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  setMensaje(null);
+                  setMenuVideoAbierto(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <VideoIcon className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Video</span>
+              </button>
             </div>
 
             <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
-              En Galería puedes elegir varias fotos a la vez.
+              En Galería puedes elegir varias fotos a la vez. Un video dura hasta {DURACION_MAXIMA_VIDEO_SEG} segundos.
             </p>
           </div>
         </div>
+      )}
+
+      {menuVideoAbierto && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+          onClick={() => setMenuVideoAbierto(false)}
+        >
+          <div
+            className="relative w-full max-w-sm bg-marca-superficie2 border-t border-marca-borde rounded-t-2xl pb-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2.5 pb-3">
+              <span className="w-9 h-1 rounded-full bg-marca-borde" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 pb-5">
+              <span className="w-5" />
+              <p className="text-marca-textofuerte text-sm font-black">Nuevo video</p>
+              <button
+                onClick={() => setMenuVideoAbierto(false)}
+                aria-label="Cerrar"
+                className="text-marca-tenue hover:text-marca-texto"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex justify-around px-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuVideoAbierto(false);
+                  inputVideoGrabarRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Camera className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">Grabar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuVideoAbierto(false);
+                  inputVideoGaleriaRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <span className="w-14 h-14 rounded-full bg-marca-superficie border border-marca-borde flex items-center justify-center text-marca-rojoclaro">
+                  <Images className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] text-marca-texto font-bold">De galería</span>
+              </button>
+            </div>
+
+            <p className="text-marca-tenue text-[10.5px] text-center px-8 pt-5">
+              Máximo {DURACION_MAXIMA_VIDEO_SEG} segundos. Uno más largo se rechaza -- recórtalo en tu galería primero.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {borradorVideo && (
+        <ComposerVideoHistoria
+          archivo={borradorVideo.archivo}
+          previewUrl={borradorVideo.previewUrl}
+          onCancelar={cancelarVideo}
+          onPublicado={() => {
+            cancelarVideo();
+            cargar();
+            sonarPublicada();
+          }}
+        />
       )}
 
       {visor && (
