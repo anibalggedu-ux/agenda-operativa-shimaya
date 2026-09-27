@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X } from "lucide-react";
 import {
   obtenerPerfil,
@@ -108,6 +109,18 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   useEffect(() => {
     if (esPerfilPropio) marcarNotificacionesVistas().catch(() => {});
   }, [esPerfilPropio]);
+
+  // Si se llegó acá desde la campanita de notificaciones (?foto=<id>), se
+  // resalta y se hace scroll hasta esa foto en cuanto la galería termine de
+  // cargar — mismo patrón que las alertas críticas de Central Analítica.
+  const parametros = useSearchParams();
+  const fotoDestacada = parametros.get("foto");
+  useEffect(() => {
+    if (!fotoDestacada || fotos.length === 0) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`foto-${fotoDestacada}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [fotoDestacada, fotos]);
 
   useEffect(() => {
     if (pestana !== "regalos" || rankingRegalos !== null) return;
@@ -339,7 +352,15 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
                 // cada foto, descargar y compartir.
                 <div className="grid grid-cols-2 gap-2.5">
                   {fotos.map((f) => (
-                    <TarjetaFoto key={f.id} foto={f} />
+                    <div
+                      key={f.id}
+                      id={`foto-${f.id}`}
+                      className={
+                        fotoDestacada === f.id ? "rounded-[3px] ring-2 ring-oro ring-offset-2 ring-offset-marca-fondo" : ""
+                      }
+                    >
+                      <TarjetaFoto foto={f} />
+                    </div>
                   ))}
                 </div>
               ) : (
