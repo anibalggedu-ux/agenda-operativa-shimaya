@@ -13,7 +13,10 @@ import {
   type RespuestasChecklist,
   type ClasificacionChecklist,
   type PlantillaChecklist,
+  type ResultadoChecklist,
 } from "./checklist-visita-actions";
+import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { agregarChecklistPendiente } from "@/lib/cola-checklists";
 import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
@@ -326,9 +329,32 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     }
     setGuardando(true);
     setError(null);
-    const resp = editandoId
-      ? await editarChecklistVisita(editandoId, respuestas)
-      : await guardarChecklistVisita(tiendaId, fecha, respuestas);
+    let resp: ResultadoChecklist;
+    try {
+      resp = editandoId
+        ? await editarChecklistVisita(editandoId, respuestas)
+        : await guardarChecklistVisita(tiendaId, fecha, respuestas);
+    } catch (err) {
+      setGuardando(false);
+      if (!editandoId && pareceFallaDeConexion(err)) {
+        // Sin señal (pasa en tiendas con poca cobertura) -- queda en la cola
+        // del celular y el indicador global lo reenvía solo en cuanto
+        // vuelva la conexión. No se pierden las respuestas ya marcadas.
+        agregarChecklistPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          tiendaId,
+          fecha,
+          respuestas,
+          etiqueta: `Checklist — ${tiendas.find((t) => t.id === tiendaId)?.nombre ?? "tienda"} (${formatearFechaLegible(fecha)})`,
+        });
+        reproducirSonidoAlerta();
+        setError("Sin señal — tu checklist quedó guardado en el celular y se enviará solo cuando vuelva la conexión.");
+      } else {
+        reproducirSonidoAlerta();
+        setError((err as any)?.message || "No se pudo guardar el checklist.");
+      }
+      return;
+    }
     setGuardando(false);
     if (resp.exito) {
       // Sonido según la nota: logro si quedó bien (86% o más), alerta si
