@@ -1437,6 +1437,7 @@ export type Database = {
         Row: {
           activo: boolean
           clave_hash: string
+          consentimiento_datos_en: string | null
           created_at: string | null
           dias_descanso: string[] | null
           direccion: string | null
@@ -1460,6 +1461,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           clave_hash: string
+          consentimiento_datos_en?: string | null
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
@@ -1483,6 +1485,7 @@ export type Database = {
         Update: {
           activo?: boolean
           clave_hash?: string
+          consentimiento_datos_en?: string | null
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
