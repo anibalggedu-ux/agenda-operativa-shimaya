@@ -18,6 +18,11 @@ export type OpcionGrid = {
   // visual sobre todo lo demás, para que sea obvio que no se le debe asignar.
   noDisponible?: boolean;
   etiquetaNoDisponible?: string;
+  // No bloquea (la persona sigue disponible, solo está en otra tienda por
+  // una misión especial) pero se marca aparte -- en índigo -- para que no
+  // se le asigne una ruta encima sin querer justo esa fecha.
+  enMision?: boolean;
+  etiquetaEnMision?: string;
 };
 
 export default function SelectorGrid({
@@ -43,11 +48,13 @@ export default function SelectorGrid({
                 ? "border-marca-rojo bg-marca-rojo/20 ring-2 ring-marca-rojo"
                 : o.noDisponible
                   ? "border-fuchsia-500/70 bg-fuchsia-950/25 hover:brightness-125"
-                  : o.advertencia
-                    ? "border-amber-500/70 bg-amber-950/25 hover:brightness-125"
-                    : o.destacado
-                      ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
-                      : "border-marca-borde bg-marca-fondo hover:brightness-125"
+                  : o.enMision
+                    ? "border-indigo-500/70 bg-indigo-950/25 hover:brightness-125"
+                    : o.advertencia
+                      ? "border-amber-500/70 bg-amber-950/25 hover:brightness-125"
+                      : o.destacado
+                        ? "border-emerald-600/60 bg-emerald-950/20 hover:brightness-125"
+                        : "border-marca-borde bg-marca-fondo hover:brightness-125"
             }`}
           >
             <p
@@ -56,11 +63,13 @@ export default function SelectorGrid({
                   ? "text-marca-textofuerte"
                   : o.noDisponible
                     ? "text-fuchsia-300"
-                    : o.advertencia
-                      ? "text-amber-300"
-                      : o.destacado
-                        ? "text-emerald-300"
-                        : "text-marca-texto"
+                    : o.enMision
+                      ? "text-indigo-300"
+                      : o.advertencia
+                        ? "text-amber-300"
+                        : o.destacado
+                          ? "text-emerald-300"
+                          : "text-marca-texto"
               }`}
             >
               {o.titulo}
@@ -73,12 +82,17 @@ export default function SelectorGrid({
                 <Ban className="w-3 h-3" /> {o.etiquetaNoDisponible}
               </p>
             )}
-            {!o.noDisponible && o.advertencia && o.etiquetaAdvertencia && (
+            {!o.noDisponible && o.enMision && o.etiquetaEnMision && (
+              <p className="flex items-center gap-1 text-[10px] text-indigo-400 font-bold mt-1">
+                <Ban className="w-3 h-3" /> {o.etiquetaEnMision}
+              </p>
+            )}
+            {!o.noDisponible && !o.enMision && o.advertencia && o.etiquetaAdvertencia && (
               <p className="flex items-center gap-1 text-[10px] text-amber-400 font-bold mt-1">
                 <AlertTriangle className="w-3 h-3" /> {o.etiquetaAdvertencia}
               </p>
             )}
-            {!o.noDisponible && !o.advertencia && o.destacado && o.etiquetaDestacado && (
+            {!o.noDisponible && !o.enMision && !o.advertencia && o.destacado && o.etiquetaDestacado && (
               <p className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold mt-1">
                 <Check className="w-3 h-3" /> {o.etiquetaDestacado}
               </p>

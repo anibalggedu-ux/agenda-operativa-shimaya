@@ -255,23 +255,40 @@ export default function AsignarRutas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asignacionesEspeciales, fecha]);
 
+  // "Misión Especial" no bloquea (la persona sigue disponible, solo está en
+  // otra tienda) pero se marca aparte -- en índigo -- para verla de un
+  // vistazo y no asignarle una ruta encima justo esa fecha por descuido.
+  const enMisionEnFecha = useMemo(() => {
+    const mapa = new Map<string, AsignacionEspecial>();
+    asignacionesEspeciales
+      .filter((a) => a.tipo === "Misión Especial" && a.fechaInicio <= fecha && fecha <= a.fechaFin)
+      .forEach((a) => {
+        if (!mapa.has(a.usuarioId)) mapa.set(a.usuarioId, a);
+      });
+    return mapa;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asignacionesEspeciales, fecha]);
+
   const opcionesUsuarios = useMemo(
     () =>
       usuarios.map((u) => {
         const noDisponible = noDisponiblesEnFecha.get(u.id);
+        const enMision = enMisionEnFecha.get(u.id);
         return {
           id: u.id,
           titulo: u.nombre,
           subtitulo: u.rol,
           noDisponible: !!noDisponible,
           etiquetaNoDisponible: noDisponible?.tipo,
+          enMision: !!enMision,
+          etiquetaEnMision: "Misión Especial",
           advertencia: u.diasDescanso.includes(diaSemanaSeleccionado),
           etiquetaAdvertencia: "Descansa este día",
           destacado: asignadosEnFecha.usuariosSet.has(u.id),
           etiquetaDestacado: "Ya asignado",
         };
       }),
-    [usuarios, asignadosEnFecha, diaSemanaSeleccionado, noDisponiblesEnFecha]
+    [usuarios, asignadosEnFecha, diaSemanaSeleccionado, noDisponiblesEnFecha, enMisionEnFecha]
   );
 
   const usuarioSeleccionado = useMemo(
@@ -280,6 +297,7 @@ export default function AsignarRutas() {
   );
   const usuarioEnDescanso = !!usuarioSeleccionado?.diasDescanso.includes(diaSemanaSeleccionado);
   const usuarioNoDisponible = usuarioId ? noDisponiblesEnFecha.get(usuarioId) : undefined;
+  const usuarioEnMision = usuarioId ? enMisionEnFecha.get(usuarioId) : undefined;
 
   // Segunda confirmación al enviar, además de la marca visual — para que
   // asignar a alguien en su día de descanso, o con vacaciones/permiso/
@@ -379,7 +397,7 @@ export default function AsignarRutas() {
             Usuario{" "}
             <span className="text-marca-tenue/70 normal-case font-normal">
               (verde = ya tiene ruta esta fecha · ámbar = descansa este día · fucsia = vacaciones/permiso/
-              licencia)
+              licencia · índigo = misión especial)
             </span>
           </label>
           <SelectorGrid
@@ -395,7 +413,15 @@ export default function AsignarRutas() {
               de asignar.
             </p>
           )}
-          {!usuarioNoDisponible && usuarioEnDescanso && usuarioSeleccionado && (
+          {!usuarioNoDisponible && usuarioEnMision && usuarioSeleccionado && (
+            <p className="flex items-start gap-1.5 mt-2 text-indigo-400 text-xs font-bold">
+              <Ban className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {usuarioSeleccionado.nombre} tiene una misión
+              especial del {formatearFechaLegible(usuarioEnMision.fechaInicio)} al{" "}
+              {formatearFechaLegible(usuarioEnMision.fechaFin)} — sigue disponible, pero revisa que no se le
+              esté por asignar una ruta encima.
+            </p>
+          )}
+          {!usuarioNoDisponible && !usuarioEnMision && usuarioEnDescanso && usuarioSeleccionado && (
             <p className="flex items-start gap-1.5 mt-2 text-amber-400 text-xs font-bold">
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {usuarioSeleccionado.nombre} tiene
               descanso fijo los {diaSemanaSeleccionado.toLowerCase()} — se pedirá confirmación extra antes
