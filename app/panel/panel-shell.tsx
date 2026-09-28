@@ -10,6 +10,7 @@ import OndaDorada from "./onda-dorada";
 import TelonBienvenida from "./telon-bienvenida";
 import Brasas from "./brasas";
 import Celebracion from "./celebracion";
+import AvisoPrivacidadModal from "./aviso-privacidad-modal";
 
 export type ItemMenuPanel = {
   id: string;
@@ -288,6 +289,7 @@ export default function PanelShell({
       <OndaDorada />
       <TelonBienvenida nombre={nombre} />
       <Celebracion />
+      <AvisoPrivacidadModal />
     </div>
   );
 }
