@@ -32,6 +32,9 @@ const CUERPO_CORREO_AVISO = `
   <p><strong>Responsable:</strong> Shimaya S.A.C. (RUC 20600603460).</p>
   <p><strong>Derechos ARCO:</strong> puedes pedir acceder, rectificar, cancelar u oponerte al tratamiento de tus datos
   escribiendo a <a href="mailto:anibalggedu@gmail.com" style="color:#f1c86b;">anibalggedu@gmail.com</a>.</p>
+  <p><strong>Uso responsable de tu cuenta:</strong> tu usuario y clave son personales e intransferibles. El contenido
+  interno de la app (fotos, videos, reportes, checklists y auditorías) es de uso exclusivo del equipo y no debe
+  compartirse, descargarse ni difundirse fuera de la empresa.</p>
 `;
 
 export async function aceptarAvisoPrivacidad(): Promise<{ exito: boolean }> {
