@@ -154,9 +154,9 @@ export default function AsignarRutas() {
       .finally(() => setCargandoDistancia(false));
   }, [usuarioId, tiendaId]);
 
-  function cargarTodo() {
+  function cargarTodo(): Promise<void> {
     setCargando(true);
-    Promise.all([obtenerUsuariosYTiendas(), obtenerRutasActivas(), obtenerAsignacionesEspeciales()])
+    return Promise.all([obtenerUsuariosYTiendas(), obtenerRutasActivas(), obtenerAsignacionesEspeciales()])
       .then(([{ usuarios, tiendas }, rutas, asignacionesEspeciales]) => {
         setUsuarios(usuarios);
         setTiendas(tiendas);
@@ -175,13 +175,20 @@ export default function AsignarRutas() {
 
   useEffect(() => {
     if (estado.exito) {
-      cargarTodo();
       setUsuarioId(null);
       setTiendaId(null);
       // Al recargar la lista de rutas de abajo, la página puede crecer y el
       // celular termina desplazado hasta el final -- se vuelve arriba, al
       // formulario, donde justo aparece el aviso de "guardado con éxito".
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Hay que esperar a que la lista YA se haya recargado (y el navegador
+      // haya acomodado el layout con el nuevo alto) antes de moverse --
+      // moverse antes es lo que hacía que el "arreglo" anterior no sirviera:
+      // la lista crecía después y volvía a empujar la pantalla hacia abajo.
+      cargarTodo().then(() => {
+        requestAnimationFrame(() => {
+          formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
