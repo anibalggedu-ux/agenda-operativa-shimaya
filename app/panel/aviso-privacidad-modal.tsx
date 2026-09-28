@@ -66,6 +66,12 @@ export default function AvisoPrivacidadModal() {
             Para ejercer tus derechos de acceso, rectificación, cancelación u oposición, escribe a{" "}
             <span className="text-marca-texto font-semibold">anibalggedu@gmail.com</span>.
           </p>
+          <p>
+            <span className="text-marca-texto font-semibold">Uso responsable de tu cuenta:</span> tu usuario y clave
+            son personales e intransferibles — no los compartas con nadie. El contenido interno de la app (fotos,
+            videos, reportes, checklists y auditorías) es de uso exclusivo del equipo y no debe compartirse,
+            descargarse ni difundirse fuera de la empresa.
+          </p>
         </div>
 
         <div className="px-5 pt-2 pb-5 shrink-0 border-t border-marca-borde mt-2">
@@ -77,7 +83,8 @@ export default function AvisoPrivacidadModal() {
               className="mt-0.5 w-4 h-4 shrink-0 accent-marca-rojo"
             />
             <span className="text-[12.5px] text-marca-texto">
-              He leído lo anterior y autorizo el tratamiento de mis datos personales para los fines descritos. Se me
+              He leído lo anterior, autorizo el tratamiento de mis datos personales para los fines descritos, y me
+              comprometo a no compartir mi cuenta ni el contenido interno de la app fuera de la empresa. Se me
               enviará una copia a mi correo registrado.
             </span>
           </label>
