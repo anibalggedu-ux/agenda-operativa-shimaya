@@ -195,6 +195,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     historiaPublicacionesRes,
     encuestaRespuestasRes,
     solicitudesPermisoRes,
+    asignacionesEspecialesRes,
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -225,6 +226,11 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     // sistema le cortó la racha a cero sin que hubiera falta alguna de su
     // parte).
     supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado"),
+    // Asignaciones especiales (Misión Especial, Licencia, Vacaciones,
+    // Permiso puestas directamente por Coordinador desde "Asignar rutas" --
+    // esta tabla no tiene flujo de aprobación aparte, ya es la asignación en
+    // sí) -- mismo motivo: esos días tampoco deben romper la racha.
+    supabase.from("asignaciones_especiales").select("usuario_id, fecha_inicio, fecha_fin"),
   ]);
 
   if (
@@ -253,17 +259,26 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
 
-  // Expande cada permiso/vacación aprobado a las fechas individuales que
-  // cubre, para poder consultarlas una por una igual que un día de descanso.
+  // Expande cada permiso/vacación/misión especial a las fechas individuales
+  // que cubre, para poder consultarlas una por una igual que un día de
+  // descanso -- de las dos tablas juntas (solicitudes_permiso es lo que
+  // pide y aprueba el propio empleado; asignaciones_especiales es lo que
+  // pone directamente Coordinador, incluida Misión Especial).
   const diasConPermisoPorUsuario = new Map<string, Set<string>>();
-  (solicitudesPermisoRes.data ?? []).forEach((s: any) => {
-    const dias = diasConPermisoPorUsuario.get(s.usuario_id) ?? new Set<string>();
-    let cursor = s.fecha_inicio;
-    while (cursor <= s.fecha_fin) {
+  function marcarRangoProtegido(usuarioId: string, fechaInicio: string, fechaFin: string): void {
+    const dias = diasConPermisoPorUsuario.get(usuarioId) ?? new Set<string>();
+    let cursor = fechaInicio;
+    while (cursor <= fechaFin) {
       dias.add(cursor);
       cursor = sumarDias(cursor, 1);
     }
-    diasConPermisoPorUsuario.set(s.usuario_id, dias);
+    diasConPermisoPorUsuario.set(usuarioId, dias);
+  }
+  (solicitudesPermisoRes.data ?? []).forEach((s: any) => {
+    marcarRangoProtegido(s.usuario_id, s.fecha_inicio, s.fecha_fin);
+  });
+  (asignacionesEspecialesRes.data ?? []).forEach((a: any) => {
+    marcarRangoProtegido(a.usuario_id, a.fecha_inicio, a.fecha_fin);
   });
 
   // Fechas asignadas o reportadas en tienda de provincia (rutas_activas +
