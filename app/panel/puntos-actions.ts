@@ -66,10 +66,11 @@ function puntosPorIngreso(
 }
 
 // Recorre día por día desde que la persona ingresó hasta hoy, saltando sus
-// días de descanso fijos. Cada marcación a tiempo suma a la racha; una
-// tardanza o una ausencia (día laboral sin marcación) la corta a cero. El
-// día de hoy, si todavía no marcó, no cuenta ni corta — el día no ha
-// terminado. El bono de cada tramo de 5 es acumulativo y no se pierde
+// días de descanso fijos y los días cubiertos por un permiso o vacaciones ya
+// aprobados. Cada marcación a tiempo suma a la racha; una tardanza o una
+// ausencia (día laboral sin marcación, sin permiso de por medio) la corta a
+// cero. El día de hoy, si todavía no marcó, no cuenta ni corta — el día no
+// ha terminado. El bono de cada tramo de 5 es acumulativo y no se pierde
 // aunque la racha se corte más adelante en la historia.
 function calcularRachaYBono(
   fechaInicio: string,
@@ -78,7 +79,8 @@ function calcularRachaYBono(
   asistenciaPorFecha: Map<string, string>,
   rol: string,
   horaLimitePersonalizada?: string | null,
-  horarioPorDia?: Record<string, string> | null
+  horarioPorDia?: Record<string, string> | null,
+  diasConPermisoAprobado?: Set<string>
 ): { racha: number; bono: number } {
   let inicio = fechaInicio;
   if (diasEntreFechas(inicio, hoy) > TOPE_DIAS_HACIA_ATRAS) {
@@ -91,7 +93,7 @@ function calcularRachaYBono(
 
   while (cursor <= hoy) {
     const diaSemana = diaSemanaPeru(cursor);
-    if (diasDescanso.includes(diaSemana)) {
+    if (diasDescanso.includes(diaSemana) || diasConPermisoAprobado?.has(cursor)) {
       cursor = sumarDias(cursor, 1);
       continue;
     }
@@ -192,6 +194,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     configBonoHistoria,
     historiaPublicacionesRes,
     encuestaRespuestasRes,
+    solicitudesPermisoRes,
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -216,6 +219,12 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     // Puntos por responder encuestas completas: se guardan en cada respuesta
     // al enviarla, así que cambiar o borrar la encuesta después no los quita.
     supabase.from("encuesta_respuestas").select("usuario_id, puntos_ganados").gt("puntos_ganados", 0),
+    // Permisos y vacaciones ya aprobados: esos días no deben romper la racha
+    // de puntualidad, igual que un día de descanso fijo (ver Miguel Dávila,
+    // 22-23 sep 2026: un permiso real que nunca se registró como tal en el
+    // sistema le cortó la racha a cero sin que hubiera falta alguna de su
+    // parte).
+    supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado"),
   ]);
 
   if (
@@ -243,6 +252,19 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   });
 
   const tiendasProvinciaIds = new Set((tiendasProvinciaRes.data ?? []).map((t) => t.id));
+
+  // Expande cada permiso/vacación aprobado a las fechas individuales que
+  // cubre, para poder consultarlas una por una igual que un día de descanso.
+  const diasConPermisoPorUsuario = new Map<string, Set<string>>();
+  (solicitudesPermisoRes.data ?? []).forEach((s: any) => {
+    const dias = diasConPermisoPorUsuario.get(s.usuario_id) ?? new Set<string>();
+    let cursor = s.fecha_inicio;
+    while (cursor <= s.fecha_fin) {
+      dias.add(cursor);
+      cursor = sumarDias(cursor, 1);
+    }
+    diasConPermisoPorUsuario.set(s.usuario_id, dias);
+  });
 
   // Fechas asignadas o reportadas en tienda de provincia (rutas_activas +
   // rutas_diarias — una fecha nunca está en ambas, ver guardarReporte),
@@ -315,7 +337,8 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       asistenciaPorFecha,
       u.rol,
       u.hora_limite_ingreso,
-      u.horario_por_dia
+      u.horario_por_dia,
+      diasConPermisoPorUsuario.get(u.id)
     );
 
     const bonoHistoria = configBonoHistoria.activo
