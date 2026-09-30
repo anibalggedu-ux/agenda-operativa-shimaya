@@ -185,6 +185,13 @@ export default function PanelShell({
 
   const seccionActiva = items.find((i) => i.id === activo) ?? items[0];
 
+  // El menú "Más" (drawer) solo se abre desde el botón de la barra flotante
+  // inferior, que ya muestra los primeros items -- mostrarlos de nuevo acá
+  // era pura repetición. Se listan solo los que quedaron escondidos detrás
+  // de "Más".
+  const hayBarraFlotanteConMas = items.length > MAX_BOTONES_BARRA;
+  const itemsDrawer = hayBarraFlotanteConMas ? items.slice(MAX_BOTONES_BARRA - 1) : items;
+
   function seleccionar(id: string) {
     setActivo(id);
     setDrawerAbierto(false);
@@ -240,7 +247,7 @@ export default function PanelShell({
               </button>
             </div>
             <nav className="flex-1 py-2 overflow-y-auto">
-              {items.map((item) => (
+              {itemsDrawer.map((item) => (
                 <BotonItem key={item.id} item={item} activo={activo === item.id} onClick={() => seleccionar(item.id)} />
               ))}
             </nav>
