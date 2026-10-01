@@ -81,6 +81,7 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
   const [tiendaId, setTiendaId] = useState("");
+  const [fecha, setFecha] = useState<"hoy" | "manana">("hoy");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
   const [cargandoTiendas, setCargandoTiendas] = useState(false);
@@ -109,11 +110,12 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
     }
     setEnviando(true);
     setMensaje(null);
-    const resultado = await autoasignarTienda(tiendaId);
+    const resultado = await autoasignarTienda(tiendaId, fecha === "manana");
     setEnviando(false);
     setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
     if (resultado.exito) {
       setTiendaId("");
+      setFecha("hoy");
       onAsignado();
     }
   }
@@ -122,9 +124,12 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-1.5 text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest hover:text-marca-rojo transition"
+        className="inline-flex items-center gap-2 bg-marca-superficie border border-marca-rojo/45 text-marca-rojoclaro rounded-full pl-2 pr-4 py-2 text-[11.5px] font-black tracking-wide hover:border-marca-rojo transition"
       >
-        <Zap className="w-3 h-3" /> ¿Te cambiaron la ruta de último momento? Asígnate una tienda
+        <span className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-marca-rojo/20">
+          <Zap className="w-[11px] h-[11px]" />
+        </span>
+        Autoasignarme tienda
       </button>
     );
   }
@@ -133,8 +138,7 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
     <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-4 space-y-3">
       <p className="text-marca-tenue text-[11px]">
         Úsalo cuando el coordinador te cambió la ruta a último momento y aún no lo actualizó en el
-        sistema. Se asigna para hoy y le llega un aviso automático — no necesitas esperar
-        aprobación para reportar.
+        sistema. Le llega un aviso automático — no necesitas esperar aprobación para reportar.
       </p>
       {errorTiendas ? (
         <div className="bg-marca-rojo/10 border border-marca-rojo/30 rounded-[3px] p-3 space-y-2">
@@ -157,36 +161,54 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={tiendaId}
-            onChange={(e) => setTiendaId(e.target.value)}
-            disabled={cargandoTiendas}
-            className="flex-1 min-w-[180px] p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro disabled:opacity-50"
-          >
-            <option value="">{cargandoTiendas ? "Cargando tiendas..." : "Selecciona una tienda..."}</option>
-            {tiendas.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nombre}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleAsignar}
-            disabled={enviando || cargandoTiendas}
-            className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-4 rounded-[3px] text-[11px] tracking-widest uppercase transition"
-          >
-            {enviando ? "Asignando..." : "Asignarme"}
-          </button>
-          <button
-            onClick={() => {
-              setAbierto(false);
-              setMensaje(null);
-            }}
-            className="text-marca-tenue text-[11px] font-bold uppercase"
-          >
-            Cancelar
-          </button>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <label className="flex flex-col gap-1 w-[118px] shrink-0">
+              <span className="text-marca-tenue text-[9.5px] font-black uppercase tracking-wider">Fecha</span>
+              <select
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value as "hoy" | "manana")}
+                className="w-full p-2.5 bg-marca-fondo border border-marca-rojo/40 rounded-[3px] text-marca-rojoclaro font-bold text-xs outline-none focus:border-marca-rojoclaro"
+              >
+                <option value="hoy">Hoy</option>
+                <option value="manana">Mañana</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 flex-1 min-w-0">
+              <span className="text-marca-tenue text-[9.5px] font-black uppercase tracking-wider">Tienda</span>
+              <select
+                value={tiendaId}
+                onChange={(e) => setTiendaId(e.target.value)}
+                disabled={cargandoTiendas}
+                className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro disabled:opacity-50"
+              >
+                <option value="">{cargandoTiendas ? "Cargando tiendas..." : "Selecciona una tienda..."}</option>
+                {tiendas.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleAsignar}
+              disabled={enviando || cargandoTiendas}
+              className="flex-1 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+            >
+              {enviando ? "Asignando..." : "Asignarme"}
+            </button>
+            <button
+              onClick={() => {
+                setAbierto(false);
+                setMensaje(null);
+              }}
+              className="text-marca-tenue text-[11px] font-bold uppercase"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
       {mensaje && (
