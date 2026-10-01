@@ -388,7 +388,7 @@ async function notificarCoordinadoresAutoasignacion(
   }
 }
 
-export async function autoasignarTienda(tiendaId: string): Promise<ResultadoReporte> {
+export async function autoasignarTienda(tiendaId: string, paraManana = false): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
     return { exito: false, mensaje: "No autorizado." };
@@ -398,7 +398,8 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
   }
 
   const supabase = supabaseServer();
-  const fecha = diaLaboralPeru();
+  const fecha = paraManana ? sumarDias(diaLaboralPeru(), 1) : diaLaboralPeru();
+  const etiquetaFecha = paraManana ? "mañana" : "hoy";
 
   const { data: existente, error: errorExistente } = await supabase
     .from("rutas_activas")
@@ -411,7 +412,7 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
   // transitorio dejaría pasar una asignación duplicada para el mismo día.
   if (errorExistente) return { exito: false, mensaje: "No se pudo verificar tus asignaciones. Intenta de nuevo." };
   if (existente) {
-    return { exito: false, mensaje: "Ya te habías asignado esa tienda hoy." };
+    return { exito: false, mensaje: `Ya te habías asignado esa tienda para ${etiquetaFecha}.` };
   }
 
   const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle();
@@ -453,7 +454,10 @@ export async function autoasignarTienda(tiendaId: string): Promise<ResultadoRepo
 
   await notificarCoordinadoresAutoasignacion(sesion.nombre, tienda.nombre, fecha);
 
-  return { exito: true, mensaje: `Te asignaste ${tienda.nombre} para hoy. Ya puedes reportar la visita.` };
+  return {
+    exito: true,
+    mensaje: `Te asignaste ${tienda.nombre} para ${etiquetaFecha}.${paraManana ? "" : " Ya puedes reportar la visita."}`,
+  };
 }
 
 export async function enviarReporte(
