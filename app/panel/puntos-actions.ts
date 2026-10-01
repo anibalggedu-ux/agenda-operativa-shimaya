@@ -181,6 +181,43 @@ export async function actualizarConfiguracionBonoHistoria(
   return { exito: true };
 }
 
+type FilaAsistenciaConRol = {
+  usuario_id: string;
+  fecha: string;
+  hora_ingreso: string;
+  usuarios: { rol: string; hora_limite_ingreso: string | null; horario_por_dia: Record<string, string> | null } | null;
+};
+
+const TAMANO_PAGINA_ASISTENCIA = 1000;
+
+// PostgREST limita cada respuesta a un máximo de filas (1000 por defecto) --
+// sin paginar, una vez que la tabla de asistencia superó esa cifra (ya
+// pasó: más de 1000 marcaciones acumuladas desde 2024), una parte
+// simplemente no llegaba. Postgres no garantiza un orden sin ORDER BY, así
+// que esa parte cortada podía ser justo la más reciente -- el cálculo de
+// puntos/racha se veía "roto" (en 0) para quien marcara estando esa parte
+// afuera, sin que hubiera ninguna falta real de su lado (caso real: Miguel
+// Dávila, oct 2026 -- su racha real de 13 días aparecía en 0).
+async function obtenerTodaLaAsistenciaConHora(
+  supabase: ReturnType<typeof supabaseServer>
+): Promise<{ data: FilaAsistenciaConRol[]; error: { message: string } | null }> {
+  const filas: FilaAsistenciaConRol[] = [];
+  let desde = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("asistencia")
+      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
+      .not("hora_ingreso", "is", null)
+      .order("fecha", { ascending: true })
+      .range(desde, desde + TAMANO_PAGINA_ASISTENCIA - 1);
+    if (error) return { data: filas, error };
+    filas.push(...((data ?? []) as unknown as FilaAsistenciaConRol[]));
+    if (!data || data.length < TAMANO_PAGINA_ASISTENCIA) break;
+    desde += TAMANO_PAGINA_ASISTENCIA;
+  }
+  return { data: filas, error: null };
+}
+
 async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   const supabase = supabaseServer();
 
@@ -203,10 +240,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
         "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
       )
       .in("rol", ROLES_CON_PUNTOS),
-    supabase
-      .from("asistencia")
-      .select("usuario_id, fecha, hora_ingreso, usuarios(rol, hora_limite_ingreso, horario_por_dia)")
-      .not("hora_ingreso", "is", null),
+    obtenerTodaLaAsistenciaConHora(supabase),
     supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
     // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
     // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
