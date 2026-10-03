@@ -5,12 +5,12 @@ import { Camera, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import {
-  obtenerBreakActivo,
+  obtenerMiBreakDeHoy,
   obtenerMisUltimosBreaks,
   marcarSalidaBreak,
   marcarEntradaBreak,
   avisarCincoMinutosBreak,
-  type BreakActivo,
+  type BreakHoy,
   type BreakHistorial,
 } from "./break-actions";
 
@@ -43,7 +43,7 @@ function formatearCronometro(segundos: number): string {
 }
 
 export default function BreakWidget() {
-  const [activo, setActivo] = useState<BreakActivo | null | undefined>(undefined);
+  const [hoy, setHoy] = useState<BreakHoy | null | undefined>(undefined);
   const [historial, setHistorial] = useState<BreakHistorial[]>([]);
   const [restantes, setRestantes] = useState(0);
   const [enviando, setEnviando] = useState(false);
@@ -52,8 +52,14 @@ export default function BreakWidget() {
   const inputEntrada = useRef<HTMLInputElement>(null);
   const avisoEnviado = useRef(false);
 
+  // en_curso: ya salió a break y todavía no marca entrada -- ahí se muestra
+  // el cronómetro. completado: ya usó su único break del día -- queda
+  // bloqueado, no se deja abrir otro.
+  const activo = hoy && !hoy.horaEntrada ? hoy : null;
+  const completadoHoy = hoy && hoy.horaEntrada ? hoy : null;
+
   function cargar() {
-    obtenerBreakActivo().then(setActivo);
+    obtenerMiBreakDeHoy().then(setHoy);
     obtenerMisUltimosBreaks(5).then(setHistorial);
   }
 
@@ -105,7 +111,7 @@ export default function BreakWidget() {
     }
   }
 
-  if (activo === undefined) return null;
+  if (hoy === undefined) return null;
 
   const vencido = restantes <= 0;
   const porcentaje = activo ? Math.max(0, Math.min(100, (1 - restantes / DURACION_BREAK_SEG) * 100)) : 0;
@@ -116,7 +122,25 @@ export default function BreakWidget() {
       <input ref={inputSalida} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFoto(e, "salida")} />
       <input ref={inputEntrada} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFoto(e, "entrada")} />
 
-      {!activo ? (
+      {completadoHoy ? (
+        <>
+          <p className="self-start text-xs font-black tracking-widest text-marca-tenue uppercase">Mi Break</p>
+          <div className="w-full bg-marca-superficie2 border border-marca-borde rounded-xl p-4 flex items-center gap-3">
+            {completadoHoy.sePaso ? (
+              <AlertTriangle className="w-6 h-6 text-marca-rojoclaro shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+            )}
+            <div>
+              <p className="text-[11.5px] font-bold text-marca-texto">Ya usaste tu break de hoy</p>
+              <p className="text-[10.5px] text-marca-tenue">
+                {horaATexto(completadoHoy.horaSalida)} → {horaATexto(completadoHoy.horaEntrada!)}
+                {completadoHoy.sePaso ? ` · se pasó ${completadoHoy.minutosPasados} min` : " · a tiempo"}
+              </p>
+            </div>
+          </div>
+        </>
+      ) : !activo ? (
         <>
           <p className="self-start text-xs font-black tracking-widest text-marca-tenue uppercase">Mi Break</p>
           <button
