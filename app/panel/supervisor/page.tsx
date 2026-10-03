@@ -38,7 +38,7 @@ export default async function PanelSupervisor() {
   if (!sesion || sesion.rol !== "supervisor") redirect("/login");
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
-  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id);
+  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id, sesion.rol);
   const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
 
   const items: ItemMenuPanel[] = [

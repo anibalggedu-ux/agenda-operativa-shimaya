@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { exigirCoordinador, obtenerSesion } from "@/lib/session";
+import { exigirGerenteOCoordinador, obtenerSesion } from "@/lib/session";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
 import { enviarCorreo, URL_APP } from "@/lib/email";
 import { encuestaCerrada, estaEnPublicoEncuesta } from "@/lib/encuestas";
@@ -173,7 +173,7 @@ function nombreDe(nombrePorId: Map<string, string>, id: string): string {
 }
 
 export async function obtenerResultadosEncuestas(): Promise<ResultadosEncuestaCompleta[]> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const hoy = hoyPeru();
 
@@ -283,7 +283,7 @@ export async function crearEncuestaCompleta(
   _prevState: ResultadoAccion,
   formData: FormData
 ): Promise<ResultadoAccion> {
-  const sesion = await exigirCoordinador();
+  const sesion = await exigirGerenteOCoordinador();
 
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
@@ -370,7 +370,7 @@ export async function crearEncuestaCompleta(
 
 // El cierre es "último día para responder", así que cerrar hoy = ayer.
 export async function cerrarEncuestaCompleta(id: string): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const { error } = await supabase
     .from("encuestas")
@@ -383,7 +383,7 @@ export async function cerrarEncuestaCompleta(id: string): Promise<ResultadoAccio
 // Las respuestas quedan con encuesta_id = null (on delete set null): se
 // pierden las respuestas de la vista, pero no los puntos ya ganados.
 export async function eliminarEncuestaCompleta(id: string): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const { error } = await supabase.from("encuestas").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar la encuesta." };
@@ -402,7 +402,7 @@ function celdaCsv(valor: string): string {
 export async function exportarEncuestaCsv(
   id: string
 ): Promise<{ exito: boolean; mensaje?: string; nombreArchivo?: string; contenido?: string }> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
 
   const [{ data: e }, { data: respuestas }, { data: usuarios }] = await Promise.all([

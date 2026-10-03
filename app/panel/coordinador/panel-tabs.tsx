@@ -22,7 +22,7 @@ import {
   LazyRegistro as Registro,
   LazyDocumentos as Documentos,
   LazyCalendario as Calendario,
-  LazyHistorialAuditorias as HistorialAuditorias,
+  LazyAuditoriasPanel as AuditoriasPanel,
   LazyCentralAnalitica as CentralAnalitica,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
@@ -113,7 +113,7 @@ export default function PanelTabs({
       icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
-    { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <HistorialAuditorias modo="todas" /> },
+    { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <AuditoriasPanel esAdmin puedeAuditar /> },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
     {
       id: "perfil",
