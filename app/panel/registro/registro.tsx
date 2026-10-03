@@ -17,6 +17,7 @@ import {
   BloqueUbicacionTiendas,
   BloqueDireccionColaboradores,
   BloqueAsistencia,
+  BloqueMarcacionesBreak,
   BloquePeriodoGracia,
   BloqueReportes,
   BloqueMarcacionesTienda,
@@ -635,6 +636,7 @@ export default function Registro({ esCoordinador }: { esCoordinador: boolean }) 
         <Categoria icono={<Wrench />} titulo="Corrección de datos" />
 
         <BloqueAsistencia />
+        <BloqueMarcacionesBreak />
         <BloquePeriodoGracia />
         <BloqueReportes />
         <BloqueMarcacionesTienda />
