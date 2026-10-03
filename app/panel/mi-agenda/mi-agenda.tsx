@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, Camera, Images, Paperclip, Trash2, AlertTriangle, FileText } from "lucide-react";
+import { Plus, X, Camera, Images, Paperclip, Trash2, AlertTriangle, FileText, Download } from "lucide-react";
 import { obtenerAgenda, crearNota, alternarCumplida, eliminarNota, type NotaAgenda, type Prioridad } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoLogro, reproducirSonidoExito } from "@/lib/sonido";
@@ -80,9 +80,25 @@ function TarjetaNota({
         {(nota.fotoUrl || nota.documentoUrl) && (
           <div className="flex gap-2 mt-2.5">
             {nota.fotoUrl && (
-              <a href={nota.fotoUrl} target="_blank" rel="noopener noreferrer" className="block w-9 h-9 rounded-[3px] overflow-hidden border border-marca-borde shrink-0">
-                <img src={nota.fotoUrl} alt="" className="foto-marca w-full h-full object-cover" />
-              </a>
+              <div className="relative w-9 h-9 shrink-0">
+                <a
+                  href={nota.fotoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-9 h-9 rounded-[3px] overflow-hidden border border-marca-borde"
+                >
+                  <img src={nota.fotoUrl} alt="" className="foto-marca w-full h-full object-cover" />
+                </a>
+                {nota.fotoDescargaUrl && (
+                  <a
+                    href={nota.fotoDescargaUrl}
+                    aria-label="Descargar foto al celular"
+                    className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-marca-rojo border-2 border-marca-superficie flex items-center justify-center"
+                  >
+                    <Download className="w-2.5 h-2.5 text-white" />
+                  </a>
+                )}
+              </div>
             )}
             {nota.documentoUrl && (
               <a
@@ -91,6 +107,7 @@ function TarjetaNota({
               >
                 <FileText className="w-3.5 h-3.5 shrink-0 text-marca-rojoclaro" />
                 <span className="truncate">{nota.documentoNombre || "Adjunto"}</span>
+                <Download className="w-3 h-3 shrink-0 ml-auto" />
               </a>
             )}
           </div>
