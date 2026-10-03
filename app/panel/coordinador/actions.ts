@@ -1675,7 +1675,18 @@ export type HistorialPersona = {
   rachaActual: number;
   autoasignaciones: number;
   asignacionesEspeciales: AsignacionEspecialInfo[];
+  // Solo los días con problema: no marcó break ese día (habiendo ido a
+  // trabajar), o lo marcó pero se pasó del tiempo -- un break usado bien y
+  // a tiempo no aporta nada que revisar, así que no entra acá.
+  incidenciasBreak: { fecha: string; detalle: string }[];
 };
+
+// Minutos de diferencia (b - a), ambas "HH:MM:SS" del mismo día.
+function minutosEntre(a: string, b: string): number {
+  const [ha, ma] = a.split(":").map(Number);
+  const [hb, mb] = b.split(":").map(Number);
+  return hb * 60 + mb - (ha * 60 + ma);
+}
 
 export async function obtenerHistorialPersona(
   usuarioId: string,
@@ -1694,6 +1705,7 @@ export async function obtenerHistorialPersona(
     kilometros,
     { count: autoasignaciones, error: errorAutoasignaciones },
     { data: asignacionesEspecialesRaw, error: errorAsignacionesEspeciales },
+    { data: marcacionesBreak, error: errorMarcacionesBreak },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -1737,6 +1749,12 @@ export async function obtenerHistorialPersona(
       .lte("fecha_inicio", hasta)
       .gte("fecha_fin", desde)
       .order("fecha_inicio", { ascending: true }),
+    supabase
+      .from("marcaciones_break")
+      .select("fecha, hora_salida, hora_limite, hora_entrada")
+      .eq("usuario_id", usuarioId)
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
   ]);
 
   if (
@@ -1745,7 +1763,8 @@ export async function obtenerHistorialPersona(
     errorMarcaciones ||
     errorPermanentes ||
     errorAutoasignaciones ||
-    errorAsignacionesEspeciales
+    errorAsignacionesEspeciales ||
+    errorMarcacionesBreak
   ) {
     throw new Error("No se pudo cargar el historial de la persona.");
   }
@@ -1785,6 +1804,37 @@ export async function obtenerHistorialPersona(
     const [yProximo] = fecha.split("-").map(Number);
     proximoCumpleanos = { fecha, diasFaltantes, edadQueCumple: yProximo - yNac };
   }
+
+  // Solo se reportan los días con problema (no marcó, o se pasó del
+  // tiempo) -- un break usado bien y a tiempo no sale en el PDF. Un día
+  // "trabajado" es aquel con hora de ingreso marcada; sin eso no se le
+  // puede exigir que haya marcado break (descanso, vacaciones, permiso...).
+  const breakPorFecha = new Map((marcacionesBreak ?? []).map((b) => [b.fecha, b]));
+  const incidenciasBreak: HistorialPersona["incidenciasBreak"] = [];
+  (marcaciones ?? [])
+    .filter((m) => m.hora_ingreso)
+    .forEach((m) => {
+      const b = breakPorFecha.get(m.fecha);
+      if (!b) {
+        incidenciasBreak.push({ fecha: m.fecha, detalle: "No marcó su break." });
+        return;
+      }
+      if (!b.hora_entrada) {
+        incidenciasBreak.push({
+          fecha: m.fecha,
+          detalle: `Salió a break a las ${b.hora_salida.slice(0, 5)} y no marcó su entrada.`,
+        });
+        return;
+      }
+      const minutosPasados = minutosEntre(b.hora_limite, b.hora_entrada);
+      if (minutosPasados > 0) {
+        incidenciasBreak.push({
+          fecha: m.fecha,
+          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite.slice(0, 5)}).`,
+        });
+      }
+    });
+  incidenciasBreak.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
   return {
     usuarioNombre: usuario?.nombre ?? "—",
@@ -1826,6 +1876,7 @@ export async function obtenerHistorialPersona(
       fechaFin: a.fecha_fin,
       motivo: a.motivo ?? null,
     })),
+    incidenciasBreak,
   };
 }
 

@@ -458,6 +458,7 @@ export type DatosHistorialPropio = {
   rachaActual: number;
   autoasignaciones: number;
   asignacionesEspeciales: AsignacionEspecialPdf[];
+  incidenciasBreak: { fecha: string; detalle: string }[];
 };
 
 export async function generarPdfHistorial(
@@ -481,6 +482,7 @@ export async function generarPdfHistorial(
     rachaActual,
     autoasignaciones,
     asignacionesEspeciales,
+    incidenciasBreak,
   } = datos;
   const doc = new jsPDF();
   const etiquetaRol = rol === "supervisor" ? "Supervisor" : rol === "capacitador" ? "Capacitador" : rol;
@@ -562,6 +564,7 @@ export async function generarPdfHistorial(
   }
 
   y = dibujarMarcaciones(doc, y, "Asistencia y marcaciones:", marcaciones, 8, 6);
+  y = dibujarIncidenciasBreak(doc, y, incidenciasBreak);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -616,6 +619,43 @@ export async function generarPdfHistorial(
 }
 
 const ALTO_PAGINA = 280;
+
+// Solo lista lo que hay que revisar (no marcó break, o se pasó del tiempo)
+// -- un break usado bien y a tiempo no ensucia el reporte. No dibuja nada
+// si la lista viene vacía.
+function dibujarIncidenciasBreak(
+  doc: jsPDF,
+  yInicial: number,
+  incidencias: { fecha: string; detalle: string }[]
+): number {
+  let y = yInicial;
+  if (incidencias.length === 0) return y;
+
+  if (y + 14 > ALTO_PAGINA) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Break — incidencias:", 14, y);
+  y += 6;
+
+  incidencias.forEach((inc) => {
+    const lineas = doc.splitTextToSize(`${formatearFechaLegible(inc.fecha)} — ${inc.detalle}`, ANCHO_UTIL);
+    if (y + lineas.length * 5 + 2 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(200, 30, 40);
+    doc.text(lineas, 14, y);
+    y += lineas.length * 5 + 2;
+  });
+  doc.setTextColor(0, 0, 0);
+  return y + 4;
+}
 
 export type DatosHistorialTienda = {
   tiendaNombre: string;
@@ -771,6 +811,7 @@ export type DatosHistorialPersona = {
   rachaActual: number;
   autoasignaciones: number;
   asignacionesEspeciales: AsignacionEspecialPdf[];
+  incidenciasBreak: { fecha: string; detalle: string }[];
 };
 
 export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
@@ -841,6 +882,7 @@ export async function generarPdfHistorialPersona(datos: DatosHistorialPersona) {
   y += 4;
 
   y = dibujarMarcaciones(doc, y, "Marcaciones de entrada / salida:", datos.marcaciones, 6, 4);
+  y = dibujarIncidenciasBreak(doc, y, datos.incidenciasBreak);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);

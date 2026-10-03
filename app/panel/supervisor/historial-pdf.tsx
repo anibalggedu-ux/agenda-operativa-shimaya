@@ -8,6 +8,7 @@ import {
   obtenerPerfilParaPdf,
   obtenerMisAutoasignaciones,
   obtenerMisAsignacionesEspeciales,
+  obtenerMisIncidenciasBreak,
 } from "./pdf-actions";
 import { obtenerMisPuntos } from "../puntos-actions";
 import { obtenerMisKilometros } from "../kilometros-actions";
@@ -31,16 +32,25 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
     setGenerando(modo);
     setError(null);
     try {
-      const [reportes, marcaciones, perfil, misPuntos, kilometros, autoasignaciones, asignacionesEspeciales] =
-        await Promise.all([
-          obtenerHistorialReportes(desde, hasta),
-          obtenerHistorialMarcaciones(desde, hasta),
-          obtenerPerfilParaPdf(),
-          obtenerMisPuntos(),
-          obtenerMisKilometros(desde, hasta),
-          obtenerMisAutoasignaciones(desde, hasta),
-          obtenerMisAsignacionesEspeciales(desde, hasta),
-        ]);
+      const [
+        reportes,
+        marcaciones,
+        perfil,
+        misPuntos,
+        kilometros,
+        autoasignaciones,
+        asignacionesEspeciales,
+        incidenciasBreak,
+      ] = await Promise.all([
+        obtenerHistorialReportes(desde, hasta),
+        obtenerHistorialMarcaciones(desde, hasta),
+        obtenerPerfilParaPdf(),
+        obtenerMisPuntos(),
+        obtenerMisKilometros(desde, hasta),
+        obtenerMisAutoasignaciones(desde, hasta),
+        obtenerMisAsignacionesEspeciales(desde, hasta),
+        obtenerMisIncidenciasBreak(desde, hasta),
+      ]);
       const resultado = await generarPdfHistorial(
         {
           nombre: supervisorNombre,
@@ -64,6 +74,7 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
           rachaActual: misPuntos.rachaActual,
           autoasignaciones,
           asignacionesEspeciales,
+          incidenciasBreak,
         },
         modo
       );

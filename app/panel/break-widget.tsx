@@ -14,13 +14,28 @@ import {
   type BreakHistorial,
 } from "./break-actions";
 
-const DURACION_BREAK_SEG = 60 * 60;
 const AVISO_ANTES_SEG = 5 * 60;
 
 function horaATexto(horaHHMMSS: string): string {
   const [h, m] = horaHHMMSS.split(":").map(Number);
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+// Duración real del break (horaLimite - horaSalida) en segundos -- la
+// mayoría son los 60 min por defecto, pero Registro puede darle a alguien
+// una duración distinta (ver usuarios.duracion_break_min).
+function duracionSegundos(horaSalida: string, horaLimite: string): number {
+  const [hs, ms] = horaSalida.split(":").map(Number);
+  const [hl, ml] = horaLimite.split(":").map(Number);
+  return (hl * 60 + ml - (hs * 60 + ms)) * 60;
+}
+
+function formatearDuracion(segundos: number): string {
+  const minutos = Math.round(segundos / 60);
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return h > 0 ? `de ${h}h ${String(m).padStart(2, "0")}min` : `de ${m}min`;
 }
 
 // Segundos restantes hasta horaLimite ("HH:MM:SS"), comparado contra la hora
@@ -114,7 +129,8 @@ export default function BreakWidget() {
   if (hoy === undefined) return null;
 
   const vencido = restantes <= 0;
-  const porcentaje = activo ? Math.max(0, Math.min(100, (1 - restantes / DURACION_BREAK_SEG) * 100)) : 0;
+  const duracionSeg = activo ? duracionSegundos(activo.horaSalida, activo.horaLimite) : 0;
+  const porcentaje = activo ? Math.max(0, Math.min(100, (1 - restantes / duracionSeg) * 100)) : 0;
   const colorAnillo = vencido ? "211 30 43" : "217 178 106";
 
   return (
@@ -165,7 +181,9 @@ export default function BreakWidget() {
           >
             <div className="w-[170px] h-[170px] rounded-full bg-marca-fondo flex flex-col items-center justify-center gap-1">
               <p className="font-display text-4xl font-bold text-marca-textofuerte">{formatearCronometro(restantes)}</p>
-              <p className="text-[10.5px] text-marca-tenue">{vencido ? "pasado el límite" : "de 1h 00min"}</p>
+              <p className="text-[10.5px] text-marca-tenue">
+                {vencido ? "pasado el límite" : formatearDuracion(duracionSeg)}
+              </p>
             </div>
           </div>
           <p className="text-[11.5px] text-marca-texto text-center">

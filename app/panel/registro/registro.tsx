@@ -273,6 +273,7 @@ type EdicionUsuario = {
   fechaNacimiento: string;
   fechaIngreso: string;
   puntosHeredados: string;
+  duracionBreakMin: string;
 };
 
 function FilaEdicion({
@@ -291,6 +292,7 @@ function FilaEdicion({
     fechaNacimiento: usuario.fechaNacimiento ?? "",
     fechaIngreso: usuario.fechaIngreso ?? "",
     puntosHeredados: String(usuario.puntosHeredados),
+    duracionBreakMin: usuario.duracionBreakMin ? String(usuario.duracionBreakMin) : "",
   });
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
@@ -370,6 +372,17 @@ function FilaEdicion({
           min={0}
           value={edicion.puntosHeredados}
           onChange={(e) => set("puntosHeredados", e.target.value)}
+          className={inputClase}
+        />
+      </div>
+      <div>
+        <label className={labelClase}>Duración de break (minutos)</label>
+        <input
+          type="number"
+          min={1}
+          placeholder="60 (por defecto)"
+          value={edicion.duracionBreakMin}
+          onChange={(e) => set("duracionBreakMin", e.target.value)}
           className={inputClase}
         />
       </div>

@@ -73,6 +73,74 @@ export async function obtenerHistorialMarcaciones(
   });
 }
 
+// Minutos de diferencia (b - a), ambas "HH:MM:SS" del mismo día.
+function minutosEntre(a: string, b: string): number {
+  const [ha, ma] = a.split(":").map(Number);
+  const [hb, mb] = b.split(":").map(Number);
+  return hb * 60 + mb - (ha * 60 + ma);
+}
+
+// Solo los días con problema (no marcó break habiendo ido a trabajar, o lo
+// marcó pero se pasó del tiempo) -- un break usado bien y a tiempo no sale
+// en el PDF.
+export async function obtenerMisIncidenciasBreak(
+  desde: string,
+  hasta: string
+): Promise<{ fecha: string; detalle: string }[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    throw new Error("No autorizado.");
+  }
+
+  const supabase = supabaseServer();
+  const [{ data: asistencia, error: errorAsistencia }, { data: breaks, error: errorBreaks }] = await Promise.all([
+    supabase
+      .from("asistencia")
+      .select("fecha, hora_ingreso")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+    supabase
+      .from("marcaciones_break")
+      .select("fecha, hora_salida, hora_limite, hora_entrada")
+      .eq("usuario_id", sesion.id)
+      .gte("fecha", desde)
+      .lte("fecha", hasta),
+  ]);
+
+  if (errorAsistencia || errorBreaks) throw new Error("No se pudo cargar las incidencias de break.");
+
+  const breakPorFecha = new Map((breaks ?? []).map((b) => [b.fecha, b]));
+  const incidencias: { fecha: string; detalle: string }[] = [];
+
+  (asistencia ?? [])
+    .filter((a) => a.hora_ingreso)
+    .forEach((a) => {
+      const b = breakPorFecha.get(a.fecha);
+      if (!b) {
+        incidencias.push({ fecha: a.fecha, detalle: "No marcó su break." });
+        return;
+      }
+      if (!b.hora_entrada) {
+        incidencias.push({
+          fecha: a.fecha,
+          detalle: `Salió a break a las ${b.hora_salida.slice(0, 5)} y no marcó su entrada.`,
+        });
+        return;
+      }
+      const minutosPasados = minutosEntre(b.hora_limite, b.hora_entrada);
+      if (minutosPasados > 0) {
+        incidencias.push({
+          fecha: a.fecha,
+          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite.slice(0, 5)}).`,
+        });
+      }
+    });
+
+  incidencias.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+  return incidencias;
+}
+
 export async function obtenerMisAutoasignaciones(desde: string, hasta: string): Promise<number> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
