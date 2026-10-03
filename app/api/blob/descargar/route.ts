@@ -11,7 +11,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 // También sirve las fotos de evidencia (checklists/auditorías) al navegador
 // para armarlas dentro del PDF: el enlace firmado de Vercel apunta a otro
 // dominio y el navegador podría no dejar leerlo desde la app.
-const CARPETAS_PERMITIDAS = new Set(["marcaciones", "historias", "perfiles", "evidencias"]);
+const CARPETAS_PERMITIDAS = new Set(["marcaciones", "historias", "perfiles", "evidencias", "agenda"]);
 
 // "checklist|auditoria/<uuid>/<archivo>.<ext>" -- ver subirFotoEvidencia.
 const RUTA_EVIDENCIA = /^(checklist|auditoria)\/([0-9a-f-]{36})\/[A-Za-z0-9-]+\.(jpg|png|webp)$/;
@@ -55,17 +55,29 @@ export async function GET(request: NextRequest) {
   if (carpeta === "evidencias" && !(await puedeVerEvidencia(sesion, archivo))) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
+  // Las notas de Mi Agenda son privadas de cada quien -- el primer tramo de
+  // la ruta ("<usuario_id>/...", ver subirDocumentoAgenda en blob-storage.ts)
+  // tiene que ser el propio usuario_id de la sesión.
+  if (carpeta === "agenda" && !archivo.startsWith(`${sesion.id}/`)) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
 
   const resultado = await almacenActivo().leer(`${carpeta}/${archivo}`);
   if (!resultado) {
     return NextResponse.json({ error: "No se encontró la foto." }, { status: 404 });
   }
 
+  const nombreDescarga = request.nextUrl.searchParams.get("nombre");
+
   return new NextResponse(resultado.stream, {
     headers: {
       "Content-Type": resultado.contentType,
       "Content-Disposition":
-        carpeta === "evidencias" ? "inline" : 'attachment; filename="historia-shimaya.jpg"',
+        carpeta === "evidencias"
+          ? "inline"
+          : carpeta === "agenda"
+            ? `attachment; filename="${(nombreDescarga || "adjunto-shimaya").replace(/["\r\n]/g, "")}"`
+            : 'attachment; filename="historia-shimaya.jpg"',
       "X-Content-Type-Options": "nosniff",
     },
   });

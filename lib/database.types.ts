@@ -46,6 +46,56 @@ export type Database = {
           },
         ]
       }
+      agenda_personal: {
+        Row: {
+          creado_en: string
+          cumplida: boolean
+          cumplida_en: string | null
+          documento_blob: string | null
+          documento_nombre: string | null
+          foto_blob: string | null
+          id: string
+          prioridad: string
+          recordatorio_en: string | null
+          texto: string
+          usuario_id: string
+        }
+        Insert: {
+          creado_en?: string
+          cumplida?: boolean
+          cumplida_en?: string | null
+          documento_blob?: string | null
+          documento_nombre?: string | null
+          foto_blob?: string | null
+          id?: string
+          prioridad?: string
+          recordatorio_en?: string | null
+          texto: string
+          usuario_id: string
+        }
+        Update: {
+          creado_en?: string
+          cumplida?: boolean
+          cumplida_en?: string | null
+          documento_blob?: string | null
+          documento_nombre?: string | null
+          foto_blob?: string | null
+          id?: string
+          prioridad?: string
+          recordatorio_en?: string | null
+          texto?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_personal_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alertas_atrasadas_leidas: {
         Row: {
           leido_en: string

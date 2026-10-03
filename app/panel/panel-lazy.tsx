@@ -71,6 +71,11 @@ export const LazyMiPerfil = dynamic(() => import("./perfil/mi-perfil"), {
   loading: cargando,
 });
 
+export const LazyMiAgenda = dynamic(() => import("./mi-agenda/mi-agenda"), {
+  ssr: false,
+  loading: cargando,
+});
+
 // Reutilizados desde Gerente -- mismos componentes que ya usa Coordinador
 // para anuncios/encuestas, ahora que Gerente también puede publicar.
 export const LazyAnuncios = dynamic(() => import("./coordinador/anuncios"), {
