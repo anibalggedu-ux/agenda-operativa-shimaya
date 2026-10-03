@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase-server";
-import { exigirCoordinador, type SesionUsuario } from "@/lib/session";
+import { exigirCoordinador, exigirGerenteOCoordinador, type SesionUsuario } from "@/lib/session";
 import {
   hoyPeru,
   horaPeru,
@@ -85,7 +85,7 @@ export async function obtenerUsuariosYTiendas(): Promise<{
   usuarios: UsuarioBasico[];
   tiendas: TiendaBasica[];
 }> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
 
   const [{ data: usuarios, error: errorUsuarios }, { data: tiendas, error: errorTiendas }] =
@@ -730,7 +730,7 @@ export type ResultadosEncuesta = {
 };
 
 export async function obtenerComunicados(): Promise<Comunicado[]> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const hoy = hoyPeru();
   const ahora = horaPeru();
@@ -900,7 +900,7 @@ async function crearEncuesta(sesion: SesionUsuario, formData: FormData): Promise
 // Cierra la encuesta hoy mismo: el cierre es "último día para votar", así
 // que se pone ayer.
 export async function cerrarEncuesta(id: string): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const { error } = await supabase
     .from("comunicados")
@@ -915,7 +915,7 @@ export async function crearComunicado(
   _prevState: ResultadoAccion,
   formData: FormData
 ): Promise<ResultadoAccion> {
-  const sesion = await exigirCoordinador();
+  const sesion = await exigirGerenteOCoordinador();
 
   if (formData.get("esEncuesta") === "1") return crearEncuesta(sesion, formData);
 
@@ -1025,7 +1025,7 @@ export async function crearComunicado(
 }
 
 export async function eliminarComunicado(id: string): Promise<ResultadoAccion> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
   const { error } = await supabase.from("comunicados").delete().eq("id", id);
   if (error) return { exito: false, mensaje: "No se pudo eliminar el anuncio." };

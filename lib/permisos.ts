@@ -18,13 +18,18 @@ export async function tieneAccesoRegistro(usuarioId: string, rol: string): Promi
   return !!data?.puede_registrar;
 }
 
-// Las auditorías no tienen fecha fija ni son diarias, así que en vez de
-// mostrarle el formulario a todo Supervisor siempre, quien tenga acceso a
-// Registro lo activa puntualmente para la persona que va a auditar (columna
-// usuarios.puede_auditar). No hay excepción para Coordinador aquí: si un
-// Coordinador necesita auditar, alguien con acceso a Registro se lo activa
-// igual que a cualquier otro.
-export async function tieneAccesoAuditoria(usuarioId: string): Promise<boolean> {
+// Coordinador y Gerente realizan auditorías siempre, sin excepción. Las
+// auditorías no tienen fecha fija ni son diarias para el resto, así que en
+// vez de mostrarle el formulario a todo Supervisor/Capacitador, quien tenga
+// acceso a Registro lo activa puntualmente para la persona que va a auditar
+// (columna usuarios.puede_auditar) -- y quien ya tiene acceso a Registro
+// (ver tieneAccesoRegistro) lo tiene también para auditar, sin necesidad de
+// prender el flag aparte.
+export async function tieneAccesoAuditoria(usuarioId: string, rol: string): Promise<boolean> {
+  if (rol === "coordinador" || rol === "gerente") return true;
+
+  if (await tieneAccesoRegistro(usuarioId, rol)) return true;
+
   const supabase = supabaseServer();
   const { data } = await supabase
     .from("usuarios")

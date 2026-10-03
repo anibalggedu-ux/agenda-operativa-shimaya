@@ -12,7 +12,7 @@ export default async function PanelAuditorias() {
   if (!sesion) redirect("/login");
 
   const esAdmin = sesion.rol === "coordinador" || sesion.rol === "gerente";
-  const puedeAuditar = esAdmin ? false : await tieneAccesoAuditoria(sesion.id);
+  const puedeAuditar = await tieneAccesoAuditoria(sesion.id, sesion.rol);
 
   if (!esAdmin && !puedeAuditar) redirect(`/panel/${sesion.rol}`);
 

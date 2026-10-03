@@ -10,7 +10,7 @@ import { enviarCorreo, URL_APP } from "@/lib/email";
 
 async function exigirPuedeAuditar() {
   const sesion = await exigirSesion();
-  const permitido = await tieneAccesoAuditoria(sesion.id);
+  const permitido = await tieneAccesoAuditoria(sesion.id, sesion.rol);
   if (!permitido) throw new Error("No autorizado.");
   return sesion;
 }

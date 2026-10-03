@@ -7,6 +7,7 @@ import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import EncuestasPendientes from "../encuestas/encuestas-pendientes";
 import MisPuntosWidget from "../mis-puntos-widget";
+import BreakWidget from "../break-widget";
 import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
 import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "./actions";
@@ -38,7 +39,7 @@ export default async function PanelSupervisor() {
   if (!sesion || sesion.rol !== "supervisor") redirect("/login");
 
   const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
-  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id);
+  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id, sesion.rol);
   const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
 
   const items: ItemMenuPanel[] = [
@@ -51,6 +52,7 @@ export default async function PanelSupervisor() {
           <EncuestasPendientes />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
+          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),

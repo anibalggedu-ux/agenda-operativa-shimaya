@@ -74,6 +74,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     { data: usuarioPropio },
     { data: asistenciaPropia },
     { data: especialesPropias },
+    { data: permisosPropios },
   ] = await Promise.all([
     obtenerTiendasClasificadas(),
     obtenerMisPuntos(),
@@ -93,13 +94,22 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeAlerta)
       .lte("fecha", diaLaboral),
-    // Vacaciones, permisos, descanso semanal, licencia o misión especial —
-    // esos días no deben contar como tardanza ni salida faltante (ver
-    // lib/puntualidad.ts).
+    // Vacaciones, permisos, descanso semanal, licencia o misión especial
+    // puestas directamente por Coordinador desde "Asignar rutas" — esos días
+    // no deben contar como tardanza ni salida faltante (ver lib/puntualidad.ts).
     supabase
       .from("asignaciones_especiales")
       .select("fecha_inicio, fecha_fin")
       .eq("usuario_id", sesion.id)
+      .gte("fecha_fin", desdeAlerta)
+      .lte("fecha_inicio", diaLaboral),
+    // Permisos/vacaciones que el propio usuario pidió y ya quedaron
+    // aprobados (tabla aparte de asignaciones_especiales) — mismo motivo.
+    supabase
+      .from("solicitudes_permiso")
+      .select("fecha_inicio, fecha_fin")
+      .eq("usuario_id", sesion.id)
+      .eq("estado", "aprobado")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
   ]);
@@ -117,6 +127,9 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
   });
   const diasExentosPropios = new Set<string>();
   (especialesPropias ?? []).forEach((e) => {
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => diasExentosPropios.add(f));
+  });
+  (permisosPropios ?? []).forEach((e) => {
     expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => diasExentosPropios.add(f));
   });
   const alertaPuntualidad = calcularEstadoPuntualidad(
@@ -328,6 +341,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: colaboradores },
     { data: asistenciaEquipo },
     { data: especialesEquipo },
+    { data: permisosEquipo },
     { data: atendidas },
   ] = await Promise.all([
     supabase.from("tiendas").select("id, nombre"),
@@ -364,6 +378,14 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .select("usuario_id, fecha_inicio, fecha_fin")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
+    // Permisos/vacaciones pedidos por cada empleado y ya aprobados (tabla
+    // aparte de asignaciones_especiales) — mismo motivo.
+    supabase
+      .from("solicitudes_permiso")
+      .select("usuario_id, fecha_inicio, fecha_fin")
+      .eq("estado", "aprobado")
+      .gte("fecha_fin", desdeAlerta)
+      .lte("fecha_inicio", diaLaboral),
     supabase.from("alertas_puntualidad_atendidas").select("usuario_id, tipo, fecha_referencia"),
   ]);
 
@@ -376,6 +398,11 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
 
   const diasExentosPorUsuario = new Map<string, Set<string>>();
   (especialesEquipo ?? []).forEach((e) => {
+    const set = diasExentosPorUsuario.get(e.usuario_id) ?? new Set<string>();
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => set.add(f));
+    diasExentosPorUsuario.set(e.usuario_id, set);
+  });
+  (permisosEquipo ?? []).forEach((e) => {
     const set = diasExentosPorUsuario.get(e.usuario_id) ?? new Set<string>();
     expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => set.add(f));
     diasExentosPorUsuario.set(e.usuario_id, set);

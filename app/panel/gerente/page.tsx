@@ -1,8 +1,9 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
+import BreakWidget from "../break-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -11,7 +12,10 @@ import {
   LazyDocumentos as Documentos,
   LazyCalendario as Calendario,
   LazyRegistro as Registro,
-  LazyHistorialAuditorias as HistorialAuditorias,
+  LazyAuditoriasPanel as AuditoriasPanel,
+  LazyAnuncios as Anuncios,
+  LazyEncuestasCoordinador as EncuestasCoordinador,
+  LazyMarcacionesBreakEquipo as MarcacionesBreakEquipo,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
@@ -38,6 +42,7 @@ export default async function PanelGerente() {
       contenido: (
         <div className="space-y-6">
           <Dashboard />
+          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),
@@ -70,7 +75,25 @@ export default async function PanelGerente() {
       id: "auditorias",
       etiqueta: "Auditorías",
       icono: <Search className="w-4 h-4" />,
-      contenido: <HistorialAuditorias modo="todas" />,
+      contenido: <AuditoriasPanel esAdmin puedeAuditar />,
+    },
+    {
+      id: "anuncios",
+      etiqueta: "Anuncios",
+      icono: <Megaphone className="w-4 h-4" />,
+      contenido: <Anuncios />,
+    },
+    {
+      id: "encuestas",
+      etiqueta: "Encuestas",
+      icono: <ClipboardCheck className="w-4 h-4" />,
+      contenido: <EncuestasCoordinador />,
+    },
+    {
+      id: "marcaciones-break",
+      etiqueta: "Marcaciones de Break",
+      icono: <Coffee className="w-4 h-4" />,
+      contenido: <MarcacionesBreakEquipo />,
     },
     {
       id: "consultorio",

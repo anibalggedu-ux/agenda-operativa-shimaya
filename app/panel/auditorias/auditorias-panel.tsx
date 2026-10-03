@@ -19,30 +19,23 @@ export default function AuditoriasPanel({
   const tieneAuditoriaId = !!parametros.get("auditoriaId");
   const [tab, setTab] = useState<"nueva" | "historial">(tieneAuditoriaId ? "historial" : "nueva");
 
-  if (esAdmin) {
-    return (
-      <div>
-        <h2 className="text-xs font-black tracking-widest text-marca-tenue mb-4">
-          HISTORIAL DE AUDITORÍAS
-        </h2>
-        <HistorialAuditorias modo="todas" />
-      </div>
-    );
-  }
-
+  // Coordinador y Gerente siempre pueden auditar -- antes solo veían el
+  // historial de todos, sin forma de crear una auditoría propia.
   return (
     <div>
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTab("nueva")}
-          className={`px-4 py-2 rounded-[3px] text-xs font-black tracking-widest uppercase transition ${
-            tab === "nueva"
-              ? "bg-marca-rojo text-marca-textofuerte"
-              : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
-          }`}
-        >
-          Nueva Auditoría
-        </button>
+        {puedeAuditar && (
+          <button
+            onClick={() => setTab("nueva")}
+            className={`px-4 py-2 rounded-[3px] text-xs font-black tracking-widest uppercase transition ${
+              tab === "nueva"
+                ? "bg-marca-rojo text-marca-textofuerte"
+                : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
+            }`}
+          >
+            Nueva Auditoría
+          </button>
+        )}
         <button
           onClick={() => setTab("historial")}
           className={`px-4 py-2 rounded-[3px] text-xs font-black tracking-widest uppercase transition ${
@@ -51,14 +44,14 @@ export default function AuditoriasPanel({
               : "bg-marca-superficie2 border border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
           }`}
         >
-          Mis Auditorías
+          {esAdmin ? "Historial de Auditorías" : "Mis Auditorías"}
         </button>
       </div>
 
-      {tab === "nueva" ? (
+      {tab === "nueva" && puedeAuditar ? (
         <AuditoriaForm onGuardado={() => setTab("historial")} />
       ) : (
-        <HistorialAuditorias modo="propias" />
+        <HistorialAuditorias modo={esAdmin ? "todas" : "propias"} />
       )}
     </div>
   );

@@ -31,11 +31,6 @@ export const LazyRegistro = dynamic(() => import("./registro/registro"), {
   loading: cargando,
 });
 
-export const LazyHistorialAuditorias = dynamic(() => import("./auditorias/historial-auditorias"), {
-  ssr: false,
-  loading: cargando,
-});
-
 export const LazyAuditoriasPanel = dynamic(() => import("./auditorias/auditorias-panel"), {
   ssr: false,
   loading: cargando,
@@ -62,6 +57,23 @@ export const LazyMiGaleria = dynamic(() => import("./historias/mi-galeria"), {
 });
 
 export const LazyMiPerfil = dynamic(() => import("./perfil/mi-perfil"), {
+  ssr: false,
+  loading: cargando,
+});
+
+// Reutilizados desde Gerente -- mismos componentes que ya usa Coordinador
+// para anuncios/encuestas, ahora que Gerente también puede publicar.
+export const LazyAnuncios = dynamic(() => import("./coordinador/anuncios"), {
+  ssr: false,
+  loading: cargando,
+});
+
+export const LazyEncuestasCoordinador = dynamic(() => import("./coordinador/encuestas"), {
+  ssr: false,
+  loading: cargando,
+});
+
+export const LazyMarcacionesBreakEquipo = dynamic(() => import("./coordinador/marcaciones-break-equipo"), {
   ssr: false,
   loading: cargando,
 });

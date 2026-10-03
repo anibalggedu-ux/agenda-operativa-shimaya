@@ -1,12 +1,13 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import EncuestasPendientes from "../encuestas/encuestas-pendientes";
 import MisPuntosWidget from "../mis-puntos-widget";
+import BreakWidget from "../break-widget";
 import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "../supervisor/actions";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
@@ -19,6 +20,7 @@ import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import {
   LazyCalendario as Calendario,
+  LazyDocumentos as Documentos,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
   LazyMiPerfil as MiPerfil,
@@ -44,6 +46,7 @@ export default async function PanelCapacitador() {
           <EncuestasPendientes />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
+          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),
@@ -102,6 +105,13 @@ export default async function PanelCapacitador() {
       etiqueta: "Calendario",
       icono: <Calendar className="w-4 h-4" />,
       contenido: <Calendario modo="propio" hoy={hoyPeru()} />,
+    },
+    {
+      id: "documentos",
+      etiqueta: "Documentos",
+      icono: <File className="w-4 h-4" />,
+      // Solo para descargar -- esAdmin controla subir/borrar, Capacitador no lo tiene.
+      contenido: <Documentos esAdmin={false} />,
     },
     {
       id: "consultorio",
