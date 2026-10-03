@@ -7,8 +7,18 @@
 
 import dynamic from "next/dynamic";
 
+// Esqueleto con forma de contenido (título + tarjeta + dos bloques chicos)
+// en vez de un "Cargando..." de texto plano -- ver .bloque-shimmer en
+// globals.css.
 const cargando = () => (
-  <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>
+  <div className="space-y-3">
+    <div className="bloque-shimmer h-5 w-40" />
+    <div className="bloque-shimmer h-24 w-full" />
+    <div className="flex gap-3">
+      <div className="bloque-shimmer h-16 flex-1" />
+      <div className="bloque-shimmer h-16 flex-1" />
+    </div>
+  </div>
 );
 
 export const LazyCentralAnalitica = dynamic(() => import("./analitica/central-analitica"), {
