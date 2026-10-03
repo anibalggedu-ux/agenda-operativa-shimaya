@@ -53,6 +53,12 @@ export async function obtenerDocumentos(): Promise<Documento[]> {
   }));
 }
 
+// El bucket "documentos" es público (checklists y manuales, no datos
+// privados de nadie): el enlace es fijo y no vence, a diferencia de las
+// fotos (perfil, historias, marcaciones), que siguen usando enlaces
+// firmados temporales porque esas sí son privadas. Así, cuando alguien
+// reenvía este enlace por WhatsApp, sigue funcionando sin importar cuánto
+// tiempo pase ni quién lo abra.
 export async function obtenerUrlDescarga(
   documentoId: string
 ): Promise<{ url?: string; error?: string }> {
@@ -67,12 +73,9 @@ export async function obtenerUrlDescarga(
 
   if (!doc) return { error: "El documento ya no existe." };
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(doc.ruta_storage, 60);
-
-  if (error || !data) return { error: "No se pudo generar el enlace de descarga." };
-  return { url: data.signedUrl };
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(doc.ruta_storage);
+  if (!data?.publicUrl) return { error: "No se pudo generar el enlace de descarga." };
+  return { url: data.publicUrl };
 }
 
 function extraerExtension(nombreArchivo: string): string {
