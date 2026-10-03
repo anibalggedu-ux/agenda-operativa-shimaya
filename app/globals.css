@@ -748,6 +748,18 @@ textarea:focus {
    que cargan, con un pequeño "animation-delay" por posición (ver
    historias-feed.tsx), reutilizando .cascada-fila ya existente arriba. */
 
+/* 4 · Mi Agenda: la tarjeta se desliza hacia un lado y se desvanece al
+   eliminar una nota, en vez de desaparecer de golpe. */
+@keyframes nota-sale {
+  to {
+    transform: translateX(36px);
+    opacity: 0;
+  }
+}
+.nota-sale {
+  animation: nota-sale 0.28s ease-in forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brillo-bloque,
   .vela-parpadeo,
@@ -764,8 +776,13 @@ textarea:focus {
   .anillo-shimmer-halo,
   .bloque-shimmer,
   .rebote-pin,
-  .foto-revelado {
+  .foto-revelado,
+  .nota-sale {
     animation: none;
+  }
+  .nota-sale {
+    opacity: 1;
+    transform: none;
   }
   .cascada-fila {
     opacity: 1;

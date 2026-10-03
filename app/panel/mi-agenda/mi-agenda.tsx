@@ -36,20 +36,27 @@ function textoRecordatorio(iso: string): string {
 
 function TarjetaNota({
   nota,
+  ahora,
+  nueva,
+  saliendo,
   onAlternar,
   onEliminar,
 }: {
   nota: NotaAgenda;
+  ahora: number;
+  nueva: boolean;
+  saliendo: boolean;
   onAlternar: (nota: NotaAgenda) => void;
   onEliminar: (nota: NotaAgenda) => void;
 }) {
   const urgente = nota.prioridad === "urgente" && !nota.cumplida;
+  const vencida = !!nota.recordatorioEn && !nota.cumplida && new Date(nota.recordatorioEn).getTime() <= ahora;
 
   return (
     <div
       className={`bg-marca-superficie border rounded-[3px] p-3.5 flex gap-3 ${
         urgente ? "border-marca-rojo/40" : "border-marca-borde"
-      } ${nota.cumplida ? "opacity-55" : ""}`}
+      } ${nota.cumplida ? "opacity-55" : ""} ${nueva ? "resorte-entrada" : ""} ${saliendo ? "nota-sale" : ""}`}
     >
       <button
         onClick={() => onAlternar(nota)}
@@ -69,8 +76,8 @@ function TarjetaNota({
           {nota.recordatorioEn && !nota.cumplida && (
             <span
               className={`shrink-0 text-[10px] font-black px-2 py-1 rounded-full whitespace-nowrap ${
-                urgente ? "bg-marca-rojo/15 text-marca-rojoclaro" : "bg-marca-oro/15 text-marca-oro"
-              }`}
+                vencida ? "vela-parpadeo" : ""
+              } ${urgente || vencida ? "bg-marca-rojo/15 text-marca-rojoclaro" : "bg-marca-oro/15 text-marca-oro"}`}
             >
               ⏰ {textoRecordatorio(nota.recordatorioEn)}
             </span>
@@ -333,15 +340,44 @@ export default function MiAgenda() {
   const [error, setError] = useState<string | null>(null);
   const [composerAbierto, setComposerAbierto] = useState(false);
   const [confirmarBorrado, setConfirmarBorrado] = useState<NotaAgenda | null>(null);
+  const [recienCreadaId, setRecienCreadaId] = useState<string | null>(null);
+  const [saliendoId, setSaliendoId] = useState<string | null>(null);
+  // Para que el badge de recordatorio vencido "lata" sin tener que recargar
+  // la página -- se refresca solo cada minuto.
+  const [ahora, setAhora] = useState(() => Date.now());
 
   function cargar() {
-    obtenerAgenda()
+    return obtenerAgenda()
       .then(setNotas)
       .catch((e) => setError(e.message || "No se pudo cargar tu agenda."))
       .finally(() => setCargando(false));
   }
 
-  useEffect(cargar, []);
+  useEffect(() => {
+    cargar();
+  }, []);
+
+  useEffect(() => {
+    const intervalo = setInterval(() => setAhora(Date.now()), 60_000);
+    return () => clearInterval(intervalo);
+  }, []);
+
+  async function alCrearNota() {
+    setComposerAbierto(false);
+    const lista = await obtenerAgenda().catch(() => null);
+    if (!lista) {
+      cargar();
+      return;
+    }
+    setNotas(lista);
+    setCargando(false);
+    // La recién creada queda primera entre las pendientes (más nueva arriba).
+    const primera = lista.find((n) => !n.cumplida);
+    if (primera) {
+      setRecienCreadaId(primera.id);
+      setTimeout(() => setRecienCreadaId(null), 550);
+    }
+  }
 
   async function alAlternar(nota: NotaAgenda) {
     const nuevoEstado = !nota.cumplida;
@@ -359,9 +395,11 @@ export default function MiAgenda() {
     if (!confirmarBorrado) return;
     const id = confirmarBorrado.id;
     setConfirmarBorrado(null);
-    setNotas((prev) => prev.filter((n) => n.id !== id));
-    const resultado = await eliminarNota(id);
-    if (!resultado.exito) cargar();
+    setSaliendoId(id);
+    const [resultado] = await Promise.all([eliminarNota(id), new Promise((r) => setTimeout(r, 280))]);
+    setSaliendoId(null);
+    if (resultado.exito) setNotas((prev) => prev.filter((n) => n.id !== id));
+    else cargar();
   }
 
   const pendientes = notas.filter((n) => !n.cumplida);
@@ -379,7 +417,15 @@ export default function MiAgenda() {
           ) : (
             <div className="space-y-2.5">
               {pendientes.map((n) => (
-                <TarjetaNota key={n.id} nota={n} onAlternar={alAlternar} onEliminar={setConfirmarBorrado} />
+                <TarjetaNota
+                  key={n.id}
+                  nota={n}
+                  ahora={ahora}
+                  nueva={n.id === recienCreadaId}
+                  saliendo={n.id === saliendoId}
+                  onAlternar={alAlternar}
+                  onEliminar={setConfirmarBorrado}
+                />
               ))}
               {cumplidas.length > 0 && (
                 <>
@@ -387,7 +433,15 @@ export default function MiAgenda() {
                     Cumplidas ({cumplidas.length})
                   </p>
                   {cumplidas.map((n) => (
-                    <TarjetaNota key={n.id} nota={n} onAlternar={alAlternar} onEliminar={setConfirmarBorrado} />
+                    <TarjetaNota
+                      key={n.id}
+                      nota={n}
+                      ahora={ahora}
+                      nueva={false}
+                      saliendo={n.id === saliendoId}
+                      onAlternar={alAlternar}
+                      onEliminar={setConfirmarBorrado}
+                    />
                   ))}
                 </>
               )}
@@ -405,15 +459,7 @@ export default function MiAgenda() {
         <Plus className="w-6 h-6" />
       </button>
 
-      {composerAbierto && (
-        <Composer
-          onCancelar={() => setComposerAbierto(false)}
-          onCreada={() => {
-            setComposerAbierto(false);
-            cargar();
-          }}
-        />
-      )}
+      {composerAbierto && <Composer onCancelar={() => setComposerAbierto(false)} onCreada={alCrearNota} />}
 
       {confirmarBorrado && (
         <div
