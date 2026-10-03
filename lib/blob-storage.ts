@@ -11,6 +11,7 @@ const CARPETA_MARCACIONES = "marcaciones";
 const CARPETA_HISTORIAS = "historias";
 const CARPETA_PERFILES = "perfiles";
 const CARPETA_EVIDENCIAS = "evidencias";
+const CARPETA_AGENDA = "agenda";
 
 // La app solo genera estos 3 tipos (la cámara y el canvas de compresión/
 // recorte siempre producen JPEG, pero se deja margen para PNG/WebP) -- un
@@ -228,4 +229,33 @@ export async function obtenerUrlTemporalFotoEvidencia(
   miniatura = false
 ): Promise<string | null> {
   return generarUrlTemporal(CARPETA_EVIDENCIAS, miniatura ? rutaMiniatura(blobPath) : blobPath, minutos);
+}
+
+// --- Mi Agenda (notas personales: foto y/o documento adjunto) ---
+
+// blobPath = "<usuario_id>/<uuid>.<ext>" -- el prefijo con el usuario_id
+// permite revisar en app/api/blob/descargar/route.ts que solo su dueño
+// pueda descargar el documento adjunto, sin tener que consultar la base.
+export async function subirFotoAgenda(blobPath: string, dataUrl: string): Promise<void> {
+  await subirFoto(CARPETA_AGENDA, blobPath, dataUrl);
+}
+
+// A diferencia de las fotos (siempre JPEG/PNG/WebP desde la cámara o el
+// recorte), un documento adjunto puede ser cualquier tipo de archivo que la
+// persona elija (PDF, Word, Excel...) -- por eso sube el buffer tal cual, sin
+// pasar por decodificarFotoBase64 (que valida solo tipos de imagen).
+export async function subirDocumentoAgenda(
+  blobPath: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<void> {
+  await almacenActivo().subir(`${CARPETA_AGENDA}/${blobPath}`, buffer, contentType, false);
+}
+
+export async function eliminarArchivoAgenda(blobPath: string): Promise<void> {
+  await eliminarFoto(CARPETA_AGENDA, blobPath);
+}
+
+export async function obtenerUrlTemporalAgenda(blobPath: string | null, minutos = 180): Promise<string | null> {
+  return generarUrlTemporal(CARPETA_AGENDA, blobPath, minutos);
 }
