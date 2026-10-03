@@ -176,6 +176,7 @@ export type UsuarioConAcceso = {
   fechaNacimiento: string | null;
   fechaIngreso: string | null;
   puntosHeredados: number;
+  duracionBreakMin: number | null;
 };
 
 export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
@@ -188,7 +189,9 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
   // darse de baja/reactivarse (suspensiones, renuncias con vuelta, etc.).
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, puede_registrar, activo, fecha_nacimiento, fecha_ingreso, puntos_heredados")
+    .select(
+      "id, nombre, rol, puede_registrar, activo, fecha_nacimiento, fecha_ingreso, puntos_heredados, duracion_break_min"
+    )
     .not("rol", "in", "(coordinador)")
     .order("nombre");
 
@@ -203,6 +206,7 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
     fechaNacimiento: u.fecha_nacimiento,
     fechaIngreso: u.fecha_ingreso,
     puntosHeredados: u.puntos_heredados ?? 0,
+    duracionBreakMin: u.duracion_break_min,
   }));
 }
 
@@ -221,6 +225,7 @@ export async function actualizarDatosUsuario(
     fechaNacimiento: string;
     fechaIngreso: string;
     puntosHeredados: string;
+    duracionBreakMin: string;
   }
 ): Promise<ResultadoRegistro> {
   const sesion = await exigirCoordinador();
@@ -229,6 +234,8 @@ export async function actualizarDatosUsuario(
   const rol = datos.rol;
   const nuevoPin = datos.nuevoPin.trim();
   const puntosHeredados = datos.puntosHeredados.trim() ? Number(datos.puntosHeredados) : 0;
+  const duracionBreakTexto = datos.duracionBreakMin.trim();
+  const duracionBreakMin = duracionBreakTexto ? Number(duracionBreakTexto) : null;
 
   if (!nombre || !rol) {
     return { exito: false, mensaje: "Completa nombre y rol." };
@@ -238,6 +245,9 @@ export async function actualizarDatosUsuario(
   }
   if (Number.isNaN(puntosHeredados) || puntosHeredados < 0) {
     return { exito: false, mensaje: "Los puntos heredados deben ser un número válido." };
+  }
+  if (duracionBreakMin !== null && (Number.isNaN(duracionBreakMin) || duracionBreakMin <= 0)) {
+    return { exito: false, mensaje: "La duración del break debe ser un número de minutos mayor a 0." };
   }
 
   const supabase = supabaseServer();
@@ -265,6 +275,7 @@ export async function actualizarDatosUsuario(
     fecha_nacimiento: string | null;
     fecha_ingreso: string | null;
     puntos_heredados: number;
+    duracion_break_min: number | null;
     clave_hash?: string;
   } = {
     nombre,
@@ -272,6 +283,7 @@ export async function actualizarDatosUsuario(
     fecha_nacimiento: datos.fechaNacimiento || null,
     fecha_ingreso: datos.fechaIngreso || null,
     puntos_heredados: puntosHeredados,
+    duracion_break_min: duracionBreakMin,
   };
 
   if (nuevoPin) {
@@ -631,11 +643,12 @@ export async function actualizarMarcacionBreak(
 
   const { data: antes } = await supabase
     .from("marcaciones_break")
-    .select("fecha, hora_salida, hora_entrada, usuarios(nombre)")
+    .select("fecha, hora_salida, hora_entrada, usuario_id, usuarios(nombre, duracion_break_min)")
     .eq("id", id)
     .maybeSingle();
 
-  const horaLimite = sumarMinutosAHora(horaSalida, DURACION_BREAK_MIN);
+  const duracionMin = (antes as any)?.usuarios?.duracion_break_min ?? DURACION_BREAK_MIN;
+  const horaLimite = sumarMinutosAHora(horaSalida, duracionMin);
 
   const { error } = await supabase
     .from("marcaciones_break")

@@ -129,12 +129,15 @@ export async function marcarSalidaBreak(fotoBase64: string): Promise<ResultadoBr
 
   // Un solo break por día, completado o no -- si ya marcó uno hoy (en curso
   // o ya cerrado), no se le deja abrir otro.
-  const { data: existente } = await supabase
-    .from("marcaciones_break")
-    .select("id, hora_entrada")
-    .eq("usuario_id", sesion.id)
-    .eq("fecha", fecha)
-    .maybeSingle();
+  const [{ data: existente }, { data: usuario }] = await Promise.all([
+    supabase
+      .from("marcaciones_break")
+      .select("id, hora_entrada")
+      .eq("usuario_id", sesion.id)
+      .eq("fecha", fecha)
+      .maybeSingle(),
+    supabase.from("usuarios").select("duracion_break_min").eq("id", sesion.id).maybeSingle(),
+  ]);
   if (existente) {
     return {
       exito: false,
@@ -142,8 +145,9 @@ export async function marcarSalidaBreak(fotoBase64: string): Promise<ResultadoBr
     };
   }
 
+  const duracionMin = usuario?.duracion_break_min ?? DURACION_BREAK_MIN;
   const horaSalida = horaPeru();
-  const horaLimite = sumarMinutosAHora(horaSalida, DURACION_BREAK_MIN);
+  const horaLimite = sumarMinutosAHora(horaSalida, duracionMin);
   const fotoBlobPath = `${sesion.id}/break-salida-${Date.now()}.jpg`;
 
   let fotoGuardada = true;

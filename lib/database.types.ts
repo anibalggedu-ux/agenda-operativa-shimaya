@@ -1488,6 +1488,7 @@ export type Database = {
           created_at: string | null
           dias_descanso: string[] | null
           direccion: string | null
+          duracion_break_min: number | null
           email: string | null
           fecha_ingreso: string | null
           fecha_nacimiento: string | null
@@ -1512,6 +1513,7 @@ export type Database = {
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
+          duracion_break_min?: number | null
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
@@ -1536,6 +1538,7 @@ export type Database = {
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
+          duracion_break_min?: number | null
           email?: string | null
           fecha_ingreso?: string | null
           fecha_nacimiento?: string | null
