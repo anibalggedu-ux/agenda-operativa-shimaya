@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import type { ReporteHistorialItem, MarcacionHistorial } from "@/lib/generar-pdf";
 import { resolverHoraLimite } from "@/lib/puntualidad";
-import { diaSemanaPeru } from "@/lib/fechas";
+import { diaSemanaPeru, hoyPeru, sumarDias } from "@/lib/fechas";
 
 export async function obtenerHistorialReportes(
   desde: string,
@@ -110,11 +110,15 @@ export async function obtenerMisIncidenciasBreak(
 
   if (errorAsistencia || errorBreaks) throw new Error("No se pudo cargar las incidencias de break.");
 
+  // La función de break recién entra en vigencia a partir de
+  // FECHA_INICIO_INCIDENCIAS_BREAK -- antes de eso nadie podía marcarlo,
+  // así que esos días no cuentan como "no marcó".
+  const FECHA_INICIO_INCIDENCIAS_BREAK = sumarDias(hoyPeru(), 1);
   const breakPorFecha = new Map((breaks ?? []).map((b) => [b.fecha, b]));
   const incidencias: { fecha: string; detalle: string }[] = [];
 
   (asistencia ?? [])
-    .filter((a) => a.hora_ingreso)
+    .filter((a) => a.hora_ingreso && a.fecha >= FECHA_INICIO_INCIDENCIAS_BREAK)
     .forEach((a) => {
       const b = breakPorFecha.get(a.fecha);
       if (!b) {
