@@ -18,13 +18,15 @@ self.addEventListener("push", (evento) => {
       badge: "/icons/icon-192.png",
       vibrate: [200, 100, 200],
       data: { url: datos.url },
-      tag: "shimaya-recordatorio",
+      tag: datos.tag || "shimaya-recordatorio",
+      actions: [{ action: "abrir", title: "Abrir app" }],
     })
   );
 });
 
-// Al tocar la notificación: si ya hay una pestaña de la app abierta, la
-// enfoca; si no, abre una nueva.
+// Al tocar la notificación O el botón "Abrir app": si ya hay una pestaña de
+// la app abierta, la enfoca; si no, abre una nueva. Es el mismo destino en
+// ambos casos, así que no hace falta distinguir evento.action.
 self.addEventListener("notificationclick", (evento) => {
   evento.notification.close();
   const url = evento.notification.data?.url || "/";

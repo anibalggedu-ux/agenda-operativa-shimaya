@@ -21,6 +21,7 @@ import { resolverHoraLimite } from "@/lib/puntualidad";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { obtenerResumenKilometros } from "../kilometros-actions";
 import { enviarCorreo, URL_APP, escaparHtml, type ContactoCorreo } from "@/lib/email";
+import { notificarPush } from "@/lib/notificar-push";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
@@ -76,6 +77,34 @@ async function notificarPorCorreo(tarea: () => Promise<unknown>): Promise<void> 
   } catch (error) {
     console.error("No se pudo enviar la notificación por correo:", error);
   }
+}
+
+// Mismo criterio de "no tumbar la acción si falla" que notificarPorCorreo,
+// pero para el push -- son mecanismos independientes (uno no depende del
+// otro para avisar).
+async function notificarPorPush(tarea: () => Promise<unknown>): Promise<void> {
+  try {
+    await tarea();
+  } catch (error) {
+    console.error("No se pudo enviar la notificación push:", error);
+  }
+}
+
+// Usada por crearComunicado() y crearEncuesta(): ambos elegían el mismo
+// público (los usuarios_destino elegidos, o por defecto supervisor+
+// capacitador) pero antes solo pedían el email para el correo -- ahora
+// también se necesita el id, para mandarle el push.
+async function resolverDestinatariosComunicado(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuariosDestino: string[]
+): Promise<{ id: string; email: string | null }[]> {
+  let consulta = supabase.from("usuarios").select("id, email").eq("activo", true);
+  consulta =
+    usuariosDestino.length > 0
+      ? consulta.in("id", usuariosDestino)
+      : consulta.in("rol", ["supervisor", "capacitador"]);
+  const { data } = await consulta;
+  return data ?? [];
 }
 
 export type UsuarioBasico = { id: string; nombre: string; rol: string; diasDescanso: string[] };
@@ -378,6 +407,14 @@ export async function asignarRuta(
   });
 
   if (error) return { exito: false, mensaje: "No se pudo asignar la ruta." };
+
+  await notificarPorPush(async () => {
+    const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", tiendaId).maybeSingle();
+    await notificarPush([usuarioId], {
+      titulo: "🚗 Nueva ruta asignada",
+      cuerpo: `${tienda?.nombre ?? "Tienda"} · ${formatearFechaLegible(fechaPlanificada)}`,
+    });
+  });
 
   await notificarPorCorreo(() =>
     enviarCorreoNuevaRuta(supabase, sesion, usuarioId, tiendaId, fechaPlanificada, area || null, enfoque || null)
@@ -850,22 +887,18 @@ async function crearEncuesta(sesion: SesionUsuario, formData: FormData): Promise
 
   if (error) return { exito: false, mensaje: "No se pudo publicar la encuesta." };
 
-  await notificarPorCorreo(async () => {
-    let consultaDestinatarios = supabase
-      .from("usuarios")
-      .select("email")
-      .eq("activo", true)
-      .not("email", "is", null);
-    consultaDestinatarios =
-      usuariosDestino.length > 0
-        ? consultaDestinatarios.in("id", usuariosDestino)
-        : consultaDestinatarios.in("rol", ["supervisor", "capacitador"]);
+  const destinatarios = await resolverDestinatariosComunicado(supabase, usuariosDestino);
 
-    const [{ data: destinatarios }, responderA] = await Promise.all([
-      consultaDestinatarios,
-      obtenerReplyTo(supabase, sesion),
-    ]);
-    const correos = (destinatarios ?? []).map((u) => u.email).filter((e): e is string => !!e);
+  await notificarPorPush(() =>
+    notificarPush(destinatarios.map((d) => d.id), {
+      titulo: "📊 Nueva encuesta",
+      cuerpo: pregunta,
+    })
+  );
+
+  await notificarPorCorreo(async () => {
+    const correos = destinatarios.map((u) => u.email).filter((e): e is string => !!e);
+    const responderA = await obtenerReplyTo(supabase, sesion);
     if (correos.length === 0) return;
 
     await enviarCorreo({
@@ -967,26 +1000,18 @@ export async function crearComunicado(
 
   if (error) return { exito: false, mensaje: "No se pudo publicar el anuncio." };
 
+  const destinatarios = await resolverDestinatariosComunicado(supabase, usuariosDestino);
+
+  await notificarPorPush(() =>
+    notificarPush(destinatarios.map((d) => d.id), {
+      titulo: `📣 ${tipo}`,
+      cuerpo: mensaje,
+    })
+  );
+
   await notificarPorCorreo(async () => {
-    let consultaDestinatarios = supabase
-      .from("usuarios")
-      .select("email")
-      .eq("activo", true)
-      .not("email", "is", null);
-
-    // Sin destinatarios específicos: el público de siempre (supervisores y
-    // capacitadores). Con destinatarios elegidos, solo a esas personas —
-    // sin importar su rol, por si algún día se elige a alguien más.
-    consultaDestinatarios =
-      usuariosDestino.length > 0
-        ? consultaDestinatarios.in("id", usuariosDestino)
-        : consultaDestinatarios.in("rol", ["supervisor", "capacitador"]);
-
-    const [{ data: destinatarios }, responderA] = await Promise.all([
-      consultaDestinatarios,
-      obtenerReplyTo(supabase, sesion),
-    ]);
-    const correos = (destinatarios ?? []).map((u) => u.email).filter((e): e is string => !!e);
+    const correos = destinatarios.map((u) => u.email).filter((e): e is string => !!e);
+    const responderA = await obtenerReplyTo(supabase, sesion);
     if (correos.length === 0) return;
 
     await enviarCorreo({
