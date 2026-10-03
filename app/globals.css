@@ -631,6 +631,33 @@ body {
   filter: blur(10px);
 }
 
+/* 13 · Esqueleto de carga (shimmer): bloques con la forma del contenido
+   real y una franja de luz que los recorre, en vez de un "Cargando..." de
+   texto plano -- se usa al abrir una sección pesada (ver panel-lazy.tsx) y
+   mientras se arma la página al entrar a un portal (ver loading.tsx de
+   cada ruta bajo /panel). */
+@keyframes bloque-shimmer-barrido {
+  0% {
+    background-position: -300px 0;
+  }
+  100% {
+    background-position: 300px 0;
+  }
+}
+.bloque-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--marca-superficie2)) 0%,
+    rgb(var(--marca-superficie2)) 40%,
+    rgb(var(--marca-borde)) 50%,
+    rgb(var(--marca-superficie2)) 60%,
+    rgb(var(--marca-superficie2)) 100%
+  );
+  background-size: 300px 100%;
+  animation: bloque-shimmer-barrido 1.6s linear infinite;
+  border-radius: 8px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brillo-bloque,
   .vela-parpadeo,
@@ -644,7 +671,8 @@ body {
   .campana-ping,
   .tab-entra-der,
   .tab-entra-izq,
-  .anillo-shimmer-halo {
+  .anillo-shimmer-halo,
+  .bloque-shimmer {
     animation: none;
   }
   .cascada-fila {

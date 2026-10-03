@@ -38,9 +38,13 @@ export default async function PanelSupervisor() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "supervisor") redirect("/login");
 
-  const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
-  const accesoAuditoria = await tieneAccesoAuditoria(sesion.id, sesion.rol);
-  const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
+  // Independientes entre sí -- en paralelo en vez de uno tras otro, para no
+  // sumar un viaje al servidor por cada una.
+  const [accesoRegistro, accesoAuditoria, notificacionesPendientes] = await Promise.all([
+    tieneAccesoRegistro(sesion.id, sesion.rol),
+    tieneAccesoAuditoria(sesion.id, sesion.rol),
+    obtenerNotificacionesPendientes().catch(() => 0),
+  ]);
 
   const items: ItemMenuPanel[] = [
     {

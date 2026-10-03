@@ -30,9 +30,12 @@ export const dynamic = "force-dynamic";
 export default async function PanelGerente() {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "gerente") redirect("/login");
-  const notificacionesPendientes = await obtenerNotificacionesPendientes().catch(() => 0);
-
-  const accesoRegistro = await tieneAccesoRegistro(sesion.id, sesion.rol);
+  // Independientes entre sí -- en paralelo en vez de uno tras otro, para no
+  // sumar un viaje al servidor por cada una.
+  const [notificacionesPendientes, accesoRegistro] = await Promise.all([
+    obtenerNotificacionesPendientes().catch(() => 0),
+    tieneAccesoRegistro(sesion.id, sesion.rol),
+  ]);
 
   const items: ItemMenuPanel[] = [
     {
