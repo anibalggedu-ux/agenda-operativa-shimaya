@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { obtenerMapaOperativoHoy, type MapaOperativoHoy, type PersonaEnMapa } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 import { UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
+import EstadoVacio from "../estado-vacio";
 
 // Texto del chip de aviso cuando el pin SÍ es el GPS real de la marcación
 // (ver p.esUbicacionReal) y quedó lejos de la tienda -- si todavía no marcó,
@@ -71,12 +72,12 @@ export default function MapaOperativo() {
       function iconoPersona(p: PersonaEnMapa): any {
         const color = COLOR_ROL[p.rol] ?? "#8b8d92";
         const contenido = p.fotoUrl
-          ? `<img src="${p.fotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`
+          ? `<img src="${p.fotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;filter:contrast(1.12) saturate(0.94);" />`
           : `<span style="font-size:11px;font-weight:700;color:#fff;">${iniciales(p.usuarioNombre)}</span>`;
         return L.divIcon({
           className: "",
           html:
-            `<div style="width:34px;height:34px;border-radius:50%;border:2.5px solid ${color};` +
+            `<div class="rebote-pin" style="width:34px;height:34px;border-radius:50%;border:2.5px solid ${color};` +
             `background:#0d0e10;display:flex;align-items:center;justify-content:center;overflow:hidden;` +
             `box-shadow:0 1px 4px rgba(0,0,0,.5);">${contenido}</div>`,
           iconSize: [34, 34],
@@ -155,9 +156,7 @@ export default function MapaOperativo() {
   }
   if (!datos || (datos.tiendas.length === 0 && datos.eventos.length === 0)) {
     return (
-      <p className="text-marca-tenue text-sm italic">
-        Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta ni evento hoy).
-      </p>
+      <EstadoVacio mensaje="Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta ni evento hoy)." />
     );
   }
 

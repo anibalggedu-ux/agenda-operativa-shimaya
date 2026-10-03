@@ -30,6 +30,8 @@ import TendenciasTiendas from "./tendencias-tiendas";
 import KilometrosDelMes from "./kilometros-del-mes";
 import ChecklistVisitaAnalitica from "./checklist-visita-analitica";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
+import { ContadorNumero } from "../contador-numero";
+import EstadoVacio from "../estado-vacio";
 
 type Pestana = "resumen" | "asistencia" | "tiendas" | "personas" | "checklist";
 
@@ -42,7 +44,7 @@ const PESTANAS: { id: Pestana; etiqueta: string }[] = [
 ];
 
 function TarjetaVacia({ children }: { children: React.ReactNode }) {
-  return <p className="text-marca-tenue text-sm italic py-6 text-center">{children}</p>;
+  return <EstadoVacio mensaje={String(children)} />;
 }
 
 function FilaVitrinaPersona({ fila }: { fila: FilaVitrina }) {
@@ -74,7 +76,9 @@ function FilaVitrinaPersona({ fila }: { fila: FilaVitrina }) {
             </span>
           )}
         </div>
-        <span className="text-marca-rojoclaro font-black text-sm shrink-0">{fila.puntos} pts</span>
+        <span className="text-marca-rojoclaro font-black text-sm shrink-0">
+          <ContadorNumero valor={fila.puntos} /> pts
+        </span>
       </div>
     </div>
   );
@@ -100,11 +104,16 @@ function ColumnaVitrina({ titulo, filas }: { titulo: string; filas: FilaVitrina[
 function Kpi({
   label,
   valor,
+  valorNumerico,
   sub,
   bien,
 }: {
   label: string;
   valor: string;
+  // Cuando el KPI es un número simple, cuenta hacia arriba al cargar en vez
+  // de aparecer de golpe (ej. "Reportes", "Tardanzas" -- no aplica a texto
+  // como el nombre de la tienda líder).
+  valorNumerico?: number;
   sub: string;
   bien?: boolean;
 }) {
@@ -116,7 +125,7 @@ function Kpi({
           bien ? "text-emerald-500" : "text-marca-textofuerte"
         }`}
       >
-        {valor}
+        {valorNumerico !== undefined ? <ContadorNumero valor={valorNumerico} /> : valor}
       </p>
       <p className="text-marca-tenue text-[11px] mt-1">{sub}</p>
     </div>
@@ -242,14 +251,14 @@ export default function CentralAnalitica() {
       {!cargando && !error && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-marca-borde border border-marca-borde rounded-[3px] overflow-hidden">
-            <Kpi label="Reportes" valor={String(totalReportes)} sub="en el rango seleccionado" />
+            <Kpi label="Reportes" valor={String(totalReportes)} valorNumerico={totalReportes} sub="en el rango seleccionado" />
             <Kpi
               label="Puntualidad"
               valor={pctPuntualidad === null ? "—" : `${pctPuntualidad}%`}
               sub="de las marcaciones"
               bien={pctPuntualidad !== null && pctPuntualidad >= 70}
             />
-            <Kpi label="Tardanzas" valor={String(totalTardanzas)} sub="en el rango" />
+            <Kpi label="Tardanzas" valor={String(totalTardanzas)} valorNumerico={totalTardanzas} sub="en el rango" />
             <Kpi
               label="Tienda líder"
               valor={tiendaLider ? tiendaLider.tiendaNombre : "—"}

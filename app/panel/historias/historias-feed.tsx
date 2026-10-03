@@ -26,6 +26,7 @@ import ComposerTexto from "./composer-texto";
 import RecortarFoto from "./recortar-foto";
 import ComposerVideoHistoria from "./composer-video";
 import RecortarVideo from "./recortar-video";
+import EstadoVacio from "../estado-vacio";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -482,7 +483,7 @@ function VisorHistorias({
                 <img
                   src={historia.url}
                   alt={`Historia de ${grupo.nombre}`}
-                  className="block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
+                  className="foto-marca block max-w-full max-h-[48vh] w-auto h-auto object-contain rounded-[3px]"
                   draggable={false}
                 />
               )}
@@ -1117,7 +1118,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
           <span className="text-[10px] text-marca-tenue truncate w-full text-center">Publicar</span>
         </button>
 
-        {grupos.map((g) => {
+        {grupos.map((g, i) => {
           const ultima = g.historias[g.historias.length - 1];
           const esMiPropioGrupo = g.usuarioId === miUsuarioId;
           const todoVisto =
@@ -1127,7 +1128,8 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
               key={g.usuarioId}
               type="button"
               onClick={() => abrirGrupo(g)}
-              className="shrink-0 flex flex-col items-center gap-1 w-16"
+              className="shrink-0 flex flex-col items-center gap-1 w-16 cascada-fila"
+              style={{ animationDelay: `${i * 60}ms` }}
             >
               <span className="relative w-14 h-14">
                 <span
@@ -1136,7 +1138,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
                   }`}
                 >
                   <span
-                    className="relative block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
+                    className="foto-marca relative block w-full h-full rounded-full bg-cover bg-center border-2 border-marca-fondo bg-black flex items-center justify-center"
                     style={{
                       backgroundImage: `url(${ultima.esVideo ? g.fotoPerfilUrl ?? "" : ultima.url})`,
                     }}
@@ -1175,9 +1177,7 @@ export default function HistoriasFeed({ miUsuarioId, miRol }: { miUsuarioId: str
         </p>
       )}
 
-      {grupos.length === 0 && (
-        <p className="text-marca-tenue text-[11px]">Nadie ha publicado historias todavía — sé el primero.</p>
-      )}
+      {grupos.length === 0 && <EstadoVacio mensaje="Nadie ha publicado historias todavía — sé el primero." />}
 
       {borradores && (
         <ComposerHistoria
