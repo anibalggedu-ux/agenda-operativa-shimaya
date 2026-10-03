@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { ejecutarDepuracionFotos } from "@/app/panel/registro/actions";
+import { ejecutarDepuracionAdjuntosAgenda } from "@/app/panel/mi-agenda/actions";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
 import { depurarFotosEvidencia } from "@/lib/evidencias";
 import { DIAS_RETENCION_EVIDENCIAS } from "@/lib/evidencias-constantes";
@@ -21,6 +22,9 @@ const LOTE_MAXIMO = 500;
 // siempre haya margen, pero sin dejar crecer la tabla indefinidamente -- cada
 // persona activa deja ~1 fila cada 45s mientras tiene la app abierta.
 const DIAS_RETENCION_LATIDOS = 35;
+// Las fotos/documentos de Mi Agenda son personales y pesan rápido -- se
+// borra solo el archivo adjunto, la nota y su texto quedan intactos.
+const DIAS_RETENCION_AGENDA = 30;
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -61,5 +65,18 @@ export async function GET(request: Request) {
     .delete({ count: "exact" })
     .lt("creado_en", hastaLatidos);
 
-  return NextResponse.json({ ok: true, borradas, pendientes, hasta, evidencias, latidosBorrados });
+  const hastaAgenda = sumarDias(hoyPeru(), -DIAS_RETENCION_AGENDA);
+  const adjuntosAgenda = await ejecutarDepuracionAdjuntosAgenda(`${hastaAgenda}T00:00:00`, LOTE_MAXIMO);
+  if (adjuntosAgenda.borrados > 0) {
+    await supabase.from("auditoria_cambios").insert({
+      usuario_id: null,
+      usuario_nombre: "Depuración automática (cron)",
+      accion: "Depuró adjuntos de Mi Agenda",
+      detalle: `${adjuntosAgenda.borrados} adjunto(s) de notas con más de ${DIAS_RETENCION_AGENDA} días${
+        adjuntosAgenda.pendientes > 0 ? ` -- quedan ${adjuntosAgenda.pendientes} pendientes para la próxima corrida` : ""
+      }`,
+    });
+  }
+
+  return NextResponse.json({ ok: true, borradas, pendientes, hasta, evidencias, latidosBorrados, adjuntosAgenda });
 }

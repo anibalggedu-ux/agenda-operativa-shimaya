@@ -19,6 +19,10 @@ export type NotaAgenda = {
   recordatorioEn: string | null;
   cumplida: boolean;
   fotoUrl: string | null;
+  // Enlace que fuerza la descarga al celular (Content-Disposition:
+  // attachment) en vez de solo abrir la vista previa -- ver
+  // app/api/blob/descargar/route.ts.
+  fotoDescargaUrl: string | null;
   documentoNombre: string | null;
   documentoUrl: string | null;
   creadoEn: string;
@@ -56,6 +60,9 @@ export async function obtenerAgenda(): Promise<NotaAgenda[]> {
       recordatorioEn: n.recordatorio_en,
       cumplida: n.cumplida,
       fotoUrl: await obtenerUrlTemporalAgenda(n.foto_blob),
+      fotoDescargaUrl: n.foto_blob
+        ? `/api/blob/descargar?carpeta=agenda&archivo=${encodeURIComponent(n.foto_blob)}&nombre=${encodeURIComponent("foto-agenda.jpg")}`
+        : null,
       documentoNombre: n.documento_nombre,
       documentoUrl: n.documento_blob
         ? `/api/blob/descargar?carpeta=agenda&archivo=${encodeURIComponent(n.documento_blob)}&nombre=${encodeURIComponent(n.documento_nombre ?? "adjunto")}`
@@ -137,6 +144,45 @@ export async function alternarCumplida(id: string, cumplida: boolean): Promise<R
   if (error) return { exito: false, mensaje: "No se pudo actualizar la nota." };
   revalidatePath("/panel");
   return { exito: true };
+}
+
+// Borra los adjuntos (foto y/o documento) de notas con más de `hasta` --
+// la nota y su texto quedan intactos, solo se limpia el archivo. Llamado por
+// el cron diario que ya depura marcaciones (ver app/api/cron/depurar-marcaciones).
+export async function ejecutarDepuracionAdjuntosAgenda(
+  hasta: string,
+  limiteLote: number
+): Promise<{ borrados: number; pendientes: number }> {
+  const supabase = supabaseServer();
+
+  const { data: filas, error } = await supabase
+    .from("agenda_personal")
+    .select("id, foto_blob, documento_blob")
+    .lt("creado_en", hasta)
+    .or("foto_blob.not.is.null,documento_blob.not.is.null")
+    .limit(limiteLote + 1);
+
+  if (error || !filas) return { borrados: 0, pendientes: 0 };
+
+  const pendientes = filas.length > limiteLote ? filas.length - limiteLote : 0;
+  const lote = filas.slice(0, limiteLote);
+
+  let borrados = 0;
+  for (const fila of lote) {
+    try {
+      if (fila.foto_blob) await eliminarArchivoAgenda(fila.foto_blob);
+      if (fila.documento_blob) await eliminarArchivoAgenda(fila.documento_blob);
+      await supabase
+        .from("agenda_personal")
+        .update({ foto_blob: null, documento_blob: null, documento_nombre: null })
+        .eq("id", fila.id);
+      borrados++;
+    } catch (err) {
+      console.error(`No se pudo depurar el adjunto de la nota ${fila.id}:`, err);
+    }
+  }
+
+  return { borrados, pendientes };
 }
 
 export async function eliminarNota(id: string): Promise<ResultadoAccion> {
