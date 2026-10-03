@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
@@ -185,6 +185,17 @@ export default function PanelShell({
 
   const seccionActiva = items.find((i) => i.id === activo) ?? items[0];
 
+  // Dirección del deslizamiento al cambiar de pestaña: si la nueva está más
+  // a la derecha que la anterior en el menú, entra desde la derecha, y
+  // viceversa -- así se siente como "avanzar/retroceder" entre secciones en
+  // vez de un simple corte. El ref se actualiza durante el render a
+  // propósito (no en un efecto): la clase de animación la necesita el mismo
+  // render que remonta el contenido con key={activo}.
+  const idxActivo = items.findIndex((i) => i.id === activo);
+  const idxAnteriorRef = useRef(idxActivo);
+  const claseTransicion = idxActivo >= idxAnteriorRef.current ? "tab-entra-der" : "tab-entra-izq";
+  idxAnteriorRef.current = idxActivo;
+
   // El menú "Más" (drawer) solo se abre desde el botón de la barra flotante
   // inferior, que ya muestra los primeros items -- mostrarlos de nuevo acá
   // era pura repetición. Se listan solo los que quedaron escondidos detrás
@@ -280,8 +291,8 @@ export default function PanelShell({
 
           <div className="flex-1 min-w-0 flex flex-col bg-marca-fondo">
             {/* key: al cambiar de sección se vuelve a montar y corre la
-                animación "tinta" de entrada. */}
-            <div key={activo} className="flex-1 p-4 sm:p-6 animar-tinta">
+                animación de entrada direccional (ver claseTransicion). */}
+            <div key={activo} className={`flex-1 p-4 sm:p-6 ${claseTransicion}`}>
               {seccionActiva?.contenido}
             </div>
           </div>

@@ -50,24 +50,6 @@ body {
   letter-spacing: 0.005em;
 }
 
-/* 1 · "Tinta": cada sección aparece desde un leve desenfoque al abrirla.
-   Arranca visible (opacidad .4), así nunca queda contenido oculto. */
-@keyframes tinta {
-  from {
-    opacity: 0.4;
-    filter: blur(6px);
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    filter: none;
-    transform: none;
-  }
-}
-.animar-tinta {
-  animation: tinta 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 /* 7 · Onda dorada al tocar botones (ver app/panel/onda-dorada.tsx). Se
    dibuja en una capa fija encima de la pantalla: no se mete dentro del
    botón, así no altera ningún diseño existente. */
@@ -527,6 +509,128 @@ body {
   animation: trazo-check 0.5s ease-out 0.05s forwards;
 }
 
+/* 9 · Confirmación al guardar algo (modelo A): anillo que se expande y se
+   apaga, una sola vez, detrás de un botón de acción. Se usa junto con
+   .trazo-check para el check que se dibuja dentro. */
+@keyframes confirmacion-anillo {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+.confirmacion-anillo {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--marca-oro));
+  pointer-events: none;
+  animation: confirmacion-anillo 0.65s ease-out;
+}
+
+/* 10 · Campanita: sacudida + ping rojo, una sola vez, cuando llega algo
+   nuevo sin que la persona hiciera nada. */
+@keyframes campana-shake {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-14deg);
+  }
+  40% {
+    transform: rotate(12deg);
+  }
+  60% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(5deg);
+  }
+}
+.campana-shake {
+  animation: campana-shake 0.6s ease-in-out;
+  transform-origin: 50% 15%;
+}
+@keyframes campana-ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.campana-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--marca-rojoclaro));
+  pointer-events: none;
+  animation: campana-ping 0.9s cubic-bezier(0, 0, 0.3, 1);
+}
+
+/* 11 · Cambio de pestaña del panel: el contenido nuevo entra deslizando
+   desde el lado en que está esa pestaña respecto a la anterior (ver
+   PanelShell, que calcula la dirección). Reemplaza a .animar-tinta. */
+@keyframes tab-entra-der {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes tab-entra-izq {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.tab-entra-der {
+  animation: tab-entra-der 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.tab-entra-izq {
+  animation: tab-entra-izq 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 12 · Halo de "calor" detrás del anillo de cuenta regresiva del break,
+   cuando quedan ≤5 min o ya se pasó la hora (ver BreakWidget). */
+@keyframes anillo-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+.anillo-shimmer-halo {
+  background: conic-gradient(
+    from 0deg,
+    rgb(var(--marca-oro)),
+    rgb(var(--marca-rojo)),
+    rgb(var(--marca-oro)),
+    rgb(var(--marca-rojo)),
+    rgb(var(--marca-oro))
+  );
+  background-size: 200% 200%;
+  animation: anillo-shimmer 2.4s linear infinite;
+  filter: blur(10px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brillo-bloque,
   .vela-parpadeo,
@@ -534,7 +638,13 @@ body {
   .cascada-fila,
   .puntos-suben,
   .ping-ubicacion,
-  .foto-abre {
+  .foto-abre,
+  .confirmacion-anillo,
+  .campana-shake,
+  .campana-ping,
+  .tab-entra-der,
+  .tab-entra-izq,
+  .anillo-shimmer-halo {
     animation: none;
   }
   .cascada-fila {
@@ -547,8 +657,16 @@ body {
     transform: none;
   }
   .puntos-suben,
-  .ping-ubicacion {
+  .ping-ubicacion,
+  .confirmacion-anillo,
+  .campana-ping,
+  .anillo-shimmer-halo {
     display: none;
+  }
+  .tab-entra-der,
+  .tab-entra-izq {
+    opacity: 1;
+    transform: none;
   }
   .trazo-check.marcado path {
     animation: none;

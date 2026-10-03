@@ -31,6 +31,7 @@ export default function CampanaNotificaciones() {
   const [pendientes, setPendientes] = useState(0);
   const [items, setItems] = useState<NotificacionItem[]>([]);
   const [abierta, setAbierta] = useState(false);
+  const [recienLlego, setRecienLlego] = useState(false);
   const pendientesRef = useRef(0);
   const contenedorRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -62,6 +63,11 @@ export default function CampanaNotificaciones() {
               else reproducirSonidoNotificacion();
             })
             .catch(() => reproducirSonidoNotificacion());
+          // Sacudida + ping una sola vez, al momento justo en que se detecta
+          // lo nuevo -- se apaga sola cuando termina la animación (0.9s, la
+          // más larga de las dos).
+          setRecienLlego(true);
+          setTimeout(() => setRecienLlego(false), 900);
         }
         pendientesRef.current = n;
         setPendientes(n);
@@ -115,9 +121,10 @@ export default function CampanaNotificaciones() {
         aria-label="Notificaciones"
         className="relative bg-marca-superficie2 border border-marca-borde text-marca-tenue w-9 h-9 rounded-[3px] hover:text-marca-texto transition shrink-0 flex items-center justify-center"
       >
-        <Bell className="w-4 h-4" />
+        <Bell className={`w-4 h-4 ${recienLlego ? "campana-shake" : ""}`} />
         {pendientes > 0 && (
           <span className="vela-parpadeo absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full bg-marca-rojo text-white text-[9px] font-black">
+            {recienLlego && <span className="campana-ping" />}
             {pendientes > 9 ? "9+" : pendientes}
           </span>
         )}
