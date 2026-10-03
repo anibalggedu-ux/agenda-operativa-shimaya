@@ -6,22 +6,24 @@ import { obtenerMapaOperativoHoy, type MapaOperativoHoy, type PersonaEnMapa } fr
 import { formatearFechaLegible } from "@/lib/fechas";
 import { UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 
-// Texto del chip de aviso cuando el GPS de la marcación quedó lejos de la
-// tienda — el pin sigue siendo la dirección real de la tienda, esto solo
-// avisa junto al nombre de la persona en el popup.
+// Texto del chip de aviso cuando el pin SÍ es el GPS real de la marcación
+// (ver p.esUbicacionReal) y quedó lejos de la tienda -- si todavía no marcó,
+// el pin ya está en la tienda como respaldo y no hace falta avisar nada acá.
 function textoLejos(p: PersonaEnMapa): string | null {
-  if (p.distanciaMetros === null || p.distanciaMetros <= UMBRAL_LEJOS_METROS) return null;
+  if (!p.esUbicacionReal || p.distanciaMetros === null || p.distanciaMetros <= UMBRAL_LEJOS_METROS) return null;
   const texto = p.distanciaMetros >= 1000 ? `${(p.distanciaMetros / 1000).toFixed(1)} km` : `${p.distanciaMetros} m`;
   return `⚠️ marcó a ${texto}`;
 }
 
 const COLOR_ROL: Record<string, string> = { supervisor: "#e23744", capacitador: "#fbbf24" };
 const ETIQUETA_ROL: Record<string, string> = { supervisor: "Supervisor", capacitador: "Capacitador" };
-const COLOR_MULTIPLE = "#f7f5f2";
-// Los eventos/reuniones se marcan como un rombo celeste -- distinto en forma
-// Y color a las tiendas (círculos rojo/ámbar), para no confundir "una tienda
-// con un solo capacitador" con "una reunión".
-const COLOR_EVENTO = "#60a5fa";
+
+// Iniciales para el pin de quien todavía no tiene foto de perfil (ej. "Juan
+// Pérez" -> "JP").
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
+}
 
 // Centro aproximado de Lima Metropolitana — punto de partida antes de
 // ajustar el zoom a las tiendas con actividad hoy.
@@ -61,73 +63,69 @@ export default function MapaOperativo() {
 
       const bounds: [number, number][] = [];
 
-      datos.tiendas.forEach((t) => {
-        const multiple = t.personas.length > 1;
-        const color = multiple ? COLOR_MULTIPLE : COLOR_ROL[t.personas[0]?.rol] ?? "#8b8d92";
+      // Un pin por persona (no por tienda): cada quien aparece en su propia
+      // ubicación -- la de su marcación de llegada si la trae, o si no la de
+      // la tienda/evento como respaldo (ver esUbicacionReal). El pin es su
+      // foto de perfil recortada en círculo; sin foto, sus iniciales sobre
+      // el color de su rol.
+      function iconoPersona(p: PersonaEnMapa): any {
+        const color = COLOR_ROL[p.rol] ?? "#8b8d92";
+        const contenido = p.fotoUrl
+          ? `<img src="${p.fotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`
+          : `<span style="font-size:11px;font-weight:700;color:#fff;">${iniciales(p.usuarioNombre)}</span>`;
+        return L.divIcon({
+          className: "",
+          html:
+            `<div style="width:34px;height:34px;border-radius:50%;border:2.5px solid ${color};` +
+            `background:#0d0e10;display:flex;align-items:center;justify-content:center;overflow:hidden;` +
+            `box-shadow:0 1px 4px rgba(0,0,0,.5);">${contenido}</div>`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+          popupAnchor: [0, -17],
+        });
+      }
 
-        const marcador = L.circleMarker([t.lat, t.lon], {
-          radius: multiple ? 12 : 9,
-          color: "#0d0e10",
-          weight: 2,
-          fillColor: color,
-          fillOpacity: 0.95,
-        }).addTo(mapa);
-
-        const listaPersonas = t.personas
-          .map((p) => {
-            const aviso = textoLejos(p);
-            return (
-              `<div style="margin-top:4px;display:flex;align-items:flex-start;gap:6px;">` +
-              `<span style="width:8px;height:8px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};flex:none;margin-top:4px;"></span>` +
-              `<div><div><b>${p.usuarioNombre}</b> — ${ETIQUETA_ROL[p.rol] ?? p.rol}</div>` +
+      function popupPersona(p: PersonaEnMapa, lugarEmoji: string, lugarNombre: string): string {
+        const aviso = textoLejos(p);
+        const fotoGrande = p.fotoUrl
+          ? `<img src="${p.fotoUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;" />`
+          : `<div style="width:52px;height:52px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};` +
+            `display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:none;">` +
+            `${iniciales(p.usuarioNombre)}</div>`;
+        return (
+          `<div style="font-family:sans-serif;min-width:200px;display:flex;gap:10px;align-items:center;">` +
+            fotoGrande +
+            `<div>` +
+              `<div style="font-weight:700;">${p.usuarioNombre}</div>` +
+              `<div style="font-size:11px;color:#6b7280;">${ETIQUETA_ROL[p.rol] ?? p.rol}</div>` +
+              `<div style="font-size:11px;margin-top:2px;">${lugarEmoji} ${lugarNombre}</div>` +
               (aviso
-                ? `<div style="display:inline-block;margin-top:2px;background:#f59e0b26;color:#b45309;` +
+                ? `<div style="display:inline-block;margin-top:4px;background:#f59e0b26;color:#b45309;` +
                   `font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;">${aviso}</div>`
+                : !p.esUbicacionReal
+                ? `<div style="margin-top:4px;font-size:10px;color:#6b7280;font-style:italic;">Aún no marca llegada -- mostrando la ubicación de la tienda.</div>`
                 : "") +
-              `</div></div>`
-            );
-          })
-          .join("");
-
-        marcador.bindPopup(
-          `<div style="font-family:sans-serif;min-width:190px;">` +
-            `<div style="font-weight:700;margin-bottom:4px;">📍 ${t.tiendaNombre}</div>` +
-            listaPersonas +
-            `</div>`
+            `</div>` +
+          `</div>`
         );
+      }
 
-        bounds.push([t.lat, t.lon]);
+      datos.tiendas.forEach((t) => {
+        t.personas.forEach((p) => {
+          L.marker([p.lat, p.lon], { icon: iconoPersona(p) })
+            .addTo(mapa)
+            .bindPopup(popupPersona(p, "📍", t.tiendaNombre));
+          bounds.push([p.lat, p.lon]);
+        });
       });
 
       datos.eventos.forEach((ev) => {
-        const icono = L.divIcon({
-          className: "",
-          html:
-            `<div style="width:16px;height:16px;background:${COLOR_EVENTO};border:2px solid #0d0e10;` +
-            `transform:rotate(45deg);"></div>`,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
+        ev.personas.forEach((p) => {
+          L.marker([p.lat, p.lon], { icon: iconoPersona(p) })
+            .addTo(mapa)
+            .bindPopup(popupPersona(p, "📅", ev.mensaje));
+          bounds.push([p.lat, p.lon]);
         });
-
-        const marcador = L.marker([ev.lat, ev.lon], { icon: icono }).addTo(mapa);
-
-        const listaPersonas = ev.personas
-          .map(
-            (p) =>
-              `<div style="margin-top:4px;display:flex;align-items:center;gap:6px;">` +
-              `<span style="width:8px;height:8px;border-radius:50%;background:${COLOR_ROL[p.rol] ?? "#8b8d92"};flex:none;"></span>` +
-              `<span><b>${p.usuarioNombre}</b> — ${ETIQUETA_ROL[p.rol] ?? p.rol}</span></div>`
-          )
-          .join("");
-
-        marcador.bindPopup(
-          `<div style="font-family:sans-serif;min-width:190px;">` +
-            `<div style="font-weight:700;margin-bottom:4px;">📅 ${ev.mensaje}</div>` +
-            listaPersonas +
-            `</div>`
-        );
-
-        bounds.push([ev.lat, ev.lon]);
       });
 
       if (bounds.length > 0) {
@@ -201,21 +199,11 @@ export default function MapaOperativo() {
           <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: COLOR_ROL.capacitador }} />
           Capacitador
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="w-3 h-3 rounded-full inline-block border-2"
-            style={{ background: COLOR_MULTIPLE, borderColor: "#8b8d92" }}
-          />
-          Varias personas en la misma tienda
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="w-2.5 h-2.5 inline-block border-2"
-            style={{ background: COLOR_EVENTO, borderColor: "#0d0e10", transform: "rotate(45deg)" }}
-          />
-          Evento / reunión
-        </span>
       </div>
+      <p className="text-marca-tenue text-[10.5px]">
+        Cada pin es la foto de perfil (o iniciales) de esa persona, en el lugar donde marcó su llegada -- si
+        todavía no marca, se muestra en la ubicación de la tienda o evento como respaldo.
+      </p>
     </div>
   );
 }

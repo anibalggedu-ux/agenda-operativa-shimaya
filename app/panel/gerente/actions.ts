@@ -4,7 +4,24 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { exigirGerente, exigirGerenteOCoordinador } from "@/lib/session";
 import { diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
 import { coordsDeUrlMaps, distanciaMetros } from "@/lib/distancia-recta";
+import { obtenerUrlTemporalFotoPerfil, existeFotoPerfil } from "@/lib/blob-storage";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
+
+// Igual que urlFotoPerfil en perfil/actions.ts: evita una consulta a Blob en
+// cada vista usando usuarios.tiene_foto_perfil, verificando una sola vez con
+// head() (y guardando el resultado) cuando ese dato todavía es null.
+async function urlFotoPerfilMapa(
+  supabase: ReturnType<typeof supabaseServer>,
+  usuarioId: string,
+  tieneFoto: boolean | null
+): Promise<string | null> {
+  let tiene = tieneFoto;
+  if (tiene === null) {
+    tiene = await existeFotoPerfil(usuarioId);
+    await supabase.from("usuarios").update({ tiene_foto_perfil: tiene }).eq("id", usuarioId);
+  }
+  return tiene ? obtenerUrlTemporalFotoPerfil(usuarioId) : null;
+}
 
 function diasEntre(desdeISO: string, hastaISO: string): number {
   const [y1, m1, d1] = desdeISO.split("-").map(Number);
@@ -141,11 +158,21 @@ export type PersonaEnMapa = {
   usuarioId: string;
   usuarioNombre: string;
   rol: string;
+  // Dónde se dibuja su pin: el GPS real de su marcación de llegada si lo
+  // trae, y si no (todavía no marcó, o esa marcación no trae ubicación) la
+  // dirección registrada de la tienda/evento como respaldo.
+  lat: number;
+  lon: number;
+  // true cuando lat/lon es el GPS real de la marcación (no el respaldo) --
+  // así el cliente sabe si puede mostrar la distancia/aviso de "lejos".
+  esUbicacionReal: boolean;
   // Cuánto quedó el GPS de su marcación de llegada respecto a la dirección
   // registrada de la tienda — null si no marcó llegada todavía, o si esa
-  // marcación no trae ubicación. El pin de la tienda no se mueve por esto;
-  // solo avisa junto al nombre de la persona (ver UMBRAL_LEJOS_METROS).
+  // marcación no trae ubicación (ver UMBRAL_LEJOS_METROS).
   distanciaMetros: number | null;
+  // Foto de perfil (URL firmada temporal) para el pin y el popup — null si
+  // no tiene.
+  fotoUrl: string | null;
 };
 
 export type TiendaEnMapa = {
@@ -192,7 +219,7 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
       supabase.from("tiendas").select("id, nombre, lat, lon"),
       supabase
         .from("asistencia_eventos")
-        .select("comunicado_id, usuario_id, usuarios(nombre, rol), comunicados(mensaje, lat, lon)")
+        .select("comunicado_id, usuario_id, ubicacion_llegada, usuarios(nombre, rol), comunicados(mensaje, lat, lon)")
         .eq("fecha", hoy)
         .not("hora_llegada", "is", null),
     ]);
@@ -226,7 +253,11 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
         usuarioId: v.usuarioId,
         usuarioNombre: v.usuarioNombre,
         rol: v.rol,
+        lat: coordsMarcacion?.lat ?? Number(tienda.lat),
+        lon: coordsMarcacion?.lng ?? Number(tienda.lon),
+        esUbicacionReal: !!coordsMarcacion,
         distanciaMetros: distancia,
+        fotoUrl: null,
       });
     }
     porTienda.set(v.tiendaId, entrada);
@@ -247,17 +278,46 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
       personas: [],
     };
     if (!entrada.personas.some((p) => p.usuarioId === e.usuario_id)) {
+      const coordsMarcacion = coordsDeUrlMaps(e.ubicacion_llegada);
       entrada.personas.push({
         usuarioId: e.usuario_id,
         usuarioNombre: e.usuarios?.nombre ?? "—",
         rol: e.usuarios?.rol ?? "—",
+        lat: coordsMarcacion?.lat ?? Number(comunicado.lat),
+        lon: coordsMarcacion?.lng ?? Number(comunicado.lon),
+        esUbicacionReal: !!coordsMarcacion,
         // Los eventos no tienen tienda de referencia contra la cual medir
         // distancia — solo aplica a visitas a tienda.
         distanciaMetros: null,
+        fotoUrl: null,
       });
     }
     porEvento.set(e.comunicado_id, entrada);
   });
+
+  // Fotos de perfil en un solo lote, al final -- así no se repite la
+  // consulta por cada tienda/evento en que aparece la misma persona.
+  if (usuariosUnicos.size > 0) {
+    const ids = Array.from(usuariosUnicos);
+    const { data: usuariosConFoto } = await supabase
+      .from("usuarios")
+      .select("id, tiene_foto_perfil")
+      .in("id", ids);
+    const tieneFotoPorId = new Map((usuariosConFoto ?? []).map((u) => [u.id, u.tiene_foto_perfil]));
+    const fotosPorId = new Map(
+      await Promise.all(
+        ids.map(async (id): Promise<[string, string | null]> => [
+          id,
+          await urlFotoPerfilMapa(supabase, id, tieneFotoPorId.get(id) ?? null),
+        ])
+      )
+    );
+    const asignarFoto = (p: PersonaEnMapa) => {
+      p.fotoUrl = fotosPorId.get(p.usuarioId) ?? null;
+    };
+    porTienda.forEach((t) => t.personas.forEach(asignarFoto));
+    porEvento.forEach((e) => e.personas.forEach(asignarFoto));
+  }
 
   return {
     fecha: hoy,
