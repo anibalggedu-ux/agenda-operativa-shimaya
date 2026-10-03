@@ -17,11 +17,18 @@ const AVISO_ANTES_MIN = 5;
 
 export type ResultadoBreak = { exito: boolean; mensaje?: string };
 
-export type BreakActivo = {
+// El break de hoy, cualquiera sea su estado: en curso (horaEntrada null) o
+// ya completado (horaEntrada presente). Un usuario solo puede tener UNO por
+// día -- si ya lo completó, no se le deja marcar una salida nueva.
+export type BreakHoy = {
   id: string;
   horaSalida: string;
   horaLimite: string;
+  horaEntrada: string | null;
   fotoSalidaUrl: string | null;
+  fotoEntradaUrl: string | null;
+  sePaso: boolean;
+  minutosPasados: number;
 };
 
 export type BreakHistorial = {
@@ -51,30 +58,37 @@ function minutosEntreHoras(a: string, b: string): number {
   return hb * 60 + mb - (ha * 60 + ma);
 }
 
-// Estado actual: el break de hoy sin marcar entrada todavía, o null si no
-// hay ninguno en curso.
-export async function obtenerBreakActivo(): Promise<BreakActivo | null> {
+// El break de hoy (en curso o ya completado), o null si todavía no marcó
+// ninguno -- de ahí sale si el botón de "Salir a break" debe mostrarse o
+// quedar bloqueado por hoy.
+export async function obtenerMiBreakDeHoy(): Promise<BreakHoy | null> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
   const { data } = await supabase
     .from("marcaciones_break")
-    .select("id, hora_salida, hora_limite, foto_salida_blob")
+    .select("id, hora_salida, hora_limite, hora_entrada, foto_salida_blob, foto_entrada_blob")
     .eq("usuario_id", sesion.id)
     .eq("fecha", diaLaboralPeru())
-    .is("hora_entrada", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!data) return null;
+  const minutosPasados = data.hora_entrada ? Math.max(0, minutosEntreHoras(data.hora_limite, data.hora_entrada)) : 0;
   return {
     id: data.id,
     horaSalida: data.hora_salida,
     horaLimite: data.hora_limite,
+    horaEntrada: data.hora_entrada,
     fotoSalidaUrl: await obtenerUrlTemporalFoto(data.foto_salida_blob),
+    fotoEntradaUrl: await obtenerUrlTemporalFoto(data.foto_entrada_blob),
+    sePaso: minutosPasados > 0,
+    minutosPasados,
   };
 }
 
+// Historial de días ANTERIORES a hoy -- el de hoy, si ya está completo, lo
+// muestra aparte obtenerMiBreakDeHoy (evita mostrarlo duplicado).
 export async function obtenerMisUltimosBreaks(limite = 10): Promise<BreakHistorial[]> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
@@ -83,6 +97,7 @@ export async function obtenerMisUltimosBreaks(limite = 10): Promise<BreakHistori
     .select("id, fecha, hora_salida, hora_limite, hora_entrada, foto_salida_blob, foto_entrada_blob")
     .eq("usuario_id", sesion.id)
     .not("hora_entrada", "is", null)
+    .lt("fecha", diaLaboralPeru())
     .order("fecha", { ascending: false })
     .order("hora_salida", { ascending: false })
     .limit(limite);
@@ -112,14 +127,20 @@ export async function marcarSalidaBreak(fotoBase64: string): Promise<ResultadoBr
   const supabase = supabaseServer();
   const fecha = diaLaboralPeru();
 
-  const { data: enCurso } = await supabase
+  // Un solo break por día, completado o no -- si ya marcó uno hoy (en curso
+  // o ya cerrado), no se le deja abrir otro.
+  const { data: existente } = await supabase
     .from("marcaciones_break")
-    .select("id")
+    .select("id, hora_entrada")
     .eq("usuario_id", sesion.id)
     .eq("fecha", fecha)
-    .is("hora_entrada", null)
     .maybeSingle();
-  if (enCurso) return { exito: false, mensaje: "Ya tienes un break en curso." };
+  if (existente) {
+    return {
+      exito: false,
+      mensaje: existente.hora_entrada ? "Ya usaste tu break de hoy." : "Ya tienes un break en curso.",
+    };
+  }
 
   const horaSalida = horaPeru();
   const horaLimite = sumarMinutosAHora(horaSalida, DURACION_BREAK_MIN);
