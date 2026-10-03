@@ -57,11 +57,29 @@ function formatearCronometro(segundos: number): string {
   return `${neg ? "-" : ""}${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
+// Check que se dibuja de un trazo (ver .trazo-check en globals.css), igual
+// que en Bitácora de Campo al confirmar una marcación.
+function TrazoCheck() {
+  return (
+    <svg viewBox="0 0 24 24" className="trazo-check marcado w-4 h-4 shrink-0" aria-hidden>
+      <path
+        d="M4 12.5 L9.5 18 L20 5.5"
+        fill="none"
+        stroke="rgb(var(--marca-textofuerte))"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function BreakWidget() {
   const [hoy, setHoy] = useState<BreakHoy | null | undefined>(undefined);
   const [historial, setHistorial] = useState<BreakHistorial[]>([]);
   const [restantes, setRestantes] = useState(0);
   const [enviando, setEnviando] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
   const inputEntrada = useRef<HTMLInputElement>(null);
@@ -114,7 +132,14 @@ export default function BreakWidget() {
       setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
       if (resultado.exito) {
         reproducirSonidoExito();
-        cargar();
+        // Deja ver el anillo + check un instante antes de refrescar -- si se
+        // llama a cargar() de una, la pantalla cambia de golpe (cronómetro
+        // <-> bloqueado) y nunca se alcanza a ver la confirmación.
+        setConfirmado(true);
+        setTimeout(() => {
+          setConfirmado(false);
+          cargar();
+        }, 600);
       } else {
         reproducirSonidoAlerta();
       }
@@ -132,6 +157,9 @@ export default function BreakWidget() {
   const duracionSeg = activo ? duracionSegundos(activo.horaSalida, activo.horaLimite) : 0;
   const porcentaje = activo ? Math.max(0, Math.min(100, (1 - restantes / duracionSeg) * 100)) : 0;
   const colorAnillo = vencido ? "211 30 43" : "217 178 106";
+  // Últimos 5 min o ya pasado de hora: el halo de "calor" detrás del anillo
+  // se enciende en vez de solo cambiar de color de golpe.
+  const enAlerta = !!activo && (vencido || restantes <= AVISO_ANTES_SEG);
 
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-2xl p-5 flex flex-col items-center gap-4">
@@ -159,46 +187,69 @@ export default function BreakWidget() {
       ) : !activo ? (
         <>
           <p className="self-start text-xs font-black tracking-widest text-marca-tenue uppercase">Mi Break</p>
-          <button
-            type="button"
-            onClick={() => inputSalida.current?.click()}
-            disabled={enviando}
-            className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3.5 rounded-full text-xs tracking-widest uppercase transition"
-          >
-            <Camera className="w-4 h-4" />
-            {enviando ? "Guardando..." : "Salir a break"}
-          </button>
+          <div className="relative w-full">
+            {confirmado && <span className="confirmacion-anillo" />}
+            <button
+              type="button"
+              onClick={() => inputSalida.current?.click()}
+              disabled={enviando || confirmado}
+              className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3.5 rounded-full text-xs tracking-widest uppercase transition"
+            >
+              {confirmado ? (
+                <TrazoCheck />
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  {enviando ? "Guardando..." : "Salir a break"}
+                </>
+              )}
+            </button>
+          </div>
         </>
       ) : (
         <>
           <p className="self-start text-xs font-black tracking-widest text-marca-tenue uppercase">En break</p>
-          <div
-            className="relative w-[200px] h-[200px] rounded-full flex items-center justify-center transition-colors"
-            style={{
-              background: `conic-gradient(rgb(${colorAnillo}) ${porcentaje}%, rgb(var(--marca-borde)) ${porcentaje}%)`,
-              boxShadow: vencido ? "0 0 24px 2px rgb(211 30 43 / 0.45)" : "0 0 24px 2px rgb(217 178 106 / 0.35)",
-            }}
-          >
-            <div className="w-[170px] h-[170px] rounded-full bg-marca-fondo flex flex-col items-center justify-center gap-1">
-              <p className="font-display text-4xl font-bold text-marca-textofuerte">{formatearCronometro(restantes)}</p>
-              <p className="text-[10.5px] text-marca-tenue">
-                {vencido ? "pasado el límite" : formatearDuracion(duracionSeg)}
-              </p>
+          <div className="relative w-[200px] h-[200px] flex items-center justify-center">
+            {enAlerta && (
+              <span className="anillo-shimmer-halo absolute w-[210px] h-[210px] rounded-full" aria-hidden />
+            )}
+            <div
+              className="relative w-[200px] h-[200px] rounded-full flex items-center justify-center transition-colors"
+              style={{
+                background: `conic-gradient(rgb(${colorAnillo}) ${porcentaje}%, rgb(var(--marca-borde)) ${porcentaje}%)`,
+                boxShadow: enAlerta ? undefined : "0 0 24px 2px rgb(217 178 106 / 0.35)",
+              }}
+            >
+              <div className="w-[170px] h-[170px] rounded-full bg-marca-fondo flex flex-col items-center justify-center gap-1">
+                <p className="font-display text-4xl font-bold text-marca-textofuerte">{formatearCronometro(restantes)}</p>
+                <p className="text-[10.5px] text-marca-tenue">
+                  {vencido ? "pasado el límite" : formatearDuracion(duracionSeg)}
+                </p>
+              </div>
             </div>
           </div>
           <p className="text-[11.5px] text-marca-texto text-center">
             Saliste a las <b>{horaATexto(activo.horaSalida)}</b> · vuelve antes de las{" "}
             <b className={vencido ? "text-marca-rojoclaro" : "text-oro"}>{horaATexto(activo.horaLimite)}</b>
           </p>
-          <button
-            type="button"
-            onClick={() => inputEntrada.current?.click()}
-            disabled={enviando}
-            className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3.5 rounded-full text-xs tracking-widest uppercase transition"
-          >
-            <Camera className="w-4 h-4" />
-            {enviando ? "Guardando..." : "Marcar entrada de break"}
-          </button>
+          <div className="relative w-full">
+            {confirmado && <span className="confirmacion-anillo" />}
+            <button
+              type="button"
+              onClick={() => inputEntrada.current?.click()}
+              disabled={enviando || confirmado}
+              className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3.5 rounded-full text-xs tracking-widest uppercase transition"
+            >
+              {confirmado ? (
+                <TrazoCheck />
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  {enviando ? "Guardando..." : "Marcar entrada de break"}
+                </>
+              )}
+            </button>
+          </div>
         </>
       )}
 
