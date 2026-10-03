@@ -1809,10 +1809,14 @@ export async function obtenerHistorialPersona(
   // tiempo) -- un break usado bien y a tiempo no sale en el PDF. Un día
   // "trabajado" es aquel con hora de ingreso marcada; sin eso no se le
   // puede exigir que haya marcado break (descanso, vacaciones, permiso...).
+  // La función de break recién entra en vigencia a partir de
+  // FECHA_INICIO_INCIDENCIAS_BREAK -- antes de eso nadie podía marcarlo,
+  // así que esos días no cuentan como "no marcó".
+  const FECHA_INICIO_INCIDENCIAS_BREAK = sumarDias(hoyPeru(), 1);
   const breakPorFecha = new Map((marcacionesBreak ?? []).map((b) => [b.fecha, b]));
   const incidenciasBreak: HistorialPersona["incidenciasBreak"] = [];
   (marcaciones ?? [])
-    .filter((m) => m.hora_ingreso)
+    .filter((m) => m.hora_ingreso && m.fecha >= FECHA_INICIO_INCIDENCIAS_BREAK)
     .forEach((m) => {
       const b = breakPorFecha.get(m.fecha);
       if (!b) {
