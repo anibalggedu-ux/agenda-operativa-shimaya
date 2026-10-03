@@ -55,6 +55,7 @@ export type Database = {
           documento_nombre: string | null
           foto_blob: string | null
           id: string
+          notificado_push_en: string | null
           prioridad: string
           recordatorio_en: string | null
           texto: string
@@ -68,6 +69,7 @@ export type Database = {
           documento_nombre?: string | null
           foto_blob?: string | null
           id?: string
+          notificado_push_en?: string | null
           prioridad?: string
           recordatorio_en?: string | null
           texto: string
@@ -81,6 +83,7 @@ export type Database = {
           documento_nombre?: string | null
           foto_blob?: string | null
           id?: string
+          notificado_push_en?: string | null
           prioridad?: string
           recordatorio_en?: string | null
           texto?: string
