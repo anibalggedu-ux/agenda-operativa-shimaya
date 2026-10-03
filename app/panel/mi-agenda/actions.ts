@@ -37,6 +37,25 @@ function extraerExtension(nombreArchivo: string): string {
   return partes.length > 1 ? partes.pop()!.toLowerCase() : "";
 }
 
+// Cuántas notas pendientes tienen un recordatorio que ya pasó -- lo usa
+// RecordatorioChecker (montado una vez en PanelShell) para avisar con sonido
+// apenas se abre la app, ya que una app web no puede sonar con la pantalla
+// apagada como una alarma nativa.
+export async function obtenerConteoRecordatoriosVencidos(): Promise<number> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+
+  const { count } = await supabase
+    .from("agenda_personal")
+    .select("id", { count: "exact", head: true })
+    .eq("usuario_id", sesion.id)
+    .eq("cumplida", false)
+    .not("recordatorio_en", "is", null)
+    .lte("recordatorio_en", new Date().toISOString());
+
+  return count ?? 0;
+}
+
 export async function obtenerAgenda(): Promise<NotaAgenda[]> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();

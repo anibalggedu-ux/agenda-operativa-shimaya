@@ -10,6 +10,7 @@ import OndaDorada from "./onda-dorada";
 import TelonBienvenida from "./telon-bienvenida";
 import Brasas from "./brasas";
 import Celebracion from "./celebracion";
+import RecordatorioChecker from "./mi-agenda/recordatorio-checker";
 import AvisoPrivacidadModal from "./aviso-privacidad-modal";
 
 export type ItemMenuPanel = {
@@ -307,6 +308,7 @@ export default function PanelShell({
       <OndaDorada />
       <TelonBienvenida nombre={nombre} />
       <Celebracion />
+      <RecordatorioChecker />
       <AvisoPrivacidadModal />
     </div>
   );
