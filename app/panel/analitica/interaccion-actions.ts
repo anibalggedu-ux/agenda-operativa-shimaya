@@ -74,7 +74,15 @@ export async function obtenerIndiceInteraccion(desde: string, hasta: string): Pr
     { count: historiasAnterior },
     { count: latidosAnterior },
   ] = await Promise.all([
-    supabase.from("usuarios").select("id, nombre, rol").eq("activo", true).order("nombre"),
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol")
+      .eq("activo", true)
+      // Mismas cuentas de prueba que ya se excluyen en el Directorio de
+      // equipo (ver obtenerDirectorioEquipo en perfil/actions.ts) -- no
+      // tiene sentido que compitan en el ranking real.
+      .not("nombre", "ilike", "%generico%")
+      .order("nombre"),
     supabase
       .from("accesos_sistema")
       .select("usuario_id, created_at")
