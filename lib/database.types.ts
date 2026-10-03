@@ -1024,6 +1024,32 @@ export type Database = {
         }
         Relationships: []
       }
+      latidos_actividad: {
+        Row: {
+          creado_en: string
+          id: string
+          usuario_id: string | null
+        }
+        Insert: {
+          creado_en?: string
+          id?: string
+          usuario_id?: string | null
+        }
+        Update: {
+          creado_en?: string
+          id?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "latidos_actividad_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marcaciones_break: {
         Row: {
           aviso_5min_enviado: boolean

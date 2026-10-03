@@ -17,6 +17,10 @@ export const dynamic = "force-dynamic";
 // de DIAS_RETENCION_EVIDENCIAS (archivo y fila; el registro queda intacto).
 const DIAS_RETENCION_MARCACIONES = 60;
 const LOTE_MAXIMO = 500;
+// Más que el rango más largo que usa Central Analítica (30 días) para que
+// siempre haya margen, pero sin dejar crecer la tabla indefinidamente -- cada
+// persona activa deja ~1 fila cada 45s mientras tiene la app abierta.
+const DIAS_RETENCION_LATIDOS = 35;
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -51,5 +55,11 @@ export async function GET(request: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, borradas, pendientes, hasta, evidencias });
+  const hastaLatidos = new Date(Date.now() - DIAS_RETENCION_LATIDOS * 24 * 60 * 60 * 1000).toISOString();
+  const { count: latidosBorrados } = await supabase
+    .from("latidos_actividad")
+    .delete({ count: "exact" })
+    .lt("creado_en", hastaLatidos);
+
+  return NextResponse.json({ ok: true, borradas, pendientes, hasta, evidencias, latidosBorrados });
 }
