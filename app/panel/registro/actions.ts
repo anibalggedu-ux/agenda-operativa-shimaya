@@ -571,6 +571,114 @@ export async function eliminarAsistencia(id: string, motivo?: string): Promise<R
   return { exito: true };
 }
 
+// Un solo break por día (marcacion-break.ts lo exige), así que si alguien
+// marcó la tienda/hora equivocada queda bloqueado hasta que Registro lo
+// corrija o lo libere acá.
+const DURACION_BREAK_MIN = 60;
+
+function sumarMinutosAHora(horaHHMMSS: string, minutos: number): string {
+  const [h, m, s] = horaHHMMSS.split(":").map(Number);
+  const totalMin = h * 60 + m + minutos;
+  const hh = Math.floor(totalMin / 60) % 24;
+  const mm = totalMin % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(s ?? 0).padStart(2, "0")}`;
+}
+
+export type MarcacionBreakCorregible = {
+  id: string;
+  fecha: string;
+  horaSalida: string;
+  horaLimite: string;
+  horaEntrada: string | null;
+};
+
+export async function obtenerMarcacionesBreakParaCorregir(
+  usuarioId: string,
+  desde: string,
+  hasta: string
+): Promise<MarcacionBreakCorregible[]> {
+  await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("marcaciones_break")
+    .select("id, fecha, hora_salida, hora_limite, hora_entrada")
+    .eq("usuario_id", usuarioId)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar las marcaciones de break.");
+
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    fecha: b.fecha,
+    horaSalida: b.hora_salida,
+    horaLimite: b.hora_limite,
+    horaEntrada: b.hora_entrada,
+  }));
+}
+
+export async function actualizarMarcacionBreak(
+  id: string,
+  horaSalida: string,
+  horaEntrada: string | null,
+  motivo?: string
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  if (!horaSalida) return { exito: false, mensaje: "La hora de salida es obligatoria." };
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("marcaciones_break")
+    .select("fecha, hora_salida, hora_entrada, usuarios(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
+  const horaLimite = sumarMinutosAHora(horaSalida, DURACION_BREAK_MIN);
+
+  const { error } = await supabase
+    .from("marcaciones_break")
+    .update({ hora_salida: horaSalida, hora_limite: horaLimite, hora_entrada: horaEntrada })
+    .eq("id", id);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar la marcación de break." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Corrigió una marcación de break",
+    `${nombre} — ${antes?.fecha ?? "?"}: salida ${antes?.hora_salida ?? "—"} → ${horaSalida}, entrada ${antes?.hora_entrada ?? "—"} → ${horaEntrada ?? "—"}`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
+export async function eliminarMarcacionBreak(id: string, motivo?: string): Promise<ResultadoRegistro> {
+  const sesion = await exigirAccesoRegistro();
+  const supabase = supabaseServer();
+
+  const { data: antes } = await supabase
+    .from("marcaciones_break")
+    .select("fecha, hora_salida, hora_entrada, usuarios(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("marcaciones_break").delete().eq("id", id);
+  if (error) return { exito: false, mensaje: "No se pudo eliminar la marcación de break." };
+
+  const nombre = (antes as any)?.usuarios?.nombre ?? "—";
+  await registrarCambio(
+    sesion,
+    "Eliminó una marcación de break",
+    `${nombre} — ${antes?.fecha ?? "?"} (salida ${antes?.hora_salida ?? "—"}, entrada ${antes?.hora_entrada ?? "—"})`,
+    motivo
+  );
+
+  return { exito: true };
+}
+
 export type AsignacionEspecialCorregible = {
   id: string;
   usuarioNombre: string;

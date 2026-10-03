@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car, MapPin, Trash2 } from "lucide-react";
+import { CloudSun, Home, Timer, FileText, TreePalm, Megaphone, Store, Search, ClipboardList, Car, MapPin, Trash2, Coffee } from "lucide-react";
 import {
   obtenerUsuariosBasicos,
   obtenerAsistenciaParaCorregir,
@@ -9,6 +9,9 @@ import {
   crearAsistenciaManual,
   obtenerUsuariosSinMarcarHoy,
   eliminarAsistencia,
+  obtenerMarcacionesBreakParaCorregir,
+  actualizarMarcacionBreak,
+  eliminarMarcacionBreak,
   obtenerReportesParaCorregir,
   actualizarReporteRegistro,
   eliminarReporteRegistro,
@@ -36,6 +39,7 @@ import {
   geocodificarDireccionColaborador,
   type UsuarioBasicoRegistro,
   type AsistenciaCorregible,
+  type MarcacionBreakCorregible,
   type PersonaSinMarcar,
   type ReporteCorregible,
   type MarcacionTiendaCorregible,
@@ -341,6 +345,204 @@ function SeccionAsistencia() {
                   value={motivos[r.id] ?? ""}
                   onChange={(e) => setMotivos((prev) => ({ ...prev, [r.id]: e.target.value }))}
                   placeholder="Ej. Olvidó marcar, se corrige con su hora real"
+                  className={clasesInputChico + " w-full"}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleGuardar(r.id)}
+                disabled={guardandoId === r.id}
+                className="bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2 px-3 rounded-[3px] text-[10px] tracking-widest uppercase transition"
+              >
+                {guardandoId === r.id ? "..." : "Guardar"}
+              </button>
+              <BotonEliminar
+                onClick={() => handleEliminar(r.id, r.fecha)}
+                cargando={eliminandoId === r.id}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function SeccionMarcacionesBreak() {
+  const [usuarios, setUsuarios] = useState<UsuarioBasicoRegistro[]>([]);
+  const [usuarioId, setUsuarioId] = useState("");
+  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -7));
+  const [hasta, setHasta] = useState(hoyPeru());
+  const [registros, setRegistros] = useState<MarcacionBreakCorregible[]>([]);
+  const [ediciones, setEdiciones] = useState<Record<string, { salida: string; entrada: string }>>({});
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
+  const [cargando, setCargando] = useState(false);
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerUsuariosBasicos()
+      .then(setUsuarios)
+      .catch((e) => setError(e.message || "No se pudo cargar la lista de personas."));
+  }, []);
+
+  function cargar() {
+    if (!usuarioId) {
+      setRegistros([]);
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    obtenerMarcacionesBreakParaCorregir(usuarioId, desde, hasta)
+      .then((filas) => {
+        setRegistros(filas);
+        const iniciales: Record<string, { salida: string; entrada: string }> = {};
+        filas.forEach((b) => {
+          iniciales[b.id] = {
+            salida: b.horaSalida ? b.horaSalida.slice(0, 5) : "",
+            entrada: b.horaEntrada ? b.horaEntrada.slice(0, 5) : "",
+          };
+        });
+        setEdiciones(iniciales);
+      })
+      .catch((e) => setError(e.message || "Error al cargar las marcaciones de break."))
+      .finally(() => setCargando(false));
+  }
+
+  useEffect(cargar, [usuarioId, desde, hasta]);
+
+  async function handleGuardar(id: string) {
+    const edicion = ediciones[id];
+    if (!edicion?.salida) {
+      setError("La hora de salida es obligatoria.");
+      return;
+    }
+    setGuardandoId(id);
+    setError(null);
+    const resultado = await actualizarMarcacionBreak(
+      id,
+      `${edicion.salida}:00`,
+      edicion.entrada ? `${edicion.entrada}:00` : null,
+      motivos[id]
+    );
+    setGuardandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo guardar.");
+  }
+
+  async function handleEliminar(id: string, fecha: string) {
+    if (
+      !window.confirm(
+        `¿Eliminar por completo la marcación de break del ${formatearFechaLegible(fecha)}?\n\n` +
+          `Esto libera el día -- la persona podrá volver a marcar su salida a break como si no hubiera ` +
+          `usado ninguno. Si solo quieres corregir la hora, usa "Guardar" en vez de "Eliminar".\n\n` +
+          `No se puede deshacer.`
+      )
+    )
+      return;
+    setEliminandoId(id);
+    setError(null);
+    const resultado = await eliminarMarcacionBreak(id, motivos[id]);
+    setEliminandoId(null);
+    if (resultado.exito) cargar();
+    else setError(resultado.mensaje || "No se pudo eliminar.");
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Persona</label>
+          <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)} className={clasesInput}>
+            <option value="">Selecciona...</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre} ({u.rol})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Desde</label>
+          <input
+            type="date"
+            value={desde}
+            max={hasta}
+            onChange={(e) => setDesde(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Hasta</label>
+          <input
+            type="date"
+            value={hasta}
+            min={desde}
+            max={hoyPeru()}
+            onChange={(e) => setHasta(e.target.value)}
+            className={clasesInput}
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-marca-rojoclaro text-xs font-bold mb-2">{error}</p>}
+      {cargando && <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>}
+
+      {!cargando && usuarioId && registros.length === 0 && (
+        <p className="text-marca-tenue text-sm italic">Sin marcaciones de break en ese rango.</p>
+      )}
+      {!usuarioId && <p className="text-marca-tenue text-sm italic">Selecciona una persona.</p>}
+
+      {!cargando && registros.length > 0 && (
+        <div className="space-y-2">
+          {registros.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-wrap items-end gap-3 bg-marca-fondo border border-marca-borde rounded-[3px] p-3"
+            >
+              <div className="text-marca-textofuerte text-xs font-bold capitalize min-w-[120px]">
+                {formatearFechaLegible(r.fecha)}
+              </div>
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Salida</label>
+                <input
+                  type="time"
+                  value={ediciones[r.id]?.salida ?? ""}
+                  onChange={(e) =>
+                    setEdiciones((prev) => ({
+                      ...prev,
+                      [r.id]: { ...prev[r.id], salida: e.target.value },
+                    }))
+                  }
+                  className={clasesInputChico}
+                />
+              </div>
+              <div>
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Entrada (vacío = sigue en break)
+                </label>
+                <input
+                  type="time"
+                  value={ediciones[r.id]?.entrada ?? ""}
+                  onChange={(e) =>
+                    setEdiciones((prev) => ({
+                      ...prev,
+                      [r.id]: { ...prev[r.id], entrada: e.target.value },
+                    }))
+                  }
+                  className={clasesInputChico}
+                />
+              </div>
+              <div className="min-w-[160px] flex-1">
+                <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                  Motivo (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={motivos[r.id] ?? ""}
+                  onChange={(e) => setMotivos((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                  placeholder="Ej. Marcó la salida equivocada, se corrige con la hora real"
                   className={clasesInputChico + " w-full"}
                 />
               </div>
@@ -1807,6 +2009,18 @@ export function BloqueAsistencia() {
       descripcion="Corrige la hora de ingreso/salida, o elimina el registro si fue una prueba."
     >
       <SeccionAsistencia />
+    </SeccionColapsable>
+  );
+}
+
+export function BloqueMarcacionesBreak() {
+  return (
+    <SeccionColapsable
+      titulo="Marcaciones de break"
+      icono={<Coffee />}
+      descripcion="Corrige la hora de salida/entrada de break, o elimina el registro para liberar el día (ej. si marcó la salida equivocada)."
+    >
+      <SeccionMarcacionesBreak />
     </SeccionColapsable>
   );
 }
