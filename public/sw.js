@@ -1,0 +1,42 @@
+// Service Worker de notificaciones push -- vive aparte de la app en sí, por
+// eso puede recibir un "push" y mostrar una notificación del sistema aunque
+// la pestaña/app esté cerrada o la pantalla apagada. No cachea nada ni
+// intercepta peticiones: solo atiende push y el toque sobre la notificación.
+
+self.addEventListener("push", (evento) => {
+  let datos = { titulo: "Shimaya", cuerpo: "Tienes un recordatorio pendiente.", url: "/" };
+  try {
+    if (evento.data) datos = { ...datos, ...evento.data.json() };
+  } catch {
+    // Si el payload no es JSON válido, se usa el texto por defecto de arriba.
+  }
+
+  evento.waitUntil(
+    self.registration.showNotification(datos.titulo, {
+      body: datos.cuerpo,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      vibrate: [200, 100, 200],
+      data: { url: datos.url },
+      tag: "shimaya-recordatorio",
+    })
+  );
+});
+
+// Al tocar la notificación: si ya hay una pestaña de la app abierta, la
+// enfoca; si no, abre una nueva.
+self.addEventListener("notificationclick", (evento) => {
+  evento.notification.close();
+  const url = evento.notification.data?.url || "/";
+
+  evento.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((listaClientes) => {
+      for (const cliente of listaClientes) {
+        if (cliente.url.includes(self.location.origin) && "focus" in cliente) {
+          return cliente.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

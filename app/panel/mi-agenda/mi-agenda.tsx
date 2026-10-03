@@ -6,6 +6,7 @@ import { obtenerAgenda, crearNota, alternarCumplida, eliminarNota, type NotaAgen
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoLogro, reproducirSonidoExito } from "@/lib/sonido";
 import EstadoVacio from "../estado-vacio";
+import NotificacionesToggle from "./notificaciones-toggle";
 
 const TEXTO_MAXIMO = 500;
 const TAMANO_MAXIMO_DOCUMENTO_MB = 10;
@@ -407,6 +408,7 @@ export default function MiAgenda() {
 
   return (
     <div className="space-y-4 relative min-h-[60vh]">
+      <NotificacionesToggle />
       {cargando && <p className="text-marca-tenue text-sm animate-pulse">Cargando tu agenda...</p>}
       {error && <p className="text-marca-rojoclaro text-sm">{error}</p>}
 
