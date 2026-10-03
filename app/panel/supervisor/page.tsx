@@ -7,6 +7,7 @@ import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import EncuestasPendientes from "../encuestas/encuestas-pendientes";
 import MisPuntosWidget from "../mis-puntos-widget";
+import BreakWidget from "../break-widget";
 import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
 import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "./actions";
@@ -51,6 +52,7 @@ export default async function PanelSupervisor() {
           <EncuestasPendientes />
           <PerfilBanner cargarPerfil={obtenerMiPerfil} />
           <MisPuntosWidget />
+          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),

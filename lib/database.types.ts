@@ -1024,6 +1024,53 @@ export type Database = {
         }
         Relationships: []
       }
+      marcaciones_break: {
+        Row: {
+          aviso_5min_enviado: boolean
+          created_at: string
+          fecha: string
+          foto_entrada_blob: string | null
+          foto_salida_blob: string | null
+          hora_entrada: string | null
+          hora_limite: string
+          hora_salida: string
+          id: string
+          usuario_id: string
+        }
+        Insert: {
+          aviso_5min_enviado?: boolean
+          created_at?: string
+          fecha: string
+          foto_entrada_blob?: string | null
+          foto_salida_blob?: string | null
+          hora_entrada?: string | null
+          hora_limite: string
+          hora_salida: string
+          id?: string
+          usuario_id: string
+        }
+        Update: {
+          aviso_5min_enviado?: boolean
+          created_at?: string
+          fecha?: string
+          foto_entrada_blob?: string | null
+          foto_salida_blob?: string | null
+          hora_entrada?: string | null
+          hora_limite?: string
+          hora_salida?: string
+          id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marcaciones_break_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notificaciones_estado: {
         Row: {
           usuario_id: string

@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -17,6 +17,8 @@ import EncuestasCoordinador from "./encuestas";
 import Reportes from "./reportes";
 import HistorialMonitoreo from "./historial-monitoreo";
 import MisPuntosWidget from "../mis-puntos-widget";
+import BreakWidget from "../break-widget";
+import MarcacionesBreakEquipo from "./marcaciones-break-equipo";
 import EventosDeHoy from "../eventos-hoy";
 import {
   LazyRegistro as Registro,
@@ -71,6 +73,7 @@ export default function PanelTabs({
       contenido: (
         <div className="space-y-6">
           <MisPuntosWidget />
+          <BreakWidget />
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
@@ -114,6 +117,12 @@ export default function PanelTabs({
       contenido: <Calendario modo="completo" hoy={hoyPeru()} />,
     },
     { id: "auditorias", etiqueta: "Auditorías", icono: <Search className="w-4 h-4" />, contenido: <AuditoriasPanel esAdmin puedeAuditar /> },
+    {
+      id: "marcaciones-break",
+      etiqueta: "Marcaciones de Break",
+      icono: <Coffee className="w-4 h-4" />,
+      contenido: <MarcacionesBreakEquipo />,
+    },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
     {
       id: "perfil",

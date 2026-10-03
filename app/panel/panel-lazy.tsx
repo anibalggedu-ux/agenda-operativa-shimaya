@@ -73,6 +73,11 @@ export const LazyEncuestasCoordinador = dynamic(() => import("./coordinador/encu
   loading: cargando,
 });
 
+export const LazyMarcacionesBreakEquipo = dynamic(() => import("./coordinador/marcaciones-break-equipo"), {
+  ssr: false,
+  loading: cargando,
+});
+
 // Vive en la barra superior (junto a Recargar/Tema) -- un "Cargando..." ahí
 // se ve fuera de lugar, así que no muestra nada mientras carga el bundle.
 export const LazyCampanaNotificaciones = dynamic(() => import("./historias/campana-notificaciones"), {
