@@ -147,7 +147,7 @@ export default function PanelTabs({
       }
       encabezado={
         <div className="space-y-4 mb-4">
-          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-marca-textofuerte tracking-wide">
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol}>
@@ -158,7 +158,7 @@ export default function PanelTabs({
       }
       encabezadoGaleria={
         <div className="space-y-4 mb-4">
-          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-marca-textofuerte tracking-wide">
             Central <span className="text-marca-rojoclaro italic">Coordinación</span>
           </h1>
           <ResumenDelDia nombre={nombre} rol={rol} ocultarTarjetas />

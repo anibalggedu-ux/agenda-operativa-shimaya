@@ -39,6 +39,8 @@ import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib
 import { formatearFechaLegible } from "@/lib/fechas";
 import { puntajeItem, textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist } from "@/lib/checklist-puntaje";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
+import { ContadorPorcentaje } from "../contador-numero";
+import EstadoVacio from "../estado-vacio";
 
 function formatearValor(tipo: string, valor: any): string {
   if (valor === null || valor === undefined || valor === "") return "—";
@@ -104,13 +106,24 @@ function claseBadgeClasificacion(clasificacion: string | null): string {
   }
 }
 
-function BadgePuntaje({ porcentaje, clasificacion }: { porcentaje: number | null; clasificacion: string | null }) {
+function BadgePuntaje({
+  porcentaje,
+  clasificacion,
+  animar,
+}: {
+  porcentaje: number | null;
+  clasificacion: string | null;
+  // Solo al abrir el detalle de un checklist: el % cuenta hacia arriba con
+  // el color siguiéndolo (rojo → ámbar → verde), en vez de aparecer ya
+  // pintado -- en la lista se deja estático para no animar decenas a la vez.
+  animar?: boolean;
+}) {
   if (porcentaje === null) {
     return <span className="text-[11px] text-marca-tenue border border-dashed border-marca-borde px-2.5 py-1 rounded-full">Sin puntaje</span>;
   }
   return (
     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${claseBadgeClasificacion(clasificacion)}`}>
-      {porcentaje}% · {clasificacion}
+      {animar ? <ContadorPorcentaje valor={porcentaje} /> : `${porcentaje}%`} · {clasificacion}
     </span>
   );
 }
@@ -191,7 +204,7 @@ function DetalleChecklist({
                 </p>
               )}
               <div className="mt-1.5">
-                <BadgePuntaje porcentaje={detalle.porcentaje} clasificacion={detalle.clasificacion} />
+                <BadgePuntaje porcentaje={detalle.porcentaje} clasificacion={detalle.clasificacion} animar />
               </div>
               {textoPuntajesArea(detalle.areas) && (
                 <p className="text-marca-tenue text-[11px] font-bold mt-1">{textoPuntajesArea(detalle.areas)}</p>
@@ -393,9 +406,7 @@ export default function ChecklistVisitaAnalitica({
         </h3>
         <p className="text-marca-tenue text-[11px] mb-4">Actividad en el rango seleccionado, en toda la red.</p>
         {datos.checklistsPorDia.length === 0 ? (
-          <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists enviados en este rango de fechas.
-          </p>
+          <EstadoVacio mensaje="No hay checklists enviados en este rango de fechas." />
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={datos.checklistsPorDia}>
@@ -436,9 +447,7 @@ export default function ChecklistVisitaAnalitica({
           mejorando o empeorando, sin importar cada cuánto se le hace.
         </p>
         {historialTienda.length === 0 ? (
-          <p className="text-marca-tenue text-sm italic py-6 text-center">
-            Esta tienda no tiene checklists con puntaje calculable en este rango.
-          </p>
+          <EstadoVacio mensaje="Esta tienda no tiene checklists con puntaje calculable en este rango." />
         ) : (
           <>
             <ResponsiveContainer width="100%" height={220}>
@@ -507,9 +516,7 @@ export default function ChecklistVisitaAnalitica({
             cuentan para el puntaje.
           </p>
           {datos.promedioGeneralPorTienda.length === 0 ? (
-            <p className="text-marca-tenue text-sm italic py-6 text-center">
-              No hay checklists con puntaje calculable en este rango.
-            </p>
+            <EstadoVacio mensaje="No hay checklists con puntaje calculable en este rango." />
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={datos.promedioGeneralPorTienda} margin={{ left: -10 }}>
@@ -560,9 +567,7 @@ export default function ChecklistVisitaAnalitica({
             </div>
           )}
           {datos.promedioPorSeccion.length === 0 ? (
-            <p className="text-marca-tenue text-sm italic py-6 text-center">
-              No hay preguntas puntuables respondidas en este rango.
-            </p>
+            <EstadoVacio mensaje="No hay preguntas puntuables respondidas en este rango." />
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(240, datos.promedioPorSeccion.length * 24)}>
               <BarChart data={datos.promedioPorSeccion} layout="vertical" margin={{ left: 10 }}>
@@ -599,9 +604,7 @@ export default function ChecklistVisitaAnalitica({
           distinto por tienda para diferenciarlas de un vistazo.
         </p>
         {datos.promedioGeneralPorTienda.length === 0 ? (
-          <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists con puntaje calculable en este rango.
-          </p>
+          <EstadoVacio mensaje="No hay checklists con puntaje calculable en este rango." />
         ) : (
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
@@ -676,9 +679,7 @@ export default function ChecklistVisitaAnalitica({
         </div>
 
         {filas.length === 0 ? (
-          <p className="text-marca-tenue text-sm italic py-6 text-center">
-            No hay checklists que coincidan en este rango de fechas.
-          </p>
+          <EstadoVacio mensaje="No hay checklists que coincidan en este rango de fechas." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

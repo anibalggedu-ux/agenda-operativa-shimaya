@@ -152,7 +152,7 @@ export default async function PanelSupervisor() {
       accionesExtra={<CampanaNotificaciones />}
       encabezado={
         <>
-          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-marca-textofuerte tracking-wide mb-4">
             Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
           </h1>
           <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol}>
@@ -162,7 +162,7 @@ export default async function PanelSupervisor() {
       }
       encabezadoGaleria={
         <>
-          <h1 className="font-display text-xl sm:text-2xl text-marca-textofuerte tracking-wide mb-4">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-marca-textofuerte tracking-wide mb-4">
             Panel <span className="text-marca-rojoclaro italic">Supervisor</span>
           </h1>
           <ResumenDelDia nombre={sesion.nombre} rol={sesion.rol} ocultarTarjetas />

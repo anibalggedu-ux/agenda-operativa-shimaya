@@ -96,6 +96,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
   const [fotoRecienSubida, setFotoRecienSubida] = useState<string | null>(null);
+  const [fotoRevelando, setFotoRevelando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   // Foto de historia abierta en grande (solo en el perfil de otra persona;
   // en el tuyo cada foto ya se ve grande en TarjetaFoto).
@@ -173,6 +174,8 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
       // vencimientoEstable en lib/blob-storage.ts) y el navegador mostraría
       // la anterior desde su caché: se muestra la recién subida.
       setFotoRecienSubida(dataUrl);
+      setFotoRevelando(true);
+      setTimeout(() => setFotoRevelando(false), 600);
       await cargar();
     } catch (error: any) {
       setMensaje(error.message || "No se pudo procesar la foto.");
@@ -207,9 +210,17 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
       <div className="flex items-center gap-5 aparecer">
         <div className="relative shrink-0">
           <div className="w-[88px] h-[88px] rounded-full p-[3px]" style={{ background: color }}>
-            <div className="w-full h-full rounded-full overflow-hidden border-[3px] border-marca-fondo bg-marca-superficie2 flex items-center justify-center">
+            <div
+              className={`w-full h-full rounded-full overflow-hidden border-[3px] border-marca-fondo bg-marca-superficie2 flex items-center justify-center ${
+                fotoRevelando ? "foto-revelado" : ""
+              }`}
+            >
               {fotoPerfil ? (
-                <img src={fotoPerfil} alt={`Foto de perfil de ${perfil.nombre}`} className="w-full h-full object-cover" />
+                <img
+                  src={fotoPerfil}
+                  alt={`Foto de perfil de ${perfil.nombre}`}
+                  className="foto-marca w-full h-full object-cover"
+                />
               ) : (
                 <span className="text-marca-textofuerte text-2xl font-extrabold">{iniciales(perfil.nombre)}</span>
               )}

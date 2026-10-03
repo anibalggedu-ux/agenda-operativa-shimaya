@@ -12,7 +12,7 @@ export default function OndaDorada() {
 
     function alTocar(e: PointerEvent) {
       const objetivo = (e.target as HTMLElement | null)?.closest?.(
-        "button, a, [role='button'], [role='tab'], [role='switch']"
+        "button, a, [role='button'], [role='tab'], [role='switch'], .cursor-pointer"
       );
       if (!objetivo || (objetivo as HTMLButtonElement).disabled) return;
       const onda = document.createElement("span");
