@@ -12,12 +12,23 @@ const CARPETA_HISTORIAS = "historias";
 const CARPETA_PERFILES = "perfiles";
 const CARPETA_EVIDENCIAS = "evidencias";
 
+// La app solo genera estos 3 tipos (la cámara y el canvas de compresión/
+// recorte siempre producen JPEG, pero se deja margen para PNG/WebP) -- un
+// content-type fuera de esta lista no se sube, así nadie puede guardar un
+// archivo con un tipo distinto (ej. text/html) detrás de una "foto" y que
+// el navegador lo renderice como tal al abrir el enlace firmado directo.
+const TIPOS_FOTO_PERMITIDOS = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 // Convierte un data URL ("data:image/jpeg;base64,...") en el buffer y el
 // content-type reales, tal como los produce el input de cámara del celular.
 export function decodificarFotoBase64(dataUrl: string): { buffer: Buffer; contentType: string } {
   const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
   if (!match) throw new Error("Formato de foto inválido.");
-  return { buffer: Buffer.from(match[2], "base64"), contentType: match[1] };
+  const contentType = match[1];
+  if (!TIPOS_FOTO_PERMITIDOS.has(contentType)) {
+    throw new Error("Tipo de foto no permitido.");
+  }
+  return { buffer: Buffer.from(match[2], "base64"), contentType };
 }
 
 async function subirFoto(carpeta: string, blobPath: string, dataUrl: string, permitirSobrescribir = false): Promise<void> {

@@ -20,7 +20,7 @@ import {
 import { resolverHoraLimite } from "@/lib/puntualidad";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { obtenerResumenKilometros } from "../kilometros-actions";
-import { enviarCorreo, URL_APP, type ContactoCorreo } from "@/lib/email";
+import { enviarCorreo, URL_APP, escaparHtml, type ContactoCorreo } from "@/lib/email";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { calcularRutaAuto, calcularRutasEnLotes, formatearMinutos } from "@/lib/distancia";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
@@ -676,7 +676,7 @@ export async function crearAsignacionEspecial(
           <li><strong>Tipo:</strong> ${tipo}</li>
           <li><strong>Desde:</strong> ${formatearFechaLegible(fechaInicio)}</li>
           <li><strong>Hasta:</strong> ${formatearFechaLegible(fechaFin)}</li>
-          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
+          ${motivo ? `<li><strong>Motivo:</strong> ${escaparHtml(motivo)}</li>` : ""}
         </ul>
         <p style="color:#8b8d92; font-size:12px;">Registrado por ${sesion.nombre}.</p>
       `,
@@ -797,14 +797,6 @@ export async function obtenerComunicados(): Promise<Comunicado[]> {
       encuesta,
     };
   });
-}
-
-function escaparHtml(texto: string): string {
-  return texto
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 // Encuesta rápida: la pregunta va en `mensaje` y el tipo queda fijo en
@@ -1004,7 +996,7 @@ export async function crearComunicado(
       asunto: `Nuevo comunicado: ${tipo}`,
       responderA,
       cuerpoHtml: `
-        <p>${mensaje}</p>
+        <p>${escaparHtml(mensaje)}</p>
         ${fechaEvento ? `<p><strong>Fecha del evento:</strong> ${formatearFechaLegible(fechaEvento)}</p>` : ""}
         ${
           textoHorarioEvento(horaInicio, horaFin)

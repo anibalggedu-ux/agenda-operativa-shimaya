@@ -13,7 +13,7 @@ import {
 } from "@/lib/fechas";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
-import { enviarCorreo, URL_APP } from "@/lib/email";
+import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
 import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/blob-storage";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
@@ -985,7 +985,7 @@ async function notificarCoordinadoresSolicitudDescanso(
           <li><strong>Actual:</strong> ${diasActuales.length > 0 ? diasActuales.join(" y ") : "sin descanso fijo"}</li>
           <li><strong>Solicitado:</strong> ${diasSolicitados.join(" y ") || "sin días"}</li>
           <li><strong>Desde:</strong> ${formatearFechaLegible(fechaDeseada)}</li>
-          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
+          ${motivo ? `<li><strong>Motivo:</strong> ${escaparHtml(motivo)}</li>` : ""}
         </ul>
         <p style="margin:0 0 16px;">
           <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
@@ -1026,7 +1026,7 @@ async function notificarCoordinadoresSolicitudPermiso(
         <p><strong>${nombreUsuario}</strong> pidió ${esVacaciones ? "vacaciones planificadas" : "un permiso anticipado"}:</p>
         <ul style="padding-left:18px; margin:0 0 16px;">
           <li><strong>Fechas:</strong> ${formatearFechaLegible(fechaInicio)} → ${formatearFechaLegible(fechaFin)}</li>
-          ${motivo ? `<li><strong>Motivo:</strong> ${motivo}</li>` : ""}
+          ${motivo ? `<li><strong>Motivo:</strong> ${escaparHtml(motivo)}</li>` : ""}
         </ul>
         <p style="margin:0 0 16px;">
           <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
