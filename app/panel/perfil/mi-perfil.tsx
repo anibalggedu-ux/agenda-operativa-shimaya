@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon } from "lucide-react";
+import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon, Play, Check } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -27,11 +27,15 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { calcularPresencia } from "@/lib/presencia";
 import {
+  cambiarPaquete,
   cambiarSonido,
   cambiarVibracion,
+  PAQUETES_SONIDO,
+  paqueteActivo,
   reproducirSonidoExito,
   sonidoActivado,
   vibracionActivada,
+  type PaqueteSonido,
 } from "@/lib/sonido";
 import { brasasActivadas, cambiarBrasas } from "@/lib/preferencias-visuales";
 
@@ -777,11 +781,13 @@ function AjustesSonido() {
   const [sonido, setSonido] = useState(true);
   const [vibracion, setVibracion] = useState(true);
   const [brasas, setBrasas] = useState(true);
+  const [paquete, setPaquete] = useState<PaqueteSonido>("koto");
 
   useEffect(() => {
     setSonido(sonidoActivado());
     setVibracion(vibracionActivada());
     setBrasas(brasasActivadas());
+    setPaquete(paqueteActivo());
   }, []);
 
   function alternarSonido() {
@@ -789,6 +795,12 @@ function AjustesSonido() {
     cambiarSonido(nuevo);
     setSonido(nuevo);
     if (nuevo) reproducirSonidoExito();
+  }
+
+  function elegirPaquete(id: PaqueteSonido) {
+    cambiarPaquete(id);
+    setPaquete(id);
+    reproducirSonidoExito(id);
   }
 
   function alternarVibracion() {
@@ -836,6 +848,42 @@ function AjustesSonido() {
       </div>
       <p className="text-marca-tenue text-[10px] mt-1">Solo en este celular. En iPhone no hay vibración.</p>
       <p className="text-marca-tenue text-[10px]">Brasas: puntitos dorados de fondo en Inicio. Se apagan solos si tu celular tiene &quot;reducir movimiento&quot;.</p>
+
+      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1 mt-4">Paquete de sonido</p>
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
+        {PAQUETES_SONIDO.map((p) => (
+          <div key={p.id} className="w-full flex items-center justify-between gap-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => elegirPaquete(p.id)}
+              className="flex-1 min-w-0 flex items-center gap-2.5 text-left"
+            >
+              <span
+                className={`shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  paquete === p.id ? "border-marca-rojo bg-marca-rojo" : "border-marca-borde"
+                }`}
+              >
+                {paquete === p.id && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-marca-texto text-xs font-bold">{p.etiqueta}</span>
+                <span className="block text-marca-tenue text-[10.5px] truncate">{p.descripcion}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => reproducirSonidoExito(p.id)}
+              aria-label={`Probar ${p.etiqueta}`}
+              className="shrink-0 w-8 h-8 rounded-full border border-marca-borde text-marca-tenue hover:text-marca-rojoclaro hover:border-marca-rojoclaro/50 flex items-center justify-center transition"
+            >
+              <Play className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="text-marca-tenue text-[10px] mt-1">
+        Toca ▶ para escuchar cualquiera antes de elegir. También queda guardado solo en este celular.
+      </p>
     </div>
   );
 }

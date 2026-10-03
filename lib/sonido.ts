@@ -22,6 +22,7 @@ const GANANCIA_FINAL = 1.8;
 // ---- Preferencias (por celular) ----
 const CLAVE_SIN_SONIDO = "shimaya_sin_sonido";
 const CLAVE_SIN_VIBRACION = "shimaya_sin_vibracion";
+const CLAVE_PAQUETE = "shimaya_paquete_sonido";
 
 function leerPreferencia(clave: string): boolean {
   try {
@@ -54,6 +55,45 @@ export function cambiarSonido(activado: boolean): void {
 
 export function cambiarVibracion(activada: boolean): void {
   guardarPreferencia(CLAVE_SIN_VIBRACION, !activada);
+}
+
+// ---- Paquete de sonido (por celular) ----
+// "koto" es el que sonaba siempre (cuerda pulsada con filtro); los otros 4
+// son variaciones de timbre sobre las mismas notas/ritmos ya elegidos para
+// cada evento -- solo cambia el "instrumento", no el significado de cada
+// sonido.
+export type PaqueteSonido = "koto" | "campana" | "clics" | "marimba" | "arcade";
+
+export const PAQUETES_SONIDO: { id: PaqueteSonido; etiqueta: string; descripcion: string }[] = [
+  { id: "koto", etiqueta: "Koto japonés", descripcion: "Cuerda pulsada — el de siempre." },
+  { id: "campana", etiqueta: "Campana suave", descripcion: "Tonos redondos y relajados, más cálido." },
+  { id: "clics", etiqueta: "Clics electrónicos", descripcion: "Blips cortos y discretos, estilo app moderna." },
+  { id: "marimba", etiqueta: "Marimba cálida", descripcion: "Tono de madera, percutido pero suave." },
+  { id: "arcade", etiqueta: "Arcade retro", descripcion: "8-bit, juguetón y agudo." },
+];
+
+const PARAMS_PAQUETE: Record<Exclude<PaqueteSonido, "koto">, { tipo: OscillatorType; duracion: number; volumen: number; octava: number }> = {
+  campana: { tipo: "sine", duracion: 1.8, volumen: 1, octava: 1 },
+  clics: { tipo: "square", duracion: 0.35, volumen: 0.75, octava: 1 },
+  marimba: { tipo: "triangle", duracion: 1.1, volumen: 1, octava: 1 },
+  arcade: { tipo: "square", duracion: 0.3, volumen: 0.7, octava: 1.6 },
+};
+
+export function paqueteActivo(): PaqueteSonido {
+  try {
+    const guardado = typeof window !== "undefined" ? window.localStorage.getItem(CLAVE_PAQUETE) : null;
+    return (PAQUETES_SONIDO.some((p) => p.id === guardado) ? guardado : "koto") as PaqueteSonido;
+  } catch {
+    return "koto";
+  }
+}
+
+export function cambiarPaquete(id: PaqueteSonido): void {
+  try {
+    window.localStorage.setItem(CLAVE_PAQUETE, id);
+  } catch {
+    // Sin almacenamiento (modo privado): la preferencia dura solo esta visita.
+  }
 }
 
 // ---- Audio ----
@@ -122,6 +162,32 @@ function notaKoto(
   osc.stop(inicio + duracion + 0.05);
 }
 
+// Una nota de los otros 4 paquetes: oscilador simple con una envolvente de
+// ataque/caída, sin el filtro que caracteriza al koto -- cada paquete varía
+// el tipo de onda, duración y volumen (ver PARAMS_PAQUETE) para que cada uno
+// tenga su propio carácter.
+function notaSimple(
+  ctx: AudioContext,
+  destino: AudioNode,
+  tipo: OscillatorType,
+  frecuencia: number,
+  inicio: number,
+  duracion: number,
+  volumen: number
+) {
+  const osc = ctx.createOscillator();
+  const ganancia = ctx.createGain();
+  osc.type = tipo;
+  osc.frequency.value = frecuencia;
+  ganancia.gain.setValueAtTime(0, inicio);
+  ganancia.gain.linearRampToValueAtTime(volumen, inicio + 0.015);
+  ganancia.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+  osc.connect(ganancia);
+  ganancia.connect(destino);
+  osc.start(inicio);
+  osc.stop(inicio + duracion + 0.05);
+}
+
 function vibrar(patron: number | number[]): void {
   if (!vibracionActivada()) return;
   try {
@@ -131,17 +197,35 @@ function vibrar(patron: number | number[]): void {
   }
 }
 
-function tocar(notas: number[], paso: number, vibracion: number | number[], duracion = 0.5): void {
+// paqueteForzado: solo para la vista previa en Mi Perfil (probar un paquete
+// sin cambiar todavía el guardado). En uso normal se omite y se toca con el
+// paquete activo del celular.
+function tocar(
+  notas: number[],
+  paso: number,
+  vibracion: number | number[],
+  duracion = 0.5,
+  paqueteForzado?: PaqueteSonido
+): void {
   vibrar(vibracion);
   if (!sonidoActivado()) return;
   const audio = obtenerContexto();
   if (!audio) return;
+  const paquete = paqueteForzado ?? paqueteActivo();
   try {
     const ahora = audio.ctx.currentTime + 0.02;
+    if (paquete === "koto") {
+      notas.forEach((f, i) => {
+        const inicio = ahora + i * paso;
+        notaKoto(audio.ctx, audio.destino, f, inicio, duracion, VOLUMEN_NOTA);
+        notaKoto(audio.ctx, audio.destino, f * 2, inicio, duracion * 0.8, VOLUMEN_NOTA * 0.45);
+      });
+      return;
+    }
+    const p = PARAMS_PAQUETE[paquete];
     notas.forEach((f, i) => {
       const inicio = ahora + i * paso;
-      notaKoto(audio.ctx, audio.destino, f, inicio, duracion, VOLUMEN_NOTA);
-      notaKoto(audio.ctx, audio.destino, f * 2, inicio, duracion * 0.8, VOLUMEN_NOTA * 0.45);
+      notaSimple(audio.ctx, audio.destino, p.tipo, f * p.octava, inicio, duracion * p.duracion, VOLUMEN_NOTA * p.volumen);
     });
   } catch {
     // El sonido es un plus: si el navegador lo bloquea, lo que se guardó ya
@@ -151,20 +235,20 @@ function tocar(notas: number[], paso: number, vibracion: number | number[], dura
 
 // Al guardar algo (marcar llegada/salida, reportar, votar, reaccionar,
 // comentar, publicar historia): dos notas ascendentes, Mi → La.
-export function reproducirSonidoExito(): void {
-  tocar([659, 880], 0.1, 40);
+export function reproducirSonidoExito(paqueteForzado?: PaqueteSonido): void {
+  tocar([659, 880], 0.1, 40, 0.5, paqueteForzado);
 }
 
 // Algo nuevo que llegó solo, sin que la persona hiciera nada (comentario,
 // reacción, solicitud pendiente): La → Mi, descendente.
-export function reproducirSonidoNotificacion(): void {
-  tocar([880, 659], 0.1, [60, 60, 60]);
+export function reproducirSonidoNotificacion(paqueteForzado?: PaqueteSonido): void {
+  tocar([880, 659], 0.1, [60, 60, 60], 0.5, paqueteForzado);
 }
 
 // Algo salió mal o requiere atención: Mi → Fa (el semitono de la escala
 // japonesa, tenso a propósito), más largo y con vibración marcada.
-export function reproducirSonidoAlerta(): void {
-  tocar([659, 698], 0.12, [200, 80, 200], 0.6);
+export function reproducirSonidoAlerta(paqueteForzado?: PaqueteSonido): void {
+  tocar([659, 698], 0.12, [200, 80, 200], 0.6, paqueteForzado);
 }
 
 // Premio o buen resultado (puntos recibidos, nota alta): arpegio ascendente.
@@ -172,16 +256,18 @@ export function reproducirSonidoAlerta(): void {
 // que escucha este mismo evento) — así los 4 lugares que ya llamaban a este
 // sonido (checklist Excelente, auditoría Excelente, regalo de puntos y
 // racha de historias) se benefician sin tocar cada pantalla.
-export function reproducirSonidoLogro(): void {
-  tocar([659, 698, 880, 988, 1319], 0.085, [40, 40, 40, 40, 120]);
-  try {
-    window.dispatchEvent(new Event("shimaya:celebracion"));
-  } catch {}
+export function reproducirSonidoLogro(paqueteForzado?: PaqueteSonido): void {
+  tocar([659, 698, 880, 988, 1319], 0.085, [40, 40, 40, 40, 120], 0.5, paqueteForzado);
+  if (!paqueteForzado) {
+    try {
+      window.dispatchEvent(new Event("shimaya:celebracion"));
+    } catch {}
+  }
 }
 
 // Aviso suave de algo pendiente (evento o encuesta nueva): dos La iguales.
-export function reproducirSonidoRecordatorio(): void {
-  tocar([880, 880], 0.18, [80, 100, 80]);
+export function reproducirSonidoRecordatorio(paqueteForzado?: PaqueteSonido): void {
+  tocar([880, 880], 0.18, [80, 100, 80], 0.5, paqueteForzado);
 }
 
 // El navegador no deja sonar nada hasta que la persona toca la pantalla por
