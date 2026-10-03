@@ -22,6 +22,18 @@ function dormir(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Para texto libre que alguien escribió (motivo, mensaje, fortalezas,
+// compromisos...) antes de meterlo en un cuerpoHtml armado a mano con
+// template strings -- sin esto, un "<b>" o un link falso que alguien
+// tipeé rompe el formato del correo o inyecta HTML/enlaces.
+export function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function dividirEnLotes<T>(items: T[], tamano: number): T[][] {
   const lotes: T[][] = [];
   for (let i = 0; i < items.length; i += tamano) {

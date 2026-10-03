@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirGerenteOCoordinador, obtenerSesion } from "@/lib/session";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
-import { enviarCorreo, URL_APP } from "@/lib/email";
+import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
 import { encuestaCerrada, estaEnPublicoEncuesta } from "@/lib/encuestas";
 import {
   CARITAS,
@@ -271,13 +271,6 @@ export async function obtenerResultadosEncuestas(): Promise<ResultadosEncuestaCo
   });
 }
 
-function escaparHtml(texto: string): string {
-  return texto
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 export async function crearEncuestaCompleta(
   _prevState: ResultadoAccion,

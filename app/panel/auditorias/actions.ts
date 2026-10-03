@@ -6,7 +6,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { tieneAccesoAuditoria } from "@/lib/permisos";
 import { formatearFechaLegible } from "@/lib/fechas";
-import { enviarCorreo, URL_APP } from "@/lib/email";
+import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
 
 async function exigirPuedeAuditar() {
   const sesion = await exigirSesion();
@@ -148,7 +148,7 @@ async function notificarResultadoAuditoria(
         ? `<p style="margin:16px 0 4px;"><strong>Compromisos:</strong></p><ul style="padding-left:18px; margin:0 0 16px;">${datos.compromisos
             .map(
               (c) =>
-                `<li>${c.accion || "—"} — responsable: ${c.responsable || "—"}${
+                `<li>${escaparHtml(c.accion || "—")} — responsable: ${escaparHtml(c.responsable || "—")}${
                   c.fecha ? ` — para: ${formatearFechaLegible(c.fecha)}` : ""
                 }</li>`
             )
@@ -173,7 +173,7 @@ async function notificarResultadoAuditoria(
               ? `<li><strong>Supervisor(a) de la tienda:</strong> ${nombresSupervisor.join(" y ")}</li>`
               : ""
           }
-          ${datos.lider ? `<li><strong>Líder de tienda:</strong> ${datos.lider}</li>` : ""}
+          ${datos.lider ? `<li><strong>Líder de tienda:</strong> ${escaparHtml(datos.lider)}</li>` : ""}
           <li><strong>Realizada por:</strong> ${datos.supervisorNombre}</li>
           <li><strong>Puntaje:</strong> ${datos.puntajeTotal} / ${datos.puntajeMaximo} (${datos.porcentaje}%)</li>
           <li><strong>Clasificación:</strong> ${datos.clasificacion}</li>
@@ -181,8 +181,8 @@ async function notificarResultadoAuditoria(
         <p style="margin:0 0 4px;"><strong>Por categoría:</strong></p>
         <ul style="padding-left:18px; margin:0 0 16px;">${categoriasHtml}</ul>
         ${alertasHtml}
-        ${datos.fortalezas ? `<p><strong>Fortalezas:</strong> ${datos.fortalezas}</p>` : ""}
-        ${datos.oportunidades ? `<p><strong>Oportunidades de mejora:</strong> ${datos.oportunidades}</p>` : ""}
+        ${datos.fortalezas ? `<p><strong>Fortalezas:</strong> ${escaparHtml(datos.fortalezas)}</p>` : ""}
+        ${datos.oportunidades ? `<p><strong>Oportunidades de mejora:</strong> ${escaparHtml(datos.oportunidades)}</p>` : ""}
         ${compromisosHtml}
         <p style="margin:16px 0 0;">
           <a href="${enlaceDetalle}" style="color:#e23744; font-weight:700;">Ver resultado completo →</a>
