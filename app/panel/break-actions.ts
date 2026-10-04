@@ -360,7 +360,10 @@ async function calcularPendientesBreak(fecha: string): Promise<PendienteConConta
   const diaSemana = diaSemanaPeru(fecha);
 
   const [{ data: usuarios }, { data: marcados }, { data: especiales }] = await Promise.all([
-    supabase.from("usuarios").select("id, nombre, rol, dias_descanso, email").eq("activo", true),
+    // Las cuentas de prueba (sup-generico, cap-generico, coor-generico) no
+    // marcan break de verdad -- se excluyen igual que en Índice de
+    // Interacción, por nombre.
+    supabase.from("usuarios").select("id, nombre, rol, dias_descanso, email").eq("activo", true).not("nombre", "ilike", "%generico%"),
     supabase.from("marcaciones_break").select("usuario_id").eq("fecha", fecha),
     supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", fecha).gte("fecha_fin", fecha),
   ]);
