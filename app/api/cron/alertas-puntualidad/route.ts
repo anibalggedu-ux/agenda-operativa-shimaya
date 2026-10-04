@@ -24,33 +24,48 @@ export async function GET(request: Request) {
   const diaLaboral = diaLaboralPeru();
   const horaActual = horaPeru();
 
-  const [{ data: colaboradores }, { data: asistenciaHoy }, { data: especialesHoy }, { data: permisosHoy }, { data: yaNotificados }] =
-    await Promise.all([
-      supabase
-        .from("usuarios")
-        .select("id, nombre, rol, dias_descanso, hora_limite_ingreso, horario_por_dia")
-        .eq("activo", true)
-        .in("rol", ROLES_CON_ASISTENCIA)
-        // Las cuentas de prueba (sup-generico, cap-generico, coor-generico)
-        // no marcan de verdad -- no deben disparar alertas.
-        .not("nombre", "ilike", "%generico%"),
-      supabase
-        .from("asistencia")
-        .select("usuario_id, hora_ingreso, hora_salida")
-        .eq("fecha", diaLaboral),
-      supabase
-        .from("asignaciones_especiales")
-        .select("usuario_id")
-        .lte("fecha_inicio", diaLaboral)
-        .gte("fecha_fin", diaLaboral),
-      supabase
-        .from("solicitudes_permiso")
-        .select("usuario_id")
-        .eq("estado", "aprobado")
-        .lte("fecha_inicio", diaLaboral)
-        .gte("fecha_fin", diaLaboral),
-      supabase.from("alertas_puntualidad_push").select("usuario_id").eq("fecha", diaLaboral),
-    ]);
+  const [
+    { data: colaboradores, error: errorColaboradores },
+    { data: asistenciaHoy, error: errorAsistencia },
+    { data: especialesHoy, error: errorEspeciales },
+    { data: permisosHoy, error: errorPermisos },
+    { data: yaNotificados, error: errorNotificados },
+  ] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol, dias_descanso, hora_limite_ingreso, horario_por_dia")
+      .eq("activo", true)
+      .in("rol", ROLES_CON_ASISTENCIA)
+      // Las cuentas de prueba (sup-generico, cap-generico, coor-generico)
+      // no marcan de verdad -- no deben disparar alertas.
+      .not("nombre", "ilike", "%generico%"),
+    supabase
+      .from("asistencia")
+      .select("usuario_id, hora_ingreso, hora_salida")
+      .eq("fecha", diaLaboral),
+    supabase
+      .from("asignaciones_especiales")
+      .select("usuario_id")
+      .lte("fecha_inicio", diaLaboral)
+      .gte("fecha_fin", diaLaboral),
+    supabase
+      .from("solicitudes_permiso")
+      .select("usuario_id")
+      .eq("estado", "aprobado")
+      .lte("fecha_inicio", diaLaboral)
+      .gte("fecha_fin", diaLaboral),
+    supabase.from("alertas_puntualidad_push").select("usuario_id").eq("fecha", diaLaboral),
+  ]);
+
+  // Si alguna consulta falla (ej. un hipo momentáneo de conexión), antes se
+  // seguía igual con esos datos como [] -- y una tabla de asistencia "vacía"
+  // hace ver a TODO el mundo como que no marcó llegada, mandando alertas
+  // falsas en masa. Mejor no avisar nada esta corrida que avisar mal.
+  const error = errorColaboradores || errorAsistencia || errorEspeciales || errorPermisos || errorNotificados;
+  if (error) {
+    console.error("alertas-puntualidad: no se pudo leer los datos de hoy, se omite esta corrida:", error);
+    return NextResponse.json({ ok: false, avisados: 0, error: "No se pudo leer los datos de hoy." }, { status: 500 });
+  }
 
   if (!colaboradores || colaboradores.length === 0) {
     return NextResponse.json({ ok: true, avisados: 0 });
