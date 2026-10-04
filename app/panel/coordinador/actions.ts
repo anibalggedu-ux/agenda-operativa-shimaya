@@ -1794,7 +1794,7 @@ export async function obtenerHistorialPersona(
       .order("fecha_inicio", { ascending: true }),
     supabase
       .from("marcaciones_break")
-      .select("fecha, hora_salida, hora_limite, hora_entrada")
+      .select("fecha, hora_salida, hora_limite, hora_entrada, no_salio")
       .eq("usuario_id", usuarioId)
       .gte("fecha", desde)
       .lte("fecha", hasta),
@@ -1862,22 +1862,24 @@ export async function obtenerHistorialPersona(
     .filter((m) => m.hora_ingreso && m.fecha >= FECHA_INICIO_INCIDENCIAS_BREAK)
     .forEach((m) => {
       const b = breakPorFecha.get(m.fecha);
-      if (!b) {
-        incidenciasBreak.push({ fecha: m.fecha, detalle: "No marcó su break." });
+      // Un "no salió al break" declarado a propósito no es una incidencia --
+      // es justo lo contrario: la persona avisó en vez de dejarlo en blanco.
+      if (!b || b.no_salio) {
+        if (!b) incidenciasBreak.push({ fecha: m.fecha, detalle: "No marcó su break." });
         return;
       }
       if (!b.hora_entrada) {
         incidenciasBreak.push({
           fecha: m.fecha,
-          detalle: `Salió a break a las ${b.hora_salida.slice(0, 5)} y no marcó su entrada.`,
+          detalle: `Salió a break a las ${b.hora_salida!.slice(0, 5)} y no marcó su entrada.`,
         });
         return;
       }
-      const minutosPasados = minutosEntre(b.hora_limite, b.hora_entrada);
+      const minutosPasados = minutosEntre(b.hora_limite!, b.hora_entrada);
       if (minutosPasados > 0) {
         incidenciasBreak.push({
           fecha: m.fecha,
-          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite.slice(0, 5)}).`,
+          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite!.slice(0, 5)}).`,
         });
       }
     });

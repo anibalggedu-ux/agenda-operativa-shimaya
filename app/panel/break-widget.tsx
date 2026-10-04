@@ -9,6 +9,7 @@ import {
   obtenerMisUltimosBreaks,
   marcarSalidaBreak,
   marcarEntradaBreak,
+  marcarNoSalioBreak,
   avisarCincoMinutosBreak,
   type BreakHoy,
   type BreakHistorial,
@@ -88,9 +89,11 @@ export default function BreakWidget() {
 
   // en_curso: ya salió a break y todavía no marca entrada -- ahí se muestra
   // el cronómetro. completado: ya usó su único break del día -- queda
-  // bloqueado, no se deja abrir otro.
-  const activo = hoy && !hoy.horaEntrada ? hoy : null;
+  // bloqueado, no se deja abrir otro. noSalioHoy: declaró que hoy no sale a
+  // break -- no bloquea cambiar de opinión (ver marcarSalidaBreak).
+  const activo = hoy && !hoy.horaEntrada && !hoy.noSalio ? hoy : null;
   const completadoHoy = hoy && hoy.horaEntrada ? hoy : null;
+  const noSalioHoy = hoy && hoy.noSalio ? hoy : null;
 
   function cargar() {
     obtenerMiBreakDeHoy().then(setHoy);
@@ -102,7 +105,7 @@ export default function BreakWidget() {
   useEffect(() => {
     if (!activo) return;
     avisoEnviado.current = false;
-    const actualizar = () => setRestantes(segundosRestantes(activo.horaLimite));
+    const actualizar = () => setRestantes(segundosRestantes(activo.horaLimite!));
     actualizar();
     const intervalo = setInterval(actualizar, 1000);
     return () => clearInterval(intervalo);
@@ -163,10 +166,24 @@ export default function BreakWidget() {
     }
   }
 
+  async function handleNoSalio() {
+    setMensaje(null);
+    setEnviando(true);
+    try {
+      const resultado = await marcarNoSalioBreak();
+      setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
+      if (resultado.exito) cargar();
+    } catch (err: any) {
+      setMensaje({ texto: err?.message || "No se pudo registrar.", exito: false });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   if (hoy === undefined) return null;
 
   const vencido = restantes <= 0;
-  const duracionSeg = activo ? duracionSegundos(activo.horaSalida, activo.horaLimite) : 0;
+  const duracionSeg = activo ? duracionSegundos(activo.horaSalida!, activo.horaLimite!) : 0;
   const porcentaje = activo ? Math.max(0, Math.min(100, (1 - restantes / duracionSeg) * 100)) : 0;
   const colorAnillo = vencido ? "211 30 43" : "217 178 106";
   // Últimos 5 min o ya pasado de hora: el halo de "calor" detrás del anillo
@@ -190,11 +207,31 @@ export default function BreakWidget() {
             <div>
               <p className="text-[11.5px] font-bold text-marca-texto">Ya usaste tu break de hoy</p>
               <p className="text-[10.5px] text-marca-tenue">
-                {horaATexto(completadoHoy.horaSalida)} → {horaATexto(completadoHoy.horaEntrada!)}
+                {horaATexto(completadoHoy.horaSalida!)} → {horaATexto(completadoHoy.horaEntrada!)}
                 {completadoHoy.sePaso ? ` · se pasó ${completadoHoy.minutosPasados} min` : " · a tiempo"}
               </p>
             </div>
           </div>
+        </>
+      ) : noSalioHoy ? (
+        <>
+          <p className="self-start text-xs font-black tracking-widest text-marca-tenue uppercase">Mi Break</p>
+          <div className="w-full bg-marca-superficie2 border border-marca-borde rounded-xl p-4 flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-marca-tenue shrink-0" />
+            <div>
+              <p className="text-[11.5px] font-bold text-marca-texto">Hoy no saliste a break</p>
+              <p className="text-[10.5px] text-marca-tenue">Quedó registrado.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => inputSalida.current?.click()}
+            disabled={enviando}
+            className="w-full flex items-center justify-center gap-2 border border-marca-borde hover:border-marca-rojoclaro disabled:opacity-50 text-marca-tenue font-bold py-2.5 rounded-full text-[11px] tracking-widest uppercase transition"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            {enviando ? "Guardando..." : "Mejor sí salgo a break"}
+          </button>
         </>
       ) : !activo ? (
         <>
@@ -217,6 +254,14 @@ export default function BreakWidget() {
               )}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleNoSalio}
+            disabled={enviando || confirmado}
+            className="w-full text-center text-[10.5px] font-bold text-marca-tenue hover:text-marca-texto underline underline-offset-2 disabled:opacity-50 transition"
+          >
+            No salí al break
+          </button>
         </>
       ) : (
         <>
@@ -241,8 +286,8 @@ export default function BreakWidget() {
             </div>
           </div>
           <p className="text-[11.5px] text-marca-texto text-center">
-            Saliste a las <b>{horaATexto(activo.horaSalida)}</b> · vuelve antes de las{" "}
-            <b className={vencido ? "text-marca-rojoclaro" : "text-oro"}>{horaATexto(activo.horaLimite)}</b>
+            Saliste a las <b>{horaATexto(activo.horaSalida!)}</b> · vuelve antes de las{" "}
+            <b className={vencido ? "text-marca-rojoclaro" : "text-oro"}>{horaATexto(activo.horaLimite!)}</b>
           </p>
           <div className="relative w-full">
             {confirmado && <span className="confirmacion-anillo" />}

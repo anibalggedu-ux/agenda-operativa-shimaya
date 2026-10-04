@@ -74,12 +74,16 @@ export default function MarcacionesBreakEquipo() {
             key={b.id}
             className="bg-marca-superficie rounded-2xl border border-marca-borde overflow-hidden"
             style={{
-              borderLeft: `4px solid ${b.enCurso ? "rgb(217 178 106)" : b.sePaso ? "rgb(211 30 43)" : "rgb(74 222 128)"}`,
+              borderLeft: `4px solid ${
+                b.noSalio ? "rgb(139 141 146)" : b.enCurso ? "rgb(217 178 106)" : b.sePaso ? "rgb(211 30 43)" : "rgb(74 222 128)"
+              }`,
             }}
           >
             <div className="px-3.5 pt-3 flex items-center justify-between">
               <p className="text-marca-textofuerte font-black text-sm">{b.usuarioNombre}</p>
-              {b.enCurso ? (
+              {b.noSalio ? (
+                <span className="text-[10px] font-black text-marca-tenue uppercase">No salió</span>
+              ) : b.enCurso ? (
                 <span className="text-[10px] font-black text-oro uppercase">En break</span>
               ) : b.sePaso ? (
                 <span className="text-[10px] font-black text-marca-rojoclaro uppercase">+{b.minutosPasados} min</span>
@@ -87,24 +91,30 @@ export default function MarcacionesBreakEquipo() {
                 <span className="text-[10px] font-black text-emerald-400 uppercase">A tiempo</span>
               )}
             </div>
-            <div className="px-3.5 pb-3.5 pt-2 flex gap-2.5">
-              <div className="flex-1 flex flex-col gap-1">
-                <Foto url={b.fotoSalidaUrl} rota={false} />
-                <p className="text-[10px] text-marca-tenue text-center">Salida · {horaATexto(b.horaSalida)}</p>
+            {b.noSalio ? (
+              <p className="px-3.5 pb-3.5 pt-2 text-[11px] text-marca-tenue">Quedó registrado que no salió a break este día.</p>
+            ) : (
+              <div className="px-3.5 pb-3.5 pt-2 flex gap-2.5">
+                <div className="flex-1 flex flex-col gap-1">
+                  <Foto url={b.fotoSalidaUrl} rota={false} />
+                  <p className="text-[10px] text-marca-tenue text-center">
+                    Salida · {b.horaSalida ? horaATexto(b.horaSalida) : "—"}
+                  </p>
+                </div>
+                <div className="flex-1 flex flex-col gap-1">
+                  {b.enCurso ? (
+                    <div className="h-24 rounded-lg border border-dashed border-marca-oro/40 flex items-center justify-center">
+                      <p className="text-[10px] text-marca-tenue">Esperando entrada…</p>
+                    </div>
+                  ) : (
+                    <Foto url={b.fotoEntradaUrl} rota={b.sePaso} />
+                  )}
+                  <p className={`text-[10px] text-center ${b.sePaso ? "text-marca-rojoclaro font-bold" : "text-marca-tenue"}`}>
+                    Entrada · {b.horaEntrada ? horaATexto(b.horaEntrada) : "—"}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 flex flex-col gap-1">
-                {b.enCurso ? (
-                  <div className="h-24 rounded-lg border border-dashed border-marca-oro/40 flex items-center justify-center">
-                    <p className="text-[10px] text-marca-tenue">Esperando entrada…</p>
-                  </div>
-                ) : (
-                  <Foto url={b.fotoEntradaUrl} rota={b.sePaso} />
-                )}
-                <p className={`text-[10px] text-center ${b.sePaso ? "text-marca-rojoclaro font-bold" : "text-marca-tenue"}`}>
-                  Entrada · {b.horaEntrada ? horaATexto(b.horaEntrada) : "—"}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         ))}
       </div>

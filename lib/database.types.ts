@@ -1140,9 +1140,10 @@ export type Database = {
           foto_entrada_blob: string | null
           foto_salida_blob: string | null
           hora_entrada: string | null
-          hora_limite: string
-          hora_salida: string
+          hora_limite: string | null
+          hora_salida: string | null
           id: string
+          no_salio: boolean
           usuario_id: string
         }
         Insert: {
@@ -1152,9 +1153,10 @@ export type Database = {
           foto_entrada_blob?: string | null
           foto_salida_blob?: string | null
           hora_entrada?: string | null
-          hora_limite: string
-          hora_salida: string
+          hora_limite?: string | null
+          hora_salida?: string | null
           id?: string
+          no_salio?: boolean
           usuario_id: string
         }
         Update: {
@@ -1164,9 +1166,10 @@ export type Database = {
           foto_entrada_blob?: string | null
           foto_salida_blob?: string | null
           hora_entrada?: string | null
-          hora_limite?: string
-          hora_salida?: string
+          hora_limite?: string | null
+          hora_salida?: string | null
           id?: string
+          no_salio?: boolean
           usuario_id?: string
         }
         Relationships: [
