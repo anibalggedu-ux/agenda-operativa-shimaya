@@ -2,23 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
-import {
-  obtenerClavePublicaPush,
-  guardarSuscripcionPush,
-  eliminarSuscripcionPush,
-  tieneSuscripcionPush,
-} from "../notificaciones-push-actions";
-
-// La clave pública VAPID viaja en base64url; el navegador la necesita como
-// bytes para pushManager.subscribe().
-function base64UrlABytes(base64Url: string): Uint8Array {
-  const relleno = "=".repeat((4 - (base64Url.length % 4)) % 4);
-  const base64 = (base64Url + relleno).replace(/-/g, "+").replace(/_/g, "/");
-  const binario = atob(base64);
-  const bytes = new Uint8Array(binario.length);
-  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
-  return bytes;
-}
+import { eliminarSuscripcionPush, tieneSuscripcionPush } from "../notificaciones-push-actions";
+import { activarNotificacionesPush, soportaPush } from "../push-cliente";
 
 // Banner para activar notificaciones push reales (suenan aunque la app esté
 // cerrada o la pantalla apagada) -- a diferencia de RecordatorioChecker, que
@@ -32,7 +17,7 @@ export default function NotificacionesToggle() {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
-    const soporta = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+    const soporta = soportaPush();
     setSoportado(soporta);
     if (!soporta) return;
 
@@ -51,30 +36,7 @@ export default function NotificacionesToggle() {
     setCargando(true);
     setMensaje(null);
     try {
-      const permiso = await Notification.requestPermission();
-      if (permiso !== "granted") {
-        setMensaje("No diste el permiso -- puedes activarlo luego desde los ajustes del navegador.");
-        return;
-      }
-      const clave = await obtenerClavePublicaPush();
-      if (!clave) {
-        setMensaje("Las notificaciones no están configuradas todavía.");
-        return;
-      }
-      const registro = await navigator.serviceWorker.register("/sw.js");
-      let sub = await registro.pushManager.getSubscription();
-      if (!sub) {
-        sub = await registro.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: base64UrlABytes(clave) as BufferSource,
-        });
-      }
-      const json = sub.toJSON();
-      if (!json.keys?.p256dh || !json.keys?.auth) {
-        setMensaje("No se pudo activar las notificaciones.");
-        return;
-      }
-      const resultado = await guardarSuscripcionPush(sub.endpoint, json.keys.p256dh, json.keys.auth);
+      const resultado = await activarNotificacionesPush();
       if (resultado.exito) setActivo(true);
       else setMensaje(resultado.mensaje || "No se pudo activar.");
     } catch (err: any) {

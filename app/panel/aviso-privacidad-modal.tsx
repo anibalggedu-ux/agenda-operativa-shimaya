@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { obtenerEstadoConsentimiento, aceptarAvisoPrivacidad } from "./aviso-privacidad-actions";
+import { activarNotificacionesPush } from "./push-cliente";
 
 // Pantalla de consentimiento obligatoria (Ley N.° 29733) — se muestra una
 // sola vez por usuario, la primera vez que entra después de este cambio.
@@ -26,7 +27,13 @@ export default function AvisoPrivacidadModal() {
     setEnviando(true);
     setError(null);
     try {
-      const resultado = await aceptarAvisoPrivacidad();
+      // activarNotificacionesPush() se dispara aquí mismo, antes de cualquier
+      // await, para no perder el gesto del usuario (click) que el navegador
+      // exige para mostrar el permiso de notificaciones -- si se pidiera
+      // después de esperar a aceptarAvisoPrivacidad(), algunos navegadores lo
+      // bloquean en silencio. Es best-effort: que falle no debe impedir
+      // aceptar el aviso (ej. navegador sin soporte push, o permiso denegado).
+      const [resultado] = await Promise.all([aceptarAvisoPrivacidad(), activarNotificacionesPush().catch(() => null)]);
       if (resultado.exito) {
         setMostrar(false);
       } else {
@@ -71,6 +78,11 @@ export default function AvisoPrivacidadModal() {
             son personales e intransferibles — no los compartas con nadie. El contenido interno de la app (fotos,
             videos, reportes, checklists y auditorías) es de uso exclusivo del equipo y no debe compartirse,
             descargarse ni difundirse fuera de la empresa.
+          </p>
+          <p>
+            <span className="text-marca-texto font-semibold">Notificaciones:</span> al aceptar, se activarán las
+            notificaciones push en este dispositivo (recordatorios, anuncios, rutas y alertas del equipo) — puedes
+            desactivarlas luego desde Mi Agenda.
           </p>
         </div>
 
