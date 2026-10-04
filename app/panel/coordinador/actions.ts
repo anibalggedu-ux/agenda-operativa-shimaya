@@ -613,6 +613,14 @@ export async function eliminarRutaActiva(id: string): Promise<ResultadoAccion> {
   if (error) return { exito: false, mensaje: "No se pudo cancelar la ruta." };
 
   if (ruta) {
+    await notificarPorPush(async () => {
+      const { data: tienda } = await supabase.from("tiendas").select("nombre").eq("id", ruta.tienda_id).maybeSingle();
+      await notificarPush([ruta.usuario_id], {
+        titulo: "🚫 Ruta cancelada",
+        cuerpo: `${tienda?.nombre ?? "Tu ruta"} · ${formatearFechaLegible(ruta.fecha_planificada)}`,
+      });
+    });
+
     await notificarPorCorreo(() =>
       enviarCorreoRutaCancelada(supabase, sesion, ruta.usuario_id, ruta.tienda_id, ruta.fecha_planificada)
     );
@@ -1409,6 +1417,13 @@ export async function responderSolicitudDescanso(
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
 
+  await notificarPorPush(() =>
+    notificarPush([solicitud.usuario_id], {
+      titulo: aprobar ? "✅ Descanso aprobado" : "❌ Descanso rechazado",
+      cuerpo: `Tu solicitud de descanso fue ${aprobar ? "aprobada" : "rechazada"} por ${sesion.nombre}.`,
+    })
+  );
+
   await notificarPorCorreo(async () => {
     const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
     if (!contacto?.email) return;
@@ -1532,6 +1547,17 @@ export async function responderSolicitudPermiso(
     .eq("id", id);
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
+
+  await notificarPorPush(() =>
+    notificarPush([solicitud.usuario_id], {
+      titulo: aprobar
+        ? `✅ ${esVacaciones ? "Vacaciones" : "Permiso"} aprobado`
+        : `❌ ${esVacaciones ? "Vacaciones" : "Permiso"} rechazado`,
+      cuerpo: `Tu solicitud de ${esVacaciones ? "vacaciones" : "permiso"} fue ${
+        aprobar ? "aprobada" : "rechazada"
+      } por ${sesion.nombre}.`,
+    })
+  );
 
   await notificarPorCorreo(async () => {
     const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
