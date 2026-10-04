@@ -616,6 +616,10 @@ export async function obtenerMarcacionesBreakParaCorregir(
     .from("marcaciones_break")
     .select("id, fecha, hora_salida, hora_limite, hora_entrada")
     .eq("usuario_id", usuarioId)
+    // Un "no salí al break" declarado a propósito no es una marcación real
+    // que corregir -- si la persona se equivocó, puede revertirlo ella
+    // misma desde Mi Break ("Mejor sí salgo a break").
+    .eq("no_salio", false)
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false });
@@ -625,8 +629,8 @@ export async function obtenerMarcacionesBreakParaCorregir(
   return (data ?? []).map((b) => ({
     id: b.id,
     fecha: b.fecha,
-    horaSalida: b.hora_salida,
-    horaLimite: b.hora_limite,
+    horaSalida: b.hora_salida!,
+    horaLimite: b.hora_limite!,
     horaEntrada: b.hora_entrada,
   }));
 }
