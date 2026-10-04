@@ -61,6 +61,8 @@ export async function obtenerDesempenoPorPersona(
   const conteo = new Map<string, { nombre: string; rol: string; reportes: number }>();
   visitasUnicas.forEach((r: any) => {
     const nombre = r.usuarios?.nombre ?? "—";
+    // Cuentas de prueba -- no compiten en el ranking real.
+    if (/generico/i.test(nombre)) return;
     const existente = conteo.get(nombre);
     if (existente) existente.reportes += 1;
     else conteo.set(nombre, { nombre, rol: r.rol ?? "—", reportes: 1 });
@@ -101,6 +103,8 @@ export async function obtenerRankingTardanzas(
     if (r.hora_ingreso <= limite) return;
 
     const nombre = r.usuarios?.nombre ?? "—";
+    // Cuentas de prueba -- no deben aparecer en el ranking de tardanzas.
+    if (/generico/i.test(nombre)) return;
     const existente = conteo.get(nombre);
     if (existente) existente.tardanzas += 1;
     else conteo.set(nombre, { nombre, rol, tardanzas: 1 });
@@ -141,6 +145,8 @@ export async function obtenerRankingPuntualidad(
     if (r.hora_ingreso > limite) return; // llegó tarde, no cuenta como puntual
 
     const nombre = r.usuarios?.nombre ?? "—";
+    // Cuentas de prueba -- no deben aparecer en el ranking de puntualidad.
+    if (/generico/i.test(nombre)) return;
     const existente = conteo.get(nombre);
     if (existente) existente.cantidad += 1;
     else conteo.set(nombre, { nombre, rol, cantidad: 1 });
