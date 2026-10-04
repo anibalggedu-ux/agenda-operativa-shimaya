@@ -160,6 +160,35 @@ export type Database = {
           },
         ]
       }
+      alertas_puntualidad_push: {
+        Row: {
+          fecha: string
+          id: string
+          notificado_en: string
+          usuario_id: string
+        }
+        Insert: {
+          fecha: string
+          id?: string
+          notificado_en?: string
+          usuario_id: string
+        }
+        Update: {
+          fecha?: string
+          id?: string
+          notificado_en?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_puntualidad_push_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asignaciones_especiales: {
         Row: {
           created_at: string | null
