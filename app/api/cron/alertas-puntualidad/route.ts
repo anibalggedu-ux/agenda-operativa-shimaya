@@ -118,7 +118,21 @@ export async function GET(request: Request) {
     .eq("activo", true);
   const idsResponsables = (responsables ?? []).map((r) => r.id);
 
+  // Se reserva el aviso ANTES de mandarlo, una persona a la vez (no todo el
+  // lote junto al final) -- si dos corridas del cron se solapan (pg_cron
+  // puede disparar la siguiente antes de que la anterior termine), la
+  // segunda pierde la carrera al insertar (choca con el "unique" de
+  // usuario_id+fecha) y se salta esa persona en vez de mandar el push dos
+  // veces. Antes se insertaba todo el lote junto al final: un solo choque
+  // tumbaba el insert COMPLETO, así que ni siquiera quedaba registrado que
+  // ya se había avisado -- eso fue lo que pasó hoy a las 11:05am.
+  let avisados = 0;
   for (const colaborador of conProblemaHoy) {
+    const { error: errorReserva } = await supabase
+      .from("alertas_puntualidad_push")
+      .insert({ usuario_id: colaborador.id, fecha: diaLaboral });
+    if (errorReserva) continue; // otra corrida ya se la ganó -- no se avisa dos veces
+
     const registro = asistenciaPorUsuario.get(colaborador.id);
     await notificarPush(idsResponsables, {
       titulo: "🚨 Alerta de puntualidad",
@@ -126,11 +140,8 @@ export async function GET(request: Request) {
         ? `${colaborador.nombre} llegó tarde hoy.`
         : `${colaborador.nombre} todavía no marca su llegada y ya pasó su hora límite.`,
     });
+    avisados++;
   }
 
-  await supabase
-    .from("alertas_puntualidad_push")
-    .insert(conProblemaHoy.map((u) => ({ usuario_id: u.id, fecha: diaLaboral })));
-
-  return NextResponse.json({ ok: true, avisados: conProblemaHoy.length });
+  return NextResponse.json({ ok: true, avisados });
 }
