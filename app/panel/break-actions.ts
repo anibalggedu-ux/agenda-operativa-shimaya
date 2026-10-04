@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
-import { diaLaboralPeru, horaPeru, formatearHora } from "@/lib/fechas";
+import { diaLaboralPeru, horaPeru, formatearHora, diaSemanaPeru } from "@/lib/fechas";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { enviarCorreo } from "@/lib/email";
 import { notificarPush } from "@/lib/notificar-push";
@@ -345,4 +345,37 @@ export async function obtenerMarcacionesBreakEquipo(fecha?: string): Promise<Bre
       };
     })
   );
+}
+
+export type BreakPendiente = { usuarioId: string; usuarioNombre: string; rol: string };
+
+// Quién todavía no tiene ningún registro de break ese día (ni salió, ni
+// declaró "no salí") -- para que el coordinador/gerente lo tenga mapeado
+// sin tener que adivinar por ausencia en la lista de arriba. Se excluye a
+// quien ese día tiene descanso semanal o una asignación especial
+// (vacaciones, permiso, licencia, misión) vigente -- no le corresponde
+// marcar nada.
+export async function obtenerPendientesBreakEquipo(fecha?: string): Promise<BreakPendiente[]> {
+  const sesion = await exigirSesion();
+  if (sesion.rol !== "coordinador" && sesion.rol !== "gerente") throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const f = fecha ?? diaLaboralPeru();
+  const diaSemana = diaSemanaPeru(f);
+
+  const [{ data: usuarios }, { data: marcados }, { data: especiales }] = await Promise.all([
+    supabase.from("usuarios").select("id, nombre, rol, dias_descanso").eq("activo", true),
+    supabase.from("marcaciones_break").select("usuario_id").eq("fecha", f),
+    supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", f).gte("fecha_fin", f),
+  ]);
+
+  const marcadosSet = new Set((marcados ?? []).map((m) => m.usuario_id));
+  const especialesSet = new Set((especiales ?? []).map((e) => e.usuario_id));
+
+  return (usuarios ?? [])
+    .filter((u) => !marcadosSet.has(u.id))
+    .filter((u) => !especialesSet.has(u.id))
+    .filter((u) => !(u.dias_descanso ?? []).includes(diaSemana))
+    .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol }))
+    .sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre));
 }

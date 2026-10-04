@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import { obtenerMarcacionesBreakEquipo, type BreakEquipoItem } from "../break-actions";
+import { AlertTriangle, Clock } from "lucide-react";
+import {
+  obtenerMarcacionesBreakEquipo,
+  obtenerPendientesBreakEquipo,
+  type BreakEquipoItem,
+  type BreakPendiente,
+} from "../break-actions";
 import { hoyPeru } from "@/lib/fechas";
 
 function horaATexto(horaHHMMSS: string): string {
@@ -31,14 +36,19 @@ function Foto({ url, rota }: { url: string | null; rota: boolean }) {
 export default function MarcacionesBreakEquipo() {
   const [fecha, setFecha] = useState(hoyPeru());
   const [items, setItems] = useState<BreakEquipoItem[] | null>(null);
+  const [pendientes, setPendientes] = useState<BreakPendiente[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(null);
+    setPendientes(null);
     setError(null);
     obtenerMarcacionesBreakEquipo(fecha)
       .then(setItems)
       .catch((e) => setError(e?.message || "No se pudo cargar las marcaciones de break."));
+    obtenerPendientesBreakEquipo(fecha)
+      .then(setPendientes)
+      .catch(() => setPendientes([]));
   }, [fecha]);
 
   return (
@@ -60,6 +70,27 @@ export default function MarcacionesBreakEquipo() {
         <p className="flex items-center gap-1.5 text-marca-rojoclaro text-xs font-bold">
           <AlertTriangle className="w-3.5 h-3.5" /> {error}
         </p>
+      )}
+
+      {pendientes !== null && pendientes.length > 0 && (
+        <div className="bg-marca-superficie rounded-2xl border border-marca-oro/30 p-3.5">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-oro shrink-0" />
+            <p className="text-[11px] font-black tracking-widest text-oro uppercase">
+              Todavía no marcan ({pendientes.length})
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {pendientes.map((p) => (
+              <span
+                key={p.usuarioId}
+                className="text-[11px] text-marca-texto bg-marca-superficie2 border border-marca-borde rounded-full px-2.5 py-1"
+              >
+                {p.usuarioNombre}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
 
       {!error && items === null && <p className="text-marca-tenue text-sm">Cargando...</p>}
