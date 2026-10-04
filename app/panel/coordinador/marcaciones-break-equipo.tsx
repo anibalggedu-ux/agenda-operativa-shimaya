@@ -5,6 +5,7 @@ import { AlertTriangle, Clock } from "lucide-react";
 import {
   obtenerMarcacionesBreakEquipo,
   obtenerPendientesBreakEquipo,
+  avisarPendientesBreak,
   type BreakEquipoItem,
   type BreakPendiente,
 } from "../break-actions";
@@ -38,11 +39,14 @@ export default function MarcacionesBreakEquipo() {
   const [items, setItems] = useState<BreakEquipoItem[] | null>(null);
   const [pendientes, setPendientes] = useState<BreakPendiente[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [avisando, setAvisando] = useState(false);
+  const [mensajeAviso, setMensajeAviso] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(null);
     setPendientes(null);
     setError(null);
+    setMensajeAviso(null);
     obtenerMarcacionesBreakEquipo(fecha)
       .then(setItems)
       .catch((e) => setError(e?.message || "No se pudo cargar las marcaciones de break."));
@@ -50,6 +54,19 @@ export default function MarcacionesBreakEquipo() {
       .then(setPendientes)
       .catch(() => setPendientes([]));
   }, [fecha]);
+
+  async function handleAvisar() {
+    setAvisando(true);
+    setMensajeAviso(null);
+    try {
+      const resultado = await avisarPendientesBreak();
+      setMensajeAviso(`Se avisó a ${resultado.avisados} persona${resultado.avisados === 1 ? "" : "s"}.`);
+    } catch (e: any) {
+      setMensajeAviso(e?.message || "No se pudo avisar.");
+    } finally {
+      setAvisando(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -80,7 +97,7 @@ export default function MarcacionesBreakEquipo() {
               Todavía no marcan ({pendientes.length})
             </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 mb-3">
             {pendientes.map((p) => (
               <span
                 key={p.usuarioId}
@@ -90,6 +107,19 @@ export default function MarcacionesBreakEquipo() {
               </span>
             ))}
           </div>
+          {fecha === hoyPeru() && (
+            <>
+              <button
+                type="button"
+                onClick={handleAvisar}
+                disabled={avisando}
+                className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 rounded-full text-[11px] tracking-widest uppercase transition"
+              >
+                {avisando ? "Avisando..." : "Avisar a los pendientes (push + correo)"}
+              </button>
+              {mensajeAviso && <p className="text-[11px] text-marca-tenue text-center mt-2">{mensajeAviso}</p>}
+            </>
+          )}
         </div>
       )}
 
