@@ -14,6 +14,7 @@ import {
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
+import { notificarPush } from "@/lib/notificar-push";
 import { obtenerUrlTemporalFoto, subirFotoMarcacion } from "@/lib/blob-storage";
 import { calcularRutaAuto, calcularRutasEnLotes } from "@/lib/distancia";
 import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
@@ -968,9 +969,14 @@ async function notificarCoordinadoresSolicitudDescanso(
     const supabase = supabaseServer();
     const { data: coordinadores } = await supabase
       .from("usuarios")
-      .select("email")
+      .select("id, email")
       .eq("rol", "coordinador")
       .eq("activo", true);
+
+    await notificarPush(
+      (coordinadores ?? []).map((c) => c.id),
+      { titulo: "🛌 Solicitud de descanso", cuerpo: `${nombreUsuario} pidió cambiar su descanso semanal.` }
+    );
 
     const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
     if (correos.length === 0) return;
@@ -1008,14 +1014,22 @@ async function notificarCoordinadoresSolicitudPermiso(
     const supabase = supabaseServer();
     const { data: coordinadores } = await supabase
       .from("usuarios")
-      .select("email")
+      .select("id, email")
       .eq("rol", "coordinador")
       .eq("activo", true);
+
+    const esVacaciones = tipo === "Vacaciones";
+    await notificarPush(
+      (coordinadores ?? []).map((c) => c.id),
+      {
+        titulo: esVacaciones ? "🏖️ Solicitud de vacaciones" : "📝 Solicitud de permiso",
+        cuerpo: `${nombreUsuario} pidió ${esVacaciones ? "vacaciones" : "un permiso anticipado"}.`,
+      }
+    );
 
     const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
     if (correos.length === 0) return;
 
-    const esVacaciones = tipo === "Vacaciones";
     await enviarCorreo({
       para: correos,
       tituloEmoji: esVacaciones ? "🏖️" : "📝",

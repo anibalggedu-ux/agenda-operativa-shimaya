@@ -12,6 +12,7 @@ import {
   existeFotoPerfil,
 } from "@/lib/blob-storage";
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
+import { notificarPush } from "@/lib/notificar-push";
 import { hoyPeru } from "@/lib/fechas";
 
 // La historia se ve en "Historias del equipo" mientras tenga menos de 24
@@ -361,6 +362,15 @@ export async function agregarComentario(
     if (error) {
       return { exito: false, mensaje: "No se pudo publicar el comentario." };
     }
+
+    const { data: historia } = await supabase.from("historias").select("usuario_id").eq("id", historiaId).maybeSingle();
+    if (historia && historia.usuario_id !== sesion.id) {
+      await notificarPush([historia.usuario_id], {
+        titulo: "💬 Nuevo comentario",
+        cuerpo: `${sesion.nombre}: ${limpio}`,
+      });
+    }
+
     return { exito: true };
   } catch (err: any) {
     return { exito: false, mensaje: err?.message || "No se pudo publicar el comentario." };
@@ -422,6 +432,15 @@ export async function alternarReaccion(historiaId: string, emoji: string): Promi
       await supabase.from("historia_reacciones").update({ emoji }).eq("id", actual.id);
     } else {
       await supabase.from("historia_reacciones").insert({ historia_id: historiaId, usuario_id: sesion.id, emoji });
+
+      // Solo se avisa en la reacción nueva (no al cambiar de emoji ni al quitarla).
+      const { data: historia } = await supabase.from("historias").select("usuario_id").eq("id", historiaId).maybeSingle();
+      if (historia && historia.usuario_id !== sesion.id) {
+        await notificarPush([historia.usuario_id], {
+          titulo: "❤️ Nueva reacción",
+          cuerpo: `${sesion.nombre} reaccionó ${emoji} a tu foto.`,
+        });
+      }
     }
 
     const detalle = await obtenerDetalleHistoria(historiaId);
@@ -629,6 +648,11 @@ export async function regalarPuntos(historiaId: string, monto: number): Promise<
     if (error) {
       return { exito: false, mensaje: "No se pudo enviar el regalo." };
     }
+
+    await notificarPush([historia.usuario_id], {
+      titulo: "🎁 Recibiste puntos",
+      cuerpo: `${sesion.nombre} te regaló ${monto} pts por tu foto.`,
+    });
 
     return { exito: true, saldo: saldo - monto };
   } catch (err: any) {
