@@ -11,17 +11,21 @@ self.addEventListener("push", (evento) => {
     // Si el payload no es JSON válido, se usa el texto por defecto de arriba.
   }
 
-  evento.waitUntil(
-    self.registration.showNotification(datos.titulo, {
-      body: datos.cuerpo,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      vibrate: [200, 100, 200],
-      data: { url: datos.url },
-      tag: datos.tag || "shimaya-recordatorio",
-      actions: [{ action: "abrir", title: "Abrir app" }],
-    })
-  );
+  // Sin "tag" por defecto: dos notificaciones con el mismo tag se
+  // reemplazan entre sí en la bandeja (solo queda la última) en vez de
+  // apilarse -- quien manda el push puede pasar un tag a propósito cuando sí
+  // quiere ese reemplazo (ej. ir actualizando un mismo aviso).
+  const opciones = {
+    body: datos.cuerpo,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    vibrate: [200, 100, 200],
+    data: { url: datos.url },
+    actions: [{ action: "abrir", title: "Abrir app" }],
+  };
+  if (datos.tag) opciones.tag = datos.tag;
+
+  evento.waitUntil(self.registration.showNotification(datos.titulo, opciones));
 });
 
 // Al tocar la notificación O el botón "Abrir app": si ya hay una pestaña de
