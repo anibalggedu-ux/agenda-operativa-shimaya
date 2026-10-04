@@ -5,6 +5,7 @@ import { exigirSesion } from "@/lib/session";
 import { diaLaboralPeru, horaPeru, formatearHora } from "@/lib/fechas";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { enviarCorreo } from "@/lib/email";
+import { notificarPush } from "@/lib/notificar-push";
 
 // Marcación de salida/entrada del break, disponible para cualquier rol (a
 // diferencia de la Bitácora de Campo, que es solo para quien tiene
@@ -223,6 +224,11 @@ export async function avisarCincoMinutosBreak(breakId: string): Promise<void> {
     .select("hora_limite")
     .maybeSingle();
   if (!actualizado) return; // ya se había avisado, o ya marcó entrada
+
+  await notificarPush([sesion.id], {
+    titulo: "⏰ Te quedan 5 minutos de break",
+    cuerpo: `Marca tu entrada antes de las ${formatearHora(actualizado.hora_limite)}.`,
+  });
 
   const { data: usuario } = await supabase.from("usuarios").select("email").eq("id", sesion.id).maybeSingle();
   if (!usuario?.email) return;

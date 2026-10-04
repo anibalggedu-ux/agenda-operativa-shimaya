@@ -1628,6 +1628,7 @@ export type Database = {
           activo: boolean
           clave_hash: string
           consentimiento_datos_en: string | null
+          consentimiento_version: number
           created_at: string | null
           dias_descanso: string[] | null
           direccion: string | null
@@ -1653,6 +1654,7 @@ export type Database = {
           activo?: boolean
           clave_hash: string
           consentimiento_datos_en?: string | null
+          consentimiento_version?: number
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
@@ -1678,6 +1680,7 @@ export type Database = {
           activo?: boolean
           clave_hash?: string
           consentimiento_datos_en?: string | null
+          consentimiento_version?: number
           created_at?: string | null
           dias_descanso?: string[] | null
           direccion?: string | null
