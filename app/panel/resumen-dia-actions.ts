@@ -363,7 +363,9 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .from("usuarios")
       .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
       .eq("activo", true)
-      .in("rol", ROLES_CON_ASISTENCIA),
+      .in("rol", ROLES_CON_ASISTENCIA)
+      // Cuentas de prueba -- no deben generar alertas de puntualidad.
+      .not("nombre", "ilike", "%generico%"),
     supabase
       .from("asistencia")
       .select("usuario_id, fecha, hora_ingreso, hora_salida")

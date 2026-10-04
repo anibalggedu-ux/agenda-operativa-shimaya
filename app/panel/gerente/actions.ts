@@ -112,7 +112,11 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
   }
 
   const idsLeidas = new Set((alertasLeidas.data ?? []).map((a) => a.ruta_activa_id));
-  const activas = (rutasActivas.data ?? []) as any[];
+  // Cuentas de prueba (sup/cap/coor-generico) -- sus rutas de prueba no
+  // deben aparecer como "reporte atrasado" ni contar en los KPIs del gerente.
+  const activas = (rutasActivas.data ?? []).filter(
+    (r: any) => !/generico/i.test(r.usuarios?.nombre ?? "")
+  ) as any[];
   const pendientesHoy = activas.filter((r) => r.fecha_planificada === hoy);
   const atrasadas = activas.filter((r) => r.fecha_planificada < hoy && !idsLeidas.has(r.id));
 

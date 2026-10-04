@@ -30,7 +30,10 @@ export async function GET(request: Request) {
         .from("usuarios")
         .select("id, nombre, rol, dias_descanso, hora_limite_ingreso, horario_por_dia")
         .eq("activo", true)
-        .in("rol", ROLES_CON_ASISTENCIA),
+        .in("rol", ROLES_CON_ASISTENCIA)
+        // Las cuentas de prueba (sup-generico, cap-generico, coor-generico)
+        // no marcan de verdad -- no deben disparar alertas.
+        .not("nombre", "ilike", "%generico%"),
       supabase
         .from("asistencia")
         .select("usuario_id, hora_ingreso, hora_salida")
