@@ -286,6 +286,35 @@ export function reproducirAlPrimerToque(reproducir: () => void): void {
   window.addEventListener("pointerdown", alTocar, { once: true });
 }
 
+// Alarma extendida (se repite cada ~1.3s hasta duracionMs, o hasta que se
+// llame a la función que devuelve) -- para avisos que de verdad necesitan
+// llamar la atención mientras la app sigue abierta (ej. los últimos 5
+// minutos de un break), a diferencia del resto de sonidos de este archivo,
+// que suenan una sola vez. No reemplaza el sonido del push del sistema (ese
+// lo controla el teléfono, no se puede alargar desde la web).
+export function sonarAlarma(duracionMs = 10000, paqueteForzado?: PaqueteSonido): () => void {
+  let activo = true;
+  let timeoutCiclo: ReturnType<typeof setTimeout> | null = null;
+
+  function ciclo() {
+    if (!activo) return;
+    tocar([659, 698], 0.12, [200, 80, 200], 0.6, paqueteForzado);
+    timeoutCiclo = setTimeout(ciclo, 1300);
+  }
+  ciclo();
+
+  const limite = setTimeout(() => {
+    activo = false;
+    if (timeoutCiclo) clearTimeout(timeoutCiclo);
+  }, duracionMs);
+
+  return () => {
+    activo = false;
+    clearTimeout(limite);
+    if (timeoutCiclo) clearTimeout(timeoutCiclo);
+  };
+}
+
 // Recordatorio que suena una sola vez por sesión (no cada vez que se vuelve a
 // la pantalla), al primer toque. "clave" identifica qué se está recordando.
 export function recordarUnaVez(clave: string): void {
