@@ -9,16 +9,24 @@ import { enviarCorreo } from "@/lib/email";
 // de este cambio. Queda registrado en usuarios.consentimiento_datos_en
 // (NULL = todavía no aceptó) y, al aceptar, se le manda copia del aviso a
 // su correo si tiene uno registrado.
+//
+// CONSENTIMIENTO_VERSION_ACTUAL permite volver a pedirlo a TODOS cuando el
+// aviso cambia de forma relevante (ej. se agregó la activación de push) --
+// basta con subir este número: quien ya aceptó una versión anterior vuelve
+// a ver el modal, sin perder la fecha de su aceptación más reciente.
+const CONSENTIMIENTO_VERSION_ACTUAL = 2;
 
 export async function obtenerEstadoConsentimiento(): Promise<{ requiere: boolean }> {
   const sesion = await exigirSesion();
   const supabase = supabaseServer();
   const { data } = await supabase
     .from("usuarios")
-    .select("consentimiento_datos_en")
+    .select("consentimiento_datos_en, consentimiento_version")
     .eq("id", sesion.id)
     .maybeSingle();
-  return { requiere: !data?.consentimiento_datos_en };
+  return {
+    requiere: !data?.consentimiento_datos_en || (data.consentimiento_version ?? 1) < CONSENTIMIENTO_VERSION_ACTUAL,
+  };
 }
 
 const CUERPO_CORREO_AVISO = `
@@ -43,7 +51,7 @@ export async function aceptarAvisoPrivacidad(): Promise<{ exito: boolean }> {
 
   const { error } = await supabase
     .from("usuarios")
-    .update({ consentimiento_datos_en: new Date().toISOString() })
+    .update({ consentimiento_datos_en: new Date().toISOString(), consentimiento_version: CONSENTIMIENTO_VERSION_ACTUAL })
     .eq("id", sesion.id);
 
   if (error) return { exito: false };
