@@ -348,25 +348,21 @@ export async function obtenerMarcacionesBreakEquipo(fecha?: string): Promise<Bre
 }
 
 export type BreakPendiente = { usuarioId: string; usuarioNombre: string; rol: string };
+type PendienteConContacto = BreakPendiente & { email: string | null };
 
 // Quién todavía no tiene ningún registro de break ese día (ni salió, ni
-// declaró "no salí") -- para que el coordinador/gerente lo tenga mapeado
-// sin tener que adivinar por ausencia en la lista de arriba. Se excluye a
-// quien ese día tiene descanso semanal o una asignación especial
-// (vacaciones, permiso, licencia, misión) vigente -- no le corresponde
-// marcar nada.
-export async function obtenerPendientesBreakEquipo(fecha?: string): Promise<BreakPendiente[]> {
-  const sesion = await exigirSesion();
-  if (sesion.rol !== "coordinador" && sesion.rol !== "gerente") throw new Error("No autorizado.");
-
+// declaró "no salí"). Se excluye a quien ese día tiene descanso semanal o
+// una asignación especial (vacaciones, permiso, licencia, misión) vigente
+// -- no le corresponde marcar nada. Reutilizada por obtenerPendientesBreakEquipo
+// (solo lectura) y avisarPendientesBreak (push + correo).
+async function calcularPendientesBreak(fecha: string): Promise<PendienteConContacto[]> {
   const supabase = supabaseServer();
-  const f = fecha ?? diaLaboralPeru();
-  const diaSemana = diaSemanaPeru(f);
+  const diaSemana = diaSemanaPeru(fecha);
 
   const [{ data: usuarios }, { data: marcados }, { data: especiales }] = await Promise.all([
-    supabase.from("usuarios").select("id, nombre, rol, dias_descanso").eq("activo", true),
-    supabase.from("marcaciones_break").select("usuario_id").eq("fecha", f),
-    supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", f).gte("fecha_fin", f),
+    supabase.from("usuarios").select("id, nombre, rol, dias_descanso, email").eq("activo", true),
+    supabase.from("marcaciones_break").select("usuario_id").eq("fecha", fecha),
+    supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", fecha).gte("fecha_fin", fecha),
   ]);
 
   const marcadosSet = new Set((marcados ?? []).map((m) => m.usuario_id));
@@ -376,6 +372,45 @@ export async function obtenerPendientesBreakEquipo(fecha?: string): Promise<Brea
     .filter((u) => !marcadosSet.has(u.id))
     .filter((u) => !especialesSet.has(u.id))
     .filter((u) => !(u.dias_descanso ?? []).includes(diaSemana))
-    .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol }))
+    .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, email: u.email }))
     .sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre));
+}
+
+export async function obtenerPendientesBreakEquipo(fecha?: string): Promise<BreakPendiente[]> {
+  const sesion = await exigirSesion();
+  if (sesion.rol !== "coordinador" && sesion.rol !== "gerente") throw new Error("No autorizado.");
+  return calcularPendientesBreak(fecha ?? diaLaboralPeru());
+}
+
+// Manda push + correo a todos los pendientes de hoy de una sola vez --
+// botón "Avisar a los pendientes" en la vista de equipo. También la usa
+// /api/admin/avisar-pendientes-break (protegida por secreto) para poder
+// dispararla fuera de una sesión de coordinador/gerente.
+export async function avisarPendientesBreak(): Promise<{ exito: boolean; avisados: number }> {
+  const sesion = await exigirSesion();
+  if (sesion.rol !== "coordinador" && sesion.rol !== "gerente") throw new Error("No autorizado.");
+  return enviarAvisosPendientesBreak(diaLaboralPeru());
+}
+
+export async function enviarAvisosPendientesBreak(fecha: string): Promise<{ exito: boolean; avisados: number }> {
+  const pendientes = await calcularPendientesBreak(fecha);
+
+  for (const p of pendientes) {
+    await notificarPush([p.usuarioId], {
+      titulo: "⏰ No has marcado tu break",
+      cuerpo: "Marca tu salida a break cuando puedas, o avisa si hoy no vas a salir.",
+    });
+    if (p.email) {
+      await enviarCorreo({
+        para: p.email,
+        asunto: "No has marcado tu break hoy",
+        tituloEmoji: "⏰",
+        cuerpoHtml: `<p>Hola ${p.usuarioNombre.split(" ")[0]},</p>
+          <p>Todavía no registras tu break de hoy. Marca tu salida desde la app cuando puedas, o toca
+          "No salí al break" si hoy no vas a tomarlo.</p>`,
+      });
+    }
+  }
+
+  return { exito: true, avisados: pendientes.length };
 }
