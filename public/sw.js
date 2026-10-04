@@ -3,6 +3,19 @@
 // la pestaña/app esté cerrada o la pantalla apagada. No cachea nada ni
 // intercepta peticiones: solo atiende push y el toque sobre la notificación.
 
+// Sin esto, una actualización de este archivo (ej. el fix del "tag" que
+// hacía que las notificaciones se taparan entre sí) se queda instalada pero
+// "esperando" -- el navegador sigue usando la versión vieja para atender los
+// push hasta que la persona cierre la app del todo. skipWaiting()+claim()
+// fuerza a que la nueva versión tome control apenas se instala, sin esperar
+// a que se cierre nada.
+self.addEventListener("install", (evento) => {
+  evento.waitUntil(self.skipWaiting());
+});
+self.addEventListener("activate", (evento) => {
+  evento.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (evento) => {
   let datos = { titulo: "Shimaya", cuerpo: "Tienes un recordatorio pendiente.", url: "/" };
   try {
