@@ -24,6 +24,16 @@ export const HORA_LIMITE_PUNTUALIDAD: Record<string, string> = {
 // tiene horario mixto) cae a hora_limite_ingreso y luego al valor del rol,
 // como siempre. Los días de dias_descanso ni llegan a consultar esto — se
 // saltan aparte en cada lugar que ya filtra por descanso.
+// Compara solo hasta el minuto (HH:MM), ignorando segundos: alguien que
+// marca a las 11:00:00, 11:00:23 o 11:00:59 cuenta como "a tiempo" contra
+// un límite de 11:00 -- recién a partir de 11:01:00 es tardanza. Antes se
+// comparaba el HH:MM:SS completo contra el límite, así que una marcación
+// con segundos de sobra dentro del mismo minuto (ej. 11:00:03) ya contaba
+// como tarde aunque a simple vista decía "11:00am".
+export function esTarde(horaIngreso: string, limite: string): boolean {
+  return horaIngreso.slice(0, 5) > limite.slice(0, 5);
+}
+
 export function resolverHoraLimite(
   rol: string,
   horaLimitePersonalizada?: string | null,
@@ -104,8 +114,8 @@ export function calcularEstadoPuntualidad(
   } else if (esDiaExento(hoy)) {
     estadoHoy = "descanso";
   } else if (registroHoy?.horaIngreso) {
-    estadoHoy = registroHoy.horaIngreso > limiteDe(hoy)! ? "tarde" : "a_tiempo";
-  } else if (horaActual > limiteDe(hoy)!) {
+    estadoHoy = esTarde(registroHoy.horaIngreso, limiteDe(hoy)!) ? "tarde" : "a_tiempo";
+  } else if (esTarde(horaActual, limiteDe(hoy)!)) {
     estadoHoy = "pendiente_tarde";
   } else {
     estadoHoy = "pendiente";
@@ -124,7 +134,7 @@ export function calcularEstadoPuntualidad(
         continue;
       }
       const registro = asistenciaPorFecha.get(cursor);
-      const tarde = !registro?.horaIngreso || registro.horaIngreso > limiteDe(cursor)!;
+      const tarde = !registro?.horaIngreso || esTarde(registro.horaIngreso, limiteDe(cursor)!);
       if (!tarde) break;
       rachaTardanzas += 1;
       cursor = sumarDias(cursor, -1);

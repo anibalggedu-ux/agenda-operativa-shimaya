@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
 import type { ReporteHistorialItem, MarcacionHistorial } from "@/lib/generar-pdf";
-import { resolverHoraLimite } from "@/lib/puntualidad";
+import { resolverHoraLimite, esTarde } from "@/lib/puntualidad";
 import { diaSemanaPeru, hoyPeru, sumarDias } from "@/lib/fechas";
 
 export async function obtenerHistorialReportes(
@@ -68,7 +68,7 @@ export async function obtenerHistorialMarcaciones(
       fecha: a.fecha,
       horaIngreso: a.hora_ingreso,
       horaSalida: a.hora_salida,
-      tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
+      tarde: !!(limite && a.hora_ingreso && esTarde(a.hora_ingreso, limite)),
     };
   });
 }
