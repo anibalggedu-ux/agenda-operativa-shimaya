@@ -18,27 +18,40 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const usuarioId = body?.usuarioId as string | undefined;
   const videoBase64 = body?.videoBase64 as string | undefined;
+  // Alternativa a videoBase64 -- el servidor descarga el video él mismo
+  // desde esta URL (ej. un archivo público temporal en /public) en vez de
+  // recibir los bytes en el cuerpo del POST. Evita tener que mandar un
+  // archivo binario grande como string.
+  const videoUrl = body?.videoUrl as string | undefined;
   const contentType = (body?.contentType as string | undefined) || "video/webm";
   const texto = (body?.texto as string | undefined)?.trim().slice(0, 200) || null;
 
-  if (!usuarioId || !videoBase64) {
-    return NextResponse.json({ error: "Faltan parámetros (usuarioId, videoBase64)." }, { status: 400 });
+  if (!usuarioId || (!videoBase64 && !videoUrl)) {
+    return NextResponse.json({ error: "Faltan parámetros (usuarioId, y videoBase64 o videoUrl)." }, { status: 400 });
   }
 
   const supabase = supabaseServer();
   const { data: usuario } = await supabase.from("usuarios").select("id").eq("id", usuarioId).eq("activo", true).maybeSingle();
   if (!usuario) return NextResponse.json({ error: "Usuario no encontrado o inactivo." }, { status: 404 });
 
+  let buffer: Buffer;
+  if (videoUrl) {
+    const origen = await fetch(videoUrl);
+    if (!origen.ok) return NextResponse.json({ error: "No se pudo descargar el video de origen." }, { status: 502 });
+    buffer = Buffer.from(await origen.arrayBuffer());
+  } else {
+    buffer = Buffer.from(videoBase64!, "base64");
+  }
+
   const preparado = await prepararSubidaVideoHistoriaEnAlmacen(usuarioId, contentType);
   if (!preparado) {
     return NextResponse.json({ error: "La subida de video no está disponible (falta configurar el almacén)." }, { status: 500 });
   }
 
-  const buffer = Buffer.from(videoBase64, "base64");
   const subida = await fetch(preparado.urlSubida, {
     method: "PUT",
     headers: { "Content-Type": contentType },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
   if (!subida.ok) {
     return NextResponse.json({ error: "No se pudo subir el video al almacén." }, { status: 502 });
