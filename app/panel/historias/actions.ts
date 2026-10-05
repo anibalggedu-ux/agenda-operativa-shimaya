@@ -14,6 +14,7 @@ import {
 import { obtenerSaldoDisponibleParaRegalo, obtenerTotalDonado, obtenerTotalRecibido } from "../puntos-actions";
 import { notificarPush } from "@/lib/notificar-push";
 import { hoyPeru } from "@/lib/fechas";
+import { resolverMenciones } from "@/lib/menciones";
 
 // La historia se ve en "Historias del equipo" mientras tenga menos de 24
 // horas -- igual que un estado de WhatsApp, deja de mostrarse a los demás
@@ -26,6 +27,58 @@ const DIAS_VISIBLE_GALERIA = 7;
 const TEXTO_MAXIMO = 200;
 
 export type ResultadoHistoria = { exito: boolean; mensaje?: string };
+
+export type UsuarioParaMencion = { id: string; nombre: string };
+
+// Lista liviana de colaboradores activos para el autocompletado de @mención
+// al escribir el pie de foto/video -- cualquiera con sesión la puede ver
+// (no hace falta rol de coordinador/gerente), igual que a quién puede ver
+// en el feed de Historias del equipo.
+export async function obtenerUsuariosParaMencion(): Promise<UsuarioParaMencion[]> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("usuarios")
+    .select("id, nombre")
+    .eq("activo", true)
+    .not("nombre", "ilike", "%generico%")
+    .neq("id", sesion.id)
+    .order("nombre");
+  return data ?? [];
+}
+
+// Le manda push a cada colaborador que el autor etiquetó con @ en el pie de
+// foto/video -- best-effort: un fallo acá nunca debe tumbar la publicación
+// de la historia, que ya se guardó con éxito antes de llamar a esto.
+async function notificarMencionesHistoria(
+  supabase: ReturnType<typeof supabaseServer>,
+  autorId: string,
+  autorNombre: string,
+  texto: string | null
+): Promise<void> {
+  if (!texto) return;
+  try {
+    const { data: usuarios } = await supabase
+      .from("usuarios")
+      .select("id, nombre")
+      .eq("activo", true)
+      .not("nombre", "ilike", "%generico%")
+      .neq("id", autorId);
+
+    const mencionados = resolverMenciones(texto, usuarios ?? []);
+    if (mencionados.length === 0) return;
+
+    await notificarPush(
+      mencionados.map((u) => u.id),
+      {
+        titulo: "📸 Te etiquetaron en una historia",
+        cuerpo: `${autorNombre} te etiquetó: "${texto.slice(0, 120)}"`,
+      }
+    );
+  } catch (error) {
+    console.error("No se pudo notificar las menciones de la historia:", error);
+  }
+}
 
 export type FotoGaleria = {
   id: string;
@@ -127,6 +180,8 @@ export async function crearHistoria(
       .from("historia_publicaciones")
       .upsert({ usuario_id: sesion.id, fecha: hoyPeru() }, { onConflict: "usuario_id,fecha", ignoreDuplicates: true });
 
+    await notificarMencionesHistoria(supabase, sesion.id, sesion.nombre, textoLimpio);
+
     return { exito: true };
   } catch (err: any) {
     return { exito: false, mensaje: err?.message || "No se pudo publicar la foto." };
@@ -189,6 +244,8 @@ export async function crearHistoriaVideo(blobPath: string, texto?: string): Prom
     await supabase
       .from("historia_publicaciones")
       .upsert({ usuario_id: sesion.id, fecha: hoyPeru() }, { onConflict: "usuario_id,fecha", ignoreDuplicates: true });
+
+    await notificarMencionesHistoria(supabase, sesion.id, sesion.nombre, textoLimpio);
 
     return { exito: true };
   } catch (err: any) {
