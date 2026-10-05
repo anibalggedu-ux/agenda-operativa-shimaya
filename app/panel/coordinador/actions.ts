@@ -17,7 +17,7 @@ import {
   MAX_TIENDAS_PERMANENTES,
   MAX_DIAS_DESCANSO,
 } from "./constantes";
-import { resolverHoraLimite } from "@/lib/puntualidad";
+import { resolverHoraLimite, esTarde } from "@/lib/puntualidad";
 import { obtenerPuntosDeUsuario, type MisPuntos } from "../puntos-actions";
 import { obtenerResumenKilometros } from "../kilometros-actions";
 import { enviarCorreo, URL_APP, escaparHtml, type ContactoCorreo } from "@/lib/email";
@@ -1598,7 +1598,13 @@ export async function obtenerEstadoPersonalHoy(): Promise<EstadoPersonalHoy[]> {
 
   const [{ data: usuarios, error: errorUsuarios }, { data: especiales, error: errorEspeciales }] =
     await Promise.all([
-      supabase.from("usuarios").select("id, nombre, rol, dias_descanso").order("nombre"),
+      supabase
+        .from("usuarios")
+        .select("id, nombre, rol, dias_descanso")
+        .eq("activo", true)
+        // Cuentas de prueba -- no deben aparecer en el estado del personal.
+        .not("nombre", "ilike", "%generico%")
+        .order("nombre"),
       supabase
         .from("asignaciones_especiales")
         .select("usuario_id, tipo, fecha_inicio, fecha_fin")
@@ -1899,7 +1905,7 @@ export async function obtenerHistorialPersona(
         fecha: m.fecha,
         horaIngreso: m.hora_ingreso,
         horaSalida: m.hora_salida,
-        tarde: !!(limite && m.hora_ingreso && m.hora_ingreso > limite),
+        tarde: !!(limite && m.hora_ingreso && esTarde(m.hora_ingreso, limite)),
       };
     }),
     puntos,
@@ -2018,7 +2024,7 @@ export async function obtenerAsistenciaGeneral(
       ubicacionIngreso: a.ubicacion_ingreso,
       horaSalida: a.hora_salida,
       ubicacionSalida: a.ubicacion_salida,
-      tarde: !!(limite && a.hora_ingreso && a.hora_ingreso > limite),
+      tarde: !!(limite && a.hora_ingreso && esTarde(a.hora_ingreso, limite)),
     };
   });
 }

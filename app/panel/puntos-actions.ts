@@ -239,7 +239,9 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       .select(
         "id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, puntos_heredados"
       )
-      .in("rol", ROLES_CON_PUNTOS),
+      .in("rol", ROLES_CON_PUNTOS)
+      // Cuentas de prueba -- no deben aparecer en el ranking de puntos/vitrina.
+      .not("nombre", "ilike", "%generico%"),
     obtenerTodaLaAsistenciaConHora(supabase),
     supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
     // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a

@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { hoyPeru, calcularAntiguedad, diasEntreFechas, sumarDias, formatearFechaCorta, diaSemanaPeru } from "@/lib/fechas";
-import { resolverHoraLimite } from "@/lib/puntualidad";
+import { resolverHoraLimite, esTarde as compararTardanza } from "@/lib/puntualidad";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
 
 export type ReportesPorDia = { fecha: string; cantidad: number };
@@ -100,7 +100,7 @@ export async function obtenerRankingTardanzas(
       diaSemanaPeru(r.fecha)
     );
     if (!limite) return;
-    if (r.hora_ingreso <= limite) return;
+    if (!compararTardanza(r.hora_ingreso, limite)) return;
 
     const nombre = r.usuarios?.nombre ?? "—";
     // Cuentas de prueba -- no deben aparecer en el ranking de tardanzas.
@@ -142,7 +142,7 @@ export async function obtenerRankingPuntualidad(
       diaSemanaPeru(r.fecha)
     );
     if (!limite) return;
-    if (r.hora_ingreso > limite) return; // llegó tarde, no cuenta como puntual
+    if (compararTardanza(r.hora_ingreso, limite)) return; // llegó tarde, no cuenta como puntual
 
     const nombre = r.usuarios?.nombre ?? "—";
     // Cuentas de prueba -- no deben aparecer en el ranking de puntualidad.
@@ -431,7 +431,7 @@ export async function obtenerTiendasPorTardanzas(
     );
     if (!limite) return false;
     const horaIngreso = horaIngresoPorClave.get(`${usuarioId}|${fecha}`);
-    return !!horaIngreso && horaIngreso > limite;
+    return !!horaIngreso && compararTardanza(horaIngreso, limite);
   }
 
   const porTienda = new Map<string, TiendaConTardanzas>();
@@ -607,7 +607,7 @@ export async function obtenerTendenciasTiendas(
     if (!limite) return null;
     const horaIngreso = horaIngresoPorClave.get(`${usuarioId}|${fecha}`);
     if (!horaIngreso) return null;
-    return horaIngreso > limite;
+    return compararTardanza(horaIngreso, limite);
   }
 
   function semanaIndexPara(fecha: string): number {
