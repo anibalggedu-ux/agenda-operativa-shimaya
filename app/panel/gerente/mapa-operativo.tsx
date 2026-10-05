@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { obtenerMapaOperativoHoy, type MapaOperativoHoy, type PersonaEnMapa } from "./actions";
+import {
+  obtenerMapaOperativoHoy,
+  type MapaOperativoHoy,
+  type PersonaEnMapa,
+  type PersonaResumenMapa,
+  type EstadoPersonaResumen,
+} from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 import { UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 import EstadoVacio from "../estado-vacio";
@@ -18,6 +24,51 @@ function textoLejos(p: PersonaEnMapa): string | null {
 
 const COLOR_ROL: Record<string, string> = { supervisor: "#e23744", capacitador: "#fbbf24" };
 const ETIQUETA_ROL: Record<string, string> = { supervisor: "Supervisor", capacitador: "Capacitador" };
+
+// Resumen escrito debajo del mapa: una bolita de color por estado, para
+// saber de un vistazo quién está en ruta hoy sin tener que buscar su pin, y
+// por qué el resto no aparece en el mapa (descansa, o tiene una vacación/
+// permiso/licencia/misión especial vigente) en vez de dejarlo como una
+// ausencia sin explicar.
+const COLOR_ESTADO: Record<EstadoPersonaResumen, string> = {
+  en_ruta: "#22c55e",
+  descanso: "#eab308",
+  permiso: "#38bdf8",
+  sin_asignar: "#8b8d92",
+};
+const ETIQUETA_ESTADO: Record<EstadoPersonaResumen, string> = {
+  en_ruta: "En ruta hoy",
+  descanso: "Descansan hoy",
+  permiso: "Vacaciones / permiso / licencia",
+  sin_asignar: "Sin ruta asignada hoy",
+};
+const ORDEN_ESTADO: EstadoPersonaResumen[] = ["en_ruta", "descanso", "permiso", "sin_asignar"];
+
+function ResumenPersonal({ personas }: { personas: PersonaResumenMapa[] }) {
+  const grupos = ORDEN_ESTADO.map((estado) => ({
+    estado,
+    items: personas.filter((p) => p.estado === estado).sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre)),
+  })).filter((g) => g.items.length > 0);
+
+  if (grupos.length === 0) return null;
+
+  return (
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-3">
+      <h3 className="text-xs font-black tracking-widest text-marca-tenue">RESUMEN DEL PERSONAL DE HOY</h3>
+      {grupos.map((g) => (
+        <div key={g.estado} className="space-y-1">
+          <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-marca-texto">
+            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: COLOR_ESTADO[g.estado] }} />
+            {ETIQUETA_ESTADO[g.estado]} ({g.items.length})
+          </p>
+          <p className="text-[11px] text-marca-tenue pl-4 leading-relaxed">
+            {g.items.map((p) => p.usuarioNombre).join(", ")}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Iniciales para el pin de quien todavía no tiene foto de perfil (ej. "Juan
 // Pérez" -> "JP").
@@ -156,7 +207,10 @@ export default function MapaOperativo() {
   }
   if (!datos || (datos.tiendas.length === 0 && datos.eventos.length === 0)) {
     return (
-      <EstadoVacio mensaje="Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta ni evento hoy)." />
+      <div className="space-y-3">
+        <EstadoVacio mensaje="Sin asignaciones ubicables hoy (falta cargar la dirección de la tienda, o nadie tiene ruta ni evento hoy)." />
+        {datos && <ResumenPersonal personas={datos.resumenPersonal} />}
+      </div>
     );
   }
 
@@ -203,6 +257,8 @@ export default function MapaOperativo() {
         Cada pin es la foto de perfil (o iniciales) de esa persona, en el lugar donde marcó su llegada -- si
         todavía no marca, se muestra en la ubicación de la tienda o evento como respaldo.
       </p>
+
+      <ResumenPersonal personas={datos.resumenPersonal} />
     </div>
   );
 }

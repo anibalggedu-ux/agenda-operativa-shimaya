@@ -199,11 +199,30 @@ export type EventoEnMapa = {
   personas: PersonaEnMapa[];
 };
 
+// Estado resumido de cada supervisor/capacitador para el día del mapa,
+// usado en la lista con bolita de color debajo del mapa -- en vez de
+// quedarse solo con quienes tienen pin (los que sí tienen ruta/evento hoy),
+// cubre también a quienes no van a aparecer en el mapa y por qué: están
+// descansando, o cubiertos por una vacación/permiso/licencia/misión
+// especial. El orden de prioridad es: en ruta primero (si ya tiene una
+// marcación hoy, no importa si también le tocaba descansar), luego
+// descanso, luego permiso/vacaciones/licencia, y lo que sobra queda como
+// "sin asignar" (no tiene ruta hoy y no hay ninguna razón registrada).
+export type EstadoPersonaResumen = "en_ruta" | "descanso" | "permiso" | "sin_asignar";
+
+export type PersonaResumenMapa = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  estado: EstadoPersonaResumen;
+};
+
 export type MapaOperativoHoy = {
   fecha: string;
   tiendas: TiendaEnMapa[];
   eventos: EventoEnMapa[];
   totalPersonas: number;
+  resumenPersonal: PersonaResumenMapa[];
 };
 
 export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
@@ -217,19 +236,41 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
   // día con otro.
   const hoy = diaLaboralPeru();
 
-  const [visitas, { data: tiendas, error: errorTiendas }, { data: eventosHoy, error: errorEventos }] =
-    await Promise.all([
-      obtenerVisitasEnRangoAnalitica(hoy, hoy),
-      supabase.from("tiendas").select("id, nombre, lat, lon"),
-      supabase
-        .from("asistencia_eventos")
-        .select("comunicado_id, usuario_id, ubicacion_llegada, usuarios(nombre, rol), comunicados(mensaje, lat, lon)")
-        .eq("fecha", hoy)
-        .not("hora_llegada", "is", null),
-    ]);
+  const diaSemana = diaSemanaPeru(hoy);
+
+  const [
+    visitas,
+    { data: tiendas, error: errorTiendas },
+    { data: eventosHoy, error: errorEventos },
+    { data: personal, error: errorPersonal },
+    { data: especialesHoy },
+    { data: permisosHoy },
+  ] = await Promise.all([
+    obtenerVisitasEnRangoAnalitica(hoy, hoy),
+    supabase.from("tiendas").select("id, nombre, lat, lon"),
+    supabase
+      .from("asistencia_eventos")
+      .select("comunicado_id, usuario_id, ubicacion_llegada, usuarios(nombre, rol), comunicados(mensaje, lat, lon)")
+      .eq("fecha", hoy)
+      .not("hora_llegada", "is", null),
+    supabase
+      .from("usuarios")
+      .select("id, nombre, rol, dias_descanso")
+      .eq("activo", true)
+      .in("rol", ["supervisor", "capacitador"])
+      .not("nombre", "ilike", "%generico%"),
+    supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", hoy).gte("fecha_fin", hoy),
+    supabase
+      .from("solicitudes_permiso")
+      .select("usuario_id")
+      .eq("estado", "aprobado")
+      .lte("fecha_inicio", hoy)
+      .gte("fecha_fin", hoy),
+  ]);
 
   if (errorTiendas) throw new Error("No se pudo cargar el mapa operativo.");
   if (errorEventos) throw new Error("No se pudo cargar los eventos del mapa operativo.");
+  if (errorPersonal) throw new Error("No se pudo cargar el resumen del personal.");
 
   const mapaTiendas = new Map((tiendas ?? []).map((t) => [t.id, t]));
   const porTienda = new Map<string, TiendaEnMapa>();
@@ -323,11 +364,24 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
     porEvento.forEach((e) => e.personas.forEach(asignarFoto));
   }
 
+  const especialesSet = new Set((especialesHoy ?? []).map((e) => e.usuario_id));
+  const permisosSet = new Set((permisosHoy ?? []).map((p) => p.usuario_id));
+
+  const resumenPersonal: PersonaResumenMapa[] = (personal ?? []).map((u) => {
+    let estado: EstadoPersonaResumen;
+    if (usuariosUnicos.has(u.id)) estado = "en_ruta";
+    else if ((u.dias_descanso ?? []).includes(diaSemana)) estado = "descanso";
+    else if (especialesSet.has(u.id) || permisosSet.has(u.id)) estado = "permiso";
+    else estado = "sin_asignar";
+    return { usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, estado };
+  });
+
   return {
     fecha: hoy,
     tiendas: Array.from(porTienda.values()),
     eventos: Array.from(porEvento.values()),
     totalPersonas: usuariosUnicos.size,
+    resumenPersonal,
   };
 }
 
