@@ -21,9 +21,25 @@ import {
 async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boolean }> {
   switch (item.accion) {
     case "llegada-tienda":
-      return marcarLlegadaTienda(item.rutaActivaId ?? null, item.reporteId ?? null, item.lat, item.lng, item.foto, item.horaCapturadaMs);
+      return marcarLlegadaTienda(
+        item.rutaActivaId ?? null,
+        item.reporteId ?? null,
+        item.lat,
+        item.lng,
+        item.foto,
+        item.horaCapturadaMs,
+        item.justificativoTardanza
+      );
     case "salida-tienda":
-      return marcarSalidaTienda(item.rutaActivaId ?? null, item.reporteId ?? null, item.lat, item.lng, item.foto, item.horaCapturadaMs);
+      return marcarSalidaTienda(
+        item.rutaActivaId ?? null,
+        item.reporteId ?? null,
+        item.lat,
+        item.lng,
+        item.foto,
+        item.horaCapturadaMs,
+        item.fechaAsistenciaElegida
+      );
     case "llegada-evento":
       return marcarLlegadaEvento(item.comunicadoId!, item.lat, item.lng, item.foto, item.horaCapturadaMs);
     case "salida-evento":

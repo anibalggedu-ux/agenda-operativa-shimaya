@@ -17,6 +17,11 @@ export type MarcacionPendiente = {
   lat: number;
   lng: number;
   horaCapturadaMs: number;
+  // Justificativo opcional de tardanza, solo para "llegada-tienda".
+  justificativoTardanza?: string;
+  // Fecha elegida por la persona cuando marcó salida de madrugada (ver
+  // confirmarDiaSalida en selector-tiendas.tsx), solo para "salida-tienda".
+  fechaAsistenciaElegida?: string;
   // Para mostrar en el aviso de "pendientes" sin tener que recargar datos.
   etiqueta: string;
 };

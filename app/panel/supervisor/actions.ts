@@ -6,11 +6,14 @@ import {
   sumarDias,
   diaLaboralPeru,
   hoyPeru,
+  horaPeru,
+  diaSemanaPeru,
   DIAS_SEMANA,
   calcularAntiguedad,
   calcularProximaFechaAnual,
   formatearFechaLegible,
 } from "@/lib/fechas";
+import { resolverHoraLimite, esTarde } from "@/lib/puntualidad";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
@@ -96,6 +99,11 @@ function construirUrlWaze(lat: number | null, lon: number | null, tiendaNombre: 
 export async function obtenerTiendasClasificadas(): Promise<{
   tiendas: TiendaClasificada[];
   diaDescansoFijo: string[] | null;
+  // true cuando todavía no hay ingreso general marcado hoy y ya pasó la
+  // hora límite de la persona -- la tarjeta de "Marcar llegada" que vaya a
+  // registrar ese ingreso muestra entonces el campo opcional de
+  // justificativo de tardanza (ver MarcadoVisitaTienda).
+  mostrarJustificativoTardanza: boolean;
 }> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
@@ -122,8 +130,13 @@ export async function obtenerTiendasClasificadas(): Promise<{
     { data: usuario },
     { data: activas, error: errorActivas },
     { data: reportes, error: errorReportes },
+    { data: asistenciaHoy },
   ] = await Promise.all([
-    supabase.from("usuarios").select("dias_descanso, lat, lon").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("dias_descanso, lat, lon, hora_limite_ingreso, horario_por_dia")
+      .eq("id", sesion.id)
+      .maybeSingle(),
     supabase
       .from("rutas_activas")
       .select(
@@ -139,10 +152,29 @@ export async function obtenerTiendasClasificadas(): Promise<{
       .eq("usuario_id", sesion.id)
       .gte("fecha", desdeVentana)
       .order("fecha", { ascending: false }),
+    supabase
+      .from("asistencia")
+      .select("hora_ingreso")
+      .eq("usuario_id", sesion.id)
+      .eq("fecha", diaLaboralPeru())
+      .maybeSingle(),
   ]);
 
   if (errorActivas) throw new Error("No se pudo cargar las tiendas asignadas.");
   if (errorReportes) throw new Error("No se pudo cargar tus reportes recientes.");
+
+  // El justificativo de tardanza solo tiene sentido mientras el ingreso
+  // general del día todavía no está marcado (la próxima "Marcar llegada" va
+  // a ser la que lo fije -- ver sincronizarAsistenciaGeneral) y ya pasó la
+  // hora límite de la persona.
+  const horaLimiteHoy = resolverHoraLimite(
+    sesion.rol,
+    usuario?.hora_limite_ingreso,
+    usuario?.horario_por_dia as Record<string, string> | null,
+    diaSemanaPeru()
+  );
+  const mostrarJustificativoTardanza =
+    !asistenciaHoy?.hora_ingreso && !!horaLimiteHoy && esTarde(horaPeru(), horaLimiteHoy);
 
   const limite = Date.now() - VENTANA_EDICION_HORAS * 3600 * 1000;
 
@@ -307,7 +339,11 @@ export async function obtenerTiendasClasificadas(): Promise<{
     })
   );
 
-  return { tiendas: tiendasFinal, diaDescansoFijo: usuario?.dias_descanso ?? null };
+  return {
+    tiendas: tiendasFinal,
+    diaDescansoFijo: usuario?.dias_descanso ?? null,
+    mostrarJustificativoTardanza,
+  };
 }
 
 // Recalcula el tiempo/distancia estimados usando la ubicación GPS actual del
@@ -399,7 +435,13 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
   }
 
   const supabase = supabaseServer();
-  const fecha = paraManana ? sumarDias(diaLaboralPeru(), 1) : diaLaboralPeru();
+  // OJO: acá va hoyPeru() (fecha calendario), NO diaLaboralPeru(). La
+  // persona ya eligió explícitamente HOY o MAÑANA en el selector -- aplicar
+  // encima el corte de madrugada (que de madrugada corre "hoy" hacia el día
+  // anterior) hacía que autoasignarse con "Hoy" entre medianoche y las 6am
+  // quedara guardado con fecha de AYER sin que nadie lo pidiera (caso
+  // reportado: Yrama Navas, 5 oct, autoasignación a la 1:02am).
+  const fecha = paraManana ? sumarDias(hoyPeru(), 1) : hoyPeru();
   const etiquetaFecha = paraManana ? "mañana" : "hoy";
 
   const { data: existente, error: errorExistente } = await supabase
@@ -617,9 +659,20 @@ export async function sincronizarAsistenciaGeneral(
   tipo: "llegada" | "salida",
   hora: string,
   ubicacion: string,
-  fotoBlob: string | null
+  fotoBlob: string | null,
+  opciones?: {
+    // Justificativo opcional de tardanza, capturado junto con el ingreso
+    // (ver MarcadoVisitaTienda) -- solo se guarda si esta llamada termina
+    // siendo la que efectivamente fija el ingreso del día.
+    justificativoTardanza?: string | null;
+    // Cuando la persona marca salida después de medianoche, se le pregunta
+    // a qué día pertenece esa marcación (ver confirmarDiaSalida en
+    // selector-tiendas.tsx) en vez de asumir siempre el turno de madrugada
+    // calculado automáticamente -- esto reemplaza ese cálculo cuando viene.
+    fechaOverride?: string;
+  }
 ): Promise<void> {
-  const fecha = diaLaboralPeru();
+  const fecha = opciones?.fechaOverride ?? diaLaboralPeru();
 
   const { data: existente, error: errorExistente } = await supabase
     .from("asistencia")
@@ -639,7 +692,12 @@ export async function sincronizarAsistenciaGeneral(
       if (existente.hora_ingreso) return; // ya hay ingreso del día — no se pisa
       await supabase
         .from("asistencia")
-        .update({ hora_ingreso: hora, ubicacion_ingreso: ubicacion, foto_ingreso_blob: fotoBlob })
+        .update({
+          hora_ingreso: hora,
+          ubicacion_ingreso: ubicacion,
+          foto_ingreso_blob: fotoBlob,
+          justificativo_tardanza: opciones?.justificativoTardanza || null,
+        })
         .eq("id", existente.id);
     } else {
       await supabase.from("asistencia").insert({
@@ -648,6 +706,7 @@ export async function sincronizarAsistenciaGeneral(
         hora_ingreso: hora,
         ubicacion_ingreso: ubicacion,
         foto_ingreso_blob: fotoBlob,
+        justificativo_tardanza: opciones?.justificativoTardanza || null,
       });
     }
   } else {
@@ -706,7 +765,10 @@ export async function marcarLlegadaTienda(
   // Presente cuando la marcación se hizo sin señal y se está sincronizando
   // ahora -- epoch ms del momento real en que se tocó el botón. Ver
   // lib/cola-marcaciones.ts y lib/marcacion-offline.ts.
-  horaCapturadaMs?: number
+  horaCapturadaMs?: number,
+  // Justificativo opcional de tardanza (ver MarcadoVisitaTienda) -- solo se
+  // guarda si esta llegada termina siendo la que fija el ingreso del día.
+  justificativoTardanza?: string
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -740,7 +802,9 @@ export async function marcarLlegadaTienda(
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la llegada." };
 
-  await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob);
+  await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob, {
+    justificativoTardanza: justificativoTardanza?.trim() || null,
+  });
 
   return fotoGuardada
     ? { exito: true, mensaje: "Llegada registrada con foto." }
@@ -753,7 +817,13 @@ export async function marcarSalidaTienda(
   lat: number,
   lng: number,
   fotoBase64: string,
-  horaCapturadaMs?: number
+  horaCapturadaMs?: number,
+  // Cuando se marca salida de madrugada, se le pregunta a la persona a qué
+  // día pertenece esa marcación (ver confirmarDiaSalida en
+  // selector-tiendas.tsx) -- solo se acepta si es una de las dos fechas que
+  // esa elección puede ofrecer (el turno que recién cierra o el día nuevo),
+  // nunca una fecha arbitraria.
+  fechaAsistenciaElegida?: string
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -762,6 +832,12 @@ export async function marcarSalidaTienda(
   const supabase = supabaseServer();
   const contexto = await obtenerContextoTienda(supabase, sesion.id, rutaActivaId, reporteId);
   if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
+
+  const fechaOverride =
+    fechaAsistenciaElegida &&
+    [diaLaboralPeru(), hoyPeru()].includes(fechaAsistenciaElegida)
+      ? fechaAsistenciaElegida
+      : undefined;
 
   const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "salida de tienda");
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
@@ -783,7 +859,7 @@ export async function marcarSalidaTienda(
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la salida." };
 
-  await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob);
+  await sincronizarAsistenciaGeneral(supabase, sesion, "salida", hora, ubicacion, fotoBlob, { fechaOverride });
 
   return fotoGuardada
     ? { exito: true, mensaje: "Salida registrada con foto." }
