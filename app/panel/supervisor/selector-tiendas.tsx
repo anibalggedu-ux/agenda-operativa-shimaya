@@ -20,6 +20,7 @@ import {
   formatearFechaLegible,
   formatearHora,
   horaPeru,
+  hoyPeru,
   diaLaboralPeru,
   esMadrugadaPeru,
 } from "@/lib/fechas";
@@ -260,13 +261,19 @@ function AvisoUbicacionLejos({ metros }: { metros: number }) {
 function MarcadoVisitaTienda({
   tienda,
   onMarcado,
+  permitirJustificativo,
 }: {
   tienda: TiendaClasificada;
   onMarcado: () => void;
+  // true cuando esta tarjeta es la que va a fijar el ingreso general del
+  // día y ya pasó la hora límite de la persona (ver mostrarJustificativoTardanza
+  // en supervisor/actions.ts) -- muestra el campo opcional de justificativo.
+  permitirJustificativo: boolean;
 }) {
   type Paso = "comprimiendo" | "ubicando" | "subiendo";
   const [paso, setPaso] = useState<Paso | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [justificativo, setJustificativo] = useState("");
   // La foto ya comprimida queda guardada acá hasta que el envío salga bien.
   // Antes la foto y el GPS se pedían juntos con Promise.all: si el GPS
   // fallaba, se descartaba la foto recién tomada y había que volver a abrir
@@ -276,6 +283,10 @@ function MarcadoVisitaTienda({
   );
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
+  // Fecha elegida por la persona cuando marca salida de madrugada (ver
+  // confirmarDiaSalida más abajo) -- se guarda acá porque se decide al abrir
+  // la cámara, pero recién hace falta al enviar la marcación (handleFoto).
+  const fechaSalidaElegidaRef = useRef<string | null>(null);
   // Trazo dorado que se dibuja solo, justo al confirmar la marcación (no en
   // cada recarga en que ya venga marcada de antes).
   const [marcadoRecien, setMarcadoRecien] = useState<"llegada" | "salida" | null>(null);
@@ -306,8 +317,24 @@ function MarcadoVisitaTienda({
       setPaso("subiendo");
       const resultado =
         tipo === "llegada"
-          ? await marcarLlegadaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto, horaCapturadaMs)
-          : await marcarSalidaTienda(tienda.rutaActivaId, tienda.reporteId, coords.lat, coords.lng, foto, horaCapturadaMs);
+          ? await marcarLlegadaTienda(
+              tienda.rutaActivaId,
+              tienda.reporteId,
+              coords.lat,
+              coords.lng,
+              foto,
+              horaCapturadaMs,
+              justificativo.trim() || undefined
+            )
+          : await marcarSalidaTienda(
+              tienda.rutaActivaId,
+              tienda.reporteId,
+              coords.lat,
+              coords.lng,
+              foto,
+              horaCapturadaMs,
+              fechaSalidaElegidaRef.current ?? undefined
+            );
 
       if (resultado.exito) {
         setPendiente(null);
@@ -339,6 +366,8 @@ function MarcadoVisitaTienda({
           lat: coords.lat,
           lng: coords.lng,
           horaCapturadaMs,
+          justificativoTardanza: tipo === "llegada" ? justificativo.trim() || undefined : undefined,
+          fechaAsistenciaElegida: tipo === "salida" ? fechaSalidaElegidaRef.current ?? undefined : undefined,
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         });
         setPendiente(null);
@@ -378,10 +407,10 @@ function MarcadoVisitaTienda({
 
   const ocupado = paso !== null;
 
-  // Salir de la tienda después de medianoche es habitual: esa marcación
-  // pertenece al turno que recién termina, no al día calendario nuevo. Se
-  // avisa antes de abrir la cámara para que no sea una sorpresa al ver el
-  // registro con la fecha del día anterior.
+  // Llegar a una tienda después de medianoche es raro (normalmente es la
+  // SALIDA la que cruza la medianoche, ver confirmarDiaSalida) pero igual se
+  // avisa antes de abrir la cámara para que no sea una sorpresa ver el
+  // registro con la fecha del turno anterior.
   function confirmarTurnoDeMadrugada(): boolean {
     if (!esMadrugadaPeru()) return true;
     return window.confirm(
@@ -392,8 +421,27 @@ function MarcadoVisitaTienda({
     );
   }
 
-  function abrirCamara(input: React.RefObject<HTMLInputElement>) {
-    if (!confirmarTurnoDeMadrugada()) return;
+  // Salir de la tienda después de medianoche es habitual (turno que se
+  // extiende, cierre tardío) -- en vez de asumir en automático a qué día
+  // pertenece, se le pregunta directamente: ¿es el turno que recién está
+  // cerrando, o ya es un día nuevo que empezó? La respuesta se guarda en
+  // fechaSalidaElegidaRef y viaja con la marcación (ver enviarMarcacion).
+  function confirmarDiaSalida(): string | null {
+    if (!esMadrugadaPeru()) return diaLaboralPeru();
+    const esTurnoQueCierra = window.confirm(
+      `Son las ${horaPeru().slice(0, 5)}.\n\n` +
+        `¿Esta salida pertenece al turno del ${formatearFechaLegible(diaLaboralPeru())} (el que recién está cerrando)?\n\n` +
+        `Aceptar = sí, ese turno.\nCancelar = no, ya es un día nuevo (${formatearFechaLegible(hoyPeru())}).`
+    );
+    return esTurnoQueCierra ? diaLaboralPeru() : hoyPeru();
+  }
+
+  function abrirCamara(input: React.RefObject<HTMLInputElement>, tipo: "llegada" | "salida") {
+    if (tipo === "llegada") {
+      if (!confirmarTurnoDeMadrugada()) return;
+    } else {
+      fechaSalidaElegidaRef.current = confirmarDiaSalida();
+    }
     input.current?.click();
   }
 
@@ -441,26 +489,43 @@ function MarcadoVisitaTienda({
       ) : null}
       {avisoLejos?.tipo === "llegada" && <AvisoUbicacionLejos metros={avisoLejos.metros} />}
       {!tienda.horaLlegada && (
-        <button
-          type="button"
-          onClick={() => abrirCamara(inputLlegada)}
-          disabled={ocupado}
-          className="w-full min-h-[48px] flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] px-4 transition"
-        >
-          {paso ? (
-            ETIQUETA_PASO[paso]
-          ) : (
-            <>
-              <Camera className="w-4 h-4" /> Marcar llegada a esta tienda
-            </>
+        <>
+          {permitirJustificativo && (
+            <div className="mb-1">
+              <label className="block text-marca-tenue text-[9.5px] uppercase font-bold mb-1">
+                Justificativo de tardanza (opcional)
+              </label>
+              <textarea
+                value={justificativo}
+                onChange={(e) => setJustificativo(e.target.value)}
+                disabled={ocupado}
+                rows={2}
+                className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro disabled:opacity-50"
+                placeholder="Ej: tráfico, trámite médico, falla del bus... (déjalo vacío si no aplica)"
+              />
+            </div>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={() => abrirCamara(inputLlegada, "llegada")}
+            disabled={ocupado}
+            className="w-full min-h-[48px] flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-60 text-marca-textofuerte font-black text-sm rounded-[3px] px-4 transition"
+          >
+            {paso ? (
+              ETIQUETA_PASO[paso]
+            ) : (
+              <>
+                <Camera className="w-4 h-4" /> Marcar llegada a esta tienda
+              </>
+            )}
+          </button>
+        </>
       )}
 
       {tienda.horaLlegada && !tienda.horaSalidaTienda && (
         <button
           type="button"
-          onClick={() => abrirCamara(inputSalida)}
+          onClick={() => abrirCamara(inputSalida, "salida")}
           disabled={ocupado}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 border border-marca-rojo/50 text-marca-rojoclaro hover:bg-marca-rojo/10 disabled:opacity-60 font-black text-sm rounded-[3px] px-4 transition"
         >
@@ -536,6 +601,7 @@ export default function SelectorTiendas({
 }) {
   const [tiendas, setTiendas] = useState<TiendaClasificada[] | null>(null);
   const [diaDescanso, setDiaDescanso] = useState<string[] | null>(null);
+  const [mostrarJustificativoTardanza, setMostrarJustificativoTardanza] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<TiendaClasificada | null>(null);
@@ -579,9 +645,10 @@ export default function SelectorTiendas({
   function cargar() {
     setCargando(true);
     obtenerTiendasClasificadas()
-      .then(({ tiendas, diaDescansoFijo }) => {
+      .then(({ tiendas, diaDescansoFijo, mostrarJustificativoTardanza }) => {
         setTiendas(tiendas);
         setDiaDescanso(diaDescansoFijo);
+        setMostrarJustificativoTardanza(mostrarJustificativoTardanza);
       })
       .catch((e) => setError(e.message || "Error al cargar tiendas."))
       .finally(() => setCargando(false));
@@ -798,7 +865,11 @@ export default function SelectorTiendas({
                         de qué tienda tenías asignada.
                       </p>
                     ) : (
-                      <MarcadoVisitaTienda tienda={tienda} onMarcado={cargar} />
+                      <MarcadoVisitaTienda
+                        tienda={tienda}
+                        onMarcado={cargar}
+                        permitirJustificativo={mostrarJustificativoTardanza && !tienda.horaLlegada}
+                      />
                     )}
                   </div>
                 );

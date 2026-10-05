@@ -235,6 +235,7 @@ export type Database = {
           hora_ingreso: string | null
           hora_salida: string | null
           id: string
+          justificativo_tardanza: string | null
           ubicacion_ingreso: string | null
           ubicacion_salida: string | null
           usuario_id: string
@@ -246,6 +247,7 @@ export type Database = {
           hora_ingreso?: string | null
           hora_salida?: string | null
           id?: string
+          justificativo_tardanza?: string | null
           ubicacion_ingreso?: string | null
           ubicacion_salida?: string | null
           usuario_id: string
@@ -257,6 +259,7 @@ export type Database = {
           hora_ingreso?: string | null
           hora_salida?: string | null
           id?: string
+          justificativo_tardanza?: string | null
           ubicacion_ingreso?: string | null
           ubicacion_salida?: string | null
           usuario_id?: string
