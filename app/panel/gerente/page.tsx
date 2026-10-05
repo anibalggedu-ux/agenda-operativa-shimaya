@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import BreakWidget from "../break-widget";
@@ -22,6 +22,7 @@ import {
   LazyMiPerfil as MiPerfil,
   LazyMiAgenda as MiAgenda,
   LazyCampanaNotificaciones as CampanaNotificaciones,
+  LazySoporte as Soporte,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 import { obtenerNotificacionesPendientes } from "../historias/social-actions";
@@ -110,6 +111,12 @@ export default async function PanelGerente() {
       etiqueta: "Mi Agenda",
       icono: <NotebookPen className="w-4 h-4" />,
       contenido: <MiAgenda />,
+    },
+    {
+      id: "soporte",
+      etiqueta: "Soporte",
+      icono: <LifeBuoy className="w-4 h-4" />,
+      contenido: <Soporte />,
     },
     {
       id: "perfil",

@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _video_upload_tmp: {
+        Row: {
+          data: string
+          id: string
+        }
+        Insert: {
+          data?: string
+          id: string
+        }
+        Update: {
+          data?: string
+          id?: string
+        }
+        Relationships: []
+      }
       accesos_sistema: {
         Row: {
           created_at: string
@@ -1510,6 +1525,82 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "solicitudes_permiso_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soporte_mensajes: {
+        Row: {
+          autor_nombre: string
+          creado_en: string
+          es_admin: boolean
+          id: string
+          mensaje: string
+          ticket_id: string
+        }
+        Insert: {
+          autor_nombre: string
+          creado_en?: string
+          es_admin?: boolean
+          id?: string
+          mensaje: string
+          ticket_id: string
+        }
+        Update: {
+          autor_nombre?: string
+          creado_en?: string
+          es_admin?: boolean
+          id?: string
+          mensaje?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soporte_mensajes_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "soporte_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soporte_tickets: {
+        Row: {
+          actualizado_en: string
+          creado_en: string
+          estado: string
+          id: string
+          rol: string
+          tipo: string
+          usuario_id: string
+          usuario_nombre: string
+        }
+        Insert: {
+          actualizado_en?: string
+          creado_en?: string
+          estado?: string
+          id?: string
+          rol: string
+          tipo: string
+          usuario_id: string
+          usuario_nombre: string
+        }
+        Update: {
+          actualizado_en?: string
+          creado_en?: string
+          estado?: string
+          id?: string
+          rol?: string
+          tipo?: string
+          usuario_id?: string
+          usuario_nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soporte_tickets_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
