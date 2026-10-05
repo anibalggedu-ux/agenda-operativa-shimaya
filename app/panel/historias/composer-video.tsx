@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, AlertTriangle, Send } from "lucide-react";
 import { publicarVideoDirecto } from "./subir-video";
+import TextareaMenciones from "./textarea-menciones";
 
 const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
 const TEXTO_MAXIMO = 200;
@@ -58,11 +59,12 @@ export default function ComposerVideoHistoria({
 
         <video src={previewUrl} controls playsInline className="w-full max-h-[45vh] rounded-[3px] bg-black" />
 
-        <textarea
+        <TextareaMenciones
           value={texto}
-          onChange={(e) => setTexto(e.target.value.slice(0, TEXTO_MAXIMO))}
-          placeholder="Escribe un pie de foto (opcional)..."
+          onChange={setTexto}
+          placeholder="Escribe un pie de foto (opcional)... usa @ para etiquetar a alguien"
           rows={2}
+          maxLength={TEXTO_MAXIMO}
           disabled={publicando}
           className="w-full bg-marca-superficie2 border border-marca-borde rounded-[3px] px-3 py-2 text-sm text-marca-texto placeholder:text-marca-tenue resize-none disabled:opacity-60"
         />

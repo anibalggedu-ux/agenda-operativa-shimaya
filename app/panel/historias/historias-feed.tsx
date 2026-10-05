@@ -27,6 +27,7 @@ import RecortarFoto from "./recortar-foto";
 import ComposerVideoHistoria from "./composer-video";
 import RecortarVideo from "./recortar-video";
 import EstadoVacio from "../estado-vacio";
+import TextareaMenciones from "./textarea-menciones";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada.
@@ -802,11 +803,12 @@ function ComposerHistoria({
           />
         )}
 
-        <textarea
+        <TextareaMenciones
           value={textoActual}
-          onChange={(e) => cambiarTexto(e.target.value)}
-          placeholder="Escribe un pie de foto (opcional)..."
+          onChange={cambiarTexto}
+          placeholder="Escribe un pie de foto (opcional)... usa @ para etiquetar a alguien"
           rows={2}
+          maxLength={TEXTO_MAXIMO}
           className="w-full bg-marca-superficie2 border border-marca-borde rounded-[3px] px-3 py-2 text-sm text-marca-texto placeholder:text-marca-tenue resize-none"
         />
         <p className="text-right text-[10px] text-marca-tenue -mt-2">{textoActual.length}/{TEXTO_MAXIMO}</p>
