@@ -1,18 +1,24 @@
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ExternalLink } from "lucide-react";
 
-// Atajo a "Horarios de las tiendas" (app de Coordinación de Apoyos, solo lectura).
-// Solo se muestra a supervisor, coordinador y gerente; la ruta además lo vuelve a comprobar en el servidor.
+// Acceso a "Horarios de las tiendas" (app de Coordinación de Apoyos, solo lectura). Vive en Central Analítica.
+// Solo se muestra a supervisor, coordinador y gerente (la página que lo usa pasa `mostrarApoyos`);
+// la ruta /api/apoyos/acceso además lo vuelve a comprobar en el servidor.
 export default function BotonApoyos() {
   return (
     <a
       href="/api/apoyos/acceso"
       target="_blank"
       rel="noopener"
-      className="bg-marca-superficie2 border border-marca-borde text-marca-tenue w-9 h-9 rounded-[3px] hover:text-marca-texto transition shrink-0 flex items-center justify-center"
-      aria-label="Horarios de las tiendas"
-      title="Horarios de las tiendas (solo lectura)"
+      className="flex items-center gap-3 bg-marca-superficie border border-marca-borde border-l-2 border-l-marca-oro/70 rounded-[3px] px-4 py-3 hover:bg-marca-superficie2 transition"
     >
-      <CalendarDays className="w-4 h-4" />
+      <span className="shrink-0 text-marca-rojoclaro">
+        <CalendarDays className="w-5 h-5" />
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-marca-textofuerte text-sm font-bold">Horarios de las tiendas</span>
+        <span className="block text-marca-tenue text-[11px]">Horarios, menú y dashboard de apoyos de todas las tiendas · solo lectura</span>
+      </span>
+      <ExternalLink className="w-4 h-4 text-marca-tenue shrink-0" />
     </a>
   );
 }
