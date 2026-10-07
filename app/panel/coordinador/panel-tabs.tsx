@@ -35,6 +35,7 @@ import {
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import BotonApoyos from "../boton-apoyos";
 import ResumenDelDia from "../resumen-del-dia";
 import { hoyPeru } from "@/lib/fechas";
 
@@ -143,6 +144,7 @@ export default function PanelTabs({
       defaultId="rutas"
       accionesExtra={
         <>
+          <BotonApoyos />
           <CampanaNotificaciones />
           <CampanitaDescansos />
         </>

@@ -18,6 +18,7 @@ import ChecklistVisita from "../checklist-visita";
 import EventosDeHoy from "../eventos-hoy";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import BotonApoyos from "../boton-apoyos";
 import {
   LazyCentralAnalitica as CentralAnalitica,
   LazyDocumentos as Documentos,
@@ -156,7 +157,7 @@ export default async function PanelSupervisor() {
       tituloPortal="Supervisor"
       items={items}
       defaultId="inicio"
-      accionesExtra={<CampanaNotificaciones />}
+      accionesExtra={<><BotonApoyos /><CampanaNotificaciones /></>}
       encabezado={
         <>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-marca-textofuerte tracking-wide mb-4">
