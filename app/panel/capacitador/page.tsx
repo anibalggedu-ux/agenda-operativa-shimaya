@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -87,9 +87,14 @@ export default async function PanelCapacitador() {
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
-          <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />
         </div>
       ),
+    },
+    {
+      id: "checklist",
+      etiqueta: "Checklist",
+      icono: <ListChecks className="w-4 h-4" />,
+      contenido: <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />,
     },
     {
       id: "reportes",

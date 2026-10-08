@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy } from "lucide-react";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -79,9 +79,14 @@ export default async function PanelSupervisor() {
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
-          <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />
         </div>
       ),
+    },
+    {
+      id: "checklist",
+      etiqueta: "Checklist",
+      icono: <ListChecks className="w-4 h-4" />,
+      contenido: <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />,
     },
     {
       id: "reportes",
