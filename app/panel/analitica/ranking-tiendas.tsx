@@ -9,8 +9,10 @@ import {
   type VisitaTiendaDetalle,
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
+import BloqueColapsable from "../bloque-colapsable";
 
 function CuadroRanking({
+  icono,
   titulo,
   filas,
   offset,
@@ -18,7 +20,8 @@ function CuadroRanking({
   onSeleccionar,
   vacio,
 }: {
-  titulo: ReactNode;
+  icono: ReactNode;
+  titulo: string;
   filas: RankingTiendaCompleto[];
   offset: number;
   tiendaSeleccionada: string | null;
@@ -26,10 +29,7 @@ function CuadroRanking({
   vacio: string;
 }) {
   return (
-    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
-      <h4 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
-        {titulo} ({filas.length})
-      </h4>
+    <BloqueColapsable icono={icono} titulo={titulo} badge={`${filas.length}`}>
       {filas.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">{vacio}</p>
       ) : (
@@ -57,7 +57,7 @@ function CuadroRanking({
           ))}
         </div>
       )}
-    </div>
+    </BloqueColapsable>
   );
 }
 
@@ -94,11 +94,8 @@ export default function RankingTiendas({
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <CuadroRanking
-          titulo={
-            <>
-              <Trophy className="w-3.5 h-3.5 text-marca-rojoclaro" /> TOP 20
-            </>
-          }
+          icono={<Trophy />}
+          titulo="TOP 20"
           filas={ranking.top20}
           offset={0}
           tiendaSeleccionada={tiendaId}
@@ -106,6 +103,7 @@ export default function RankingTiendas({
           vacio="Sin visitas registradas en este rango."
         />
         <CuadroRanking
+          icono={<Trophy />}
           titulo="DESDE EL PUESTO 21"
           filas={ranking.resto}
           offset={20}
@@ -114,11 +112,8 @@ export default function RankingTiendas({
           vacio="No hay más tiendas visitadas."
         />
         <CuadroRanking
-          titulo={
-            <>
-              <Ban className="w-3.5 h-3.5 text-marca-rojoclaro" /> SIN VISITAS
-            </>
-          }
+          icono={<Ban />}
+          titulo="SIN VISITAS"
           filas={ranking.sinVisitas}
           offset={0}
           tiendaSeleccionada={tiendaId}

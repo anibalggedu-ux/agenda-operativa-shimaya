@@ -371,6 +371,11 @@ export type ChecklistVisitaResumen = {
   fecha: string;
   porcentaje: number | null;
   clasificacion: ClasificacionChecklist | null;
+  // Métrica aparte del puntaje: cuántas de las faltas que tuvo ESTE
+  // checklist ya se marcaron como corregidas (en una visita posterior) --
+  // null si no tuvo ninguna falta.
+  faltasTotal: number;
+  faltasCorregidas: number;
 };
 
 export type FaltaRecienteChecklist = {
@@ -463,23 +468,29 @@ export async function obtenerChecklistsDeTienda(tiendaId: string): Promise<Check
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, tiendas(nombre)")
+    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, faltas, faltas_corregidas, tiendas(nombre)")
     .eq("tienda_id", tiendaId)
     .order("fecha", { ascending: false })
     .limit(100);
 
   if (error) throw new Error("No se pudo cargar el historial de esta tienda.");
 
-  return (data ?? []).map((c: any) => ({
-    id: c.id,
-    tiendaId: c.tienda_id,
-    tiendaNombre: c.tiendas?.nombre ?? "—",
-    usuarioNombre: c.usuario_nombre,
-    rol: c.rol,
-    fecha: c.fecha,
-    porcentaje: c.porcentaje,
-    clasificacion: c.clasificacion,
-  }));
+  return (data ?? []).map((c: any) => {
+    const faltas = (c.faltas as FaltaChecklist[] | null) ?? [];
+    const corregidas = (c.faltas_corregidas as string[] | null) ?? [];
+    return {
+      id: c.id,
+      tiendaId: c.tienda_id,
+      tiendaNombre: c.tiendas?.nombre ?? "—",
+      usuarioNombre: c.usuario_nombre,
+      rol: c.rol,
+      fecha: c.fecha,
+      porcentaje: c.porcentaje,
+      clasificacion: c.clasificacion,
+      faltasTotal: faltas.length,
+      faltasCorregidas: faltas.filter((f) => corregidas.includes(f.texto)).length,
+    };
+  });
 }
 
 export async function obtenerChecklistsVisita(
@@ -492,23 +503,29 @@ export async function obtenerChecklistsVisita(
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, tiendas(nombre)")
+    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, faltas, faltas_corregidas, tiendas(nombre)")
     .gte("fecha", desde)
     .lte("fecha", hasta)
     .order("fecha", { ascending: false });
 
   if (error) throw new Error("No se pudo cargar los checklists.");
 
-  return (data ?? []).map((c: any) => ({
-    id: c.id,
-    tiendaId: c.tienda_id,
-    tiendaNombre: c.tiendas?.nombre ?? "—",
-    usuarioNombre: c.usuario_nombre,
-    rol: c.rol,
-    fecha: c.fecha,
-    porcentaje: c.porcentaje,
-    clasificacion: c.clasificacion,
-  }));
+  return (data ?? []).map((c: any) => {
+    const faltas = (c.faltas as FaltaChecklist[] | null) ?? [];
+    const corregidas = (c.faltas_corregidas as string[] | null) ?? [];
+    return {
+      id: c.id,
+      tiendaId: c.tienda_id,
+      tiendaNombre: c.tiendas?.nombre ?? "—",
+      usuarioNombre: c.usuario_nombre,
+      rol: c.rol,
+      fecha: c.fecha,
+      porcentaje: c.porcentaje,
+      clasificacion: c.clasificacion,
+      faltasTotal: faltas.length,
+      faltasCorregidas: faltas.filter((f) => corregidas.includes(f.texto)).length,
+    };
+  });
 }
 
 export type ChecklistVisitaDetalle = {
@@ -524,6 +541,9 @@ export type ChecklistVisitaDetalle = {
   // null en checklists guardados antes de la nota por áreas.
   areas: PuntajesArea | null;
   faltas: FaltaChecklist[];
+  // Cuáles de las faltas de arriba ya se marcaron como corregidas (por
+  // texto) -- independiente de llenar otro checklist, ver marcarFaltaCorregida.
+  faltasCorregidas: string[];
   editadoPor: string | null;
   editadoEn: string | null;
   // Plantilla con la que se llenó (para mostrar/armar el PDF con sus preguntas).
@@ -566,7 +586,7 @@ export async function obtenerAgregadosChecklistVisita(
   const [{ data, error }, { data: plantillas }] = await Promise.all([
     supabase
       .from("checklists_visita")
-      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, plantilla_id, tiendas(nombre)")
+      .select("id, tienda_id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, plantilla_id, faltas, faltas_corregidas, tiendas(nombre)")
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha", { ascending: false }),
@@ -579,16 +599,22 @@ export async function obtenerAgregadosChecklistVisita(
   if (error) throw new Error("No se pudo cargar los checklists.");
   const filas = (data ?? []) as any[];
 
-  const resumen: ChecklistVisitaResumen[] = filas.map((c) => ({
-    id: c.id,
-    tiendaId: c.tienda_id,
-    tiendaNombre: c.tiendas?.nombre ?? "—",
-    usuarioNombre: c.usuario_nombre,
-    rol: c.rol,
-    fecha: c.fecha,
-    porcentaje: c.porcentaje,
-    clasificacion: c.clasificacion,
-  }));
+  const resumen: ChecklistVisitaResumen[] = filas.map((c) => {
+    const faltas = (c.faltas as FaltaChecklist[] | null) ?? [];
+    const corregidas = (c.faltas_corregidas as string[] | null) ?? [];
+    return {
+      id: c.id,
+      tiendaId: c.tienda_id,
+      tiendaNombre: c.tiendas?.nombre ?? "—",
+      usuarioNombre: c.usuario_nombre,
+      rol: c.rol,
+      fecha: c.fecha,
+      porcentaje: c.porcentaje,
+      clasificacion: c.clasificacion,
+      faltasTotal: faltas.length,
+      faltasCorregidas: faltas.filter((f) => corregidas.includes(f.texto)).length,
+    };
+  });
 
   // ---- KPIs ----
   const conPuntaje = filas.filter((c) => c.porcentaje !== null && c.porcentaje !== undefined);
@@ -689,7 +715,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("checklists_visita")
-    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, editado_por, editado_en, plantilla_id, tiendas(nombre)")
+    .select("id, usuario_nombre, rol, fecha, respuestas, porcentaje, clasificacion, puntajes_area, faltas, faltas_corregidas, editado_por, editado_en, plantilla_id, tiendas(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -706,6 +732,7 @@ export async function obtenerDetalleChecklistVisita(id: string): Promise<Checkli
     clasificacion: data.clasificacion as ClasificacionChecklist | null,
     areas: ((data as any).puntajes_area as PuntajesArea | null) ?? null,
     faltas: ((data as any).faltas as FaltaChecklist[] | null) ?? [],
+    faltasCorregidas: ((data as any).faltas_corregidas as string[] | null) ?? [],
     editadoPor: (data as any).editado_por ?? null,
     editadoEn: (data as any).editado_en ?? null,
     secciones: (await cargarPlantilla(supabase, (data as any).plantilla_id ?? "principal")).secciones,
