@@ -473,6 +473,7 @@ export type Database = {
           editado_en: string | null
           editado_por: string | null
           faltas: Json | null
+          faltas_corregidas: Json
           fecha: string
           id: string
           leido: boolean | null
@@ -491,6 +492,7 @@ export type Database = {
           editado_en?: string | null
           editado_por?: string | null
           faltas?: Json | null
+          faltas_corregidas?: Json
           fecha: string
           id?: string
           leido?: boolean | null
@@ -509,6 +511,7 @@ export type Database = {
           editado_en?: string | null
           editado_por?: string | null
           faltas?: Json | null
+          faltas_corregidas?: Json
           fecha?: string
           id?: string
           leido?: boolean | null

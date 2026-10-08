@@ -11,7 +11,7 @@ import {
   type SeccionChecklist,
   type FaltaChecklist,
 } from "../checklist-visita-actions";
-import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "../supervisor/actions";
+import { obtenerTiendasAsignadasHoy, type TiendaAsignadaHoy } from "../supervisor/actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 import { puntajeItem, textoPuntajesArea } from "@/lib/checklist-puntaje";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
@@ -193,7 +193,7 @@ function DetalleChecklistTienda({ id, onCerrar }: { id: string; onCerrar: () => 
 }
 
 function HistorialPorTienda() {
-  const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
+  const [tiendas, setTiendas] = useState<TiendaAsignadaHoy[]>([]);
   const [tiendaId, setTiendaId] = useState("");
   const [cargandoTiendas, setCargandoTiendas] = useState(true);
   const [checklists, setChecklists] = useState<ChecklistVisitaResumen[]>([]);
@@ -201,7 +201,8 @@ function HistorialPorTienda() {
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
 
   useEffect(() => {
-    obtenerTodasLasTiendas()
+    // Solo tiendas asignadas o autoasignadas hoy -- no toda la lista.
+    obtenerTiendasAsignadasHoy()
       .then(setTiendas)
       .finally(() => setCargandoTiendas(false));
   }, []);
@@ -237,7 +238,11 @@ function HistorialPorTienda() {
         </select>
       </div>
 
-      {!tiendaId && (
+      {!cargandoTiendas && tiendas.length === 0 && (
+        <p className="text-marca-tenue text-sm italic">No tienes ninguna tienda asignada ni autoasignada para hoy.</p>
+      )}
+
+      {!tiendaId && tiendas.length > 0 && (
         <p className="text-marca-tenue text-sm italic">Elige una tienda para ver todos los checklists que se le hicieron.</p>
       )}
 

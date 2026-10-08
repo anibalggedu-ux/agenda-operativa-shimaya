@@ -394,6 +394,34 @@ export async function obtenerTodasLasTiendas(): Promise<TiendaBasicaBitacora[]> 
   return data ?? [];
 }
 
+export type TiendaAsignadaHoy = TiendaBasicaBitacora & { lat: number | null; lon: number | null };
+
+// Tiendas que la persona tiene asignadas (por el coordinador) o se
+// autoasignó para HOY -- para el checklist de rutina: solo se puede llenar
+// en una tienda que de verdad te toque visitar hoy, no en cualquiera de la
+// lista completa.
+export async function obtenerTiendasAsignadasHoy(): Promise<TiendaAsignadaHoy[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("rutas_activas")
+    .select("tiendas!tienda_id(id, nombre, lat, lon)")
+    .eq("usuario_id", sesion.id)
+    .eq("fecha_planificada", hoyPeru());
+  if (error) throw new Error("No se pudo cargar tus tiendas de hoy.");
+
+  const vistas = new Map<string, TiendaAsignadaHoy>();
+  (data ?? []).forEach((r: any) => {
+    const t = r.tiendas;
+    if (t && !vistas.has(t.id)) {
+      vistas.set(t.id, { id: t.id, nombre: t.nombre, lat: t.lat === null ? null : Number(t.lat), lon: t.lon === null ? null : Number(t.lon) });
+    }
+  });
+  return Array.from(vistas.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 async function notificarCoordinadoresAutoasignacion(
   nombreUsuario: string,
   tiendaNombre: string,

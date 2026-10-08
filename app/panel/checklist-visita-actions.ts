@@ -373,6 +373,84 @@ export type ChecklistVisitaResumen = {
   clasificacion: ClasificacionChecklist | null;
 };
 
+export type FaltaRecienteChecklist = {
+  checklistId: string;
+  fecha: string;
+  usuarioNombre: string;
+  texto: string;
+  descuento: number;
+  corregido: boolean;
+};
+
+// Faltas de los últimos 2 checklists de una tienda -- para que quien va a
+// llenar uno nuevo vea de una si los problemas de la vez pasada ya se
+// corrigieron, en vez de tener que abrir el historial aparte.
+export async function obtenerFaltasRecientesDeTienda(tiendaId: string): Promise<FaltaRecienteChecklist[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+  if (!tiendaId) return [];
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("checklists_visita")
+    .select("id, fecha, usuario_nombre, faltas, faltas_corregidas")
+    .eq("tienda_id", tiendaId)
+    .order("fecha", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(2);
+  if (error) throw new Error("No se pudo cargar las faltas anteriores de esta tienda.");
+
+  const filas = (data ?? []) as any[];
+  const resultado: FaltaRecienteChecklist[] = [];
+  filas.forEach((c) => {
+    const faltas = (c.faltas as FaltaChecklist[] | null) ?? [];
+    const corregidas = (c.faltas_corregidas as string[] | null) ?? [];
+    faltas.forEach((f) => {
+      resultado.push({
+        checklistId: c.id,
+        fecha: c.fecha,
+        usuarioNombre: c.usuario_nombre,
+        texto: f.texto,
+        descuento: f.descuento,
+        corregido: corregidas.includes(f.texto),
+      });
+    });
+  });
+  return resultado;
+}
+
+// Marca (o desmarca) una falta puntual de un checklist anterior como ya
+// corregida -- cualquiera que llene checklists puede hacerlo, no hace falta
+// ser quien lo escribió originalmente (suele corregirlo otra persona del
+// equipo, no quien encontró el problema).
+export async function marcarFaltaCorregida(
+  checklistId: string,
+  texto: string,
+  corregido: boolean
+): Promise<ResultadoChecklist> {
+  const sesion = await exigirRolConChecklist();
+  const supabase = supabaseServer();
+
+  const { data: actual, error: errorActual } = await supabase
+    .from("checklists_visita")
+    .select("faltas_corregidas")
+    .eq("id", checklistId)
+    .maybeSingle();
+  if (errorActual || !actual) return { exito: false, mensaje: "No se encontró el checklist." };
+
+  const corregidas = new Set(((actual.faltas_corregidas as string[] | null) ?? []));
+  if (corregido) corregidas.add(texto);
+  else corregidas.delete(texto);
+
+  const { error } = await supabase
+    .from("checklists_visita")
+    .update({ faltas_corregidas: Array.from(corregidas) })
+    .eq("id", checklistId);
+  if (error) return { exito: false, mensaje: "No se pudo guardar." };
+
+  return { exito: true };
+}
+
 // Historial de checklists de UNA tienda puntual (sin rango de fechas) --
 // para "Checklist de rutina > Ver/Imprimir": cualquier rol con bitácora
 // puede abrir una tienda y ver todos los checklists que se le hicieron,

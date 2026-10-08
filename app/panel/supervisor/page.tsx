@@ -6,11 +6,8 @@ import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import EncuestasPendientes from "../encuestas/encuestas-pendientes";
-import MisPuntosWidget from "../mis-puntos-widget";
 import BreakWidget from "../break-widget";
 import { tieneAccesoRegistro, tieneAccesoAuditoria } from "@/lib/permisos";
-import PerfilBanner from "../perfil-banner";
-import { obtenerMiPerfil } from "./actions";
 import TiendasFijas from "./tiendas-fijas";
 import MisSolicitudes from "./mis-solicitudes";
 import MisMarcaciones from "./mis-marcaciones";
@@ -56,9 +53,6 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <EncuestasPendientes />
-          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
-          <MisPuntosWidget />
-          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),
@@ -75,6 +69,7 @@ export default async function PanelSupervisor() {
       icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <BreakWidget />
           <TiendasFijas />
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />

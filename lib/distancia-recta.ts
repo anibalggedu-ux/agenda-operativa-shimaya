@@ -22,6 +22,12 @@ export function distanciaMetros(lat1: number, lon1: number, lat2: number, lon2: 
 // por 100-300m fácil dentro de un centro comercial o edificio alto.
 export const UMBRAL_LEJOS_METROS = 500;
 
+// El checklist de rutina sí exige estar en el lugar -- a diferencia de la
+// marcación de llegada/salida (que solo avisa), acá el margen es mucho más
+// chico porque la idea es que se llene parado en la tienda, no desde la
+// camioneta en la esquina.
+export const UMBRAL_CHECKLIST_METROS = 30;
+
 // El GPS de la marcación no se guarda como lat/lon aparte -- se guarda como
 // el link "https://www.google.com/maps?q=<lat>,<lng>" que ya arma
 // marcarLlegadaTienda/marcarSalidaTienda (ver supervisor/actions.ts). Esta
