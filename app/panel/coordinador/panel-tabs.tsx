@@ -109,7 +109,7 @@ export default function PanelTabs({
     { id: "anuncios", etiqueta: "Anuncios", icono: <Megaphone className="w-4 h-4" />, contenido: <Anuncios /> },
     { id: "encuestas", etiqueta: "Encuestas", icono: <ClipboardCheck className="w-4 h-4" />, contenido: <EncuestasCoordinador /> },
     { id: "historial", etiqueta: "Historial y Monitoreo", icono: <History className="w-4 h-4" />, contenido: <HistorialMonitoreo /> },
-    { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica /> },
+    { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica mostrarApoyos /> },
     { id: "registro", etiqueta: "Registro", icono: <Settings className="w-4 h-4" />, contenido: <Registro esCoordinador={true} /> },
     { id: "documentos", etiqueta: "Documentos", icono: <File className="w-4 h-4" />, contenido: <Documentos esAdmin={true} /> },
     {

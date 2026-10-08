@@ -62,7 +62,7 @@ export default async function PanelGerente() {
       id: "analitica",
       etiqueta: "Central Analítica",
       icono: <BarChart3 className="w-4 h-4" />,
-      contenido: <CentralAnalitica />,
+      contenido: <CentralAnalitica mostrarApoyos />,
     },
     {
       id: "documentos",

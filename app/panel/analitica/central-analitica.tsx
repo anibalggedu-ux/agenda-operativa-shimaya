@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { LineChart, Trophy, Car, Target, AlertTriangle, Store, LayoutDashboard, TrendingUp, FileText, User } from "lucide-react";
+import BotonApoyos from "../boton-apoyos";
 import {
   obtenerReportesPorDia,
   obtenerDesempenoPorPersona,
@@ -134,7 +135,7 @@ function Kpi({
   );
 }
 
-export default function CentralAnalitica() {
+export default function CentralAnalitica({ mostrarApoyos = false }: { mostrarApoyos?: boolean }) {
   // Enlace directo desde el correo de "nuevo checklist" (?checklist=<id>):
   // abre de una vez la pestaña de checklist con un rango amplio, para que el
   // checklist puntual aparezca aunque tenga más de 30 días.
@@ -219,6 +220,7 @@ export default function CentralAnalitica() {
 
   return (
     <div className="space-y-6">
+      {mostrarApoyos && <BotonApoyos />}
       <div className="flex flex-col sm:flex-row gap-3 bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
         <div className="flex-1">
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
