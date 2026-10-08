@@ -42,6 +42,7 @@ import { puntajeItem, textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 import { ContadorPorcentaje } from "../contador-numero";
 import EstadoVacio from "../estado-vacio";
+import BloqueColapsable from "../bloque-colapsable";
 
 function formatearValor(tipo: string, valor: any): string {
   if (valor === null || valor === undefined || valor === "") return "—";
@@ -337,6 +338,11 @@ export default function ChecklistVisitaAnalitica({
   const [busquedaTienda, setBusquedaTienda] = useState("");
   const [filtroClasificacion, setFiltroClasificacion] = useState<string>("todos");
   const [tiendaEvolucion, setTiendaEvolucion] = useState<string>("");
+  // La lista de checklists enviados puede crecer mucho -- arranca cerrada,
+  // salvo que se venga de un enlace directo a un checklist puntual
+  // (resaltarId) o se toque una alerta crítica (irAChecklist), casos en los
+  // que debe estar visible para poder hacerle scroll.
+  const [listaAbierta, setListaAbierta] = useState(!!resaltarId);
   const colores = useColoresGrafico();
 
   useEffect(() => {
@@ -359,6 +365,7 @@ export default function ChecklistVisitaAnalitica({
     setBusquedaTienda("");
     setFiltroClasificacion("todos");
     setDetalleAbierto(id);
+    setListaAbierta(true);
     requestAnimationFrame(() => {
       document.getElementById(`checklist-fila-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -672,12 +679,24 @@ export default function ChecklistVisitaAnalitica({
         )}
       </div>
 
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5">
-          <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro" /> CHECKLISTS ENVIADOS
-        </h3>
-
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setListaAbierta((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-5 py-4 text-left hover:bg-marca-superficie2 transition"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <ClipboardList className="w-3.5 h-3.5 text-marca-rojoclaro shrink-0" />
+            <span className="text-xs font-black tracking-widest text-marca-tenue truncate">CHECKLISTS ENVIADOS</span>
+            <span className="shrink-0 text-[10px] font-black uppercase tracking-wide bg-marca-rojo/15 text-marca-rojoclaro px-2 py-0.5 rounded-full">
+              {datos.resumen.length}
+            </span>
+          </span>
+          <span className={`text-marca-tenue text-[10px] transition-transform shrink-0 ${listaAbierta ? "rotate-180" : ""}`}>▾</span>
+        </button>
+        {listaAbierta && (
+        <div className="px-5 pb-5 pt-1 border-t border-marca-borde">
+        <div className="flex flex-wrap items-center gap-2 mb-4 mt-3">
           <input
             value={busquedaTienda}
             onChange={(e) => setBusquedaTienda(e.target.value)}
@@ -783,6 +802,8 @@ export default function ChecklistVisitaAnalitica({
               </tbody>
             </table>
           </div>
+        )}
+        </div>
         )}
       </div>
     </div>
