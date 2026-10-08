@@ -12,7 +12,6 @@ import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "../supervisor/actions";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
-import ChecklistVisita from "../checklist-visita";
 import EventosDeHoy from "../eventos-hoy";
 import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
@@ -27,6 +26,7 @@ import {
   LazyMiAgenda as MiAgenda,
   LazyCampanaNotificaciones as CampanaNotificaciones,
   LazySoporte as Soporte,
+  LazyChecklistRutina as ChecklistRutina,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 import { obtenerNotificacionesPendientes } from "../historias/social-actions";
@@ -91,10 +91,10 @@ export default async function PanelCapacitador() {
       ),
     },
     {
-      id: "checklist",
-      etiqueta: "Checklist",
+      id: "checklist-rutina",
+      etiqueta: "Checklist de Rutina",
       icono: <ListChecks className="w-4 h-4" />,
-      contenido: <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />,
+      contenido: <ChecklistRutina nombreUsuario={sesion.nombre} rol={sesion.rol} />,
     },
     {
       id: "reportes",

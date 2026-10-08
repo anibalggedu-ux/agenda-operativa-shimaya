@@ -4,7 +4,6 @@ import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, Hi
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
-import ChecklistVisita from "../checklist-visita";
 import PerfilBanner from "../perfil-banner";
 import { obtenerPerfilCoordinador } from "./actions";
 import AsignarRutas from "./asignar-rutas";
@@ -33,6 +32,7 @@ import {
   LazyMiAgenda as MiAgenda,
   LazyCampanaNotificaciones as CampanaNotificaciones,
   LazySoporte as Soporte,
+  LazyChecklistRutina as ChecklistRutina,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -83,10 +83,10 @@ export default function PanelTabs({
       ),
     },
     {
-      id: "checklist",
-      etiqueta: "Checklist",
+      id: "checklist-rutina",
+      etiqueta: "Checklist de Rutina",
       icono: <ListChecks className="w-4 h-4" />,
-      contenido: <ChecklistVisita nombreUsuario={nombre} rol={rol} />,
+      contenido: <ChecklistRutina nombreUsuario={nombre} rol={rol} />,
     },
     {
       id: "reportes",

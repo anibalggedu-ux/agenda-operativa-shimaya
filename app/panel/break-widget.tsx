@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
-import { reproducirSonidoAlerta, reproducirSonidoExito, sonarAlarma } from "@/lib/sonido";
+import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import {
   obtenerMiBreakDeHoy,
   obtenerMisUltimosBreaks,
@@ -85,7 +85,6 @@ export default function BreakWidget() {
   const inputSalida = useRef<HTMLInputElement>(null);
   const inputEntrada = useRef<HTMLInputElement>(null);
   const avisoEnviado = useRef(false);
-  const detenerAlarma = useRef<(() => void) | null>(null);
 
   // en_curso: ya salió a break y todavía no marca entrada -- ahí se muestra
   // el cronómetro. completado: ya usó su único break del día -- queda
@@ -120,18 +119,12 @@ export default function BreakWidget() {
     if (restantes <= AVISO_ANTES_SEG) {
       avisoEnviado.current = true;
       avisarCincoMinutosBreak(activo.id).catch(() => {});
-      // El push del sistema solo suena una vez y no se puede alargar -- esto
-      // es un refuerzo mientras la app sigue abierta: una alarma de ~10s que
-      // se corta sola, o antes si ya se marca la entrada (ver handleFoto).
-      detenerAlarma.current = sonarAlarma(10000);
+      // Un solo aviso sonoro (no una alarma repetida) -- el push del sistema
+      // ya avisa aparte; esto es solo un refuerzo mientras la app sigue
+      // abierta.
+      reproducirSonidoAlerta();
     }
   }, [restantes, activo]);
-
-  // Si se cierra el cronómetro (se marcó entrada, o se navega a otra
-  // sección) con la alarma todavía sonando, que no se quede sonando sola.
-  useEffect(() => {
-    return () => detenerAlarma.current?.();
-  }, []);
 
   async function handleFoto(e: React.ChangeEvent<HTMLInputElement>, tipo: "salida" | "entrada") {
     const archivo = e.target.files?.[0];
@@ -145,7 +138,6 @@ export default function BreakWidget() {
         tipo === "salida" ? await marcarSalidaBreak(foto) : await marcarEntradaBreak(activo!.id, foto);
       setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
       if (resultado.exito) {
-        if (tipo === "entrada") detenerAlarma.current?.();
         reproducirSonidoExito();
         // Deja ver el anillo + check un instante antes de refrescar -- si se
         // llama a cargar() de una, la pantalla cambia de golpe (cronómetro

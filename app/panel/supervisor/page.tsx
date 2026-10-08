@@ -14,7 +14,6 @@ import { obtenerMiPerfil } from "./actions";
 import TiendasFijas from "./tiendas-fijas";
 import MisSolicitudes from "./mis-solicitudes";
 import MisMarcaciones from "./mis-marcaciones";
-import ChecklistVisita from "../checklist-visita";
 import EventosDeHoy from "../eventos-hoy";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -30,6 +29,7 @@ import {
   LazyMiAgenda as MiAgenda,
   LazyCampanaNotificaciones as CampanaNotificaciones,
   LazySoporte as Soporte,
+  LazyChecklistRutina as ChecklistRutina,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 import { obtenerNotificacionesPendientes } from "../historias/social-actions";
@@ -83,10 +83,10 @@ export default async function PanelSupervisor() {
       ),
     },
     {
-      id: "checklist",
-      etiqueta: "Checklist",
+      id: "checklist-rutina",
+      etiqueta: "Checklist de Rutina",
       icono: <ListChecks className="w-4 h-4" />,
-      contenido: <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />,
+      contenido: <ChecklistRutina nombreUsuario={sesion.nombre} rol={sesion.rol} />,
     },
     {
       id: "reportes",

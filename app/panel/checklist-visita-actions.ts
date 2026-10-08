@@ -92,14 +92,19 @@ async function cargarPlantilla(supabase: ReturnType<typeof supabaseServer>, id: 
   };
 }
 
-// Último checklist de esta tienda en los últimos 3 días (cualquier
-// persona) — solo aviso, nunca impide llenar uno nuevo.
+// El checklist de una tienda debería hacerse una vez por semana -- si ya se
+// hizo uno en los últimos 7 días, se avisa (nunca bloquea: a veces conviene
+// repetirlo antes, ej. una tienda con problemas).
+const DIAS_ENTRE_CHECKLISTS = 7;
+
+// Último checklist de esta tienda dentro de esa ventana (cualquier persona)
+// — solo aviso, nunca impide llenar uno nuevo.
 async function checklistRecienteDeTienda(
   supabase: ReturnType<typeof supabaseServer>,
   tiendaId: string
 ): Promise<PlantillaChecklist["checklistReciente"]> {
   const hoy = hoyPeru();
-  const desde = sumarDias(hoy, -3);
+  const desde = sumarDias(hoy, -DIAS_ENTRE_CHECKLISTS);
   const { data } = await supabase
     .from("checklists_visita")
     .select("fecha, usuario_nombre")
@@ -367,6 +372,37 @@ export type ChecklistVisitaResumen = {
   porcentaje: number | null;
   clasificacion: ClasificacionChecklist | null;
 };
+
+// Historial de checklists de UNA tienda puntual (sin rango de fechas) --
+// para "Checklist de rutina > Ver/Imprimir": cualquier rol con bitácora
+// puede abrir una tienda y ver todos los checklists que se le hicieron,
+// no solo los coordinadores/gerentes de Central Analítica.
+export async function obtenerChecklistsDeTienda(tiendaId: string): Promise<ChecklistVisitaResumen[]> {
+  const sesion = await obtenerSesion();
+  if (!sesion) throw new Error("No autorizado.");
+  if (!tiendaId) return [];
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("checklists_visita")
+    .select("id, tienda_id, usuario_nombre, rol, fecha, porcentaje, clasificacion, tiendas(nombre)")
+    .eq("tienda_id", tiendaId)
+    .order("fecha", { ascending: false })
+    .limit(100);
+
+  if (error) throw new Error("No se pudo cargar el historial de esta tienda.");
+
+  return (data ?? []).map((c: any) => ({
+    id: c.id,
+    tiendaId: c.tienda_id,
+    tiendaNombre: c.tiendas?.nombre ?? "—",
+    usuarioNombre: c.usuario_nombre,
+    rol: c.rol,
+    fecha: c.fecha,
+    porcentaje: c.porcentaje,
+    clasificacion: c.clasificacion,
+  }));
+}
 
 export async function obtenerChecklistsVisita(
   desde: string,
