@@ -19,6 +19,7 @@ import MisPuntosWidget from "../mis-puntos-widget";
 import BreakWidget from "../break-widget";
 import MarcacionesBreakEquipo from "./marcaciones-break-equipo";
 import EventosDeHoy from "../eventos-hoy";
+import BloqueColapsable from "../bloque-colapsable";
 import {
   LazyRegistro as Registro,
   LazyDocumentos as Documentos,
@@ -76,7 +77,9 @@ export default function PanelTabs({
         <div className="space-y-6">
           <MisPuntosWidget />
           <BreakWidget />
-          <EventosDeHoy />
+          <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
+            <EventosDeHoy />
+          </BloqueColapsable>
           <SelectorTiendas supervisorNombre={nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
         </div>

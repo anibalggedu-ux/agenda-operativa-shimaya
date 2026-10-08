@@ -63,10 +63,15 @@ export default function HistorialMonitoreo() {
   const [asistencia, setAsistencia] = useState<AsistenciaGeneral[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Un rango largo puede traer cientos de marcaciones -- se muestran de a
+  // tandas en vez de todas de una, aunque igual quepan en el scroll interno.
+  const PASO_PAGINA = 25;
+  const [mostrar, setMostrar] = useState(PASO_PAGINA);
 
   useEffect(() => {
     setCargando(true);
     setError(null);
+    setMostrar(PASO_PAGINA);
     obtenerAsistenciaGeneral(desde, hasta)
       .then(setAsistencia)
       .catch((e) => setError(e.message || "Error al cargar el monitoreo operativo."))
@@ -96,7 +101,7 @@ export default function HistorialMonitoreo() {
             <p className="text-marca-tenue text-sm italic">Sin marcaciones en este rango de fechas.</p>
           ) : (
             <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
-              {asistencia.map((a, i) => (
+              {asistencia.slice(0, mostrar).map((a, i) => (
                 <div
                   key={i}
                   className={`flex items-center justify-between rounded-[3px] p-3 border gap-3 ${
@@ -120,6 +125,15 @@ export default function HistorialMonitoreo() {
                 </div>
               ))}
             </div>
+          )}
+          {asistencia.length > mostrar && (
+            <button
+              type="button"
+              onClick={() => setMostrar((m) => m + PASO_PAGINA)}
+              className="w-full mt-2 text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase tracking-widest py-2 border border-marca-borde rounded-[3px] transition"
+            >
+              Mostrar {Math.min(PASO_PAGINA, asistencia.length - mostrar)} más ({asistencia.length - mostrar} restantes)
+            </button>
           )}
         </div>
       )}

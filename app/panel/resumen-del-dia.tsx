@@ -64,7 +64,7 @@ function Tarjeta({
     <Contenedor
       type={expandible ? "button" : undefined}
       onClick={onClick}
-      className={`rounded-[3px] p-2.5 border text-left w-full ${
+      className={`shrink-0 w-[150px] rounded-[3px] p-2.5 border text-left ${
         destacada ? "bg-marca-rojo/10 border-marca-rojo/40" : "bg-marca-superficie border-marca-borde"
       } ${expandible ? `transition hover:border-marca-rojo/50 ${abierta ? "ring-2 ring-marca-rojo/60" : ""}` : ""}`}
     >
@@ -88,7 +88,7 @@ function Tarjeta({
 // contenedor 4 veces.
 function PanelDetalle({ icono, titulo, children }: { icono: ReactNode; titulo: string; children: ReactNode }) {
   return (
-    <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-4">
+    <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-4">
       <h4 className="text-xs font-black tracking-widest text-marca-tenue mb-3 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro">
         {icono} {titulo}
       </h4>
@@ -99,7 +99,7 @@ function PanelDetalle({ icono, titulo, children }: { icono: ReactNode; titulo: s
 
 function TarjetaAncha({ icono, etiqueta, valor }: { icono: ReactNode; etiqueta: string; valor: string }) {
   return (
-    <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between flex-wrap gap-2">
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between flex-wrap gap-2">
       <span className="text-marca-tenue text-[10px] uppercase font-bold flex items-center gap-2 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro">
         {icono} {etiqueta}
       </span>
@@ -287,58 +287,154 @@ export default function ResumenDelDia({
       )}
 
       {!ocultarTarjetas && (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="space-y-2">
+        {/* Carrusel horizontal (desliza) en vez de grid -- antes ocupaba 2 o
+            3 filas completas en el celular. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {esOperativo && operativo && (
+            <>
+              <Tarjeta
+                icono={<AlertTriangle className="w-4 h-4" />}
+                etiqueta="Tiendas en acción inmediata"
+                valor={String(operativo.tiendasCriticas.length)}
+                valorClase={operativo.tiendasCriticas.length > 0 ? "text-marca-rojoclaro" : undefined}
+                destacada={operativo.tiendasCriticas.length > 0}
+                extra={
+                  operativo.tiendasCriticas.length > 0
+                    ? operativo.tiendasCriticas
+                        .slice(0, 2)
+                        .map((t) => `${t.nombre} — ${t.porcentaje}%`)
+                        .join(" · ")
+                    : "Ninguna por ahora"
+                }
+                expandible={operativo.tiendasCriticas.length > 0}
+                abierta={cuadroAbierto === "criticas"}
+                onClick={() => alternarCuadro("criticas")}
+              />
+              <Tarjeta
+                icono={<MapPin className="w-4 h-4" />}
+                etiqueta="Tiendas de hoy"
+                valor={`${operativo.reportadasHoy} / ${operativo.visitasHoy}`}
+                extra={`reportadas / asignadas hoy (de ${operativo.totalTiendas})`}
+                expandible={operativo.tiendasDeHoyDetalle.length > 0}
+                abierta={cuadroAbierto === "tiendasHoy"}
+                onClick={() => alternarCuadro("tiendasHoy")}
+              />
+              <Tarjeta
+                icono={<TreePalm className="w-4 h-4" />}
+                etiqueta="Asignación especial hoy"
+                valor={String(operativo.asignacionesEspecialesHoyTotal)}
+                extra={
+                  operativo.asignacionEspecialHoy
+                    ? `${operativo.asignacionEspecialHoy.nombre} — ${operativo.asignacionEspecialHoy.tipo}`
+                    : "Nadie hoy"
+                }
+                expandible={operativo.asignacionesEspecialesHoy.length > 0}
+                abierta={cuadroAbierto === "especiales"}
+                onClick={() => alternarCuadro("especiales")}
+              />
+              <Tarjeta
+                icono={<Megaphone className="w-4 h-4" />}
+                etiqueta="Comunicados (7 días)"
+                valor={String(operativo.comunicadosSemana)}
+                extra="enviados al equipo"
+                expandible={operativo.comunicadosDetalle.length > 0}
+                abierta={cuadroAbierto === "comunicados"}
+                onClick={() => alternarCuadro("comunicados")}
+              />
+            </>
+          )}
+
+          {!esOperativo && personal && (
+            <>
+              {personal.climaActual && (
+                <div
+                  className={`shrink-0 w-[150px] rounded-[3px] p-2.5 border ${
+                    personal.climaActual.riesgo
+                      ? "bg-amber-950/20 border-amber-500/40"
+                      : "bg-marca-superficie border-marca-borde"
+                  }`}
+                >
+                  <p className="text-sm mb-1 leading-none">{personal.climaActual.icono}</p>
+                  <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">
+                    Clima {personal.climaActual.tempActual !== null ? "ahora" : "hoy"} ·{" "}
+                    {personal.climaActual.zonaNombre}
+                  </p>
+                  <p
+                    className={`font-display text-base font-semibold leading-tight ${
+                      personal.climaActual.riesgo ? "text-amber-400" : "text-marca-textofuerte"
+                    }`}
+                  >
+                    {personal.climaActual.tempActual !== null
+                      ? `${personal.climaActual.tempActual}°C`
+                      : `${personal.climaActual.tempMax}° / ${personal.climaActual.tempMin}°`}
+                  </p>
+                  <p className="text-marca-tenue text-[9.5px] mt-0.5 leading-snug">
+                    {personal.climaActual.avisoTexto ?? personal.climaActual.descripcion}
+                  </p>
+                </div>
+              )}
+              <div
+                className={`shrink-0 w-[150px] rounded-[3px] p-2.5 border ${
+                  personal.rutaHoyEstado === "pendiente"
+                    ? "bg-marca-rojo/10 border-marca-rojo/40"
+                    : "bg-marca-superficie border-marca-borde"
+                } ${personal.rutaHoyNombre ? "borde-dorado-animado" : ""}`}
+              >
+                <p className="mb-1 leading-none">
+                  <MapPin className="w-4 h-4 text-marca-rojoclaro" />
+                </p>
+                <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">Tu ruta de hoy</p>
+                {personal.rutaHoyNombre ? (
+                  <>
+                    <p className="font-display text-sm font-semibold leading-tight text-marca-textofuerte">
+                      {personal.rutaHoyNombre}
+                    </p>
+                    {personal.rutaHoyExtra > 0 && (
+                      <p className="text-marca-tenue text-[9.5px]">+{personal.rutaHoyExtra} más</p>
+                    )}
+                    <span
+                      className={`inline-flex items-center gap-1 mt-1.5 text-[9.5px] font-bold px-2 py-0.5 rounded-full [&>svg]:w-3 [&>svg]:h-3 ${
+                        personal.rutaHoyEstado === "pendiente"
+                          ? "bg-amber-950/30 text-amber-400"
+                          : "bg-emerald-950/30 text-emerald-400"
+                      }`}
+                    >
+                      {personal.rutaHoyEstado === "pendiente" ? <Clock /> : <CircleCheck />}{" "}
+                      {personal.rutaHoyEstado === "pendiente" ? "Pendiente" : "Reportado"}
+                    </span>
+                  </>
+                ) : (
+                  <p className="text-marca-tenue text-xs italic">Sin asignación</p>
+                )}
+              </div>
+              <Tarjeta
+                icono={<Pencil className="w-4 h-4" />}
+                etiqueta="Reportes editables"
+                valor={String(personal.reportesEditables)}
+                extra="dentro de las 48h"
+              />
+              <Tarjeta
+                icono={<Flame className="w-4 h-4" />}
+                etiqueta="Racha de puntualidad"
+                valor={personal.rachaActual > 0 ? `${personal.rachaActual} día${personal.rachaActual === 1 ? "" : "s"}` : "—"}
+                valorClase={personal.rachaActual > 0 ? "text-emerald-400" : undefined}
+                extra={personal.rachaActual > 0 ? "sigue así" : "marca a tiempo"}
+              />
+              <Tarjeta
+                icono={<Megaphone className="w-4 h-4" />}
+                etiqueta="Comunicados recientes"
+                valor={String(personal.comunicadosRecientes)}
+                extra={personal.ultimoComunicadoTipo ?? "sin novedades"}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Bloques anchos y detalle expandido -- fuera del carrusel, a lo
+            ancho de la pantalla. */}
         {esOperativo && operativo && (
           <>
-            <Tarjeta
-              icono={<AlertTriangle className="w-4 h-4" />}
-              etiqueta="Tiendas en acción inmediata"
-              valor={String(operativo.tiendasCriticas.length)}
-              valorClase={operativo.tiendasCriticas.length > 0 ? "text-marca-rojoclaro" : undefined}
-              destacada={operativo.tiendasCriticas.length > 0}
-              extra={
-                operativo.tiendasCriticas.length > 0
-                  ? operativo.tiendasCriticas
-                      .slice(0, 2)
-                      .map((t) => `${t.nombre} — ${t.porcentaje}%`)
-                      .join(" · ")
-                  : "Ninguna por ahora"
-              }
-              expandible={operativo.tiendasCriticas.length > 0}
-              abierta={cuadroAbierto === "criticas"}
-              onClick={() => alternarCuadro("criticas")}
-            />
-            <Tarjeta
-              icono={<MapPin className="w-4 h-4" />}
-              etiqueta="Tiendas de hoy"
-              valor={`${operativo.reportadasHoy} / ${operativo.visitasHoy}`}
-              extra={`reportadas / asignadas hoy (de ${operativo.totalTiendas})`}
-              expandible={operativo.tiendasDeHoyDetalle.length > 0}
-              abierta={cuadroAbierto === "tiendasHoy"}
-              onClick={() => alternarCuadro("tiendasHoy")}
-            />
-            <Tarjeta
-              icono={<TreePalm className="w-4 h-4" />}
-              etiqueta="Asignación especial hoy"
-              valor={String(operativo.asignacionesEspecialesHoyTotal)}
-              extra={
-                operativo.asignacionEspecialHoy
-                  ? `${operativo.asignacionEspecialHoy.nombre} — ${operativo.asignacionEspecialHoy.tipo}`
-                  : "Nadie hoy"
-              }
-              expandible={operativo.asignacionesEspecialesHoy.length > 0}
-              abierta={cuadroAbierto === "especiales"}
-              onClick={() => alternarCuadro("especiales")}
-            />
-            <Tarjeta
-              icono={<Megaphone className="w-4 h-4" />}
-              etiqueta="Comunicados (7 días)"
-              valor={String(operativo.comunicadosSemana)}
-              extra="enviados al equipo"
-              expandible={operativo.comunicadosDetalle.length > 0}
-              abierta={cuadroAbierto === "comunicados"}
-              onClick={() => alternarCuadro("comunicados")}
-            />
             {operativo.rachaTop && (
               <TarjetaAncha
                 icono={<Flame className="w-4 h-4" />}
@@ -425,88 +521,8 @@ export default function ResumenDelDia({
 
         {!esOperativo && personal && (
           <>
-            {personal.climaActual && (
-              <div
-                className={`rounded-[3px] p-2.5 border ${
-                  personal.climaActual.riesgo
-                    ? "bg-amber-950/20 border-amber-500/40"
-                    : "bg-marca-superficie border-marca-borde"
-                }`}
-              >
-                <p className="text-sm mb-1 leading-none">{personal.climaActual.icono}</p>
-                <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">
-                  Clima {personal.climaActual.tempActual !== null ? "ahora" : "hoy"} ·{" "}
-                  {personal.climaActual.zonaNombre}
-                </p>
-                <p
-                  className={`font-display text-base font-semibold leading-tight ${
-                    personal.climaActual.riesgo ? "text-amber-400" : "text-marca-textofuerte"
-                  }`}
-                >
-                  {personal.climaActual.tempActual !== null
-                    ? `${personal.climaActual.tempActual}°C`
-                    : `${personal.climaActual.tempMax}° / ${personal.climaActual.tempMin}°`}
-                </p>
-                <p className="text-marca-tenue text-[9.5px] mt-0.5 leading-snug">
-                  {personal.climaActual.avisoTexto ?? personal.climaActual.descripcion}
-                </p>
-              </div>
-            )}
-            <div
-              className={`rounded-[3px] p-2.5 border ${
-                personal.rutaHoyEstado === "pendiente"
-                  ? "bg-marca-rojo/10 border-marca-rojo/40"
-                  : "bg-marca-superficie border-marca-borde"
-              } ${personal.rutaHoyNombre ? "borde-dorado-animado" : ""}`}
-            >
-              <p className="mb-1 leading-none">
-                <MapPin className="w-4 h-4 text-marca-rojoclaro" />
-              </p>
-              <p className="text-marca-tenue text-[9px] uppercase font-bold mb-0.5 leading-tight">Tu ruta de hoy</p>
-              {personal.rutaHoyNombre ? (
-                <>
-                  <p className="font-display text-sm font-semibold leading-tight text-marca-textofuerte">
-                    {personal.rutaHoyNombre}
-                  </p>
-                  {personal.rutaHoyExtra > 0 && (
-                    <p className="text-marca-tenue text-[9.5px]">+{personal.rutaHoyExtra} más</p>
-                  )}
-                  <span
-                    className={`inline-flex items-center gap-1 mt-1.5 text-[9.5px] font-bold px-2 py-0.5 rounded-full [&>svg]:w-3 [&>svg]:h-3 ${
-                      personal.rutaHoyEstado === "pendiente"
-                        ? "bg-amber-950/30 text-amber-400"
-                        : "bg-emerald-950/30 text-emerald-400"
-                    }`}
-                  >
-                    {personal.rutaHoyEstado === "pendiente" ? <Clock /> : <CircleCheck />}{" "}
-                    {personal.rutaHoyEstado === "pendiente" ? "Pendiente" : "Reportado"}
-                  </span>
-                </>
-              ) : (
-                <p className="text-marca-tenue text-xs italic">Sin asignación</p>
-              )}
-            </div>
-            <Tarjeta
-              icono={<Pencil className="w-4 h-4" />}
-              etiqueta="Reportes editables"
-              valor={String(personal.reportesEditables)}
-              extra="dentro de las 48h"
-            />
-            <Tarjeta
-              icono={<Flame className="w-4 h-4" />}
-              etiqueta="Racha de puntualidad"
-              valor={personal.rachaActual > 0 ? `${personal.rachaActual} día${personal.rachaActual === 1 ? "" : "s"}` : "—"}
-              valorClase={personal.rachaActual > 0 ? "text-emerald-400" : undefined}
-              extra={personal.rachaActual > 0 ? "sigue así" : "marca a tiempo"}
-            />
-            <Tarjeta
-              icono={<Megaphone className="w-4 h-4" />}
-              etiqueta="Comunicados recientes"
-              valor={String(personal.comunicadosRecientes)}
-              extra={personal.ultimoComunicadoTipo ?? "sin novedades"}
-            />
             {personal.rutaHoyGoogleMapsUrl && (
-              <div className="col-span-2 lg:col-span-4 bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-3 flex flex-wrap items-center gap-3">
+              <div className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-[160px]">
                   <span className="relative w-4 h-4 shrink-0 flex items-center justify-center">
                     {/* Anillo tipo radar mientras la ETA viene de tu GPS en vivo

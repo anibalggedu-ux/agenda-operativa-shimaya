@@ -285,6 +285,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   // ya se corrigieron antes de llenar uno nuevo.
   const [faltasRecientes, setFaltasRecientes] = useState<FaltaRecienteChecklist[]>([]);
   const [faltasAbiertas, setFaltasAbiertas] = useState(false);
+  // Cada bloque de área arranca cerrado -- antes se veían las preguntas de
+  // las 4 áreas de entrada, obligando a mucho scroll para llegar a la de
+  // abajo.
+  const [areasAbiertas, setAreasAbiertas] = useState<Record<string, boolean>>({});
 
   function cargarEditables() {
     obtenerChecklistsEditables()
@@ -661,29 +665,56 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           Todavía no hay preguntas configuradas — se agregan desde Registro.
         </p>
       ) : (
-        <fieldset disabled={guardado} className="space-y-5">
-          {grupos.map((grupo) => (
-            <div key={grupo.clave} className="space-y-2">
-              <h4 className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest px-1">
-                {grupo.nombre}
-              </h4>
-              <div className="space-y-2">
-                {grupo.normales.map((s) => (
-                  <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
-                ))}
+        <fieldset disabled={guardado} className="space-y-3">
+          {grupos.map((grupo) => {
+            const todasLasSecciones = [...grupo.normales, ...grupo.produccion];
+            const completas = todasLasSecciones.filter(
+              (s) => s.items.length > 0 && s.items.every((it) => (respuestas[s.clave]?.[it.clave] ?? null) !== null)
+            ).length;
+            const abierta = !!areasAbiertas[grupo.clave];
+            return (
+              <div key={grupo.clave} className="border border-marca-borde rounded-[3px] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setAreasAbiertas((prev) => ({ ...prev, [grupo.clave]: !prev[grupo.clave] }))}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left bg-marca-fondo hover:bg-marca-superficie2 transition"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest truncate">
+                      {grupo.nombre}
+                    </span>
+                    <span
+                      className={`shrink-0 text-[9.5px] font-black px-1.5 py-0.5 rounded-full ${
+                        completas === todasLasSecciones.length
+                          ? "bg-emerald-950/30 text-emerald-400"
+                          : "bg-marca-superficie2 text-marca-tenue"
+                      }`}
+                    >
+                      {completas}/{todasLasSecciones.length} completas
+                    </span>
+                  </span>
+                  <span className={`text-marca-tenue text-[10px] transition-transform shrink-0 ${abierta ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {abierta && (
+                  <div className="p-3 border-t border-marca-borde space-y-2">
+                    {grupo.normales.map((s) => (
+                      <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
+                    ))}
+                    {grupo.produccion.length > 0 && (
+                      <div className="ml-2 pl-3 border-l-2 border-marca-oro/40 space-y-2">
+                        <h5 className="text-oro text-[10px] font-black uppercase tracking-widest px-1">
+                          Producciones
+                        </h5>
+                        {grupo.produccion.map((s) => (
+                          <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {grupo.produccion.length > 0 && (
-                <div className="ml-2 pl-3 border-l-2 border-marca-oro/40 space-y-2">
-                  <h5 className="text-oro text-[10px] font-black uppercase tracking-widest px-1">
-                    Producciones
-                  </h5>
-                  {grupo.produccion.map((s) => (
-                    <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </fieldset>
       )}
 
