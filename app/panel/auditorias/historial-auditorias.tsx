@@ -34,9 +34,14 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
   const [detalle, setDetalle] = useState<DetalleAuditoria | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
+  // Con mucho historial acumulado, se muestran de a tandas en vez de todas
+  // de una.
+  const PASO_PAGINA = 25;
+  const [mostrar, setMostrar] = useState(PASO_PAGINA);
 
   function cargar() {
     setCargando(true);
+    setMostrar(PASO_PAGINA);
     const fn = modo === "todas" ? obtenerTodasLasAuditorias : obtenerMisAuditorias;
     fn()
       .then(setFilas)
@@ -111,7 +116,7 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
         </p>
       ) : (
         <div className="space-y-2">
-          {filas.map((f) => (
+          {filas.slice(0, mostrar).map((f) => (
             <button
               key={f.id}
               onClick={() => abrirDetalle(f.id)}
@@ -140,6 +145,16 @@ export default function HistorialAuditorias({ modo }: { modo: "todas" | "propias
             </button>
           ))}
         </div>
+      )}
+
+      {filas.length > mostrar && (
+        <button
+          type="button"
+          onClick={() => setMostrar((m) => m + PASO_PAGINA)}
+          className="w-full text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase tracking-widest py-2 border border-marca-borde rounded-[3px] transition"
+        >
+          Mostrar {Math.min(PASO_PAGINA, filas.length - mostrar)} más ({filas.length - mostrar} restantes)
+        </button>
       )}
 
       {(detalle || cargandoDetalle) && (

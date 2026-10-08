@@ -6,6 +6,7 @@ import ChecklistVisita from "../checklist-visita";
 import {
   obtenerChecklistsDeTienda,
   obtenerDetalleChecklistVisita,
+  marcarFaltaCorregida,
   type ChecklistVisitaResumen,
   type ChecklistVisitaDetalle,
   type SeccionChecklist,
@@ -42,19 +43,46 @@ function formatearValor(tipo: string, valor: any): string {
   return String(valor);
 }
 
-function ListaFaltas({ faltas }: { faltas: FaltaChecklist[] | null | undefined }) {
-  if (!faltas || faltas.length === 0) return null;
+// A diferencia de ListaFaltas (de solo lectura, en el informe del PDF), acá
+// cada falta se puede marcar como corregida sin tener que llenar otro
+// checklist -- es una métrica aparte, independiente del puntaje.
+function ListaFaltasEditable({
+  checklistId,
+  faltas,
+  corregidas,
+  onCambiar,
+}: {
+  checklistId: string;
+  faltas: FaltaChecklist[];
+  corregidas: Set<string>;
+  onCambiar: (texto: string, corregido: boolean) => void;
+}) {
+  if (faltas.length === 0) return null;
+  const pendientes = faltas.filter((f) => !corregidas.has(f.texto)).length;
   return (
     <div className="border border-marca-rojo/40 bg-marca-rojo/10 rounded-[3px] p-2.5">
-      <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest mb-1">
-        Faltas encontradas (−{faltas.reduce((t, f) => t + f.descuento, 0)} puntos)
+      <p className="text-marca-rojoclaro text-[10px] font-black uppercase tracking-widest mb-1.5">
+        Faltas encontradas (−{faltas.reduce((t, f) => t + f.descuento, 0)} puntos) · {pendientes} sin corregir
       </p>
-      <ul className="space-y-0.5">
-        {faltas.map((f, i) => (
-          <li key={i} className="text-marca-texto text-[11px]">
-            • {f.texto} <span className="text-marca-rojoclaro font-bold">(−{f.descuento})</span>
-          </li>
-        ))}
+      <ul className="space-y-1">
+        {faltas.map((f, i) => {
+          const corregido = corregidas.has(f.texto);
+          return (
+            <li key={i}>
+              <label className="flex items-start gap-2 text-[11px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={corregido}
+                  onChange={(e) => onCambiar(f.texto, e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className={corregido ? "text-marca-tenue line-through" : "text-marca-texto"}>
+                  {f.texto} <span className="text-marca-rojoclaro font-bold">(−{f.descuento})</span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -71,6 +99,19 @@ function DetalleChecklistTienda({ id, onCerrar }: { id: string; onCerrar: () => 
       .then(setDetalle)
       .finally(() => setCargando(false));
   }, [id]);
+
+  async function handleCorregido(texto: string, corregido: boolean) {
+    setDetalle((prev) =>
+      prev ? { ...prev, faltasCorregidas: corregido ? [...prev.faltasCorregidas, texto] : prev.faltasCorregidas.filter((t) => t !== texto) } : prev
+    );
+    const resultado = await marcarFaltaCorregida(id, texto, corregido).catch(() => ({ exito: false }));
+    if (!resultado.exito) {
+      // Si falló, se revierte.
+      setDetalle((prev) =>
+        prev ? { ...prev, faltasCorregidas: corregido ? prev.faltasCorregidas.filter((t) => t !== texto) : [...prev.faltasCorregidas, texto] } : prev
+      );
+    }
+  }
 
   async function handleDescargar() {
     if (!detalle || generandoPdf) return;
@@ -142,7 +183,12 @@ function DetalleChecklistTienda({ id, onCerrar }: { id: string; onCerrar: () => 
               )}
               {detalle.faltas.length > 0 && (
                 <div className="mt-2">
-                  <ListaFaltas faltas={detalle.faltas} />
+                  <ListaFaltasEditable
+                    checklistId={detalle.id}
+                    faltas={detalle.faltas}
+                    corregidas={new Set(detalle.faltasCorregidas)}
+                    onCambiar={handleCorregido}
+                  />
                 </div>
               )}
             </div>
@@ -267,12 +313,26 @@ function HistorialPorTienda() {
                     {c.usuarioNombre} ({c.rol})
                   </span>
                 </span>
-                <span
-                  className={`shrink-0 text-[10.5px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${claseBadgeClasificacion(
-                    c.clasificacion
-                  )}`}
-                >
-                  {c.porcentaje === null ? "Sin puntaje" : `${c.porcentaje}% · ${c.clasificacion}`}
+                <span className="flex items-center gap-1.5 shrink-0">
+                  {c.faltasTotal > 0 && (
+                    <span
+                      className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                        c.faltasCorregidas === c.faltasTotal
+                          ? "bg-emerald-950/30 border-emerald-700/40 text-emerald-300"
+                          : "bg-amber-950/30 border-amber-700/40 text-amber-300"
+                      }`}
+                      title="Faltas corregidas desde entonces"
+                    >
+                      ✓ {c.faltasCorregidas}/{c.faltasTotal} corregidas
+                    </span>
+                  )}
+                  <span
+                    className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${claseBadgeClasificacion(
+                      c.clasificacion
+                    )}`}
+                  >
+                    {c.porcentaje === null ? "Sin puntaje" : `${c.porcentaje}% · ${c.clasificacion}`}
+                  </span>
                 </span>
               </button>
               {abiertoId === c.id && <DetalleChecklistTienda id={c.id} onCerrar={() => setAbiertoId(null)} />}

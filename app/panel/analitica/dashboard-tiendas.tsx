@@ -10,6 +10,8 @@ import {
 } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
+import BloqueColapsable from "../bloque-colapsable";
+import { Store } from "lucide-react";
 
 const CLASIFICACIONES = ["Excelente", "Bueno", "Requiere mejora", "Acción inmediata"] as const;
 
@@ -155,8 +157,7 @@ export default function DashboardTiendasVista({ desde, hasta }: { desde: string;
         )}
       </div>
 
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-        <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1">TODAS LAS TIENDAS</h3>
+      <BloqueColapsable icono={<Store />} titulo="Todas las tiendas" badge={`${resumen.length}`}>
         <p className="text-marca-tenue text-[11px] mb-4">
           Ordenable por columna, buscable por nombre, filtrable por clasificación.
         </p>
@@ -291,7 +292,7 @@ export default function DashboardTiendasVista({ desde, hasta }: { desde: string;
             </table>
           </div>
         )}
-      </div>
+      </BloqueColapsable>
     </div>
   );
 }
