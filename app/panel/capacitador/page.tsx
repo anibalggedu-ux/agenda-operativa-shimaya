@@ -6,10 +6,7 @@ import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
 import AnunciosWidget from "../anuncios-widget";
 import EncuestasPendientes from "../encuestas/encuestas-pendientes";
-import MisPuntosWidget from "../mis-puntos-widget";
 import BreakWidget from "../break-widget";
-import PerfilBanner from "../perfil-banner";
-import { obtenerMiPerfil } from "../supervisor/actions";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import EventosDeHoy from "../eventos-hoy";
@@ -46,9 +43,6 @@ export default async function PanelCapacitador() {
       contenido: (
         <div className="space-y-6">
           <EncuestasPendientes />
-          <PerfilBanner cargarPerfil={obtenerMiPerfil} />
-          <MisPuntosWidget />
-          <BreakWidget />
           <AnunciosWidget />
         </div>
       ),
@@ -84,6 +78,7 @@ export default async function PanelCapacitador() {
       icono: <MapPin className="w-4 h-4" />,
       contenido: (
         <div className="space-y-6">
+          <BreakWidget />
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Check, FileDown, Pencil } from "lucide-react";
+import { ClipboardList, Check, FileDown, Pencil, AlertTriangle } from "lucide-react";
 import {
   obtenerPlantillaParaTienda,
   guardarChecklistVisita,
   editarChecklistVisita,
   obtenerChecklistsEditables,
+  obtenerFaltasRecientesDeTienda,
+  marcarFaltaCorregida,
   type ChecklistEditable,
   type SeccionChecklist,
   type ItemChecklist,
@@ -14,14 +16,17 @@ import {
   type ClasificacionChecklist,
   type PlantillaChecklist,
   type ResultadoChecklist,
+  type FaltaRecienteChecklist,
 } from "./checklist-visita-actions";
 import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 import { agregarChecklistPendiente } from "@/lib/cola-checklists";
-import { obtenerTodasLasTiendas, type TiendaBasicaBitacora } from "./supervisor/actions";
+import { obtenerTiendasAsignadasHoy, type TiendaAsignadaHoy } from "./supervisor/actions";
 import { generarPdfChecklistVisita, type SeccionChecklistVisitaPdf } from "@/lib/generar-pdf";
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
 import { puntajeItem, textoPuntajesArea, UMBRALES_CHECKLIST, type FaltaChecklist, type PuntajesArea } from "@/lib/checklist-puntaje";
+import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
+import { distanciaMetros, UMBRAL_CHECKLIST_METROS } from "@/lib/distancia-recta";
 import {
   AvisoFotosPendientes,
   fotosPendientesParaPdf,
@@ -248,7 +253,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   const [plantillaId, setPlantillaId] = useState("principal");
   const [plantillaNombre, setPlantillaNombre] = useState<string | null>(null);
   const plantillaIdRef = useRef("principal");
-  const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
+  const [tiendas, setTiendas] = useState<TiendaAsignadaHoy[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tiendaId, setTiendaId] = useState("");
   const [fecha, setFecha] = useState(hoyPeru());
@@ -274,6 +279,12 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   // últimos 3 días.
   const [checklistReciente, setChecklistReciente] = useState<PlantillaChecklist["checklistReciente"]>(null);
   const grupos = useMemo(() => agruparPorArea(secciones), [secciones]);
+  // Aviso (no bloquea) de que el GPS quedó lejos de la tienda elegida.
+  const [avisoLejos, setAvisoLejos] = useState<{ metros: number } | null>(null);
+  // Errores de los últimos 2 checklists de esta tienda, para marcar cuáles
+  // ya se corrigieron antes de llenar uno nuevo.
+  const [faltasRecientes, setFaltasRecientes] = useState<FaltaRecienteChecklist[]>([]);
+  const [faltasAbiertas, setFaltasAbiertas] = useState(false);
 
   function cargarEditables() {
     obtenerChecklistsEditables()
@@ -293,10 +304,14 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     setGuardado(false);
     setResultado(null);
     setError(null);
+    // La tienda que se está corrigiendo puede no estar entre las asignadas
+    // de HOY (se hizo otro día) -- igual tiene que aparecer en el <select>
+    // (deshabilitado) para que se vea cuál es.
+    setTiendas((prev) => (prev.some((t) => t.id === c.tiendaId) ? prev : [...prev, { id: c.tiendaId, nombre: c.tiendaNombre, lat: null, lon: null }]));
   }
 
   useEffect(() => {
-    Promise.all([obtenerPlantillaParaTienda(null), obtenerTodasLasTiendas()])
+    Promise.all([obtenerPlantillaParaTienda(null), obtenerTiendasAsignadasHoy()])
       .then(([p, t]) => {
         setSecciones(p.secciones);
         setPlantillaId(p.id);
@@ -334,6 +349,37 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tiendaId]);
 
+  // Errores de los últimos 2 checklists de esta tienda -- solo tiene sentido
+  // para uno nuevo (al corregir uno ya guardado, estas son justo sus propias
+  // faltas, no las de "antes").
+  useEffect(() => {
+    setAvisoLejos(null);
+    if (!tiendaId || editandoId) {
+      setFaltasRecientes([]);
+      return;
+    }
+    let vigente = true;
+    obtenerFaltasRecientesDeTienda(tiendaId)
+      .then((f) => vigente && setFaltasRecientes(f))
+      .catch(() => vigente && setFaltasRecientes([]));
+    return () => {
+      vigente = false;
+    };
+  }, [tiendaId, editandoId]);
+
+  async function handleCorregido(f: FaltaRecienteChecklist, corregido: boolean) {
+    setFaltasRecientes((prev) =>
+      prev.map((x) => (x.checklistId === f.checklistId && x.texto === f.texto ? { ...x, corregido } : x))
+    );
+    const resultado = await marcarFaltaCorregida(f.checklistId, f.texto, corregido).catch(() => ({ exito: false }));
+    if (!resultado.exito) {
+      // Si falló, se revierte -- más simple y confiable que reintentar solo.
+      setFaltasRecientes((prev) =>
+        prev.map((x) => (x.checklistId === f.checklistId && x.texto === f.texto ? { ...x, corregido: !corregido } : x))
+      );
+    }
+  }
+
   function handleCambiar(seccionClave: string, itemClave: string, valor: string | number | null) {
     setRespuestas((prev) => ({
       ...prev,
@@ -352,6 +398,25 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     setEditandoId(null);
   }
 
+  // Chequeo de ubicación (no bloquea el guardado -- solo avisa) -- se hace
+  // acá, al guardar, en vez de al elegir la tienda, para no pedir permiso de
+  // GPS solo por abrir el selector.
+  async function chequearUbicacion() {
+    const tienda = tiendas.find((t) => t.id === tiendaId);
+    if (!tienda || tienda.lat === null || tienda.lon === null) {
+      setAvisoLejos(null);
+      return;
+    }
+    try {
+      const coords = await obtenerUbicacionActual();
+      const metros = distanciaMetros(coords.lat, coords.lng, tienda.lat, tienda.lon);
+      setAvisoLejos(metros > UMBRAL_CHECKLIST_METROS ? { metros } : null);
+    } catch {
+      // Sin GPS no se bloquea nada -- simplemente no se puede avisar.
+      setAvisoLejos(null);
+    }
+  }
+
   async function handleGuardar() {
     if (!tiendaId) {
       setError("Selecciona la tienda.");
@@ -359,6 +424,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
     }
     setGuardando(true);
     setError(null);
+    await chequearUbicacion();
     let resp: ResultadoChecklist;
     try {
       resp = editandoId
@@ -514,6 +580,11 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
               </option>
             ))}
           </select>
+          {tiendas.length === 0 && !editandoId && (
+            <p className="text-marca-tenue text-[10.5px] mt-1">
+              No tienes ninguna tienda asignada ni autoasignada para hoy.
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">Fecha</label>
@@ -538,6 +609,51 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
             es solo un aviso, no te bloquea.
           </span>
         </p>
+      )}
+
+      {avisoLejos && (
+        <p className="flex items-start gap-1.5 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 text-amber-400 text-[11.5px] leading-snug">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>
+            Tu ubicación quedó a <b>{avisoLejos.metros}m</b> de la tienda (el checklist se hace parado en el local).
+            Puede ser que tu GPS haya fallado — si estás seguro que estás ahí, no es un problema.
+          </span>
+        </p>
+      )}
+
+      {faltasRecientes.length > 0 && !editandoId && !guardado && (
+        <div className="border border-amber-500/30 rounded-[3px] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setFaltasAbiertas((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left bg-amber-950/10 hover:bg-amber-950/20 transition"
+          >
+            <span className="text-amber-400 text-[11px] font-black uppercase tracking-wide">
+              ⚠️ Errores de los últimos checklists de esta tienda ({faltasRecientes.filter((f) => !f.corregido).length} sin corregir)
+            </span>
+            <span className={`text-marca-tenue text-[10px] transition-transform ${faltasAbiertas ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {faltasAbiertas && (
+            <div className="px-3 py-2.5 space-y-2 border-t border-amber-500/20">
+              {faltasRecientes.map((f, i) => (
+                <label
+                  key={`${f.checklistId}-${f.texto}-${i}`}
+                  className="flex items-start gap-2 text-[11.5px] cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={f.corregido}
+                    onChange={(e) => handleCorregido(f, e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className={f.corregido ? "text-marca-tenue line-through" : "text-marca-texto"}>
+                    {f.texto} <span className="text-marca-tenue">— {formatearFechaLegible(f.fecha)} ({f.usuarioNombre})</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {secciones.length === 0 ? (

@@ -37,30 +37,41 @@ function compuesto(p: PuntoSemanalTienda): number | null {
   return Math.round(puntualidad * 0.4 + reportado * 0.4 + tardanza * 0.2);
 }
 
+// Rampa roja -> ámbar -> verde (en vez de rojo -> gris -> crema): 0 es el
+// peor puntaje posible, 100 el mejor, con el ámbar como punto medio.
 const RAMPA: [number, [number, number, number]][] = [
-  [0, [166, 18, 29]],
-  [45, [226, 55, 68]],
-  [70, [90, 75, 69]],
-  [100, [247, 245, 242]],
+  [0, [179, 38, 30]],
+  [50, [214, 158, 46]],
+  [100, [36, 128, 76]],
 ];
 
-function colorParaScore(score: number): string {
+function interpolarColorScore(score: number): [number, number, number] {
   const s = Math.max(0, Math.min(100, score));
   for (let i = 0; i < RAMPA.length - 1; i++) {
     const [p1, c1] = RAMPA[i];
     const [p2, c2] = RAMPA[i + 1];
     if (s >= p1 && s <= p2) {
       const f = (s - p1) / (p2 - p1);
-      const r = Math.round(c1[0] + (c2[0] - c1[0]) * f);
-      const g = Math.round(c1[1] + (c2[1] - c1[1]) * f);
-      const b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
-      return `rgb(${r},${g},${b})`;
+      return [
+        Math.round(c1[0] + (c2[0] - c1[0]) * f),
+        Math.round(c1[1] + (c2[1] - c1[1]) * f),
+        Math.round(c1[2] + (c2[2] - c1[2]) * f),
+      ];
     }
   }
-  return "rgb(247,245,242)";
+  return RAMPA[RAMPA.length - 1][1];
+}
+
+function colorParaScore(score: number): string {
+  const [r, g, b] = interpolarColorScore(score);
+  return `rgb(${r},${g},${b})`;
 }
 function textoParaScore(score: number): string {
-  return score >= 60 ? "#18191d" : "#f7f5f2";
+  // Texto oscuro sobre el ámbar del medio de la rampa (es claro), texto
+  // claro sobre los extremos rojo/verde (son más oscuros/saturados).
+  const [r, g, b] = interpolarColorScore(score);
+  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminancia > 0.6 ? "#18191d" : "#f7f5f2";
 }
 
 export default function TendenciasTiendas({ desde, hasta }: { desde: string; hasta: string }) {
@@ -225,7 +236,7 @@ export default function TendenciasTiendas({ desde, hasta }: { desde: string; has
           <span>0 (crítico)</span>
           <div
             className="w-28 h-2 rounded-full"
-            style={{ background: "linear-gradient(90deg,#a6121d,#e23744 45%,#5a4b45 65%,#f7f5f2)" }}
+            style={{ background: "linear-gradient(90deg,rgb(179,38,30),rgb(214,158,46) 50%,rgb(36,128,76))" }}
           />
           <span>100 (excelente)</span>
         </div>
