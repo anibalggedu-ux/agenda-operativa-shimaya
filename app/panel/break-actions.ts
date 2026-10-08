@@ -279,10 +279,17 @@ export async function avisarCincoMinutosBreak(breakId: string): Promise<void> {
     .maybeSingle();
   if (!actualizado) return; // ya se había avisado, o ya marcó entrada
 
-  await notificarPush([sesion.id], {
+  // 3 push seguidos (no uno solo) -- sin tag, así que no se reemplazan entre
+  // sí: cada uno sueña como una notificación nueva, tipo alarma, para que no
+  // pase desapercibido.
+  const payloadPush = {
     titulo: "⏰ Te quedan 5 minutos de break",
     cuerpo: `Marca tu entrada antes de las ${formatearHora(actualizado.hora_limite!)}.`,
-  });
+  };
+  for (let i = 0; i < 3; i++) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, 2000));
+    await notificarPush([sesion.id], payloadPush);
+  }
 
   const { data: usuario } = await supabase.from("usuarios").select("email").eq("id", sesion.id).maybeSingle();
   if (!usuario?.email) return;
