@@ -34,6 +34,7 @@ import IndiceInteraccionVista from "./indice-interaccion";
 import { useColoresGrafico } from "@/lib/usar-colores-grafico";
 import { ContadorNumero } from "../contador-numero";
 import EstadoVacio from "../estado-vacio";
+import BloqueColapsable from "../bloque-colapsable";
 
 type Pestana = "resumen" | "asistencia" | "tiendas" | "personas" | "checklist" | "interaccion";
 
@@ -193,7 +194,6 @@ export default function CentralAnalitica({ mostrarApoyos = false }: { mostrarApo
 
   const vitrinaSupervisores = vitrina.filter((f) => f.rol === "supervisor");
   const vitrinaCapacitadores = vitrina.filter((f) => f.rol === "capacitador");
-  const vitrinaTop3 = [...vitrina].sort((a, b) => b.puntos - a.puntos).slice(0, 3);
 
   const desempenoSupervisores = desempeno
     .filter((d) => d.rol === "supervisor")
@@ -313,42 +313,12 @@ export default function CentralAnalitica({ mostrarApoyos = false }: { mostrarApo
                 )}
               </section>
 
-              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Trophy /> TOP 3 DE PUNTOS</h3>
-                {cargandoVitrina ? (
-                  <p className="text-marca-tenue text-sm animate-pulse">Cargando...</p>
-                ) : errorVitrina ? (
-                  <p className="text-marca-rojoclaro text-sm">{errorVitrina}</p>
-                ) : vitrinaTop3.length === 0 ? (
-                  <p className="text-marca-tenue text-sm italic">Todavía no hay puntos acumulados.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {vitrinaTop3.map((fila) => (
-                      <FilaVitrinaPersona key={fila.usuarioId} fila={fila} />
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => setPestana("personas")}
-                  className="block w-full text-center mt-3 text-marca-rojoclaro text-[11px] font-bold border border-dashed border-marca-borde rounded-[3px] py-2.5 hover:border-marca-rojo/40 transition"
-                >
-                  Ver vitrina completa →
-                </button>
-              </section>
-
-              <section className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Car /> KILÓMETROS DEL MES</h3>
-                <p className="text-marca-tenue text-[11px] mb-4">
-                  Quién recorrió más distancia este mes — útil para premios e incentivos mensuales.
-                </p>
-                <KilometrosDelMes />
-                <button
-                  onClick={() => setPestana("personas")}
-                  className="block w-full text-center mt-3 text-marca-rojoclaro text-[11px] font-bold border border-dashed border-marca-borde rounded-[3px] py-2.5 hover:border-marca-rojo/40 transition"
-                >
-                  Ver kilómetros por rango de fechas →
-                </button>
-              </section>
+              <button
+                onClick={() => setPestana("personas")}
+                className="block w-full text-center text-marca-rojoclaro text-[11px] font-bold border border-dashed border-marca-borde rounded-[3px] py-2.5 hover:border-marca-rojo/40 transition"
+              >
+                Ver top, ranking y kilómetros en "Personas" →
+              </button>
             </div>
           )}
 
@@ -479,9 +449,8 @@ export default function CentralAnalitica({ mostrarApoyos = false }: { mostrarApo
           )}
 
           {pestana === "personas" && (
-            <div className="space-y-6">
-              <section className="bg-marca-superficie border border-marca-rojo/30 rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Trophy /> VITRINA DE TROFEOS</h3>
+            <div className="space-y-4">
+              <BloqueColapsable icono={<Trophy />} titulo="VITRINA DE TROFEOS">
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Puntos acumulados de por vida — puntualidad (10 a 30 pts según cuánto antes marcó
                   ingreso) + 10 pts por reporte enviado. 🥉 250 · 🥈 600 · 🥇 1200 · 🌟 2000
@@ -496,26 +465,31 @@ export default function CentralAnalitica({ mostrarApoyos = false }: { mostrarApo
                     <ColumnaVitrina titulo="CAPACITADORES" filas={vitrinaCapacitadores} />
                   </div>
                 )}
-              </section>
+              </BloqueColapsable>
 
-              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-4 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><User /> REPORTES ENVIADOS</h3>
+              <BloqueColapsable icono={<User />} titulo="REPORTES ENVIADOS (RANKING)">
                 <RankingPorRol
                   supervisores={desempenoSupervisores}
                   capacitadores={desempenoCapacitadores}
                   sufijo="reporte(s)"
                   vacio="Sin reportes enviados en este rango."
                 />
-              </section>
+              </BloqueColapsable>
 
-              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
-                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><Car /> KILÓMETROS RECORRIDOS</h3>
+              <BloqueColapsable icono={<Car />} titulo="KILÓMETROS DEL MES">
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Quién recorrió más distancia este mes — útil para premios e incentivos mensuales.
+                </p>
+                <KilometrosDelMes />
+              </BloqueColapsable>
+
+              <BloqueColapsable icono={<Car />} titulo="KILÓMETROS RECORRIDOS POR RANGO">
                 <p className="text-marca-tenue text-[11px] mb-4">
                   Distancia real por calles (como en auto) entre la dirección de cada colaborador y
                   las tiendas que visitó en el rango, según sus reportes enviados.
                 </p>
                 <KilometrosVista desde={desde} hasta={hasta} />
-              </section>
+              </BloqueColapsable>
             </div>
           )}
 

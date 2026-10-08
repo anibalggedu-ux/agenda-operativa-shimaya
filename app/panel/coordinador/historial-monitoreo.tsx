@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Camera } from "lucide-react";
 import { obtenerAsistenciaGeneral, type AsistenciaGeneral } from "./actions";
 import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
 
@@ -41,18 +42,36 @@ function SelectorFechas({
   );
 }
 
-function Marcacion({ hora, ubicacion }: { hora: string | null; ubicacion: string | null }) {
+function Marcacion({
+  hora,
+  ubicacion,
+  fotoUrl,
+}: {
+  hora: string | null;
+  ubicacion: string | null;
+  fotoUrl?: string | null;
+}) {
   if (!hora) return <span className="text-marca-tenue">—</span>;
-  if (!ubicacion) return <span>{formatearHora(hora)}</span>;
   return (
-    <a
-      href={ubicacion}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
-    >
-      {formatearHora(hora)}
-    </a>
+    <>
+      {ubicacion ? (
+        <a
+          href={ubicacion}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-marca-rojoclaro hover:text-marca-rojo underline font-bold"
+        >
+          {formatearHora(hora)}
+        </a>
+      ) : (
+        <span>{formatearHora(hora)}</span>
+      )}
+      {fotoUrl && (
+        <a href={fotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex" title="Ver foto">
+          <Camera className="w-3 h-3" />
+        </a>
+      )}
+    </>
   );
 }
 
@@ -117,9 +136,14 @@ export default function HistorialMonitoreo() {
                       {formatearFechaLegible(a.fecha)}
                     </p>
                     <p className={`text-xs font-bold ${a.tarde ? "text-marca-rojoclaro" : "text-marca-texto"}`}>
-                      Ingreso: <Marcacion hora={a.horaIngreso} ubicacion={a.ubicacionIngreso} />
+                      Ingreso:{" "}
+                      <Marcacion
+                        hora={a.horaIngreso}
+                        ubicacion={a.ubicacionIngreso}
+                        fotoUrl={a.fotoIngresoUrl}
+                      />
                       {a.tarde ? " (TARDE)" : ""} · Salida:{" "}
-                      <Marcacion hora={a.horaSalida} ubicacion={a.ubicacionSalida} />
+                      <Marcacion hora={a.horaSalida} ubicacion={a.ubicacionSalida} fotoUrl={a.fotoSalidaUrl} />
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy, History } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import BreakWidget from "../break-widget";
@@ -16,6 +16,7 @@ import {
   LazyAnuncios as Anuncios,
   LazyEncuestasCoordinador as EncuestasCoordinador,
   LazyMarcacionesBreakEquipo as MarcacionesBreakEquipo,
+  LazyHistorialMonitoreo as HistorialMonitoreo,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
@@ -99,6 +100,12 @@ export default async function PanelGerente() {
       etiqueta: "Marcaciones de Break",
       icono: <Coffee className="w-4 h-4" />,
       contenido: <MarcacionesBreakEquipo />,
+    },
+    {
+      id: "historial",
+      etiqueta: "Historial y Monitoreo",
+      icono: <History className="w-4 h-4" />,
+      contenido: <HistorialMonitoreo />,
     },
     {
       id: "consultorio",

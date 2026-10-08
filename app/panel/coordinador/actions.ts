@@ -1987,6 +1987,8 @@ export type AsistenciaGeneral = {
   ubicacionIngreso: string | null;
   horaSalida: string | null;
   ubicacionSalida: string | null;
+  fotoIngresoUrl: string | null;
+  fotoSalidaUrl: string | null;
   tarde: boolean;
 };
 
@@ -1994,13 +1996,13 @@ export async function obtenerAsistenciaGeneral(
   desde: string,
   hasta: string
 ): Promise<AsistenciaGeneral[]> {
-  await exigirCoordinador();
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
 
   const { data, error } = await supabase
     .from("asistencia")
     .select(
-      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, usuarios(nombre, rol, hora_limite_ingreso, horario_por_dia)"
+      "fecha, hora_ingreso, ubicacion_ingreso, hora_salida, ubicacion_salida, foto_ingreso_blob, foto_salida_blob, usuarios(nombre, rol, hora_limite_ingreso, horario_por_dia)"
     )
     .gte("fecha", desde)
     .lte("fecha", hasta)
@@ -2008,25 +2010,33 @@ export async function obtenerAsistenciaGeneral(
 
   if (error) throw new Error("No se pudo cargar la asistencia general.");
 
-  return (data ?? []).map((a: any) => {
-    const rol = a.usuarios?.rol ?? "";
-    const limite = resolverHoraLimite(
-      rol,
-      a.usuarios?.hora_limite_ingreso,
-      a.usuarios?.horario_por_dia,
-      diaSemanaPeru(a.fecha)
-    );
-    return {
-      fecha: a.fecha,
-      usuarioNombre: a.usuarios?.nombre ?? "—",
-      rol,
-      horaIngreso: a.hora_ingreso,
-      ubicacionIngreso: a.ubicacion_ingreso,
-      horaSalida: a.hora_salida,
-      ubicacionSalida: a.ubicacion_salida,
-      tarde: !!(limite && a.hora_ingreso && esTarde(a.hora_ingreso, limite)),
-    };
-  });
+  return Promise.all(
+    (data ?? []).map(async (a: any) => {
+      const rol = a.usuarios?.rol ?? "";
+      const limite = resolverHoraLimite(
+        rol,
+        a.usuarios?.hora_limite_ingreso,
+        a.usuarios?.horario_por_dia,
+        diaSemanaPeru(a.fecha)
+      );
+      const [fotoIngresoUrl, fotoSalidaUrl] = await Promise.all([
+        obtenerUrlTemporalFoto(a.foto_ingreso_blob),
+        obtenerUrlTemporalFoto(a.foto_salida_blob),
+      ]);
+      return {
+        fecha: a.fecha,
+        usuarioNombre: a.usuarios?.nombre ?? "—",
+        rol,
+        horaIngreso: a.hora_ingreso,
+        ubicacionIngreso: a.ubicacion_ingreso,
+        horaSalida: a.hora_salida,
+        ubicacionSalida: a.ubicacion_salida,
+        fotoIngresoUrl,
+        fotoSalidaUrl,
+        tarde: !!(limite && a.hora_ingreso && esTarde(a.hora_ingreso, limite)),
+      };
+    })
+  );
 }
 
 // El ranking de tiendas visitadas (antes duplicado acá y en Central

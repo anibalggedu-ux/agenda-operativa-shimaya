@@ -93,7 +93,7 @@ export default function HistorialPdf({ supervisorNombre }: { supervisorNombre: s
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-5 space-y-4">
       <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
-        <FileText className="w-3.5 h-3.5 text-marca-rojoclaro" /> HISTORIAL EN PDF
+        <FileText className="w-3.5 h-3.5 text-marca-rojoclaro" /> MI HISTORIAL Y RUTA DE TRABAJO
       </h3>
 
       <div className="flex flex-col sm:flex-row gap-3">
