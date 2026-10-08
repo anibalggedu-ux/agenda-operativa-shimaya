@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Cake, Camera, Trophy, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon, Play, Check } from "lucide-react";
+import { Cake, Camera, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon, Play } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -103,7 +103,11 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   const [fotoAmpliada, setFotoAmpliada] = useState<{ url: string; esVideo: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const ajustesRef = useRef<HTMLDivElement>(null);
-  const [pestana, setPestana] = useState<"fotos" | "medallas" | "regalos" | "datos">("fotos");
+  // null = ninguna pestaña abierta todavía -- nada de Fotos/Regalos/Datos se
+  // carga ni ocupa pantalla hasta que la persona toca esa pestaña (antes
+  // "Fotos" se mostraba de entrada, empujando todo lo demás hacia abajo).
+  const [pestana, setPestana] = useState<"fotos" | "regalos" | "datos" | null>(null);
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
   // Pestaña "Regalos" (antes en Mi Galería): se carga al abrirla.
   const [saldoRegalo, setSaldoRegalo] = useState<SaldoRegalo | null>(null);
   const [rankingRegalos, setRankingRegalos] = useState<FilaRankingRegalos[] | null>(null);
@@ -120,6 +124,11 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
   // cargar — mismo patrón que las alertas críticas de Central Analítica.
   const parametros = useSearchParams();
   const fotoDestacada = parametros.get("foto");
+  // Un link directo a una foto puntual (de la campanita) abre la pestaña
+  // Fotos solo, no la carga de entrada.
+  useEffect(() => {
+    if (fotoDestacada) setPestana("fotos");
+  }, [fotoDestacada]);
   useEffect(() => {
     if (!fotoDestacada || fotos.length === 0) return;
     requestAnimationFrame(() => {
@@ -137,19 +146,26 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
       .catch(() => setRankingRegalos([]));
   }, [pestana, rankingRegalos]);
 
+  // Fotos: solo se piden al abrir esa pestaña (o al llegar por un link
+  // directo a una foto) -- antes se pedían siempre, aunque nunca se abriera.
+  useEffect(() => {
+    if (!perfil || fotos.length > 0) return;
+    if (pestana !== "fotos") return;
+    obtenerGaleriaDeUsuario(perfil.usuarioId)
+      .then(setFotos)
+      .catch(() => {});
+  }, [pestana, perfil, fotos.length]);
+
   async function cargar() {
     const p = await obtenerPerfil(usuarioId);
-    const [f, d] = await Promise.all([
-      obtenerGaleriaDeUsuario(p.usuarioId),
-      p.esPropio ? obtenerDirectorioEquipo() : Promise.resolve([]),
-    ]);
+    const d = p.esPropio ? await obtenerDirectorioEquipo() : [];
     setPerfil(p);
-    setFotos(f);
     setDirectorio(d);
   }
 
   useEffect(() => {
     setCargando(true);
+    setFotos([]);
     cargar()
       .catch(() => setMensaje("No se pudo cargar el perfil."))
       .finally(() => setCargando(false));
@@ -296,7 +312,10 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
           </button>
           <button
             type="button"
-            onClick={() => ajustesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            onClick={() => {
+              setAjustesAbiertos(true);
+              requestAnimationFrame(() => ajustesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+            }}
             className="flex items-center justify-center gap-1.5 bg-marca-superficie2 hover:bg-marca-superficie text-marca-textofuerte text-[12.5px] font-bold py-2 rounded-lg"
           >
             <Volume2 className="w-3.5 h-3.5" /> Ajustes
@@ -326,19 +345,30 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
               {perfil.viajesProvincia} viaje{perfil.viajesProvincia !== 1 ? "s" : ""}
             </span>
           </div>
+          {esPropio && perfil.tienePuntos && (
+            <div className="shrink-0 w-28">
+              <p className="text-marca-tenue text-[9.5px] leading-tight">
+                Faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para tu
+                próxima medalla 🥉
+              </p>
+              <div className="h-[6px] bg-marca-borde rounded-full overflow-hidden mt-1">
+                <div className="h-full bg-marca-rojo rounded-full transition-all duration-700" style={{ width: progreso + "%" }} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Pestañas: Fotos · Medallas · Datos */}
+      {/* Pestañas: Fotos · Regalos · Datos -- "Medallas" ya no es pestaña
+          aparte: las "Destacadas" de arriba ya muestran el mismo conteo. */}
       <div>
-        <div className={`grid ${esPropio ? "grid-cols-4" : "grid-cols-3"} border-b border-marca-borde`} role="tablist">
+        <div className={`grid ${esPropio ? "grid-cols-3" : "grid-cols-2"} border-b border-marca-borde`} role="tablist">
           {(
             [
               { id: "fotos", etiqueta: "Fotos", icono: Images },
-              { id: "medallas", etiqueta: "Medallas", icono: Trophy },
               ...(esPropio ? [{ id: "regalos", etiqueta: "Regalos", icono: Gift }] : []),
               { id: "datos", etiqueta: "Datos", icono: Calendar },
-            ] as { id: "fotos" | "medallas" | "regalos" | "datos"; etiqueta: string; icono: typeof Images }[]
+            ] as { id: "fotos" | "regalos" | "datos"; etiqueta: string; icono: typeof Images }[]
           ).map(({ id, etiqueta, icono: Icono }) => (
             <button
               key={id}
@@ -402,35 +432,8 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
             </>
           )}
 
-          {pestana === "medallas" && (
-            <div className="space-y-3">
-              {perfil.tienePuntos ? (
-                <div className="bg-marca-superficie rounded-xl divide-y divide-marca-borde">
-                  {UMBRALES_MEDALLAS.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="flex items-center gap-2 text-marca-tenue text-xs">
-                        <span className="text-lg leading-none">{u.emoji}</span> {u.etiqueta}
-                        <span className="text-[10px]">· cada {u.puntos} pts</span>
-                      </span>
-                      <span className="text-marca-textofuerte text-sm font-black tabular-nums">{perfil.medallas[u.id]}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-marca-tenue text-sm py-6 text-center">Todavía no suma puntos.</p>
-              )}
-              {esPropio && perfil.tienePuntos && (
-                <div>
-                  <p className="text-marca-tenue text-[10.5px] mb-1.5">
-                    Te faltan <span className="text-marca-texto font-bold">{perfil.progresoBronce.faltan} pts</span> para
-                    tu próxima medalla 🥉
-                  </p>
-                  <div className="h-[6px] bg-marca-borde rounded-full overflow-hidden">
-                    <div className="h-full bg-marca-rojo rounded-full transition-all duration-700" style={{ width: progreso + "%" }} />
-                  </div>
-                </div>
-              )}
-            </div>
+          {pestana === null && (
+            <p className="text-marca-tenue text-sm italic text-center py-4">Toca una pestaña para ver su contenido.</p>
           )}
 
           {pestana === "regalos" && esPropio && (
@@ -488,7 +491,7 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
 
       {esPropio && (
         <div ref={ajustesRef}>
-          <AjustesSonido />
+          <AjustesSonido abierto={ajustesAbiertos} onToggle={() => setAjustesAbiertos((v) => !v)} />
         </div>
       )}
 
@@ -788,7 +791,7 @@ function FilaEdad({ perfil }: { perfil: PerfilCompleto }) {
 // Interruptores de sonido y vibración de la app. Se guardan en este celular
 // (no en la cuenta): alguien puede querer silencio en el celular del trabajo
 // y sonido en el propio.
-function AjustesSonido() {
+function AjustesSonido({ abierto, onToggle }: { abierto: boolean; onToggle: () => void }) {
   const [sonido, setSonido] = useState(true);
   const [vibracion, setVibracion] = useState(true);
   const [brasas, setBrasas] = useState(true);
@@ -832,69 +835,75 @@ function AjustesSonido() {
   }
 
   const filas = [
-    { etiqueta: "Sonidos de la app", icono: Volume2, activo: sonido, alternar: alternarSonido },
+    { etiqueta: "Sonidos", icono: Volume2, activo: sonido, alternar: alternarSonido },
     { etiqueta: "Vibración", icono: Smartphone, activo: vibracion, alternar: alternarVibracion },
-    { etiqueta: "Brasas en Inicio", icono: Flame, activo: brasas, alternar: alternarBrasas },
+    { etiqueta: "Brasas", icono: Flame, activo: brasas, alternar: alternarBrasas },
   ];
+  const paqueteActual = PAQUETES_SONIDO.find((p) => p.id === paquete);
 
   return (
     <div>
-      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1">Sonido y efectos</p>
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
-        {filas.map(({ etiqueta, icono: Icono, activo, alternar }) => (
-          <button
-            key={etiqueta}
-            type="button"
-            role="switch"
-            aria-checked={activo}
-            onClick={alternar}
-            className="w-full flex items-center justify-between py-2.5"
-          >
-            <span className="flex items-center gap-2 text-marca-tenue text-xs">
-              <Icono className="w-3.5 h-3.5 text-marca-rojoclaro" /> {etiqueta}
-            </span>
-            <Interruptor activo={activo} />
-          </button>
-        ))}
-      </div>
-      <p className="text-marca-tenue text-[10px] mt-1">Solo en este celular. En iPhone no hay vibración.</p>
-      <p className="text-marca-tenue text-[10px]">Brasas: puntitos dorados de fondo en Inicio. Se apagan solos si tu celular tiene &quot;reducir movimiento&quot;.</p>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-1.5 text-marca-tenue text-[11px] font-black uppercase tracking-widest"
+      >
+        <span className="flex items-center gap-1.5">
+          <Volume2 className="w-3.5 h-3.5 text-marca-rojoclaro" /> Sonido y efectos
+        </span>
+        <span className={`transition-transform ${abierto ? "rotate-180" : ""}`}>▾</span>
+      </button>
 
-      <p className="text-marca-tenue text-[11px] font-black uppercase tracking-widest mb-1 mt-4">Paquete de sonido</p>
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] px-3.5 divide-y divide-marca-borde">
-        {PAQUETES_SONIDO.map((p) => (
-          <div key={p.id} className="w-full flex items-center justify-between gap-3 py-2.5">
-            <button
-              type="button"
-              onClick={() => elegirPaquete(p.id)}
-              className="flex-1 min-w-0 flex items-center gap-2.5 text-left"
-            >
-              <span
-                className={`shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  paquete === p.id ? "border-marca-rojo bg-marca-rojo" : "border-marca-borde"
-                }`}
+      {abierto && (
+        <div className="pt-2 space-y-3">
+          {/* 3 interruptores en una sola fila -- antes eran 3 renglones
+              apilados con el mismo texto repetido. */}
+          <div className="grid grid-cols-3 gap-2">
+            {filas.map(({ etiqueta, icono: Icono, activo, alternar }) => (
+              <button
+                key={etiqueta}
+                type="button"
+                role="switch"
+                aria-checked={activo}
+                onClick={alternar}
+                className="flex flex-col items-center gap-1 bg-marca-superficie border border-marca-borde rounded-[3px] py-2"
               >
-                {paquete === p.id && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-marca-texto text-xs font-bold">{p.etiqueta}</span>
-                <span className="block text-marca-tenue text-[10.5px] truncate">{p.descripcion}</span>
-              </span>
-            </button>
+                <Icono className={`w-4 h-4 ${activo ? "text-marca-rojoclaro" : "text-marca-tenue"}`} />
+                <span className="text-marca-tenue text-[9.5px] font-bold">{etiqueta}</span>
+                <Interruptor activo={activo} />
+              </button>
+            ))}
+          </div>
+
+          {/* Paquete de sonido: un <select> con el nombre + un botón de
+              probar, en vez de 5 renglones completos con descripción. */}
+          <div className="flex items-center gap-2">
+            <select
+              value={paquete}
+              onChange={(e) => elegirPaquete(e.target.value as PaqueteSonido)}
+              className="flex-1 min-w-0 p-2 bg-marca-superficie border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro"
+            >
+              {PAQUETES_SONIDO.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.etiqueta}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
-              onClick={() => reproducirSonidoExito(p.id)}
-              aria-label={`Probar ${p.etiqueta}`}
+              onClick={() => reproducirSonidoExito(paquete)}
+              aria-label="Probar sonido"
               className="shrink-0 w-8 h-8 rounded-full border border-marca-borde text-marca-tenue hover:text-marca-rojoclaro hover:border-marca-rojoclaro/50 flex items-center justify-center transition"
             >
               <Play className="w-3.5 h-3.5" />
             </button>
           </div>
-        ))}
-      </div>
-      <p className="text-marca-tenue text-[10px] mt-1">
-        Toca ▶ para escuchar cualquiera antes de elegir. También queda guardado solo en este celular.
-      </p>
+          {paqueteActual && <p className="text-marca-tenue text-[10px]">{paqueteActual.descripcion}</p>}
+          <p className="text-marca-tenue text-[10px]">
+            Solo en este celular. En iPhone no hay vibración ni brasas con &quot;reducir movimiento&quot; activado.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
