@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -12,7 +12,6 @@ import PerfilBanner from "../perfil-banner";
 import { obtenerMiPerfil } from "../supervisor/actions";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
-import ChecklistVisita from "../checklist-visita";
 import EventosDeHoy from "../eventos-hoy";
 import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
@@ -27,6 +26,7 @@ import {
   LazyMiAgenda as MiAgenda,
   LazyCampanaNotificaciones as CampanaNotificaciones,
   LazySoporte as Soporte,
+  LazyChecklistRutina as ChecklistRutina,
 } from "../panel-lazy";
 import { hoyPeru } from "@/lib/fechas";
 import { obtenerNotificacionesPendientes } from "../historias/social-actions";
@@ -87,9 +87,14 @@ export default async function PanelCapacitador() {
           <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
-          <ChecklistVisita nombreUsuario={sesion.nombre} rol={sesion.rol} />
         </div>
       ),
+    },
+    {
+      id: "checklist-rutina",
+      etiqueta: "Checklist de Rutina",
+      icono: <ListChecks className="w-4 h-4" />,
+      contenido: <ChecklistRutina nombreUsuario={sesion.nombre} rol={sesion.rol} />,
     },
     {
       id: "reportes",

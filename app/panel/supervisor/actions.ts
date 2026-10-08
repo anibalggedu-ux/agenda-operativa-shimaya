@@ -444,17 +444,23 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
   const fecha = paraManana ? sumarDias(hoyPeru(), 1) : hoyPeru();
   const etiquetaFecha = paraManana ? "mañana" : "hoy";
 
-  const { data: existente, error: errorExistente } = await supabase
+  // .limit(1) en vez de maybeSingle(): no hay nada que impida tener varias
+  // tiendas autoasignadas el mismo día (ni límite de cuántas), así que acá
+  // solo interesa si ESTA tienda puntual ya se repite -- maybeSingle()
+  // lanzaba error si alguna vez había más de una fila para el mismo
+  // usuario+tienda+fecha, lo que bloqueaba incluso una autoasignación nueva a
+  // otra tienda distinta (caso reportado: Enson, 6 oct).
+  const { data: existentes, error: errorExistente } = await supabase
     .from("rutas_activas")
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", tiendaId)
     .eq("fecha_planificada", fecha)
-    .maybeSingle();
+    .limit(1);
   // Si no se pudo verificar, no se continúa — de lo contrario un error
   // transitorio dejaría pasar una asignación duplicada para el mismo día.
   if (errorExistente) return { exito: false, mensaje: "No se pudo verificar tus asignaciones. Intenta de nuevo." };
-  if (existente) {
+  if (existentes && existentes.length > 0) {
     return { exito: false, mensaje: `Ya te habías asignado esa tienda para ${etiquetaFecha}.` };
   }
 

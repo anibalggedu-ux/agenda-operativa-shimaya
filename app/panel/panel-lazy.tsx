@@ -81,6 +81,11 @@ export const LazySoporte = dynamic(() => import("./soporte/soporte"), {
   loading: cargando,
 });
 
+export const LazyChecklistRutina = dynamic(() => import("./checklist-rutina/checklist-rutina"), {
+  ssr: false,
+  loading: cargando,
+});
+
 // Reutilizados desde Gerente -- mismos componentes que ya usa Coordinador
 // para anuncios/encuestas, ahora que Gerente también puede publicar.
 export const LazyAnuncios = dynamic(() => import("./coordinador/anuncios"), {

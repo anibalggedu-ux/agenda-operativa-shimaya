@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardList, Check, FileDown, Pencil } from "lucide-react";
 import {
   obtenerPlantillaParaTienda,
@@ -32,6 +32,35 @@ import {
 
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
+
+// Bloques separados por área (Salón / Caja / Cocina / Juguería), en vez de
+// una lista plana -- dentro de Cocina, además, las secciones de "Revisión de
+// producción" (claves produccion_*) se muestran en un sub-bloque aparte.
+const ORDEN_AREAS: { clave: string; nombre: string }[] = [
+  { clave: "salon", nombre: "Salón" },
+  { clave: "caja", nombre: "Caja" },
+  { clave: "cocina", nombre: "Cocina" },
+  { clave: "jugueria", nombre: "Juguería" },
+];
+
+type GrupoArea = { clave: string; nombre: string; normales: SeccionChecklist[]; produccion: SeccionChecklist[] };
+
+function agruparPorArea(secciones: SeccionChecklist[]): GrupoArea[] {
+  const grupos: GrupoArea[] = ORDEN_AREAS.map((a) => ({ ...a, normales: [], produccion: [] }));
+  const sinArea: SeccionChecklist[] = [];
+  secciones.forEach((s) => {
+    const grupo = grupos.find((g) => g.clave === s.area);
+    if (!grupo) {
+      sinArea.push(s);
+      return;
+    }
+    if (s.clave.startsWith("produccion_")) grupo.produccion.push(s);
+    else grupo.normales.push(s);
+  });
+  const resultado = grupos.filter((g) => g.normales.length > 0 || g.produccion.length > 0);
+  if (sinArea.length > 0) resultado.push({ clave: "_sin_area", nombre: "Otros", normales: sinArea, produccion: [] });
+  return resultado;
+}
 
 function ListaFaltas({ faltas }: { faltas: FaltaChecklist[] | null | undefined }) {
   if (!faltas || faltas.length === 0) return null;
@@ -244,6 +273,7 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
   // Aviso (no bloquea nada) de que esta tienda ya tuvo un checklist en los
   // últimos 3 días.
   const [checklistReciente, setChecklistReciente] = useState<PlantillaChecklist["checklistReciente"]>(null);
+  const grupos = useMemo(() => agruparPorArea(secciones), [secciones]);
 
   function cargarEditables() {
     obtenerChecklistsEditables()
@@ -502,10 +532,10 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
         <p className="flex items-start gap-1.5 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 text-amber-400 text-[11.5px] leading-snug">
           <ClipboardList className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
-            Esta tienda ya tuvo un checklist{" "}
+            Esta tienda debería revisarse una vez por semana, y ya tuvo un checklist{" "}
             {checklistReciente.diasAtras === 0 ? "hoy" : `hace ${checklistReciente.diasAtras} día${checklistReciente.diasAtras === 1 ? "" : "s"}`}{" "}
             ({checklistReciente.usuarioNombre}, {formatearFechaLegible(checklistReciente.fecha)}). Puedes llenar otro igual —
-            es solo un aviso.
+            es solo un aviso, no te bloquea.
           </span>
         </p>
       )}
@@ -515,9 +545,28 @@ export default function ChecklistVisita({ nombreUsuario, rol }: { nombreUsuario:
           Todavía no hay preguntas configuradas — se agregan desde Registro.
         </p>
       ) : (
-        <fieldset disabled={guardado} className="space-y-2">
-          {secciones.map((s) => (
-            <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
+        <fieldset disabled={guardado} className="space-y-5">
+          {grupos.map((grupo) => (
+            <div key={grupo.clave} className="space-y-2">
+              <h4 className="text-marca-rojoclaro text-[11px] font-black uppercase tracking-widest px-1">
+                {grupo.nombre}
+              </h4>
+              <div className="space-y-2">
+                {grupo.normales.map((s) => (
+                  <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
+                ))}
+              </div>
+              {grupo.produccion.length > 0 && (
+                <div className="ml-2 pl-3 border-l-2 border-marca-oro/40 space-y-2">
+                  <h5 className="text-oro text-[10px] font-black uppercase tracking-widest px-1">
+                    Producciones
+                  </h5>
+                  {grupo.produccion.map((s) => (
+                    <SeccionForm key={s.clave} seccion={s} respuestas={respuestas} onCambiar={handleCambiar} />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </fieldset>
       )}
