@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
+import { horaPeru } from "@/lib/fechas";
 import {
   obtenerMiBreakDeHoy,
   obtenerMisUltimosBreaks,
@@ -39,15 +40,20 @@ function formatearDuracion(segundos: number): string {
   return h > 0 ? `de ${h}h ${String(m).padStart(2, "0")}min` : `de ${m}min`;
 }
 
-// Segundos restantes hasta horaLimite ("HH:MM:SS"), comparado contra la hora
-// real del celular -- igual que el resto de la app, se asume que el celular
-// está en hora de Perú (es la hora con la que ya marca entrada/salida).
+function segundosDesdeMedianoche(horaHHMMSS: string): number {
+  const [h, m, s] = horaHHMMSS.split(":").map(Number);
+  return h * 3600 + m * 60 + (s || 0);
+}
+
+// Segundos restantes hasta horaLimite ("HH:MM:SS") -- comparado contra la
+// hora de PERÚ calculada a partir de Date.now() (igual que horaPeru() en
+// lib/fechas), no contra new Date().getHours() del celular. Antes usaba la
+// hora local del dispositivo: si el celular tenía otra zona horaria
+// configurada, el aviso de "quedan 5 minutos" podía saltar bastante antes
+// (o después) de lo real -- caso reportado con una notificación que llegó
+// casi una hora antes de la hora límite real.
 function segundosRestantes(horaLimite: string): number {
-  const ahora = new Date();
-  const [h, m, s] = horaLimite.split(":").map(Number);
-  const limite = new Date(ahora);
-  limite.setHours(h, m, s, 0);
-  return Math.round((limite.getTime() - ahora.getTime()) / 1000);
+  return segundosDesdeMedianoche(horaLimite) - segundosDesdeMedianoche(horaPeru());
 }
 
 function formatearCronometro(segundos: number): string {
