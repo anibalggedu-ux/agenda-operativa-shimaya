@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy, ListChecks, Store } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -13,6 +13,7 @@ import MisSolicitudes from "./mis-solicitudes";
 import MisMarcaciones from "./mis-marcaciones";
 import EventosDeHoy from "../eventos-hoy";
 import ResumenDelDia from "../resumen-del-dia";
+import BloqueColapsable from "../bloque-colapsable";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import {
   LazyCentralAnalitica as CentralAnalitica,
@@ -70,8 +71,12 @@ export default async function PanelSupervisor() {
       contenido: (
         <div className="space-y-6">
           <BreakWidget />
-          <TiendasFijas />
-          <EventosDeHoy />
+          <BloqueColapsable icono={<Store />} titulo="Tiendas fijas">
+            <TiendasFijas />
+          </BloqueColapsable>
+          <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
+            <EventosDeHoy />
+          </BloqueColapsable>
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
         </div>
