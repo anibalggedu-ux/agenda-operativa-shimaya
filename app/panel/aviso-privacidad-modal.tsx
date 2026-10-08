@@ -80,6 +80,17 @@ export default function AvisoPrivacidadModal() {
             descargarse ni difundirse fuera de la empresa.
           </p>
           <p>
+            Puedes leer el texto completo en los{" "}
+            <a href="/terminos" target="_blank" rel="noopener noreferrer" className="text-marca-rojoclaro underline font-semibold">
+              Términos y condiciones
+            </a>{" "}
+            y la{" "}
+            <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-marca-rojoclaro underline font-semibold">
+              Política de privacidad
+            </a>
+            .
+          </p>
+          <p>
             <span className="text-marca-texto font-semibold">Notificaciones:</span> al aceptar, se activarán las
             notificaciones push en este dispositivo (recordatorios, anuncios, rutas y alertas del equipo) — puedes
             desactivarlas luego desde Mi Agenda.

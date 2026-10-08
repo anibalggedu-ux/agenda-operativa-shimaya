@@ -43,6 +43,11 @@ export default function LoginPage() {
         <div className="animar-intro-form">
           <LoginForm />
         </div>
+        <p className="mt-6 text-center text-[11px] text-marca-tenue">
+          <a href="/terminos" className="underline">Términos y condiciones</a>
+          {" · "}
+          <a href="/privacidad" className="underline">Política de privacidad</a>
+        </p>
       </div>
     </main>
   );
