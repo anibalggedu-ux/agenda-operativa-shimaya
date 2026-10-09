@@ -295,9 +295,16 @@ export async function fotosGuardadasParaPdf(fotos: FotoEvidencia[]): Promise<Fot
     fotos.map(async (f) => {
       try {
         const respuesta = await fetch(f.rutaPdf);
-        if (!respuesta.ok) return null;
+        if (!respuesta.ok) {
+          // Antes se perdía en silencio -- sin esto, una foto que no carga
+          // (ej. almacén caído un instante) desaparece del PDF sin dejar
+          // rastro de por qué.
+          console.error(`No se pudo bajar la foto para el PDF (${respuesta.status}): ${f.rutaPdf}`);
+          return null;
+        }
         return { dataUrl: await blobADataUrl(await respuesta.blob()), pie: f.pie };
-      } catch {
+      } catch (e) {
+        console.error(`No se pudo bajar la foto para el PDF: ${f.rutaPdf}`, e);
         return null;
       }
     })

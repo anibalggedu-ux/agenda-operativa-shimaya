@@ -1242,6 +1242,10 @@ export type DatosChecklistVisitaPdf = {
   // Faltas que descontaron puntos (ej. contaminación cruzada).
   faltas?: FaltaChecklist[];
   fotos?: FotoPdf[];
+  // Cuántas fotos tiene el registro en total -- si es mayor que fotos.length,
+  // alguna no se pudo bajar al armar el PDF (ver fotosGuardadasParaPdf) y se
+  // avisa en vez de desaparecer en silencio.
+  totalFotosRegistro?: number;
 };
 
 function formatearValorChecklist(item: ItemChecklistVisitaPdf): string {
@@ -1353,6 +1357,24 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
   });
 
   if (datos.fotos && datos.fotos.length > 0) y = dibujarFotos(doc, datos.fotos, y + 2);
+
+  const faltantes = (datos.totalFotosRegistro ?? datos.fotos?.length ?? 0) - (datos.fotos?.length ?? 0);
+  if (faltantes > 0) {
+    if (y + 8 > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8.5);
+    doc.setTextColor(150, 60, 0);
+    doc.text(
+      `⚠ ${faltantes} foto${faltantes === 1 ? "" : "s"} de este checklist no se pudo${faltantes === 1 ? "" : "n"} cargar al generar este PDF -- vuelve a intentarlo en un rato.`,
+      14,
+      y + 5
+    );
+    doc.setTextColor(0, 0, 0);
+    y += 10;
+  }
 
   // Pensado para entregarse al encargado de la tienda -- dos líneas de
   // firma al final, en una página nueva si no queda espacio decente.
