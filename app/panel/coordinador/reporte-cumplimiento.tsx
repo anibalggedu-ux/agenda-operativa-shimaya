@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList } from "lucide-react";
+import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList, FileDown } from "lucide-react";
 import {
   obtenerReporteNoCumplimiento,
   type ReporteNoCumplimiento,
   type FilaCumplimiento,
 } from "./reporte-cumplimiento-actions";
-import { hoyPeru, sumarDias } from "@/lib/fechas";
+import { hoyPeru, sumarDias, formatearFechaCorta } from "@/lib/fechas";
+import { generarPdfNoCumplimiento } from "@/lib/generar-pdf";
 import BloqueColapsable from "../bloque-colapsable";
 import EstadoVacio from "../estado-vacio";
 
@@ -16,18 +17,22 @@ function Lista({ filas, sufijo, vacio }: { filas: FilaCumplimiento[]; sufijo: st
   return (
     <div className="space-y-1.5">
       {filas.map((f) => (
-        <div
-          key={f.usuarioId}
-          className="flex items-center justify-between bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2"
-        >
-          <span className="text-marca-texto text-sm">
-            {f.usuarioNombre} <span className="text-marca-tenue text-[11px] uppercase">({f.rol})</span>
-          </span>
-          {sufijo && (
-            <span className="text-marca-rojoclaro font-black text-sm shrink-0">
-              {f.cantidad} {sufijo}
-              {f.cantidad === 1 ? "" : "s"}
+        <div key={f.usuarioId} className="bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-marca-texto text-sm">
+              {f.usuarioNombre} <span className="text-marca-tenue text-[11px] uppercase">({f.rol})</span>
             </span>
+            {sufijo && (
+              <span className="text-marca-rojoclaro font-black text-sm shrink-0">
+                {f.fechas.length} {sufijo}
+                {f.fechas.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          {f.fechas.length > 0 && (
+            <p className="text-marca-tenue text-[11px] mt-1 capitalize">
+              {f.fechas.map((fecha) => formatearFechaCorta(fecha)).join(" · ")}
+            </p>
           )}
         </div>
       ))}
@@ -41,6 +46,7 @@ export default function ReporteCumplimiento() {
   const [datos, setDatos] = useState<ReporteNoCumplimiento | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
 
   useEffect(() => {
     setCargando(true);
@@ -50,6 +56,16 @@ export default function ReporteCumplimiento() {
       .catch((e) => setError(e.message || "No se pudo cargar el reporte."))
       .finally(() => setCargando(false));
   }, [desde, hasta]);
+
+  async function handleDescargarPdf() {
+    if (!datos || generandoPdf) return;
+    setGenerandoPdf(true);
+    try {
+      await generarPdfNoCumplimiento(datos);
+    } finally {
+      setGenerandoPdf(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -91,6 +107,15 @@ export default function ReporteCumplimiento() {
 
       {!cargando && !error && datos && (
         <div className="space-y-3">
+          <button
+            type="button"
+            onClick={handleDescargarPdf}
+            disabled={generandoPdf}
+            className="w-full flex items-center justify-center gap-1.5 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+          >
+            <FileDown className="w-3.5 h-3.5" /> {generandoPdf ? "Generando..." : "Descargar PDF"}
+          </button>
+
           <BloqueColapsable icono={<Clock />} titulo="TARDANZAS" badge={`${datos.tardanzas.length}`}>
             <Lista filas={datos.tardanzas} sufijo="tardanza" vacio="Nadie llegó tarde en este rango." />
           </BloqueColapsable>

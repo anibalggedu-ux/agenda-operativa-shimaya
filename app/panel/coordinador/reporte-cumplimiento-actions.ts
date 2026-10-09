@@ -12,9 +12,14 @@ import { esTarde, resolverHoraLimite, expandirRangoFechas } from "@/lib/puntuali
 // cuentas genéricas) -- coordinador y gerente nunca entran a su propio
 // reporte.
 
-export type FilaCumplimiento = { usuarioId: string; usuarioNombre: string; rol: string; cantidad: number };
+// Cada fila guarda las fechas puntuales de la incidencia (no solo el
+// conteo) -- así se puede mostrar o imprimir exactamente qué días faltó,
+// no solo cuántos.
+export type FilaCumplimiento = { usuarioId: string; usuarioNombre: string; rol: string; fechas: string[] };
 
 export type ReporteNoCumplimiento = {
+  desde: string;
+  hasta: string;
   tardanzas: FilaCumplimiento[];
   sinSalida: FilaCumplimiento[];
   sinBreak: FilaCumplimiento[];
@@ -97,22 +102,29 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     return false;
   }
 
-  function sumar(mapa: Map<string, number>, usuarioId: string) {
-    mapa.set(usuarioId, (mapa.get(usuarioId) ?? 0) + 1);
+  function agregarFecha(mapa: Map<string, string[]>, usuarioId: string, fecha: string) {
+    const lista = mapa.get(usuarioId);
+    if (lista) lista.push(fecha);
+    else mapa.set(usuarioId, [fecha]);
   }
 
-  function aFilas(mapa: Map<string, number>): FilaCumplimiento[] {
+  function aFilas(mapa: Map<string, string[]>): FilaCumplimiento[] {
     return Array.from(mapa.entries())
-      .map(([usuarioId, cantidad]) => {
+      .map(([usuarioId, fechas]) => {
         const u = mapaUsuarios.get(usuarioId);
-        return { usuarioId, usuarioNombre: u?.nombre ?? "—", rol: u?.rol ?? "—", cantidad };
+        return {
+          usuarioId,
+          usuarioNombre: u?.nombre ?? "—",
+          rol: u?.rol ?? "—",
+          fechas: fechas.sort(),
+        };
       })
-      .sort((a, b) => b.cantidad - a.cantidad || a.usuarioNombre.localeCompare(b.usuarioNombre));
+      .sort((a, b) => b.fechas.length - a.fechas.length || a.usuarioNombre.localeCompare(b.usuarioNombre));
   }
 
   // ---------- 1) Tardanzas y 2) No marcó salida (asistencia) ----------
-  const tardanzasPorUsuario = new Map<string, number>();
-  const sinSalidaPorUsuario = new Map<string, number>();
+  const tardanzasPorUsuario = new Map<string, string[]>();
+  const sinSalidaPorUsuario = new Map<string, string[]>();
 
   (asistencia ?? []).forEach((a: any) => {
     const usuario = mapaUsuarios.get(a.usuario_id);
@@ -125,16 +137,16 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
         usuario.horario_por_dia,
         diaSemanaPeru(a.fecha)
       );
-      if (limite && esTarde(a.hora_ingreso, limite)) sumar(tardanzasPorUsuario, a.usuario_id);
+      if (limite && esTarde(a.hora_ingreso, limite)) agregarFecha(tardanzasPorUsuario, a.usuario_id, a.fecha);
 
       // El día de hoy puede seguir en curso -- recién de mañana en adelante
       // cuenta como "no marcó salida" para no avisar antes de tiempo.
-      if (!a.hora_salida && a.fecha < hoy) sumar(sinSalidaPorUsuario, a.usuario_id);
+      if (!a.hora_salida && a.fecha < hoy) agregarFecha(sinSalidaPorUsuario, a.usuario_id, a.fecha);
     }
   });
 
   // ---------- 3) No marcó break y 4) Se pasó del tiempo de break ----------
-  const sePasoBreakPorUsuario = new Map<string, number>();
+  const sePasoBreakPorUsuario = new Map<string, string[]>();
   const diasConBreakPorUsuario = new Map<string, Set<string>>();
 
   (breaks ?? []).forEach((b: any) => {
@@ -144,7 +156,7 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     diasConBreakPorUsuario.set(b.usuario_id, set);
 
     if (b.hora_entrada && b.hora_limite && b.hora_entrada > b.hora_limite) {
-      sumar(sePasoBreakPorUsuario, b.usuario_id);
+      agregarFecha(sePasoBreakPorUsuario, b.usuario_id, b.fecha);
     }
   });
 
@@ -156,15 +168,15 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     diasConReportePorUsuario.set(r.usuario_id, set);
   });
 
-  const sinBreakPorUsuario = new Map<string, number>();
-  const sinObservacionesPorUsuario = new Map<string, number>();
+  const sinBreakPorUsuario = new Map<string, string[]>();
+  const sinObservacionesPorUsuario = new Map<string, string[]>();
   const diasDelRango = expandirRangoFechas(desde, hasta).filter((f) => f < hoy); // día en curso no cuenta como falta
 
   usuariosBase.forEach((u) => {
     diasDelRango.forEach((fecha) => {
       if (diaExentoDeTrabajar(u.id, fecha)) return;
-      if (!diasConBreakPorUsuario.get(u.id)?.has(fecha)) sumar(sinBreakPorUsuario, u.id);
-      if (!diasConReportePorUsuario.get(u.id)?.has(fecha)) sumar(sinObservacionesPorUsuario, u.id);
+      if (!diasConBreakPorUsuario.get(u.id)?.has(fecha)) agregarFecha(sinBreakPorUsuario, u.id, fecha);
+      if (!diasConReportePorUsuario.get(u.id)?.has(fecha)) agregarFecha(sinObservacionesPorUsuario, u.id, fecha);
     });
   });
 
@@ -176,10 +188,12 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
   });
   const sinChecklist: FilaCumplimiento[] = usuariosBase
     .filter((u) => !checklistsPorUsuario.has(u.id))
-    .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, cantidad: 0 }))
+    .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, fechas: [] as string[] }))
     .sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre));
 
   return {
+    desde,
+    hasta,
     tardanzas: aFilas(tardanzasPorUsuario),
     sinSalida: aFilas(sinSalidaPorUsuario),
     sinBreak: aFilas(sinBreakPorUsuario),
