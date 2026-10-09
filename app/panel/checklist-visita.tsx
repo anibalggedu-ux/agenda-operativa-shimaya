@@ -111,7 +111,13 @@ function BotonOpcion({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition border ${
+      // whitespace-normal + max-w-full: en iOS/Safari, un <button> dentro de
+      // un flex-wrap no ajusta su texto por default (se queda en una sola
+      // línea aunque no entre) y empuja el ancho de toda la pantalla hacia
+      // los lados -- en Chrome de escritorio no se nota porque sí ajusta
+      // solo. Con etiquetas largas (ej. "La mayoría no tiene filo") era
+      // justo el caso que lo disparaba.
+      className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition border whitespace-normal break-words max-w-full text-center ${
         activo
           ? "bg-marca-rojo border-marca-rojo text-marca-textofuerte"
           : "bg-marca-superficie2 border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
@@ -154,7 +160,7 @@ function CampoItem({
         </div>
       )}
       {item.tipo === "opciones" && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="w-full flex flex-wrap gap-1.5">
           {(item.opciones ?? []).map((op) => (
             <BotonOpcion key={op} activo={valor === op} onClick={() => onChange(op)}>
               {op}
