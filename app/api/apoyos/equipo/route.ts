@@ -36,7 +36,10 @@ export async function GET(req: Request) {
     .order("nombre");
   if (error) return NextResponse.json({ error: "No se pudo cargar" }, { status: 500 });
 
-  const equipo = (data ?? []).map((u) => ({
+  // Las cuentas genéricas (sup-generico, cap-generico…) no son personas: no se proponen como apoyo ni para capacitar.
+  // El gerente tampoco entra: solo se piden los roles supervisor y capacitador.
+  const esGenerica = (nombre: string) => /gen[eé]ric/i.test(nombre);
+  const equipo = (data ?? []).filter((u) => !esGenerica(String(u.nombre))).map((u) => ({
     id: String(u.id),
     nombre: u.nombre as string,
     rol: u.rol as string,
