@@ -20,6 +20,11 @@ export default function Privacidad() {
           <li>Fotos, videos y comentarios que publiques en el feed interno.</li>
           <li>Tu horario, días de descanso, rutas y solicitudes.</li>
           <li>Tu fecha de nacimiento (opcional, solo para mostrar tu cumpleaños en el feed).</li>
+          <li>
+            Si eres supervisor o capacitador: la ubicación aproximada de tu domicilio (coordenadas redondeadas, sin la
+            dirección escrita) se comparte con el sistema interno de Coordinación de Apoyos para proponerte como apoyo
+            o capacitador en los locales más cercanos.
+          </li>
           <li>Datos técnicos mínimos: tipo de dispositivo y suscripción de notificaciones push.</li>
         </ul>
       </Seccion>
