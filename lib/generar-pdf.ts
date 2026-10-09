@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { textoPuntajesArea, type FaltaChecklist, type PuntajesArea } from "./checklist-puntaje";
-import { formatearFechaLegible, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
+import { formatearFechaLegible, formatearFechaCorta, formatearHora, diaSemanaPeru, sumarDias } from "./fechas";
 import { formatearMinutos } from "./distancia";
 
 const AMARILLO: [number, number, number] = [234, 179, 8];
@@ -1398,4 +1398,92 @@ export async function generarPdfChecklistVisita(datos: DatosChecklistVisitaPdf):
   const nombreArchivo =
     "checklist_visita_" + datos.tiendaNombre.replace(/\s+/g, "_") + "_" + datos.fecha + ".pdf";
   doc.save(nombreArchivo);
+}
+
+// ---------- Reporte de no cumplimiento (coordinador/gerente) ----------
+
+export type FilaCumplimientoPdf = { usuarioNombre: string; rol: string; fechas: string[] };
+
+export type DatosNoCumplimientoPdf = {
+  desde: string;
+  hasta: string;
+  tardanzas: FilaCumplimientoPdf[];
+  sinSalida: FilaCumplimientoPdf[];
+  sinBreak: FilaCumplimientoPdf[];
+  sePasoBreak: FilaCumplimientoPdf[];
+  sinObservaciones: FilaCumplimientoPdf[];
+  sinChecklist: FilaCumplimientoPdf[];
+};
+
+// Cada bloque es una tabla simple: nombre (rol) a la izquierda, y las fechas
+// puntuales de la incidencia a la derecha (envueltas si no entran en una
+// línea) -- salvo "sin checklist", que no tiene fechas puntuales (es un
+// total del rango), así que ahí solo se lista el nombre.
+function dibujarBloqueCumplimiento(
+  doc: jsPDF,
+  yInicial: number,
+  titulo: string,
+  filas: FilaCumplimientoPdf[],
+  conFechas: boolean
+): number {
+  let y = yInicial;
+  if (y + 14 > ALTO_PAGINA) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...COLOR_CLASIFICACION["Acción inmediata"]);
+  doc.text(`${titulo} (${filas.length})`, 14, y);
+  doc.setTextColor(0, 0, 0);
+  y += 6;
+
+  if (filas.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Nadie en este rango.", 18, y);
+    return y + 7;
+  }
+
+  filas.forEach((f) => {
+    const nombreTexto = `${f.usuarioNombre} (${f.rol})`;
+    const fechasTexto = conFechas ? f.fechas.map((fecha) => formatearFechaCorta(fecha)).join(", ") : "";
+    const lineas = fechasTexto ? doc.splitTextToSize(fechasTexto, ANCHO_UTIL - 70) : [];
+    const altoFila = Math.max(5.5, lineas.length * 4.5 + 1);
+
+    if (y + altoFila > ALTO_PAGINA) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.text(nombreTexto, 18, y);
+    if (conFechas) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.text(lineas.length > 0 ? lineas : ["—"], 90, y);
+    }
+    y += altoFila;
+  });
+
+  return y + 4;
+}
+
+export async function generarPdfNoCumplimiento(datos: DatosNoCumplimientoPdf): Promise<void> {
+  const doc = new jsPDF();
+  await dibujarEncabezado(doc, "Reporte de no cumplimiento");
+
+  let y = 40;
+  y = campo(doc, "Rango:", `${formatearFechaLegible(datos.desde)} — ${formatearFechaLegible(datos.hasta)}`, y);
+  y += 3;
+
+  y = dibujarBloqueCumplimiento(doc, y, "TARDANZAS", datos.tardanzas, true);
+  y = dibujarBloqueCumplimiento(doc, y, "NO MARCÓ SALIDA", datos.sinSalida, true);
+  y = dibujarBloqueCumplimiento(doc, y, "NO MARCÓ BREAK", datos.sinBreak, true);
+  y = dibujarBloqueCumplimiento(doc, y, "SE PASÓ DEL TIEMPO DE BREAK", datos.sePasoBreak, true);
+  y = dibujarBloqueCumplimiento(doc, y, "NO HACE OBSERVACIONES", datos.sinObservaciones, true);
+  y = dibujarBloqueCumplimiento(doc, y, "NO HACE CHECKLIST", datos.sinChecklist, false);
+
+  doc.save(`reporte_no_cumplimiento_${datos.desde}_a_${datos.hasta}.pdf`);
 }
