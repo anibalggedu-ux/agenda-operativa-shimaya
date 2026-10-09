@@ -9,6 +9,7 @@ import {
   actualizarAccesoRegistro,
   actualizarEstadoUsuario,
   actualizarDatosUsuario,
+  actualizarPedirUbicacion,
   type ResultadoRegistro,
   type UsuarioConAcceso,
 } from "./actions";
@@ -422,6 +423,7 @@ function GestionAccesos() {
   const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [guardandoUbicacionId, setGuardandoUbicacionId] = useState<string | null>(null);
 
   function cargar() {
     setCargando(true);
@@ -471,6 +473,21 @@ function GestionAccesos() {
       setErrorEstado(resultado.mensaje || "No se pudo actualizar el estado.");
     }
     setCambiandoEstadoId(null);
+  }
+
+  async function handleTogglePedirUbicacion(usuario: UsuarioConAcceso) {
+    const nuevoValor = !usuario.pedirUbicacion;
+    setGuardandoUbicacionId(usuario.id);
+    setUsuarios((prev) =>
+      prev.map((u) => (u.id === usuario.id ? { ...u, pedirUbicacion: nuevoValor } : u))
+    );
+    const resultado = await actualizarPedirUbicacion(usuario.id, nuevoValor);
+    if (!resultado.exito) {
+      setUsuarios((prev) =>
+        prev.map((u) => (u.id === usuario.id ? { ...u, pedirUbicacion: !nuevoValor } : u))
+      );
+    }
+    setGuardandoUbicacionId(null);
   }
 
   if (cargando) return <p className="text-marca-tenue text-sm animate-pulse">Cargando usuarios...</p>;
@@ -524,6 +541,21 @@ function GestionAccesos() {
                   >
                     {u.activo ? "Dar de baja" : "Reactivar"}
                   </button>
+                  <label
+                    className="flex items-center gap-2 cursor-pointer"
+                    title="Muestra el botón 'Marcar mi ubicación' en su Inicio hasta que la use una vez -- útil para capturar el domicilio real de alguien nuevo en el equipo"
+                  >
+                    <span className="text-marca-tenue text-[10px] uppercase font-bold">
+                      Pedir ubicación
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={u.pedirUbicacion}
+                      disabled={guardandoUbicacionId === u.id}
+                      onChange={() => handleTogglePedirUbicacion(u)}
+                      className="w-4 h-4 accent-marca-rojo"
+                    />
+                  </label>
                   {u.rol !== "capacitador" && (
                     <label className="flex items-center gap-2 cursor-pointer">
                       <span className="text-marca-tenue text-[10px] uppercase font-bold">

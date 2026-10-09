@@ -177,6 +177,7 @@ export type UsuarioConAcceso = {
   fechaIngreso: string | null;
   puntosHeredados: number;
   duracionBreakMin: number | null;
+  pedirUbicacion: boolean;
 };
 
 export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
@@ -190,7 +191,7 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
   const { data, error } = await supabase
     .from("usuarios")
     .select(
-      "id, nombre, rol, puede_registrar, activo, fecha_nacimiento, fecha_ingreso, puntos_heredados, duracion_break_min"
+      "id, nombre, rol, puede_registrar, activo, fecha_nacimiento, fecha_ingreso, puntos_heredados, duracion_break_min, pedir_ubicacion"
     )
     .not("rol", "in", "(coordinador)")
     .order("nombre");
@@ -207,7 +208,38 @@ export async function obtenerUsuariosConAcceso(): Promise<UsuarioConAcceso[]> {
     fechaIngreso: u.fecha_ingreso,
     puntosHeredados: u.puntos_heredados ?? 0,
     duracionBreakMin: u.duracion_break_min,
+    pedirUbicacion: !!u.pedir_ubicacion,
   }));
+}
+
+// Activa el botón "Marcar mi ubicación" (Inicio) para un solo colaborador —
+// pensado para cuando entra alguien nuevo al equipo y hay que capturar su
+// domicilio real desde su celular, sin tener que volver a activarlo para
+// todos los demás. Se apaga sola apenas la persona lo usa (ver
+// marcarMiUbicacion en resumen-dia-actions.ts).
+export async function actualizarPedirUbicacion(
+  usuarioId: string,
+  valor: boolean
+): Promise<ResultadoRegistro> {
+  const sesion = await exigirCoordinador();
+  const supabase = supabaseServer();
+
+  const { data: usuario } = await supabase.from("usuarios").select("nombre").eq("id", usuarioId).maybeSingle();
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ pedir_ubicacion: valor })
+    .eq("id", usuarioId);
+
+  if (error) return { exito: false, mensaje: "No se pudo actualizar." };
+
+  await registrarCambio(
+    sesion,
+    valor ? "Activó 'Marcar mi ubicación' para un colaborador" : "Desactivó 'Marcar mi ubicación' para un colaborador",
+    usuario?.nombre ?? usuarioId
+  );
+
+  return { exito: true };
 }
 
 // Edita los datos que solo se cargaban al crear al usuario y después

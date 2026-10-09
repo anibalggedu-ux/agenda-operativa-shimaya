@@ -6,6 +6,8 @@ import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
   marcarAlertaAtendida,
+  obtenerPedirUbicacion,
+  marcarMiUbicacion,
   type ResumenPersonal,
   type ResumenOperativo,
 } from "./resumen-dia-actions";
@@ -203,6 +205,34 @@ export default function ResumenDelDia({
   const [saludo, setSaludo] = useState("Hola");
   const [fechaHoy, setFechaHoy] = useState("");
 
+  // Botón "Marcar mi ubicación" -- solo aparece mientras el backend diga que
+  // hace falta (usuarios.pedir_ubicacion), y se oculta solo apenas se marca
+  // con éxito. Ver resumen-dia-actions.ts.
+  const [pedirUbicacion, setPedirUbicacion] = useState(false);
+  const [marcandoUbicacion, setMarcandoUbicacion] = useState(false);
+  const [errorUbicacion, setErrorUbicacion] = useState<string | null>(null);
+
+  useEffect(() => {
+    obtenerPedirUbicacion()
+      .then(setPedirUbicacion)
+      .catch(() => {});
+  }, []);
+
+  async function handleMarcarUbicacion() {
+    setMarcandoUbicacion(true);
+    setErrorUbicacion(null);
+    try {
+      const coords = await obtenerUbicacionActual();
+      const resultado = await marcarMiUbicacion(coords.lat, coords.lng);
+      if (resultado.exito) setPedirUbicacion(false);
+      else setErrorUbicacion(resultado.mensaje || "No se pudo guardar tu ubicación.");
+    } catch (err: any) {
+      setErrorUbicacion(err?.message || "No se pudo obtener tu ubicación.");
+    } finally {
+      setMarcandoUbicacion(false);
+    }
+  }
+
   useEffect(() => {
     const hora = new Date().getHours();
     setSaludo(hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches");
@@ -223,6 +253,27 @@ export default function ResumenDelDia({
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
+
+      {pedirUbicacion && (
+        <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">
+          <p className="text-marca-texto text-xs font-semibold flex items-start gap-2">
+            <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-marca-rojoclaro" />
+            <span>
+              Ayúdanos a corregir tu domicilio registrado: cuando llegues a tu casa hoy, toca el
+              botón para guardar tu ubicación real.
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={handleMarcarUbicacion}
+            disabled={marcandoUbicacion}
+            className="w-full bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-2.5 rounded-[3px] text-xs tracking-widest uppercase transition flex items-center justify-center gap-1.5"
+          >
+            <MapPin className="w-4 h-4" /> {marcandoUbicacion ? "Guardando..." : "Marcar mi ubicación"}
+          </button>
+          {errorUbicacion && <p className="text-marca-rojoclaro text-[11px] font-bold">{errorUbicacion}</p>}
+        </div>
+      )}
 
       {children && <div className="mb-3">{children}</div>}
 
