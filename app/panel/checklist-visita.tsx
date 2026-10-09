@@ -168,7 +168,30 @@ function CampoItem({
           ))}
         </div>
       )}
-      {item.tipo === "numero" && (
+      {item.tipo === "numero" && item.clave === "temperatura" && (
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChange(typeof valor === "number" ? -valor : valor)}
+            title="Bajo cero"
+            className={`shrink-0 w-10 rounded-[3px] border text-sm font-black transition ${
+              typeof valor === "number" && valor < 0
+                ? "bg-marca-rojo border-marca-rojo text-marca-textofuerte"
+                : "bg-marca-superficie2 border-marca-borde text-marca-tenue hover:border-marca-rojo/40"
+            }`}
+          >
+            +/−
+          </button>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={valor ?? ""}
+            onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+            className={clasesInput}
+          />
+        </div>
+      )}
+      {item.tipo === "numero" && item.clave !== "temperatura" && (
         <input
           type="number"
           value={valor ?? ""}
