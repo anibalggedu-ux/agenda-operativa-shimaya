@@ -220,6 +220,7 @@ function DetalleChecklist({
       areas: detalle.areas,
       faltas: detalle.faltas,
       fotos: await fotosGuardadasParaPdf(detalle.fotos),
+      totalFotosRegistro: detalle.fotos.length,
     });
   }
 

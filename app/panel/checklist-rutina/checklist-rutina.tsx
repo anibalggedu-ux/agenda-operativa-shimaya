@@ -135,6 +135,7 @@ function DetalleChecklistTienda({ id, onCerrar }: { id: string; onCerrar: () => 
         areas: detalle.areas,
         faltas: detalle.faltas,
         fotos: await fotosGuardadasParaPdf(detalle.fotos),
+        totalFotosRegistro: detalle.fotos.length,
       });
     } finally {
       setGenerandoPdf(false);
