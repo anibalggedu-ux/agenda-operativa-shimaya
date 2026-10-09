@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { supabaseServer } from "@/lib/supabase-server";
+import { hoyPeru, sumarDias } from "@/lib/fechas";
 
 // Lista de supervisores y capacitadores (con la ubicación aproximada de su domicilio) para la app de
 // Coordinación de Apoyos: ahí el coordinador marca qué áreas domina cada uno y el sistema los propone
@@ -9,6 +10,8 @@ import { supabaseServer } from "@/lib/supabase-server";
 // solo coordenadas redondeadas (~100 m).
 export const dynamic = "force-dynamic";
 
+// Días de descanso fijo guardados como LUNES…DOMINGO (sin tilde) -> 1..7 (lunes = 1).
+const DIA_ISO: Record<string, number> = { LUNES: 1, MARTES: 2, MIERCOLES: 3, JUEVES: 4, VIERNES: 5, SABADO: 6, DOMINGO: 7 };
 const redondear = (n: number | null) => (n === null || n === undefined ? null : Math.round(Number(n) * 1000) / 1000);
 
 export async function GET(req: Request) {
@@ -30,7 +33,7 @@ export async function GET(req: Request) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("usuarios")
-    .select("id, nombre, rol, lat, lon")
+    .select("id, nombre, rol, lat, lon, dias_descanso")
     .in("rol", ["supervisor", "capacitador"])
     .eq("activo", true)
     .order("nombre");
@@ -39,12 +42,25 @@ export async function GET(req: Request) {
   // Las cuentas genéricas (sup-generico, cap-generico…) no son personas: no se proponen como apoyo ni para capacitar.
   // El gerente tampoco entra: solo se piden los roles supervisor y capacitador.
   const esGenerica = (nombre: string) => /gen[eé]ric/i.test(nombre);
+  // Ausencias de los próximos días: vacaciones, permisos, licencias, descansos especiales, misiones y permisos aprobados.
+  const desde = hoyPeru();
+  const hasta = sumarDias(desde, 28);
+  const [{ data: especiales }, { data: permisos }] = await Promise.all([
+    supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
+    supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
+  ]);
+  const ausenciasDe = (id: string) => [
+    ...(especiales ?? []).filter((a: any) => a.usuario_id === id).map((a: any) => ({ desde: a.fecha_inicio as string, hasta: a.fecha_fin as string, motivo: String(a.tipo ?? "Ausencia") })),
+    ...(permisos ?? []).filter((a: any) => a.usuario_id === id).map((a: any) => ({ desde: a.fecha_inicio as string, hasta: a.fecha_fin as string, motivo: "Permiso" })),
+  ];
   const equipo = (data ?? []).filter((u) => !esGenerica(String(u.nombre))).map((u) => ({
     id: String(u.id),
     nombre: u.nombre as string,
     rol: u.rol as string,
     lat: redondear(u.lat),
     lng: redondear(u.lon),
+    descanso_semanal: ((u.dias_descanso ?? []) as string[]).map((d) => DIA_ISO[String(d).toUpperCase()]).filter(Boolean),
+    ausencias: ausenciasDe(String(u.id)),
   }));
   const res = NextResponse.json({ equipo });
   res.headers.set("Cache-Control", "no-store");
