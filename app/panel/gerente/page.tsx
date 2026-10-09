@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy, History } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy, History, AlertTriangle } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import BreakWidget from "../break-widget";
@@ -17,6 +17,7 @@ import {
   LazyEncuestasCoordinador as EncuestasCoordinador,
   LazyMarcacionesBreakEquipo as MarcacionesBreakEquipo,
   LazyHistorialMonitoreo as HistorialMonitoreo,
+  LazyReporteCumplimiento as ReporteCumplimiento,
   LazyMapaOperativo as MapaOperativo,
   LazyConsultorioIA as ConsultorioIA,
   LazyHistoriasFeed as HistoriasFeed,
@@ -106,6 +107,12 @@ export default async function PanelGerente() {
       etiqueta: "Historial y Monitoreo",
       icono: <History className="w-4 h-4" />,
       contenido: <HistorialMonitoreo />,
+    },
+    {
+      id: "no-cumplimiento",
+      etiqueta: "Reporte de no cumplimiento",
+      icono: <AlertTriangle className="w-4 h-4" />,
+      contenido: <ReporteCumplimiento />,
     },
     {
       id: "consultorio",

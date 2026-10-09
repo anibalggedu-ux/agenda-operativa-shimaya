@@ -108,6 +108,11 @@ export const LazyHistorialMonitoreo = dynamic(() => import("./coordinador/histor
   loading: cargando,
 });
 
+export const LazyReporteCumplimiento = dynamic(() => import("./coordinador/reporte-cumplimiento"), {
+  ssr: false,
+  loading: cargando,
+});
+
 // Vive en la barra superior (junto a Recargar/Tema) -- un "Cargando..." ahí
 // se ve fuera de lugar, así que no muestra nada mientras carga el bundle.
 export const LazyCampanaNotificaciones = dynamic(() => import("./historias/campana-notificaciones"), {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -34,6 +34,7 @@ import {
   LazyCampanaNotificaciones as CampanaNotificaciones,
   LazySoporte as Soporte,
   LazyChecklistRutina as ChecklistRutina,
+  LazyReporteCumplimiento as ReporteCumplimiento,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
@@ -101,6 +102,12 @@ export default function PanelTabs({
           <HistorialPdf supervisorNombre={nombre} />
         </div>
       ),
+    },
+    {
+      id: "no-cumplimiento",
+      etiqueta: "Reporte de no cumplimiento",
+      icono: <AlertTriangle className="w-4 h-4" />,
+      contenido: <ReporteCumplimiento />,
     },
     {
       id: "personal",
