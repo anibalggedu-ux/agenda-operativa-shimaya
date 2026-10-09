@@ -1743,6 +1743,7 @@ export type Database = {
           lon: number | null
           mostrar_edad: boolean
           nombre: string
+          pedir_ubicacion: boolean
           puede_auditar: boolean
           puede_registrar: boolean
           puntos_heredados: number
@@ -1769,6 +1770,7 @@ export type Database = {
           lon?: number | null
           mostrar_edad?: boolean
           nombre: string
+          pedir_ubicacion?: boolean
           puede_auditar?: boolean
           puede_registrar?: boolean
           puntos_heredados?: number
@@ -1795,6 +1797,7 @@ export type Database = {
           lon?: number | null
           mostrar_edad?: boolean
           nombre?: string
+          pedir_ubicacion?: boolean
           puede_auditar?: boolean
           puede_registrar?: boolean
           puntos_heredados?: number

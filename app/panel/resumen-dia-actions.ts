@@ -522,3 +522,43 @@ export async function marcarAlertaAtendida(
   if (error) return { exito: false, mensaje: "No se pudo marcar como atendida." };
   return { exito: true };
 }
+
+// ---------------------------------------------------------------------
+// Marcar mi ubicación: botón que aparece en Inicio (a todos los roles, vía
+// ResumenDelDia) mientras usuarios.pedir_ubicacion esté en true para esa
+// persona -- se activa una vez al lanzar esto (para corregir domicilios
+// existentes) y luego, de a uno, desde Registro para cada colaborador
+// nuevo el día que se une al equipo. Al marcar, guarda su GPS real como
+// domicilio y apaga el flag, así el botón desaparece solo.
+// ---------------------------------------------------------------------
+
+export async function obtenerPedirUbicacion(): Promise<boolean> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return false;
+
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("usuarios")
+    .select("pedir_ubicacion")
+    .eq("id", sesion.id)
+    .maybeSingle();
+
+  return !!data?.pedir_ubicacion;
+}
+
+export async function marcarMiUbicacion(
+  lat: number,
+  lon: number
+): Promise<{ exito: boolean; mensaje?: string }> {
+  const sesion = await obtenerSesion();
+  if (!sesion) return { exito: false, mensaje: "No autorizado." };
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ lat, lon, pedir_ubicacion: false })
+    .eq("id", sesion.id);
+
+  if (error) return { exito: false, mensaje: "No se pudo guardar tu ubicación." };
+  return { exito: true };
+}
