@@ -13,7 +13,8 @@ import {
 } from "./resumen-dia-actions";
 import { recalcularEtaConUbicacion } from "./supervisor/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, esTemporadaHalloween } from "@/lib/fechas";
+import { reproducirSonidoFantasma, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
 // Arma las frases de alerta de puntualidad de una persona — puede haber más
@@ -241,15 +242,61 @@ export default function ResumenDelDia({
     );
   }, []);
 
+  // Ambientación de Halloween (24-31 de octubre): solo visual/sonora, un
+  // toque único al abrir Inicio -- nunca cambia datos ni comportamiento.
+  const [halloween, setHalloween] = useState(false);
+  useEffect(() => {
+    setHalloween(esTemporadaHalloween());
+  }, []);
+  useEffect(() => {
+    if (!halloween) return;
+    reproducirAlPrimerToque(() => reproducirSonidoFantasma());
+  }, [halloween]);
+
+  const emojiSaludo = !halloween ? "👋" : saludo === "Buenos días" ? "🎃" : saludo === "Buenas tardes" ? "🦇" : "👻";
+  const separadorSaludo = halloween && saludo === "Buenas noches" ? "... si te atreves," : ",";
+
   if (cargando) {
     return <div className="mb-6 h-20 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
   }
 
   return (
     <div className="mb-6">
-      <div className="mb-3">
+      <div className="relative mb-3 overflow-hidden">
+        {halloween && (
+          <>
+            <svg
+              aria-hidden
+              viewBox="0 0 60 60"
+              className="absolute -top-2 -left-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
+            >
+              <path
+                d="M0 0 L60 0 M0 0 L0 60 M0 0 L22 2 M0 0 L2 22 M0 0 L40 4 M0 0 L4 40 M2 22 L22 2 M4 40 L40 4"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+              />
+            </svg>
+            <svg
+              aria-hidden
+              viewBox="0 0 60 60"
+              className="absolute -top-2 -right-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
+            >
+              <path
+                d="M60 0 L0 0 M60 0 L60 60 M60 0 L38 2 M60 0 L58 22 M60 0 L20 4 M60 0 L56 40 M58 22 L38 2 M56 40 L20 4"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+              />
+            </svg>
+            <span aria-hidden className="murcielago-cruce absolute top-2 left-0 text-base">
+              🦇
+            </span>
+          </>
+        )}
         <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
-          {saludo}, <span className="text-marca-rojoclaro italic">{primerNombre}</span> 👋
+          {saludo}
+          {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span> {emojiSaludo}
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
