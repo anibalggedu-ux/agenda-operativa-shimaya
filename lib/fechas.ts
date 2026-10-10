@@ -141,6 +141,13 @@ export function calcularProximaFechaAnual(
   return { fecha, diasFaltantes: diasEntreFechas(hoy, fecha) };
 }
 
+// Ventana de ambientación de Halloween (24 al 31 de octubre) -- solo
+// decorativo/sonoro, nunca afecta datos ni lógica operativa.
+export function esTemporadaHalloween(): boolean {
+  const [, mes, dia] = hoyPeru().split("-").map(Number);
+  return mes === 10 && dia >= 24 && dia <= 31;
+}
+
 export function formatearHora(horaHHMMSS: string): string {
   const partes = horaHHMMSS.split(":");
   const h = Number(partes[0]);
