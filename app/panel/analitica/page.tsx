@@ -27,7 +27,7 @@ export default async function PanelAnalitica() {
         Sesión activa: <span className="text-marca-textofuerte font-semibold">{sesion.nombre}</span>
       </p>
 
-      <CentralAnalitica mostrarApoyos={["supervisor", "coordinador", "gerente"].includes(sesion.rol)} />
+      <CentralAnalitica mostrarApoyos={["supervisor", "coordinador", "gerente"].includes(sesion.rol)} mostrarLibro={sesion.rol === "supervisor"} />
     </main>
   );
 }
