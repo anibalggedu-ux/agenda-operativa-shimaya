@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
@@ -12,6 +12,7 @@ import Brasas from "./brasas";
 import Celebracion from "./celebracion";
 import RecordatorioChecker from "./mi-agenda/recordatorio-checker";
 import AvisoPrivacidadModal from "./aviso-privacidad-modal";
+import { esTemporadaHalloween } from "@/lib/fechas";
 
 export type ItemMenuPanel = {
   id: string;
@@ -36,21 +37,29 @@ const MAX_BOTONES_BARRA = 4;
 function BotonBarra({
   item,
   activo,
+  halloween,
   onClick,
 }: {
   item: ItemMenuPanel;
   activo: boolean;
+  halloween: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0"
+      className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0 ${
+        halloween ? "icono-linterna" : ""
+      }`}
       aria-current={activo}
     >
       <span
         className={`relative flex items-center justify-center w-9 h-9 rounded-full transition-colors [&>svg]:w-[18px] [&>svg]:h-[18px] ${
-          activo ? "bg-oro/20 text-marca-rojoclaro profundidad-activo" : "text-marca-tenue"
+          activo
+            ? halloween
+              ? "bg-calabaza/20 text-calabaza aro-linterna-activo"
+              : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
+            : "text-marca-tenue"
         }`}
       >
         {item.icono}
@@ -74,11 +83,13 @@ function BotonBarra({
 function BarraFlotante({
   items,
   activo,
+  halloween,
   onSeleccionar,
   onAbrirMas,
 }: {
   items: ItemMenuPanel[];
   activo: string;
+  halloween: boolean;
   onSeleccionar: (id: string) => void;
   onAbrirMas: () => void;
 }) {
@@ -92,16 +103,28 @@ function BarraFlotante({
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
       {visibles.map((item) => (
-        <BotonBarra key={item.id} item={item} activo={activo === item.id} onClick={() => onSeleccionar(item.id)} />
+        <BotonBarra
+          key={item.id}
+          item={item}
+          activo={activo === item.id}
+          halloween={halloween}
+          onClick={() => onSeleccionar(item.id)}
+        />
       ))}
       {hayMas && (
         <button
           onClick={onAbrirMas}
-          className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0"
+          className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0 ${
+            halloween ? "icono-linterna" : ""
+          }`}
         >
           <span
             className={`flex items-center justify-center w-9 h-9 rounded-full [&>svg]:w-[18px] [&>svg]:h-[18px] ${
-              activoEnMas ? "bg-oro/20 text-marca-rojoclaro profundidad-activo" : "text-marca-tenue"
+              activoEnMas
+                ? halloween
+                  ? "bg-calabaza/20 text-calabaza aro-linterna-activo"
+                  : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
+                : "text-marca-tenue"
             }`}
           >
             <MoreHorizontal />
@@ -118,10 +141,12 @@ function BarraFlotante({
 function BotonItem({
   item,
   activo,
+  halloween,
   onClick,
 }: {
   item: ItemMenuPanel;
   activo: boolean;
+  halloween: boolean;
   onClick: () => void;
 }) {
   return (
@@ -129,8 +154,10 @@ function BotonItem({
       onClick={onClick}
       className={`w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold tracking-wide transition rounded-lg ${
         activo
-          ? "text-marca-rojoclaro bg-marca-rojo/15"
-          : "text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2"
+          ? halloween
+            ? "text-calabaza bg-calabaza/15 icono-linterna aro-linterna-activo"
+            : "text-marca-rojoclaro bg-marca-rojo/15"
+          : `text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2 ${halloween ? "icono-linterna" : ""}`
       }`}
     >
       <span className="shrink-0">{item.icono}</span>
@@ -183,6 +210,10 @@ export default function PanelShell({
 
   const [activo, setActivo] = useState(idInicial);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
+  const [halloween, setHalloween] = useState(false);
+  useEffect(() => {
+    setHalloween(esTemporadaHalloween());
+  }, []);
 
   const seccionActiva = items.find((i) => i.id === activo) ?? items[0];
 
@@ -260,7 +291,7 @@ export default function PanelShell({
             </div>
             <nav className="flex-1 py-2 overflow-y-auto">
               {itemsDrawer.map((item) => (
-                <BotonItem key={item.id} item={item} activo={activo === item.id} onClick={() => seleccionar(item.id)} />
+                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} onClick={() => seleccionar(item.id)} />
               ))}
             </nav>
           </aside>
@@ -285,7 +316,7 @@ export default function PanelShell({
           <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 bg-marca-superficie border-r border-marca-borde">
             <nav className="flex-1 py-2 overflow-y-auto">
               {items.map((item) => (
-                <BotonItem key={item.id} item={item} activo={activo === item.id} onClick={() => seleccionar(item.id)} />
+                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} onClick={() => seleccionar(item.id)} />
               ))}
             </nav>
           </aside>
@@ -300,7 +331,7 @@ export default function PanelShell({
         </div>
       </div>
 
-      <BarraFlotante items={items} activo={activo} onSeleccionar={seleccionar} onAbrirMas={() => setDrawerAbierto(true)} />
+      <BarraFlotante items={items} activo={activo} halloween={halloween} onSeleccionar={seleccionar} onAbrirMas={() => setDrawerAbierto(true)} />
 
       {activo === idHome && <Brasas />}
 
