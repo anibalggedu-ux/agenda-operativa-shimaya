@@ -13,7 +13,7 @@ import {
 } from "./resumen-dia-actions";
 import { recalcularEtaConUbicacion } from "./supervisor/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { formatearFechaLegible, formatearHora, esTemporadaHalloween } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, esTemporadaHalloween, hoyPeru } from "@/lib/fechas";
 import { reproducirSonidoFantasma, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
@@ -256,6 +256,49 @@ export default function ResumenDelDia({
   const emojiSaludo = !halloween ? "👋" : saludo === "Buenos días" ? "🎃" : saludo === "Buenas tardes" ? "🦇" : "👻";
   const separadorSaludo = halloween && saludo === "Buenas noches" ? "... si te atreves," : ",";
 
+  // Toca para encender: un toque en el emoji del saludo suelta un chispazo
+  // de partículas naranjas alrededor -- puro detalle, no bloquea nada.
+  type Chispa = { id: number; dx: number; dy: number };
+  const [chispas, setChispas] = useState<Chispa[]>([]);
+  function tocarEmoji() {
+    reproducirSonidoFantasma();
+    const nuevas: Chispa[] = Array.from({ length: 10 }).map((_, i) => {
+      const angulo = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+      const vel = 16 + Math.random() * 12;
+      return { id: Date.now() + i, dx: Math.cos(angulo) * vel, dy: Math.sin(angulo) * vel };
+    });
+    setChispas(nuevas);
+    window.setTimeout(() => setChispas([]), 650);
+  }
+
+  // Truco o trato del día: una vez por día de octubre (guardado en
+  // localStorage, es solo una conveniencia de este celular, no un dato real)
+  // aparece una frase de la casa al abrir Inicio.
+  const FRASES_TRATO = [
+    "🎃 Hoy hasta los fantasmas llegan temprano a su tienda.",
+    "🦇 Que ningún duende te robe el break de hoy.",
+    "👻 Marca tu salida -- ni los fantasmas se quedan atrapados en una tienda.",
+    "🍬 Un checklist completo hoy ahuyenta cualquier mal espíritu.",
+  ];
+  const [trato, setTrato] = useState<string | null>(null);
+  useEffect(() => {
+    if (!halloween) return;
+    try {
+      const hoy = hoyPeru();
+      const visto = localStorage.getItem("shimaya_trato_fecha");
+      if (visto !== hoy) {
+        setTrato(FRASES_TRATO[Math.floor(Math.random() * FRASES_TRATO.length)]);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [halloween]);
+  function cerrarTrato() {
+    setTrato(null);
+    try {
+      localStorage.setItem("shimaya_trato_fecha", hoyPeru());
+    } catch {}
+  }
+
   if (cargando) {
     return <div className="mb-6 h-20 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
   }
@@ -296,10 +339,49 @@ export default function ResumenDelDia({
         )}
         <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
           {saludo}
-          {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span> {emojiSaludo}
+          {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span>{" "}
+          {halloween ? (
+            <span className="relative inline-block">
+              <button
+                type="button"
+                onClick={tocarEmoji}
+                aria-label="Tocar"
+                className="align-middle leading-none"
+              >
+                {emojiSaludo}
+              </button>
+              {chispas.map((c) => (
+                <span
+                  key={c.id}
+                  aria-hidden
+                  className="chispa"
+                  style={{
+                    // @ts-expect-error variables CSS propias, leídas solo por el keyframe
+                    "--chispa-dx": `${c.dx}px`,
+                    "--chispa-dy": `${c.dy}px`,
+                  }}
+                />
+              ))}
+            </span>
+          ) : (
+            emojiSaludo
+          )}
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
+
+      {trato && (
+        <div className="mb-3 bg-marca-superficie border border-calabaza/40 border-l-2 rounded-[3px] p-3.5 flex items-center gap-3">
+          <p className="text-marca-texto text-xs flex-1">{trato}</p>
+          <button
+            type="button"
+            onClick={cerrarTrato}
+            className="shrink-0 text-[10.5px] font-black uppercase tracking-wide text-calabaza border border-calabaza/40 rounded-[3px] px-2.5 py-1.5 hover:bg-calabaza/10 transition"
+          >
+            Trato 🍬
+          </button>
+        </div>
+      )}
 
       {pedirUbicacion && (
         <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">

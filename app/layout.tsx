@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, JetBrains_Mono, Shippori_Mincho } from "next/font/google";
 import "./globals.css";
+import FaviconHalloween from "./panel/favicon-halloween";
 
 // Tipografías: Shippori Mincho para títulos, Manrope para el texto y
 // JetBrains Mono para horas, credenciales y puntajes.
@@ -55,7 +56,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <FaviconHalloween />
+        {children}
+      </body>
     </html>
   );
 }
