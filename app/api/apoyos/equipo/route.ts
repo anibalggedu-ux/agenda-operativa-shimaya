@@ -49,6 +49,13 @@ export async function GET(req: Request) {
     supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
     supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
   ]);
+  // Tiendas asignadas de forma permanente a cada supervisor (sin fecha de fin): la app de Apoyos las usa para saber quién aprueba el horario de cada tienda.
+  const { data: asignadas } = await supabase.from("tiendas_permanentes").select("usuario_id, tiendas(nombre)").is("fecha_fin", null);
+  const tiendasDe = (id: string) =>
+    (asignadas ?? [])
+      .filter((a: any) => String(a.usuario_id) === id)
+      .map((a: any) => String((Array.isArray(a.tiendas) ? a.tiendas[0]?.nombre : a.tiendas?.nombre) ?? ""))
+      .filter(Boolean);
   const ausenciasDe = (id: string) => [
     ...(especiales ?? []).filter((a: any) => a.usuario_id === id).map((a: any) => ({ desde: a.fecha_inicio as string, hasta: a.fecha_fin as string, motivo: String(a.tipo ?? "Ausencia") })),
     ...(permisos ?? []).filter((a: any) => a.usuario_id === id).map((a: any) => ({ desde: a.fecha_inicio as string, hasta: a.fecha_fin as string, motivo: "Permiso" })),
@@ -61,6 +68,7 @@ export async function GET(req: Request) {
     lng: redondear(u.lon),
     descanso_semanal: ((u.dias_descanso ?? []) as string[]).map((d) => DIA_ISO[String(d).toUpperCase()]).filter(Boolean),
     ausencias: ausenciasDe(String(u.id)),
+    tiendas: u.rol === "supervisor" ? tiendasDe(String(u.id)) : [],
   }));
   const res = NextResponse.json({ equipo });
   res.headers.set("Cache-Control", "no-store");
