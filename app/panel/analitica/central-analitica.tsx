@@ -6,6 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { LineChart, Trophy, Car, Target, AlertTriangle, Store, LayoutDashboard, TrendingUp, FileText, User } from "lucide-react";
 import BotonApoyos from "../boton-apoyos";
 import BotonLibro from "../boton-libro";
+import BotonPropinas from "../boton-propinas";
 import {
   obtenerReportesPorDia,
   obtenerDesempenoPorPersona,
@@ -223,6 +224,7 @@ export default function CentralAnalitica({ mostrarApoyos = false, mostrarLibro =
     <div className="space-y-6">
       {mostrarApoyos && <BotonApoyos />}
       {mostrarLibro && <BotonLibro />}
+      <BotonPropinas />
       <div className="flex flex-col sm:flex-row gap-3 bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
         <div className="flex-1">
           <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
