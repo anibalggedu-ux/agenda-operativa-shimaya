@@ -1,8 +1,8 @@
 import { BookOpen, ExternalLink } from "lucide-react";
 
 // Acceso al "Libro de reclamaciones" (app aparte de reclamos y quejas de clientes). Vive en Central Analítica.
-// Solo se muestra a supervisores (la página que lo usa pasa `mostrarLibro`); la ruta /api/libro/acceso
-// además lo vuelve a comprobar en el servidor.
+// Solo se muestra a supervisor, coordinador y gerente (la página que lo usa pasa `mostrarLibro`);
+// la ruta /api/libro/acceso además lo vuelve a comprobar en el servidor.
 export default function BotonLibro() {
   return (
     <a

@@ -4,11 +4,11 @@ import { obtenerSesion } from "@/lib/session";
 // Botón "Libro de reclamaciones": abre la app del Libro de Reclamaciones (reclamos y quejas de clientes).
 // Esa app está protegida por Cloudflare Access (código de 6 dígitos al correo, sin contraseñas): al entrar
 // por primera vez en un dispositivo pide el correo y el código, y luego recuerda la sesión.
-// Solo supervisores, y SOLO si su correo está autorizado en el Libro (en Cloudflare); el servidor lo vuelve a
-// comprobar aquí para no depender de que alguien oculte el botón.
+// Solo supervisor, coordinador y gerente (los capacitadores quedan fuera), y solo entra quien tenga su correo
+// autorizado en el Libro (en Cloudflare). El servidor comprueba el rol aquí para no depender de que alguien oculte el botón.
 export const dynamic = "force-dynamic";
 
-const ROLES_PERMITIDOS = ["supervisor"];
+const ROLES_PERMITIDOS = ["supervisor", "coordinador", "gerente"];
 const URL_LIBRO_POR_DEFECTO = "https://libro-reclamaciones.anibalggedu.workers.dev";
 
 export async function GET(req: Request) {
