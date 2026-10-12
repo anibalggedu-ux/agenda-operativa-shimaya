@@ -91,6 +91,24 @@ export async function obtenerMiBreakDeHoy(): Promise<BreakHoy | null> {
   };
 }
 
+// El widget de "Mi Break" no debe ofrecer salir a break en tu día de
+// descanso semanal -- ahí no hay tienda asignada, así que no hay de qué
+// "break-earse". Si ya existe un registro de hoy (ej. alguien cubrió un
+// turno ese día igual), obtenerMiBreakDeHoy ya lo trae y el widget lo
+// muestra como corresponde; esto solo oculta la invitación a marcar uno
+// nuevo cuando no hay nada todavía.
+export async function esMiDiaDeDescanso(): Promise<boolean> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("usuarios")
+    .select("dias_descanso")
+    .eq("id", sesion.id)
+    .maybeSingle();
+  const diasDescanso: string[] = data?.dias_descanso ?? [];
+  return diasDescanso.includes(diaSemanaPeru(diaLaboralPeru()));
+}
+
 // Historial de días ANTERIORES a hoy -- el de hoy, si ya está completo, lo
 // muestra aparte obtenerMiBreakDeHoy (evita mostrarlo duplicado).
 export async function obtenerMisUltimosBreaks(limite = 10): Promise<BreakHistorial[]> {
