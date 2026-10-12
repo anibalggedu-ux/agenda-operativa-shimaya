@@ -1390,10 +1390,15 @@ export async function obtenerMisTiendasFijas(): Promise<TiendaFija[]> {
   if (!sesion) throw new Error("No autorizado.");
 
   const supabase = supabaseServer();
+  // Solo las vigentes (fecha_fin nula) -- sin este filtro se mostraban
+  // también tiendas que el coordinador ya le había quitado, porque la fila
+  // en tiendas_permanentes se conserva como historial en vez de borrarse
+  // (ver eliminarTiendaPermanente en coordinador/actions.ts).
   const { data, error } = await supabase
     .from("tiendas_permanentes")
     .select("tiendas(id, nombre)")
-    .eq("usuario_id", sesion.id);
+    .eq("usuario_id", sesion.id)
+    .is("fecha_fin", null);
 
   if (error) throw new Error("No se pudo cargar tus tiendas fijas.");
 
@@ -1427,7 +1432,8 @@ export async function obtenerObservacionesTiendasFijas(
   const { data: fijas, error: errorFijas } = await supabase
     .from("tiendas_permanentes")
     .select("tienda_id")
-    .eq("usuario_id", sesion.id);
+    .eq("usuario_id", sesion.id)
+    .is("fecha_fin", null);
 
   if (errorFijas) throw new Error("No se pudo cargar tus tiendas fijas.");
 
@@ -1495,6 +1501,7 @@ export async function responderObservacionTiendaFija(
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", reporte.tienda_id)
+    .is("fecha_fin", null)
     .maybeSingle();
 
   if (!fija) {
@@ -1539,6 +1546,7 @@ export async function marcarObservacionLeida(reporteId: string): Promise<Resulta
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", reporte.tienda_id)
+    .is("fecha_fin", null)
     .maybeSingle();
 
   if (!fija) {
@@ -1578,7 +1586,8 @@ export async function obtenerChecklistsTiendasFijas(
   const { data: fijas, error: errorFijas } = await supabase
     .from("tiendas_permanentes")
     .select("tienda_id")
-    .eq("usuario_id", sesion.id);
+    .eq("usuario_id", sesion.id)
+    .is("fecha_fin", null);
 
   if (errorFijas) throw new Error("No se pudo cargar tus tiendas fijas.");
 
@@ -1630,6 +1639,7 @@ export async function marcarChecklistTiendaFijaLeido(checklistId: string): Promi
     .select("id")
     .eq("usuario_id", sesion.id)
     .eq("tienda_id", checklist.tienda_id)
+    .is("fecha_fin", null)
     .maybeSingle();
 
   if (!fija) {

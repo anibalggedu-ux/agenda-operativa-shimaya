@@ -203,6 +203,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .from("tiendas_permanentes")
       .select("tiendas(nombre, lat, lon)")
       .eq("usuario_id", sesion.id)
+      .is("fecha_fin", null)
       .limit(1)
       .maybeSingle();
     const tiendaFija: any = fija?.tiendas;

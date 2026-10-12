@@ -750,7 +750,7 @@ export async function obtenerDashboardTiendas(desde: string, hasta: string): Pro
   ] = await Promise.all([
     supabase.from("tiendas").select("id, nombre").order("nombre"),
     supabase.from("rutas_diarias").select("tienda_id").gte("fecha", desde).lte("fecha", hasta),
-    supabase.from("tiendas_permanentes").select("tienda_id, usuarios(nombre)"),
+    supabase.from("tiendas_permanentes").select("tienda_id, usuarios(nombre)").is("fecha_fin", null),
     supabase.from("auditorias").select("tienda_id, items").gte("fecha", desde).lte("fecha", hasta),
     supabase
       .from("auditorias")
