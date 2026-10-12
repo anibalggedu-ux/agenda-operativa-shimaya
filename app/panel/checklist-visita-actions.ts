@@ -181,7 +181,8 @@ async function notificarEncargadoChecklist(
     const { data: fijas } = await supabase
       .from("tiendas_permanentes")
       .select("usuarios(id, nombre, email, activo)")
-      .eq("tienda_id", tiendaId);
+      .eq("tienda_id", tiendaId)
+      .is("fecha_fin", null);
 
     const encargados = (fijas ?? [])
       .map((f: any) => f.usuarios)
