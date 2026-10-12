@@ -9,6 +9,8 @@
   --marca-rojooscuro: 166 18 29;
   /* Oro "Noche": detalles finos (líneas, anillos, etiquetas). */
   --marca-oro: 217 178 106;
+  /* Acento de temporada (Halloween, octubre) — igual en ambos temas. */
+  --calabaza: 255 139 46;
 
   /* Tema oscuro "Noche" (por defecto): negro profundo con grises cálidos. */
   --marca-fondo: 10 10 11;
@@ -232,6 +234,15 @@ body::before {
   background: rgb(var(--marca-textofuerte) / 0.85);
   border-radius: 9999px;
 }
+/* Octubre: hojas y murciélagos en vez de los cuadritos dorados -- mismo
+   keyframe de caída, solo que la partícula es texto (el emoji) en vez de un
+   fondo de color. */
+.celebracion-particula-hoja,
+.celebracion-particula-murcielago {
+  background: none;
+  box-shadow: none;
+  line-height: 1;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .animar-tinta,
@@ -367,6 +378,52 @@ textarea:focus {
 .animar-intro-mascota {
   animation: intro-mascota 1.3s ease-in-out both;
 }
+/* Octubre: mismo recorrido que intro-mascota, pero Shimayito aterriza
+   descolorido y tambaleante (filter) y recupera su color normal recién
+   antes de desvanecerse -- telarañas.login hacen juego, apareciendo y
+   quedando tenues en el mismo tramo. */
+@keyframes intro-mascota-zombie {
+  0% {
+    opacity: 0;
+    transform: translateY(-36px) scale(0.72) rotate(-8deg);
+    filter: grayscale(0.9) sepia(0.5) hue-rotate(60deg) brightness(0.55) contrast(1.1);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.06) rotate(6deg);
+    filter: grayscale(0.9) sepia(0.5) hue-rotate(60deg) brightness(0.55) contrast(1.1);
+  }
+  48% {
+    transform: translateY(1px) scale(1.02) rotate(-5deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+    filter: grayscale(0.4) sepia(0.2) hue-rotate(40deg) brightness(0.8);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+    filter: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.85) rotate(0deg);
+    filter: none;
+  }
+}
+.animar-intro-mascota-zombie {
+  animation-name: intro-mascota-zombie;
+}
+@keyframes telarana-login {
+  0%, 15% { opacity: 0; }
+  30% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0.65; }
+}
+.telarana-login {
+  animation: telarana-login 1.3s ease-in-out both;
+}
 .animar-intro-sello {
   animation: intro-sello 1.3s ease-in-out both;
 }
@@ -387,6 +444,10 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .animar-intro-mascota,
   .animar-intro-sello {
+    animation: none;
+    opacity: 0;
+  }
+  .telarana-login {
     animation: none;
     opacity: 0;
   }
@@ -760,7 +821,80 @@ textarea:focus {
   animation: nota-sale 0.28s ease-in forwards;
 }
 
+/* Halloween (octubre) · Menú: el aro del ícono activo queda con un
+   resplandor naranja que titila como una vela; tocar cualquier otro ícono
+   prende la llama ahí un instante, como si saltara de uno a otro. */
+.aro-linterna-activo {
+  animation: vela-parpadeo 2.6s ease-in-out infinite;
+}
+.icono-linterna:not([aria-current="true"]):active span:first-child,
+.icono-linterna:hover span:first-child {
+  box-shadow: 0 0 7px 0 rgb(var(--calabaza) / 0.3);
+}
+@keyframes vela-parpadeo {
+  0%, 100% { box-shadow: 0 0 10px 1px rgb(var(--calabaza) / 0.45); }
+  45% { box-shadow: 0 0 7px 0px rgb(var(--calabaza) / 0.3); }
+  55% { box-shadow: 0 0 13px 2px rgb(var(--calabaza) / 0.55); }
+}
+
+/* Halloween (octubre) · Inicio: el murciélago cruza una sola vez al abrir
+   la pantalla, de punta a punta del encabezado de saludo. */
+@keyframes murcielago-cruce {
+  0% {
+    transform: translateX(-10%) translateY(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(50%) translateY(-6px);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(110%) translateY(0);
+    opacity: 0;
+  }
+}
+.murcielago-cruce {
+  animation: murcielago-cruce 2.6s ease-in-out 0.3s 1 both;
+}
+
+/* Halloween (octubre) · Inicio: "toca para encender" -- chispas que saltan
+   del emoji del saludo al tocarlo. */
+.chispa {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  border-radius: 50%;
+  background: rgb(var(--calabaza));
+  box-shadow: 0 0 4px 0 rgb(var(--calabaza) / 0.7);
+  pointer-events: none;
+  animation: chispa-estalla 0.6s ease-out forwards;
+}
+@keyframes chispa-estalla {
+  to {
+    transform: translate(var(--chispa-dx, 0), var(--chispa-dy, 0));
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .murcielago-cruce {
+    display: none;
+  }
+  .aro-linterna-activo {
+    animation: none;
+  }
+  .chispa {
+    animation: none;
+    opacity: 0;
+  }
   .brillo-bloque,
   .vela-parpadeo,
   .resorte-entrada,

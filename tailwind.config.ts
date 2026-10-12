@@ -21,6 +21,9 @@ const config: Config = {
           rojooscuro: "rgb(var(--marca-rojooscuro) / <alpha-value>)",
           oro: "rgb(var(--marca-oro) / <alpha-value>)",
         },
+        // Acento de temporada (Halloween, octubre) -- separado de "marca"
+        // porque no es parte de la identidad permanente, solo un overlay.
+        calabaza: "rgb(var(--calabaza) / <alpha-value>)",
       },
       // Nombres propios (no "sans"/"mono") para no cambiar de golpe la
       // tipografía de los paneles que todavía no se han rediseñado.

@@ -1,9 +1,10 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle, Store } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
+import TiendasFijas from "../supervisor/tiendas-fijas";
 import PerfilBanner from "../perfil-banner";
 import { obtenerPerfilCoordinador } from "./actions";
 import AsignarRutas from "./asignar-rutas";
@@ -78,6 +79,9 @@ export default function PanelTabs({
         <div className="space-y-6">
           <MisPuntosWidget />
           <BreakWidget />
+          <BloqueColapsable icono={<Store />} titulo="Tiendas fijas">
+            <TiendasFijas />
+          </BloqueColapsable>
           <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
             <EventosDeHoy />
           </BloqueColapsable>
@@ -124,7 +128,7 @@ export default function PanelTabs({
     { id: "anuncios", etiqueta: "Anuncios", icono: <Megaphone className="w-4 h-4" />, contenido: <Anuncios /> },
     { id: "encuestas", etiqueta: "Encuestas", icono: <ClipboardCheck className="w-4 h-4" />, contenido: <EncuestasCoordinador /> },
     { id: "historial", etiqueta: "Historial y Monitoreo", icono: <History className="w-4 h-4" />, contenido: <HistorialMonitoreo /> },
-    { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica mostrarApoyos /> },
+    { id: "analitica", etiqueta: "Central Analítica", icono: <BarChart3 className="w-4 h-4" />, contenido: <CentralAnalitica mostrarApoyos mostrarLibro /> },
     { id: "registro", etiqueta: "Registro", icono: <Settings className="w-4 h-4" />, contenido: <Registro esCoordinador={true} /> },
     { id: "documentos", etiqueta: "Documentos", icono: <File className="w-4 h-4" />, contenido: <Documentos esAdmin={true} /> },
     {

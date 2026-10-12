@@ -13,7 +13,8 @@ import {
 } from "./resumen-dia-actions";
 import { recalcularEtaConUbicacion } from "./supervisor/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { formatearFechaLegible, formatearHora } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, esTemporadaHalloween, hoyPeru } from "@/lib/fechas";
+import { reproducirSonidoFantasma, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
 // Arma las frases de alerta de puntualidad de una persona — puede haber más
@@ -241,18 +242,146 @@ export default function ResumenDelDia({
     );
   }, []);
 
+  // Ambientación de Halloween (24-31 de octubre): solo visual/sonora, un
+  // toque único al abrir Inicio -- nunca cambia datos ni comportamiento.
+  const [halloween, setHalloween] = useState(false);
+  useEffect(() => {
+    setHalloween(esTemporadaHalloween());
+  }, []);
+  useEffect(() => {
+    if (!halloween) return;
+    reproducirAlPrimerToque(() => reproducirSonidoFantasma());
+  }, [halloween]);
+
+  const emojiSaludo = !halloween ? "👋" : saludo === "Buenos días" ? "🎃" : saludo === "Buenas tardes" ? "🦇" : "👻";
+  const separadorSaludo = halloween && saludo === "Buenas noches" ? "... si te atreves," : ",";
+
+  // Toca para encender: un toque en el emoji del saludo suelta un chispazo
+  // de partículas naranjas alrededor -- puro detalle, no bloquea nada.
+  type Chispa = { id: number; dx: number; dy: number };
+  const [chispas, setChispas] = useState<Chispa[]>([]);
+  function tocarEmoji() {
+    reproducirSonidoFantasma();
+    const nuevas: Chispa[] = Array.from({ length: 10 }).map((_, i) => {
+      const angulo = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+      const vel = 16 + Math.random() * 12;
+      return { id: Date.now() + i, dx: Math.cos(angulo) * vel, dy: Math.sin(angulo) * vel };
+    });
+    setChispas(nuevas);
+    window.setTimeout(() => setChispas([]), 650);
+  }
+
+  // Truco o trato del día: una vez por día de octubre (guardado en
+  // localStorage, es solo una conveniencia de este celular, no un dato real)
+  // aparece una frase de la casa al abrir Inicio.
+  const FRASES_TRATO = [
+    "🎃 Hoy hasta los fantasmas llegan temprano a su tienda.",
+    "🦇 Que ningún duende te robe el break de hoy.",
+    "👻 Marca tu salida -- ni los fantasmas se quedan atrapados en una tienda.",
+    "🍬 Un checklist completo hoy ahuyenta cualquier mal espíritu.",
+  ];
+  const [trato, setTrato] = useState<string | null>(null);
+  useEffect(() => {
+    if (!halloween) return;
+    try {
+      const hoy = hoyPeru();
+      const visto = localStorage.getItem("shimaya_trato_fecha");
+      if (visto !== hoy) {
+        setTrato(FRASES_TRATO[Math.floor(Math.random() * FRASES_TRATO.length)]);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [halloween]);
+  function cerrarTrato() {
+    setTrato(null);
+    try {
+      localStorage.setItem("shimaya_trato_fecha", hoyPeru());
+    } catch {}
+  }
+
   if (cargando) {
     return <div className="mb-6 h-20 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
   }
 
   return (
     <div className="mb-6">
-      <div className="mb-3">
+      <div className="relative mb-3 overflow-hidden">
+        {halloween && (
+          <>
+            <svg
+              aria-hidden
+              viewBox="0 0 60 60"
+              className="absolute -top-2 -left-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
+            >
+              <path
+                d="M0 0 L60 0 M0 0 L0 60 M0 0 L22 2 M0 0 L2 22 M0 0 L40 4 M0 0 L4 40 M2 22 L22 2 M4 40 L40 4"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+              />
+            </svg>
+            <svg
+              aria-hidden
+              viewBox="0 0 60 60"
+              className="absolute -top-2 -right-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
+            >
+              <path
+                d="M60 0 L0 0 M60 0 L60 60 M60 0 L38 2 M60 0 L58 22 M60 0 L20 4 M60 0 L56 40 M58 22 L38 2 M56 40 L20 4"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+              />
+            </svg>
+            <span aria-hidden className="murcielago-cruce absolute top-2 left-0 text-base">
+              🦇
+            </span>
+          </>
+        )}
         <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
-          {saludo}, <span className="text-marca-rojoclaro italic">{primerNombre}</span> 👋
+          {saludo}
+          {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span>{" "}
+          {halloween ? (
+            <span className="relative inline-block">
+              <button
+                type="button"
+                onClick={tocarEmoji}
+                aria-label="Tocar"
+                className="align-middle leading-none"
+              >
+                {emojiSaludo}
+              </button>
+              {chispas.map((c) => (
+                <span
+                  key={c.id}
+                  aria-hidden
+                  className="chispa"
+                  style={{
+                    // @ts-expect-error variables CSS propias, leídas solo por el keyframe
+                    "--chispa-dx": `${c.dx}px`,
+                    "--chispa-dy": `${c.dy}px`,
+                  }}
+                />
+              ))}
+            </span>
+          ) : (
+            emojiSaludo
+          )}
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
+
+      {trato && (
+        <div className="mb-3 bg-marca-superficie border border-calabaza/40 border-l-2 rounded-[3px] p-3.5 flex items-center gap-3">
+          <p className="text-marca-texto text-xs flex-1">{trato}</p>
+          <button
+            type="button"
+            onClick={cerrarTrato}
+            className="shrink-0 text-[10.5px] font-black uppercase tracking-wide text-calabaza border border-calabaza/40 rounded-[3px] px-2.5 py-1.5 hover:bg-calabaza/10 transition"
+          >
+            Trato 🍬
+          </button>
+        </div>
+      )}
 
       {pedirUbicacion && (
         <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">

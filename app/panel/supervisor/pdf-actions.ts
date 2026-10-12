@@ -205,7 +205,7 @@ export async function obtenerPerfilParaPdf(): Promise<PerfilPdf> {
   const supabase = supabaseServer();
   const [{ data: usuario }, { data: permanentes }] = await Promise.all([
     supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
-    supabase.from("tiendas_permanentes").select("tiendas(nombre)").eq("usuario_id", sesion.id),
+    supabase.from("tiendas_permanentes").select("tiendas(nombre)").eq("usuario_id", sesion.id).is("fecha_fin", null),
   ]);
 
   return {

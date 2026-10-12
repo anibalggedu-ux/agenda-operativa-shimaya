@@ -3,6 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
 import { diaLaboralPeru, horaPeru, formatearHora, diaSemanaPeru } from "@/lib/fechas";
+import { expandirRangoFechas } from "@/lib/puntualidad";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { enviarCorreo } from "@/lib/email";
 import { notificarPush } from "@/lib/notificar-push";
@@ -89,6 +90,54 @@ export async function obtenerMiBreakDeHoy(): Promise<BreakHoy | null> {
     minutosPasados,
     noSalio: data.no_salio,
   };
+}
+
+// El widget de "Mi Break" no debe ofrecer salir a break si hoy no hay una
+// tienda asignada -- ni si hoy es descanso semanal, vacaciones, permiso o
+// licencia (ahí tampoco hay tienda, por el mismo motivo). Si ya existe un
+// registro de hoy (ej. alguien cubrió un turno igual), obtenerMiBreakDeHoy
+// ya lo trae y el widget lo muestra como corresponde -- esto solo oculta la
+// invitación a marcar uno nuevo cuando no hay nada todavía.
+export async function obtenerPermiteBreakHoy(): Promise<boolean> {
+  const sesion = await exigirSesion();
+  const supabase = supabaseServer();
+  const diaLaboral = diaLaboralPeru();
+
+  const [{ data: usuario }, { data: especiales }, { data: permisos }, { data: rutaActiva }, { data: rutaDiaria }] =
+    await Promise.all([
+      supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+      supabase
+        .from("asignaciones_especiales")
+        .select("fecha_inicio, fecha_fin")
+        .eq("usuario_id", sesion.id)
+        .lte("fecha_inicio", diaLaboral)
+        .gte("fecha_fin", diaLaboral),
+      supabase
+        .from("solicitudes_permiso")
+        .select("fecha_inicio, fecha_fin")
+        .eq("usuario_id", sesion.id)
+        .eq("estado", "aprobado")
+        .lte("fecha_inicio", diaLaboral)
+        .gte("fecha_fin", diaLaboral),
+      supabase.from("rutas_activas").select("id").eq("usuario_id", sesion.id).eq("fecha_planificada", diaLaboral).limit(1),
+      supabase.from("rutas_diarias").select("id").eq("usuario_id", sesion.id).eq("fecha", diaLaboral).limit(1),
+    ]);
+
+  const diasDescanso: string[] = usuario?.dias_descanso ?? [];
+  if (diasDescanso.includes(diaSemanaPeru(diaLaboral))) return false;
+
+  const exentoPorEspecial = (especiales ?? []).some((e) =>
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(diaLaboral)
+  );
+  if (exentoPorEspecial) return false;
+
+  const exentoPorPermiso = (permisos ?? []).some((p) =>
+    expandirRangoFechas(p.fecha_inicio, p.fecha_fin).includes(diaLaboral)
+  );
+  if (exentoPorPermiso) return false;
+
+  const tieneTiendaHoy = (rutaActiva?.length ?? 0) > 0 || (rutaDiaria?.length ?? 0) > 0;
+  return tieneTiendaHoy;
 }
 
 // Historial de días ANTERIORES a hoy -- el de hoy, si ya está completo, lo

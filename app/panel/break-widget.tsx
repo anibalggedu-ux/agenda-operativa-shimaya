@@ -8,6 +8,7 @@ import { horaPeru } from "@/lib/fechas";
 import {
   obtenerMiBreakDeHoy,
   obtenerMisUltimosBreaks,
+  obtenerPermiteBreakHoy,
   marcarSalidaBreak,
   marcarEntradaBreak,
   marcarNoSalioBreak,
@@ -83,6 +84,7 @@ function TrazoCheck() {
 
 export default function BreakWidget() {
   const [hoy, setHoy] = useState<BreakHoy | null | undefined>(undefined);
+  const [permiteBreak, setPermiteBreak] = useState(true);
   const [historial, setHistorial] = useState<BreakHistorial[]>([]);
   const [restantes, setRestantes] = useState(0);
   const [enviando, setEnviando] = useState(false);
@@ -106,6 +108,11 @@ export default function BreakWidget() {
   }
 
   useEffect(cargar, []);
+  useEffect(() => {
+    obtenerPermiteBreakHoy()
+      .then(setPermiteBreak)
+      .catch(() => setPermiteBreak(true));
+  }, []);
 
   useEffect(() => {
     if (!activo) return;
@@ -179,6 +186,11 @@ export default function BreakWidget() {
   }
 
   if (hoy === undefined) return null;
+  // Sin tienda asignada hoy (o de descanso/licencia/permiso/vacaciones) y
+  // sin ningún break marcado todavía -- no se ofrece salir a break. Si por
+  // algo ya existe un registro de hoy (cubrió un turno, etc.), se sigue
+  // mostrando normal más abajo.
+  if (!permiteBreak && hoy === null) return null;
 
   const vencido = restantes <= 0;
   const duracionSeg = activo ? duracionSegundos(activo.horaSalida!, activo.horaLimite!) : 0;

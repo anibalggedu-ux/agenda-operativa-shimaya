@@ -1,9 +1,12 @@
+import { esTemporadaHalloween } from "@/lib/fechas";
+
 // Esqueleto de carga para loading.tsx de cada ruta bajo /panel -- se ve
 // mientras el servidor arma la página (sesión + datos iniciales), en vez de
 // pantalla en blanco. Reproduce a grandes rasgos la forma de PanelShell
 // (barra superior, menú lateral, contenido) con bloques .bloque-shimmer
 // (ver globals.css) en lugar de texto real.
 export default function EsqueletoPanel() {
+  const halloween = esTemporadaHalloween();
   return (
     <div className="relative min-h-screen bg-marca-fondo text-marca-texto font-body">
       <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-marca-borde bg-marca-superficie px-4 sm:px-6 py-3">
@@ -14,6 +17,12 @@ export default function EsqueletoPanel() {
           <div className="bloque-shimmer h-9 w-24 rounded-[3px]" />
         </div>
       </div>
+
+      {halloween && (
+        <p className="text-center text-calabaza text-[11px] font-bold tracking-wide pt-3">
+          Despertando a los fantasmas...
+        </p>
+      )}
 
       <div className="relative z-10 p-4 sm:p-6 pb-24 lg:pb-6">
         <div className="bloque-shimmer h-16 w-full rounded-2xl mb-4" />
