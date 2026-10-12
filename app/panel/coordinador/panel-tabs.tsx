@@ -1,9 +1,10 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle, Store } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
+import TiendasFijas from "../supervisor/tiendas-fijas";
 import PerfilBanner from "../perfil-banner";
 import { obtenerPerfilCoordinador } from "./actions";
 import AsignarRutas from "./asignar-rutas";
@@ -78,6 +79,9 @@ export default function PanelTabs({
         <div className="space-y-6">
           <MisPuntosWidget />
           <BreakWidget />
+          <BloqueColapsable icono={<Store />} titulo="Tiendas fijas">
+            <TiendasFijas />
+          </BloqueColapsable>
           <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
             <EventosDeHoy />
           </BloqueColapsable>
