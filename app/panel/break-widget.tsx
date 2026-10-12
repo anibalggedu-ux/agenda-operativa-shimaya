@@ -117,27 +117,31 @@ export default function BreakWidget() {
   useEffect(() => {
     if (!activo) return;
     avisoEnviado.current = false;
-    const actualizar = () => setRestantes(segundosRestantes(activo.horaLimite!));
+    // Todo en un solo efecto: calcular "restantes" y decidir si ya toca el
+    // aviso de 5 min pasan por el MISMO valor recién calculado. Antes esto
+    // vivía en dos efectos separados -- el que decidía el aviso leía el
+    // "restantes" de su propio cierre, que en el primer render donde
+    // "activo" pasa de null a un break real todavía era el 0 inicial (el
+    // setRestantes del otro efecto no se refleja hasta el siguiente
+    // render), así que "0 <= 300" daba true y el aviso de "5 minutos" salía
+    // disparado apenas se marcaba la salida, en vez de 5 minutos antes del
+    // límite.
+    function actualizar() {
+      const seg = segundosRestantes(activo!.horaLimite!);
+      setRestantes(seg);
+      if (!avisoEnviado.current && seg <= AVISO_ANTES_SEG) {
+        avisoEnviado.current = true;
+        avisarCincoMinutosBreak(activo!.id).catch(() => {});
+        // Un solo aviso sonoro (no una alarma repetida) -- el push del
+        // sistema ya avisa aparte; esto es solo un refuerzo mientras la app
+        // sigue abierta.
+        reproducirSonidoAlerta();
+      }
+    }
     actualizar();
     const intervalo = setInterval(actualizar, 1000);
     return () => clearInterval(intervalo);
   }, [activo]);
-
-  useEffect(() => {
-    if (!activo || avisoEnviado.current) return;
-    // Se dispara la primera vez que quedan 5 min o menos -- cubre tanto
-    // llegar justo a ese punto con el cronómetro abierto como abrir la
-    // pantalla cuando ya quedaba menos (el servidor igual evita un segundo
-    // correo con aviso_5min_enviado).
-    if (restantes <= AVISO_ANTES_SEG) {
-      avisoEnviado.current = true;
-      avisarCincoMinutosBreak(activo.id).catch(() => {});
-      // Un solo aviso sonoro (no una alarma repetida) -- el push del sistema
-      // ya avisa aparte; esto es solo un refuerzo mientras la app sigue
-      // abierta.
-      reproducirSonidoAlerta();
-    }
-  }, [restantes, activo]);
 
   async function handleFoto(e: React.ChangeEvent<HTMLInputElement>, tipo: "salida" | "entrada") {
     const archivo = e.target.files?.[0];
