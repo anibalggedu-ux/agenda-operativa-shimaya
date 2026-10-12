@@ -1,65 +1,65 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este archivo le da contexto a Claude Code (claude.ai/code) al trabajar con el código de este repositorio.
 
-## What this is
+## Qué es esto
 
-Agenda Operativa Shimaya — a field-operations management app for a restaurant chain's supervisors, trainers ("capacitadores"), coordinators and managers in Peru. It replaced a Google Apps Script system (comments throughout the code marked `FIX SEGURIDAD` call out specific vulnerabilities that migration fixed — e.g. role stored in client-editable `sessionStorage` vs. a server-signed JWT now). Next.js 14 App Router, Supabase (Postgres) as the only datastore, deployed on Vercel.
+Agenda Operativa Shimaya — una app de gestión operativa de campo para los supervisores, capacitadores, coordinadores y gerentes de una cadena de restaurantes en Perú. Reemplazó un sistema hecho en Google Apps Script (los comentarios marcados `FIX SEGURIDAD` en todo el código señalan vulnerabilidades puntuales que esa migración corrigió — ej. el rol guardado en `sessionStorage`, editable desde el navegador, ahora es un JWT firmado por el servidor). Next.js 14 (App Router), Supabase (Postgres) como único almacén de datos, desplegado en Vercel.
 
-## Commands
+## Comandos
 
-- `npm run dev` — local dev server
-- `npm run build` — production build (also runs typecheck + lint as part of `next build`)
-- `npx tsc --noEmit` — typecheck only, faster than a full build; run this after any change
+- `npm run dev` — servidor de desarrollo local
+- `npm run build` — build de producción (también corre el chequeo de tipos y el lint como parte de `next build`)
+- `npx tsc --noEmit` — solo chequeo de tipos, más rápido que un build completo; correr esto después de cualquier cambio
 - `npm run lint` — ESLint (`next lint`)
-- No test suite exists in this repo.
+- Este repositorio no tiene suite de tests.
 
-`npm run build` locally fails at the "Collecting page data" step with `SESSION_SECRET no esta configurado` unless `.env.local` is populated (see `.env.example`) — this is expected in a sandbox without secrets and is not a sign the change broke anything; `npx tsc --noEmit` plus "Compiled successfully" in the build log is enough to confirm correctness before pushing.
+`npm run build` en local falla en el paso "Collecting page data" con `SESSION_SECRET no esta configurado` a menos que `.env.local` tenga las variables cargadas (ver `.env.example`) — es esperado en un entorno sin esos secretos y no es señal de que el cambio rompió algo; con `npx tsc --noEmit` limpio más "Compiled successfully" en el log del build alcanza para confirmar que el cambio está bien antes de subirlo.
 
-## Architecture
+## Arquitectura
 
-### Four roles, one middleware, one session
+### Cuatro roles, un solo middleware, una sola sesión
 
-`supervisor`, `capacitador`, `coordinador`, `gerente` are the only roles (`lib/session.ts`). Each has its own portal at `/panel/<rol>` (`app/panel/<rol>/page.tsx` or `panel-tabs.tsx`), built from `PanelShell` (`app/panel/panel-shell.tsx`) with an array of `ItemMenuPanel` (id, label, icon, content) passed in per role. Session is a signed JWT in an httpOnly cookie (`lib/session.ts`); `middleware.ts` checks the JWT's `rol` claim against the `/panel/<rol>` path segment on every request, before any page or Server Action runs — client code never decides access. `Central Analítica`, `Registro`, `Documentos`, `Calendario` and `Auditorías` are shared routes the middleware only checks for a valid session on; fine-grained access (who can register users, see others' calendars, etc.) is re-checked inside the page/Server Action itself (`lib/permisos.ts`).
+`supervisor`, `capacitador`, `coordinador`, `gerente` son los únicos roles (`lib/session.ts`). Cada uno tiene su propio portal en `/panel/<rol>` (`app/panel/<rol>/page.tsx` o `panel-tabs.tsx`), armado desde `PanelShell` (`app/panel/panel-shell.tsx`) con un arreglo de `ItemMenuPanel` (id, etiqueta, ícono, contenido) que cada rol arma a su manera. La sesión es un JWT firmado en una cookie httpOnly (`lib/session.ts`); `middleware.ts` revisa el claim `rol` del JWT contra el segmento de la ruta `/panel/<rol>` en cada petición, antes de que cualquier página o Server Action corra — el código del navegador nunca decide el acceso. `Central Analítica`, `Registro`, `Documentos`, `Calendario` y `Auditorías` son rutas compartidas donde el middleware solo exige una sesión válida; el control de acceso fino (quién puede registrar usuarios, ver el calendario de otros, etc.) se vuelve a revisar dentro de la página o la Server Action correspondiente (`lib/permisos.ts`).
 
-Every Server Action re-validates its own authorization — `lib/session.ts` exports `exigirSesion()`, `exigirCoordinador()`, `exigirGerente()`, `exigirGerenteOCoordinador()` as shared guards (previously duplicated per-file; centralize new guards there instead of re-declaring them).
+Cada Server Action vuelve a validar su propia autorización — `lib/session.ts` exporta `exigirSesion()`, `exigirCoordinador()`, `exigirGerente()`, `exigirGerenteOCoordinador()` como guardas compartidas (antes cada archivo tenía su propia copia duplicada; los guards nuevos van ahí en vez de volver a declararlos).
 
-Supervisor, coordinador and capacitador all do field visits and share the same "Bitácora" widgets (`tieneBitacora()` in `lib/session.ts`): store selector, GPS-based report, PDF export. Coordinador and gerente are the "office" roles with broader read access across everyone's data.
+Supervisor, coordinador y capacitador hacen visitas de campo y comparten los mismos widgets de "Bitácora" (`tieneBitacora()` en `lib/session.ts`): selector de tiendas, reporte con GPS, exportación a PDF. Coordinador y gerente son los roles de "oficina", con acceso de lectura más amplio sobre los datos de todos.
 
-### Data access
+### Acceso a datos
 
-`lib/supabase-server.ts` creates a `service_role` Supabase client — bypasses RLS entirely, so it must **only** ever be imported from server code (Server Actions, Route Handlers), never a `"use client"` file; the key would otherwise ship to the browser. The client is typed against `lib/database.types.ts`, generated from the live schema via the Supabase MCP tools — regenerate it after any migration rather than hand-editing.
+`lib/supabase-server.ts` crea un cliente de Supabase con `service_role` — se salta RLS por completo, así que **solo** se debe importar desde código de servidor (Server Actions, Route Handlers), nunca desde un archivo `"use client"`; si no, la clave viajaría al navegador. El cliente está tipado contra `lib/database.types.ts`, generado desde el esquema real vía las herramientas MCP de Supabase — hay que regenerarlo después de cualquier migración, no editarlo a mano.
 
-Server Actions live as `actions.ts` (or `*-actions.ts`) files colocated with the pages/components that call them, one per feature area (e.g. `app/panel/coordinador/actions.ts`, `app/panel/break-actions.ts`). There is no API layer between components and Supabase beyond these.
+Las Server Actions viven en archivos `actions.ts` (o `*-actions.ts`) junto a las páginas/componentes que las llaman, uno por área de funcionalidad (ej. `app/panel/coordinador/actions.ts`, `app/panel/break-actions.ts`). No hay una capa de API entre los componentes y Supabase, más allá de estos archivos.
 
-**`tiendas_permanentes`** (which stores are "fixed"/permanently assigned to which person) is soft-deleted: removing an assignment sets `fecha_fin` rather than deleting the row, so the table doubles as history. Any query against it for "current" assignments must filter `.is("fecha_fin", null)` — a query that doesn't is a bug (this has happened repeatedly across the codebase: display widgets, email-notification recipient lookups, and "is this your assigned store" authorization checks have all needed this fix). The one intentional exception is `obtenerRotacionTienda` in `app/panel/analitica/actions.ts`, which exists specifically to show full history.
+**`tiendas_permanentes`** (qué tiendas están asignadas de forma fija a quién) se borra en blando: quitar una asignación pone `fecha_fin` en vez de borrar la fila, así que la tabla también sirve de historial. Cualquier consulta contra ella que busque asignaciones "actuales" tiene que filtrar `.is("fecha_fin", null)` — una consulta que no lo hace es un bug (esto pasó repetidas veces en el código: widgets de pantalla, búsqueda de destinatarios de notificaciones por correo, y chequeos de autorización de "¿es esta tu tienda asignada?" necesitaron esta corrección). La única excepción a propósito es `obtenerRotacionTienda` en `app/panel/analitica/actions.ts`, que existe justamente para mostrar el historial completo.
 
-### Peru timezone handling
+### Manejo de hora de Perú
 
-All "what day/time is it" logic must go through `lib/fechas.ts`'s `hoyPeru()` / `horaPeru()` / `diaSemanaPeru()` etc., never `new Date()` directly. The helpers compute wall-clock Peru time (UTC-5) by offsetting `Date.now()` (an absolute epoch instant) and reading it back with UTC getters — not by adding `getTimezoneOffset()`, which is for reading with *local* getters and silently doubles the offset on a phone whose OS timezone is already Peru. `diaLaboralPeru()` additionally treats times before 6am as still "yesterday" for capacitador shift purposes (late-night store closings).
+Toda lógica de "qué día/hora es" debe pasar por `hoyPeru()` / `horaPeru()` / `diaSemanaPeru()` etc. de `lib/fechas.ts`, nunca `new Date()` directo. Los helpers calculan la hora de pared de Perú (UTC-5) corriendo `Date.now()` (un instante absoluto) y leyéndolo de vuelta con getters UTC — no sumando `getTimezoneOffset()`, que es para leer con getters *locales* y duplica el offset en silencio en un celular cuya zona horaria del sistema operativo ya es Perú. `diaLaboralPeru()` además trata las horas antes de las 6am como si todavía fueran "ayer", para los cierres de tienda de capacitador pasada la medianoche.
 
-### Offline-first marcaciones
+### Marcaciones offline-first
 
-Field check-ins happen in stores with bad signal (underground parking, poor coverage). `lib/cola-marcaciones.ts` and `lib/cola-checklists.ts` queue failed submissions in `localStorage` and a `SincronizadorOffline` component (mounted in `PanelShell`) retries them once connectivity returns. Follow this pattern for any new "must not lose this if the network drops mid-save" flow rather than just showing an error.
+Las marcaciones de campo pasan en tiendas con mala señal (estacionamientos subterráneos, poca cobertura). `lib/cola-marcaciones.ts` y `lib/cola-checklists.ts` guardan en cola los envíos que fallaron en `localStorage`, y un componente `SincronizadorOffline` (montado en `PanelShell`) los reintenta solo apenas vuelve la conexión. Seguir este mismo patrón para cualquier flujo nuevo donde "no se puede perder esto si se corta la red a mitad del guardado", en vez de solo mostrar un error.
 
-### Photo storage
+### Almacenamiento de fotos
 
-`lib/blob-storage.ts` is the only thing the rest of the app calls to store/read photos (marcaciones, historias, perfiles, evidencias, agenda) — it builds folder-prefixed paths and delegates to whichever provider `lib/almacen-fotos.ts` picks based on env vars (Cloudflare R2 preferred, Vercel Blob fallback), behind a shared `AlmacenFotos` interface. Photos are read via short-lived signed URLs, never public permanent ones. Don't call the R2/Vercel Blob SDKs directly from feature code.
+`lib/blob-storage.ts` es lo único que el resto de la app llama para guardar/leer fotos (marcaciones, historias, perfiles, evidencias, agenda) — arma las rutas con prefijo de carpeta y delega al proveedor que `lib/almacen-fotos.ts` elija según las variables de entorno (Cloudflare R2 de preferencia, Vercel Blob como respaldo), detrás de una interfaz compartida `AlmacenFotos`. Las fotos se leen con enlaces firmados de corta duración, nunca con URLs públicas permanentes. No llamar a los SDK de R2/Vercel Blob directo desde código de funcionalidad.
 
-### Sound, celebration, and seasonal theming
+### Sonido, celebración y ambientación de temporada
 
-`lib/sonido.ts` synthesizes all UI sounds with WebAudio oscillators (no audio files); selectable "packs" are stored in `localStorage`. `reproducirSonidoLogro()` also dispatches a `shimaya:celebracion` window event that a single `Celebracion` component (mounted once in `PanelShell`) listens for to render falling-confetti particles — add new achievement sounds by calling the existing exported functions, not by inventing a parallel animation trigger.
+`lib/sonido.ts` sintetiza todos los sonidos de la interfaz con osciladores WebAudio (sin archivos de audio); los "paquetes" de sonido elegibles se guardan en `localStorage`. `reproducirSonidoLogro()` también dispara un evento `shimaya:celebracion` en `window`, que un único componente `Celebracion` (montado una vez en `PanelShell`) escucha para dibujar las partículas de confeti cayendo — agregar sonidos de logro nuevos llamando a las funciones ya exportadas, no inventando un disparador de animación en paralelo.
 
-October is gated app-wide by `esTemporadaHalloween()` in `lib/fechas.ts` (checks only the month) and layers in decorative/sound extras (menu icon glow, leaf/bat confetti instead of gold, a pumpkin favicon, a tap-to-spark greeting emoji, a once-daily "trick or treat" card, a reskinned mascot intro animation on `/login`) without altering any underlying logic — this is the template to follow for any other date-gated seasonal UI.
+Octubre completo está condicionado en toda la app por `esTemporadaHalloween()` en `lib/fechas.ts` (revisa solo el mes) y agrega detalles decorativos/sonoros encima (brillo en los íconos del menú, confeti de hojas/murciélagos en vez de dorado, favicon de calabaza, el emoji del saludo tocable con chispas, una tarjeta de "truco o trato" una vez al día, la animación de entrada de la mascota re-vestida en `/login`) sin alterar ninguna lógica de fondo — esta es la plantilla a seguir para cualquier otra ambientación de temporada condicionada por fecha.
 
-### PDF generation
+### Generación de PDF
 
-`lib/generar-pdf.ts` centralizes jsPDF usage — shared header-drawing, field-drawing, page-width/color constants. Feature-specific PDF builders (checklist visits, no-cumplimiento reports, perfil) live in each area's own `*-pdf-actions.ts` / `pdf-actions.ts` and call into these shared helpers rather than reimplementing layout.
+`lib/generar-pdf.ts` centraliza el uso de jsPDF — encabezado y campos compartidos, constantes de ancho de página y color. Los generadores de PDF específicos de cada funcionalidad (checklists de visita, reportes de no cumplimiento, perfil) viven en el `*-pdf-actions.ts` / `pdf-actions.ts` propio de cada área y llaman a estos helpers compartidos en vez de rehacer el layout.
 
-### Lazy-loaded panel sections
+### Carga perezosa de secciones del panel
 
-`app/panel/panel-lazy.tsx` wraps every heavy panel tab (Central Analítica, Documentos, Calendario, etc.) in `next/dynamic` with `ssr: false` and a shimmer skeleton, since most traffic is mobile. Add new heavy tabs here rather than importing them directly into a role's page/tabs file.
+`app/panel/panel-lazy.tsx` envuelve cada pestaña pesada del panel (Central Analítica, Documentos, Calendario, etc.) en `next/dynamic` con `ssr: false` y un esqueleto de carga, porque la mayoría del tráfico es desde celular. Las pestañas pesadas nuevas van acá, en vez de importarlas directo en el archivo de página/tabs de cada rol.
 
-### Styling
+### Estilos
 
-Tailwind, but the actual color values are CSS custom properties in `app/globals.css` (`--marca-*`, plus a `--calabaza` seasonal accent) mapped into `tailwind.config.ts` as `rgb(var(--x) / <alpha-value>)` — this is what makes the `data-theme="light"` override in `globals.css` work. Add new brand/accent colors the same way (CSS var + Tailwind color entry) rather than hardcoding hex values, and respect `prefers-reduced-motion` (there's a dedicated block at the bottom of `globals.css` disabling/hiding every custom animation) when adding new CSS animations.
+Tailwind, pero los valores de color reales son variables CSS personalizadas en `app/globals.css` (`--marca-*`, más un acento de temporada `--calabaza`) mapeadas en `tailwind.config.ts` como `rgb(var(--x) / <alpha-value>)` — así es como funciona el override de `data-theme="light"` en `globals.css`. Los colores de marca/acento nuevos van con el mismo patrón (variable CSS + entrada de color en Tailwind) en vez de hex directo, y hay que respetar `prefers-reduced-motion` (hay un bloque dedicado al final de `globals.css` que desactiva/oculta cada animación propia) al agregar animaciones CSS nuevas.
