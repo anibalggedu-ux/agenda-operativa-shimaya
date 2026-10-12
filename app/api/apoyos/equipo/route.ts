@@ -70,7 +70,13 @@ export async function GET(req: Request) {
     ausencias: ausenciasDe(String(u.id)),
     tiendas: u.rol === "supervisor" ? tiendasDe(String(u.id)) : [],
   }));
-  const res = NextResponse.json({ equipo });
+  // Quién tiene tiendas asignadas de forma permanente: supervisores y también coordinadores (ej. una coordinadora a cargo de Shirest). No son parte del equipo de apoyo.
+  const { data: responsables } = await supabase.from("usuarios").select("id, nombre, rol").in("rol", ["supervisor", "coordinador"]).eq("activo", true);
+  const supervisan = (responsables ?? [])
+    .filter((u: any) => !esGenerica(String(u.nombre)))
+    .map((u: any) => ({ id: String(u.id), nombre: u.nombre as string, rol: u.rol as string, tiendas: tiendasDe(String(u.id)) }))
+    .filter((u) => u.tiendas.length > 0);
+  const res = NextResponse.json({ equipo, supervisan });
   res.headers.set("Cache-Control", "no-store");
   return res;
 }
