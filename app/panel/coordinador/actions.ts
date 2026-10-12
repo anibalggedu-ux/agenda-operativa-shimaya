@@ -1134,6 +1134,10 @@ export async function responderReporte(
 // ---------- Tiendas permanentes ----------
 
 const ROLES_CON_RUTA = ["supervisor", "capacitador"];
+// A diferencia de ROLES_CON_RUTA (usado para sugerencias de cercanía al
+// asignar rutas diarias, donde coordinador no aplica), la pantalla de
+// Tiendas Permanentes sí admite coordinadores con una tienda fija propia.
+const ROLES_CON_TIENDA_FIJA = [...ROLES_CON_RUTA, "coordinador"];
 
 export type SupervisorConTiendas = {
   usuarioId: string;
@@ -1151,7 +1155,7 @@ export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[
       supabase
         .from("usuarios")
         .select("id, nombre, rol")
-        .in("rol", ROLES_CON_RUTA)
+        .in("rol", ROLES_CON_TIENDA_FIJA)
         .order("nombre"),
       // Solo las vigentes (fecha_fin nula) — las que ya terminaron quedan en
       // la tabla como historial, pero no se muestran aquí como "actuales".
