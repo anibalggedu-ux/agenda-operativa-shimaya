@@ -303,7 +303,7 @@ export default function PanelShell({
           Sesión activa: <span className="text-marca-textofuerte font-semibold">{nombre}</span>
         </div>
 
-        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde border-r-2 border-r-marca-oro/70 rounded-2xl px-4 py-3">
+        <div className="mb-4 flex items-center justify-end gap-3 bg-marca-superficie border border-marca-borde rounded-2xl px-4 py-3">
           <span className="shrink-0 text-marca-rojoclaro [&>svg]:w-5 [&>svg]:h-5">{seccionActiva?.icono}</span>
           <p className="font-display text-lg sm:text-xl font-bold text-marca-textofuerte truncate">
             {seccionActiva?.etiqueta}
