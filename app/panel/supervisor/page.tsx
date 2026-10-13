@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy, ListChecks, Store } from "lucide-react";
+import { Home, MapPin, ClipboardList, BarChart3, File, Calendar, Search, Settings, Sparkles, CalendarClock, UserCircle, NotebookPen, LifeBuoy, ListChecks, Store, Tag } from "lucide-react";
 import SelectorTiendas from "./selector-tiendas";
 import HistorialPdf from "./historial-pdf";
 import MisReportes from "./mis-reportes";
@@ -15,6 +15,7 @@ import EventosDeHoy from "../eventos-hoy";
 import ResumenDelDia from "../resumen-del-dia";
 import BloqueColapsable from "../bloque-colapsable";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import Rotulado from "../rotulado";
 import {
   LazyCentralAnalitica as CentralAnalitica,
   LazyDocumentos as Documentos,
@@ -134,6 +135,12 @@ export default async function PanelSupervisor() {
       etiqueta: "Soporte",
       icono: <LifeBuoy className="w-4 h-4" />,
       contenido: <Soporte />,
+    },
+    {
+      id: "rotulado",
+      etiqueta: "Rotulado",
+      icono: <Tag className="w-4 h-4" />,
+      contenido: <Rotulado />,
     },
     {
       id: "perfil",

@@ -1,6 +1,6 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy, ListChecks } from "lucide-react";
+import { Home, MapPin, ClipboardList, Calendar, Car, Sparkles, CalendarClock, Trophy, UserCircle, File, NotebookPen, LifeBuoy, ListChecks, Tag } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisReportes from "../supervisor/mis-reportes";
@@ -15,6 +15,7 @@ import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import Rotulado from "../rotulado";
 import {
   LazyCalendario as Calendario,
   LazyDocumentos as Documentos,
@@ -135,6 +136,12 @@ export default async function PanelCapacitador() {
       etiqueta: "Soporte",
       icono: <LifeBuoy className="w-4 h-4" />,
       contenido: <Soporte />,
+    },
+    {
+      id: "rotulado",
+      etiqueta: "Rotulado",
+      icono: <Tag className="w-4 h-4" />,
+      contenido: <Rotulado />,
     },
     {
       id: "perfil",

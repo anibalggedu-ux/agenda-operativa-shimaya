@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle, Store } from "lucide-react";
+import { Truck, MapPin, Map, ClipboardList, ClipboardCheck, Users, Megaphone, History, BarChart3, Settings, File, Calendar, Search, Sparkles, UserCircle, Coffee, NotebookPen, LifeBuoy, ListChecks, AlertTriangle, Store, Tag } from "lucide-react";
 import SelectorTiendas from "../supervisor/selector-tiendas";
 import HistorialPdf from "../supervisor/historial-pdf";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
@@ -38,6 +38,7 @@ import {
   LazyReporteCumplimiento as ReporteCumplimiento,
 } from "../panel-lazy";
 import CampanitaDescansos from "./campanita-descansos";
+import Rotulado from "../rotulado";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
 import ResumenDelDia from "../resumen-del-dia";
 import { hoyPeru } from "@/lib/fechas";
@@ -145,6 +146,7 @@ export default function PanelTabs({
       contenido: <MarcacionesBreakEquipo />,
     },
     { id: "consultorio", etiqueta: "Consultorio IA", icono: <Sparkles className="w-4 h-4" />, contenido: <ConsultorioIA /> },
+    { id: "rotulado", etiqueta: "Rotulado", icono: <Tag className="w-4 h-4" />, contenido: <Rotulado /> },
     { id: "agenda", etiqueta: "Mi Agenda", icono: <NotebookPen className="w-4 h-4" />, contenido: <MiAgenda /> },
     { id: "soporte", etiqueta: "Soporte", icono: <LifeBuoy className="w-4 h-4" />, contenido: <Soporte /> },
     {
