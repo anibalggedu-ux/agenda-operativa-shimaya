@@ -78,6 +78,7 @@ function Marcacion({
 export default function HistorialMonitoreo() {
   const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
   const [hasta, setHasta] = useState(hoyPeru());
+  const [busqueda, setBusqueda] = useState("");
 
   const [asistencia, setAsistencia] = useState<AsistenciaGeneral[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -97,10 +98,29 @@ export default function HistorialMonitoreo() {
       .finally(() => setCargando(false));
   }, [desde, hasta]);
 
+  const filtrada = busqueda.trim()
+    ? asistencia.filter((a) => a.usuarioNombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+    : asistencia;
+
   return (
     <div className="space-y-6">
-      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
+      <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-3">
         <SelectorFechas desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} />
+        <div>
+          <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+            Buscar por nombre
+          </label>
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              setMostrar(PASO_PAGINA);
+            }}
+            placeholder="Ej. Freddy"
+            className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+          />
+        </div>
       </div>
 
       <p className="text-marca-tenue text-[11px] italic">
@@ -114,13 +134,15 @@ export default function HistorialMonitoreo() {
       {!cargando && !error && (
         <div>
           <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-3">
-            REGISTROS DE ASISTENCIA ({asistencia.length})
+            REGISTROS DE ASISTENCIA ({filtrada.length})
           </h3>
-          {asistencia.length === 0 ? (
-            <p className="text-marca-tenue text-sm italic">Sin marcaciones en este rango de fechas.</p>
+          {filtrada.length === 0 ? (
+            <p className="text-marca-tenue text-sm italic">
+              {busqueda.trim() ? "Nadie con ese nombre en este rango de fechas." : "Sin marcaciones en este rango de fechas."}
+            </p>
           ) : (
             <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
-              {asistencia.slice(0, mostrar).map((a, i) => (
+              {filtrada.slice(0, mostrar).map((a, i) => (
                 <div
                   key={i}
                   className={`flex items-center justify-between rounded-[3px] p-3 border gap-3 ${
@@ -150,13 +172,13 @@ export default function HistorialMonitoreo() {
               ))}
             </div>
           )}
-          {asistencia.length > mostrar && (
+          {filtrada.length > mostrar && (
             <button
               type="button"
               onClick={() => setMostrar((m) => m + PASO_PAGINA)}
               className="w-full mt-2 text-marca-rojoclaro hover:text-marca-rojo text-[11px] font-bold uppercase tracking-widest py-2 border border-marca-borde rounded-[3px] transition"
             >
-              Mostrar {Math.min(PASO_PAGINA, asistencia.length - mostrar)} más ({asistencia.length - mostrar} restantes)
+              Mostrar {Math.min(PASO_PAGINA, filtrada.length - mostrar)} más ({filtrada.length - mostrar} restantes)
             </button>
           )}
         </div>
