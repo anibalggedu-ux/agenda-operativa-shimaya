@@ -11,6 +11,10 @@
   --marca-oro: 217 178 106;
   /* Acento de temporada (Halloween, octubre) — igual en ambos temas. */
   --calabaza: 255 139 46;
+  /* Advertencia/éxito — igual en ambos temas, para que se lean bien en texto
+     sobre fondo casi negro (tema oscuro) y casi blanco (tema claro). */
+  --advertencia: 217 119 6;
+  --exito: 5 150 105;
 
   /* Tema oscuro "Noche" (por defecto): negro profundo con grises cálidos. */
   --marca-fondo: 10 10 11;
@@ -36,6 +40,15 @@
 body {
   background-color: rgb(var(--marca-fondo));
   position: relative;
+}
+
+/* Foco de teclado visible en toda la app, temado con el rojo de marca en vez
+   del anillo azul por defecto del navegador -- el detalle más barato de que
+   una pantalla se navega con teclado y no solo con el dedo. */
+:focus-visible {
+  outline: 2px solid rgb(var(--marca-rojoclaro));
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* "Lujo" 2 · Grano casi imperceptible sobre el fondo, para que el negro/gris

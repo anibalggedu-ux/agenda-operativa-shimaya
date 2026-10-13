@@ -9,7 +9,7 @@ export default function BotonApoyos() {
       href="/api/apoyos/acceso"
       target="_blank"
       rel="noopener"
-      className="flex items-center gap-3 bg-marca-superficie border border-marca-borde border-l-2 border-l-marca-oro/70 rounded-[3px] px-4 py-3 hover:bg-marca-superficie2 transition"
+      className="flex items-center gap-3 bg-marca-superficie border border-marca-borde rounded-[3px] px-4 py-3 hover:bg-marca-superficie2 transition"
     >
       <span className="shrink-0 text-marca-rojoclaro">
         <CalendarDays className="w-5 h-5" />

@@ -13,7 +13,7 @@ import {
 } from "./resumen-dia-actions";
 import { recalcularEtaConUbicacion } from "./supervisor/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { formatearFechaLegible, formatearHora, esTemporadaHalloween, hoyPeru } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, esTemporadaHalloween, hoyPeru, horaPeru } from "@/lib/fechas";
 import { reproducirSonidoFantasma, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
@@ -130,7 +130,9 @@ export default function ResumenDelDia({
   const [personal, setPersonal] = useState<ResumenPersonal | null>(null);
   const [operativo, setOperativo] = useState<ResumenOperativo | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [errorAtender, setErrorAtender] = useState<string | null>(null);
+  const [reintentoCarga, setReintentoCarga] = useState(0);
   type CuadroExpandible = "criticas" | "tiendasHoy" | "especiales" | "comunicados";
   const [cuadroAbierto, setCuadroAbierto] = useState<CuadroExpandible | null>(null);
 
@@ -162,13 +164,14 @@ export default function ResumenDelDia({
 
   useEffect(() => {
     setCargando(true);
+    setErrorCarga(false);
     const promesa = esOperativo ? obtenerResumenOperativo() : obtenerResumenPersonal();
     promesa
       .then((r: any) => (esOperativo ? setOperativo(r) : setPersonal(r)))
-      .catch(() => {})
+      .catch(() => setErrorCarga(true))
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [esOperativo]);
+  }, [esOperativo, reintentoCarga]);
 
   function ordenarAlertas(alertas: ResumenOperativo["alertasPuntualidad"]) {
     return [...alertas].sort((a, b) => {
@@ -235,11 +238,10 @@ export default function ResumenDelDia({
   }
 
   useEffect(() => {
-    const hora = new Date().getHours();
+    const hora = Number(horaPeru().slice(0, 2));
     setSaludo(hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches");
-    setFechaHoy(
-      new Date().toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-    );
+    const hoy = hoyPeru();
+    setFechaHoy(`${formatearFechaLegible(hoy)} de ${hoy.slice(0, 4)}`);
   }, []);
 
   // Ambientación de Halloween (24-31 de octubre): solo visual/sonora, un
@@ -303,40 +305,26 @@ export default function ResumenDelDia({
     return <div className="mb-6 h-20 bg-marca-superficie border border-marca-borde rounded-[3px] animate-pulse" />;
   }
 
+  if (errorCarga) {
+    return (
+      <div className="mb-6 bg-advertencia/10 border border-advertencia/40 rounded-[3px] p-3.5 flex items-center justify-between gap-3">
+        <p className="text-advertencia text-xs font-semibold flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" /> No se pudo cargar tu resumen de Inicio.
+        </p>
+        <button
+          type="button"
+          onClick={() => setReintentoCarga((n) => n + 1)}
+          className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-advertencia border border-advertencia/40 rounded-[3px] px-2.5 py-1.5 hover:bg-advertencia/10 transition"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-6">
       <div className="relative mb-3 overflow-hidden">
-        {halloween && (
-          <>
-            <svg
-              aria-hidden
-              viewBox="0 0 60 60"
-              className="absolute -top-2 -left-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
-            >
-              <path
-                d="M0 0 L60 0 M0 0 L0 60 M0 0 L22 2 M0 0 L2 22 M0 0 L40 4 M0 0 L4 40 M2 22 L22 2 M4 40 L40 4"
-                stroke="currentColor"
-                strokeWidth="1"
-                fill="none"
-              />
-            </svg>
-            <svg
-              aria-hidden
-              viewBox="0 0 60 60"
-              className="absolute -top-2 -right-2 w-10 h-10 text-marca-tenue/30 pointer-events-none"
-            >
-              <path
-                d="M60 0 L0 0 M60 0 L60 60 M60 0 L38 2 M60 0 L58 22 M60 0 L20 4 M60 0 L56 40 M58 22 L38 2 M56 40 L20 4"
-                stroke="currentColor"
-                strokeWidth="1"
-                fill="none"
-              />
-            </svg>
-            <span aria-hidden className="murcielago-cruce absolute top-2 left-0 text-base">
-              🦇
-            </span>
-          </>
-        )}
         <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
           {saludo}
           {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span>{" "}
@@ -369,19 +357,6 @@ export default function ResumenDelDia({
         </h2>
         <p className="text-marca-tenue text-xs capitalize">{fechaHoy}</p>
       </div>
-
-      {trato && (
-        <div className="mb-3 bg-marca-superficie border border-calabaza/40 border-l-2 rounded-[3px] p-3.5 flex items-center gap-3">
-          <p className="text-marca-texto text-xs flex-1">{trato}</p>
-          <button
-            type="button"
-            onClick={cerrarTrato}
-            className="shrink-0 text-[10.5px] font-black uppercase tracking-wide text-calabaza border border-calabaza/40 rounded-[3px] px-2.5 py-1.5 hover:bg-calabaza/10 transition"
-          >
-            Trato 🍬
-          </button>
-        </div>
-      )}
 
       {pedirUbicacion && (
         <div className="mb-3 bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3.5 space-y-2">
@@ -424,13 +399,13 @@ export default function ResumenDelDia({
         })()}
 
       {esOperativo && errorAtender && (
-        <div className="mb-3 bg-amber-950/20 border border-amber-500/40 rounded-[3px] p-2.5 flex items-center justify-between gap-2">
-          <p className="text-amber-400 text-xs font-semibold flex items-center gap-1.5">
+        <div className="mb-3 bg-advertencia/10 border border-advertencia/40 rounded-[3px] p-2.5 flex items-center justify-between gap-2">
+          <p className="text-advertencia text-xs font-semibold flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {errorAtender}
           </p>
           <button
             onClick={() => setErrorAtender(null)}
-            className="shrink-0 text-[10px] font-bold text-amber-400/70 hover:text-amber-300"
+            className="shrink-0 text-[10px] font-bold text-advertencia/70 hover:text-advertencia"
           >
             Cerrar
           </button>
@@ -454,8 +429,12 @@ export default function ResumenDelDia({
                   <span className="text-marca-tenue uppercase text-[10px]">({a.rol})</span> — {a.mensaje}
                 </p>
                 <button
-                  onClick={() => handleAtenderAlerta(a.usuarioId, a.tipo)}
-                  className="shrink-0 text-[10px] font-bold text-marca-tenue hover:text-emerald-400 border border-marca-borde hover:border-emerald-500/40 rounded-[3px] px-2 py-1 transition whitespace-nowrap flex items-center gap-1"
+                  onClick={() => {
+                    if (window.confirm(`¿Marcar como atendida la alerta de ${a.usuarioNombre}? Deja de avisar mientras no vuelva a pasar.`)) {
+                      handleAtenderAlerta(a.usuarioId, a.tipo);
+                    }
+                  }}
+                  className="shrink-0 text-[10px] font-bold text-marca-tenue hover:text-exito border border-marca-borde hover:border-exito/40 rounded-[3px] px-2 py-1 transition whitespace-nowrap flex items-center gap-1"
                   title="Ya tomé acción — dejar de avisar mientras no vuelva a pasar"
                 >
                   <Check className="w-3 h-3" /> Atendido
@@ -463,6 +442,20 @@ export default function ResumenDelDia({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {trato && (
+        <div className="mb-3 bg-marca-superficie/60 border border-marca-borde rounded-[3px] px-3 py-2 flex items-center gap-2.5">
+          <span aria-hidden className="text-sm leading-none">🍬</span>
+          <p className="text-marca-tenue text-[11px] flex-1">{trato}</p>
+          <button
+            type="button"
+            onClick={cerrarTrato}
+            className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-marca-tenue hover:text-marca-texto transition rounded-[3px] px-1"
+          >
+            Listo
+          </button>
         </div>
       )}
 
@@ -531,7 +524,7 @@ export default function ResumenDelDia({
                 <div
                   className={`shrink-0 w-[150px] rounded-[3px] p-2.5 border ${
                     personal.climaActual.riesgo
-                      ? "bg-amber-950/20 border-amber-500/40"
+                      ? "bg-advertencia/10 border-advertencia/40"
                       : "bg-marca-superficie border-marca-borde"
                   }`}
                 >
@@ -542,7 +535,7 @@ export default function ResumenDelDia({
                   </p>
                   <p
                     className={`font-display text-base font-semibold leading-tight ${
-                      personal.climaActual.riesgo ? "text-amber-400" : "text-marca-textofuerte"
+                      personal.climaActual.riesgo ? "text-advertencia" : "text-marca-textofuerte"
                     }`}
                   >
                     {personal.climaActual.tempActual !== null
@@ -576,8 +569,8 @@ export default function ResumenDelDia({
                     <span
                       className={`inline-flex items-center gap-1 mt-1.5 text-[9.5px] font-bold px-2 py-0.5 rounded-full [&>svg]:w-3 [&>svg]:h-3 ${
                         personal.rutaHoyEstado === "pendiente"
-                          ? "bg-amber-950/30 text-amber-400"
-                          : "bg-emerald-950/30 text-emerald-400"
+                          ? "bg-advertencia/15 text-advertencia"
+                          : "bg-exito/15 text-exito"
                       }`}
                     >
                       {personal.rutaHoyEstado === "pendiente" ? <Clock /> : <CircleCheck />}{" "}
@@ -598,7 +591,7 @@ export default function ResumenDelDia({
                 icono={<Flame className="w-4 h-4" />}
                 etiqueta="Racha de puntualidad"
                 valor={personal.rachaActual > 0 ? `${personal.rachaActual} día${personal.rachaActual === 1 ? "" : "s"}` : "—"}
-                valorClase={personal.rachaActual > 0 ? "text-emerald-400" : undefined}
+                valorClase={personal.rachaActual > 0 ? "text-exito" : undefined}
                 extra={personal.rachaActual > 0 ? "sigue así" : "marca a tiempo"}
               />
               <Tarjeta
@@ -652,7 +645,7 @@ export default function ResumenDelDia({
                       <span className="text-marca-texto text-sm">{t.tiendaNombre}</span>
                       <span
                         className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 [&>svg]:w-3 [&>svg]:h-3 ${
-                          t.reportada ? "text-emerald-400" : "text-amber-400"
+                          t.reportada ? "text-exito" : "text-advertencia"
                         }`}
                       >
                         {t.reportada ? <CircleCheck /> : <Clock />} {t.reportada ? "Reportada" : "Pendiente"}
