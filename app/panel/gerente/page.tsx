@@ -1,12 +1,13 @@
 import { obtenerSesion } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy, History, AlertTriangle } from "lucide-react";
+import { Home, Map, BarChart3, File, Calendar, Search, Settings, Sparkles, UserCircle, Megaphone, ClipboardCheck, Coffee, NotebookPen, LifeBuoy, History, AlertTriangle, Tag } from "lucide-react";
 import Dashboard from "./dashboard";
 import AnunciosWidget from "../anuncios-widget";
 import BreakWidget from "../break-widget";
 import { tieneAccesoRegistro } from "@/lib/permisos";
 import ResumenDelDia from "../resumen-del-dia";
 import PanelShell, { type ItemMenuPanel } from "../panel-shell";
+import Rotulado from "../rotulado";
 import {
   LazyCentralAnalitica as CentralAnalitica,
   LazyDocumentos as Documentos,
@@ -131,6 +132,12 @@ export default async function PanelGerente() {
       etiqueta: "Soporte",
       icono: <LifeBuoy className="w-4 h-4" />,
       contenido: <Soporte />,
+    },
+    {
+      id: "rotulado",
+      etiqueta: "Rotulado",
+      icono: <Tag className="w-4 h-4" />,
+      contenido: <Rotulado />,
     },
     {
       id: "perfil",
