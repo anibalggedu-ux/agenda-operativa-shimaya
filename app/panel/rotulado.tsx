@@ -1,4 +1,4 @@
-import { Tag, ExternalLink } from "lucide-react";
+import { Tag } from "lucide-react";
 
 // Acceso directo a "Rotulado" (app aparte de la empresa, para armar
 // rótulos/etiquetas de tienda). Pestaña propia del menú, visible para los 4
@@ -15,16 +15,16 @@ export default function Rotulado() {
       <div>
         <h3 className="text-marca-textofuerte font-display text-lg font-semibold">Rotulado</h3>
         <p className="text-marca-tenue text-xs mt-1">
-          Abre la app de rotulado de la empresa en una pestaña nueva.
+          Arma los rótulos y etiquetas de tu tienda.
         </p>
       </div>
       <a
         href={URL_ROTULADO}
         target="_blank"
         rel="noopener"
-        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2.5 rounded-[3px] text-xs tracking-widest uppercase transition flex items-center justify-center gap-1.5"
+        className="w-full bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black py-2.5 rounded-[3px] text-xs tracking-widest uppercase transition flex items-center justify-center"
       >
-        Abrir Rotulado <ExternalLink className="w-3.5 h-3.5" />
+        Abrir Rotulado
       </a>
     </div>
   );
