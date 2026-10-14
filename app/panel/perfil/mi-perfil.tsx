@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Cake, Camera, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon, Play } from "lucide-react";
+import { Cake, Camera, Plane, Images, BedDouble, Calendar, PartyPopper, ArrowLeft, Volume2, Smartphone, Gift, Flame, X, Video as VideoIcon, Play, Plus } from "lucide-react";
 import {
   obtenerPerfil,
   actualizarFotoPerfil,
@@ -23,6 +23,7 @@ import {
   type FilaRankingRegalos,
 } from "../historias/social-actions";
 import { FranjaPuntos, RankingRegalos, TarjetaFoto } from "../historias/mi-galeria";
+import NuevaHistoriaBoton from "../historias/nueva-historia";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { calcularPresencia } from "@/lib/presencia";
@@ -243,9 +244,30 @@ function VistaPerfil({ usuarioId, onAbrirPerfil }: { usuarioId?: string; onAbrir
             </div>
           </div>
           {presencia?.enLinea && (
-            <span className="absolute right-1 bottom-1 w-4 h-4 rounded-full bg-emerald-400 border-[3px] border-marca-fondo">
-              <span className="absolute -inset-[3px] rounded-full border-2 border-emerald-400 animate-ping opacity-60" />
+            <span
+              className={`absolute w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-marca-fondo ${
+                esPropio ? "right-0 top-0" : "right-1 bottom-1"
+              }`}
+              title="En línea"
+            >
+              {!esPropio && (
+                <span className="absolute -inset-[3px] rounded-full border-2 border-emerald-400 animate-ping opacity-60" />
+              )}
             </span>
+          )}
+          {esPropio && (
+            <NuevaHistoriaBoton onPublicado={() => { setMensaje(null); reproducirSonidoExito(); cargar(); if (pestana === "fotos") obtenerGaleriaDeUsuario(perfil.usuarioId).then(setFotos).catch(() => {}); }}>
+              {({ abrir }) => (
+                <button
+                  type="button"
+                  onClick={abrir}
+                  aria-label="Agregar historia"
+                  className="absolute right-1 bottom-1 w-7 h-7 rounded-full bg-marca-rojo hover:bg-marca-rojoclaro border-[3px] border-marca-fondo flex items-center justify-center transition"
+                >
+                  <Plus className="w-3.5 h-3.5 text-white" />
+                </button>
+              )}
+            </NuevaHistoriaBoton>
           )}
         </div>
         <div className="flex-1 grid grid-cols-3 text-center tabular-nums">
