@@ -20,7 +20,7 @@ import {
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
-import NuevaHistoriaBoton, { EMOJIS_HISTORIA } from "./nueva-historia";
+import NuevaHistoriaBoton, { obtenerEmojisHistoria } from "./nueva-historia";
 import EstadoVacio from "../estado-vacio";
 
 const COMENTARIO_MAXIMO = 300;
@@ -83,7 +83,7 @@ function BarraReacciones({
 
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1">
-      {EMOJIS_HISTORIA.map((emoji) => {
+      {obtenerEmojisHistoria().map((emoji) => {
         const cantidad = cantidadDe(emoji);
         const esMia = miReaccion === emoji;
         return (

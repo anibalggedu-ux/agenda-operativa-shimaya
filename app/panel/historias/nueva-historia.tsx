@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { X, AlertTriangle, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import { crearHistoria } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
+import { esTemporadaHalloween } from "@/lib/fechas";
 import { reproducirSonidoAlerta } from "@/lib/sonido";
 import ComposerTexto from "./composer-texto";
 import RecortarFoto from "./recortar-foto";
@@ -19,7 +20,18 @@ import TextareaMenciones from "./textarea-menciones";
 
 // Mismo set en el compositor (pie de foto) y en las reacciones que deja el
 // resto del equipo sobre una historia ya publicada (ver historias-feed.tsx).
-export const EMOJIS_HISTORIA = ["👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐"];
+const EMOJIS_HISTORIA_BASE = [
+  "👍", "❤️", "😂", "😮", "🔥", "👏", "🎉", "💪", "🙌", "⭐",
+  "😢", "😔",
+  "😍", "🤩", "💯", "🙏", "😎", "🥳", "😁", "🤔", "👀",
+];
+// Solo en octubre (ver esTemporadaHalloween) -- el resto del año no aparecen,
+// igual que el resto de la ambientación de temporada de la app.
+const EMOJIS_HALLOWEEN = ["🎃", "👻", "🦇", "🕷️"];
+
+export function obtenerEmojisHistoria(): string[] {
+  return esTemporadaHalloween() ? [...EMOJIS_HISTORIA_BASE, ...EMOJIS_HALLOWEEN] : EMOJIS_HISTORIA_BASE;
+}
 const TEXTO_MAXIMO = 200;
 // Tope de duración de un video de historia -- ver obtenerDuracionVideo.
 const DURACION_MAXIMA_VIDEO_SEG = 30;
@@ -163,7 +175,7 @@ function ComposerHistoria({
         <p className="text-right text-[10px] text-marca-tenue -mt-2">{textoActual.length}/{TEXTO_MAXIMO}</p>
 
         <div className="flex flex-wrap gap-2">
-          {EMOJIS_HISTORIA.map((emoji) => (
+          {obtenerEmojisHistoria().map((emoji) => (
             <button
               key={emoji}
               type="button"
