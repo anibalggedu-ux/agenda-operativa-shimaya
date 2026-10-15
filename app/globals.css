@@ -706,7 +706,13 @@ textarea:focus {
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    /* "none" y no "translateX(0)" -- un transform distinto de "none" (aunque
+       no mueva nada) convierte este contenedor en el punto de referencia de
+       cualquier modal "fixed" de adentro en vez del viewport completo, y con
+       animation-fill-mode: both ese rastro queda pegado para siempre después
+       de que termina la animación -- encoge y tapa cualquier modal fixed que
+       se abra desde esta pestaña (ver NuevaHistoriaBoton en Mi Perfil). */
+    transform: none;
   }
 }
 @keyframes tab-entra-izq {
@@ -716,7 +722,7 @@ textarea:focus {
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: none;
   }
 }
 .tab-entra-der {
