@@ -79,3 +79,49 @@ export function pareceFallaDeConexion(error: unknown): boolean {
   const texto = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return texto.includes("fetch") || texto.includes("network") || texto.includes("conexión") || texto.includes("conexion");
 }
+
+// Foto ya tomada (y comprimida) para una marcación de llegada/salida a
+// tienda, mientras espera un reintento manual -- distinto de la cola de
+// arriba: esto cubre el caso en que el GPS falló (típico dentro de un local,
+// antes de siquiera intentar el envío) o el servidor devolvió un error que
+// no es de conexión, donde SelectorTiendas guarda la foto en memoria con un
+// botón "Reintentar envío" ("tu foto quedó guardada, no hace falta tomarla
+// de nuevo"). Sin este respaldo en localStorage, esa promesa era falsa: si
+// la persona cerraba la app antes de tocar "Reintentar", la foto se perdía
+// sin dejar rastro -- ni en la cola de arriba (no hubo falla de conexión),
+// ni en la base (nunca se llegó a enviar) -- y más tarde la tienda aparecía
+// como si no se hubiera marcado nada (caso real: Anibal Garrido, tienda El
+// Polo, oct 2026).
+export type FotoPendienteTienda = { tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number };
+
+function clavePendiente(tiendaCardId: string): string {
+  return `shimaya_foto_pendiente_${tiendaCardId}`;
+}
+
+export function guardarFotoPendienteTienda(tiendaCardId: string, dato: FotoPendienteTienda): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(clavePendiente(tiendaCardId), JSON.stringify(dato));
+  } catch (error) {
+    console.error("No se pudo guardar la foto pendiente:", error);
+  }
+}
+
+export function leerFotoPendienteTienda(tiendaCardId: string): FotoPendienteTienda | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const crudo = window.localStorage.getItem(clavePendiente(tiendaCardId));
+    return crudo ? JSON.parse(crudo) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function borrarFotoPendienteTienda(tiendaCardId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(clavePendiente(tiendaCardId));
+  } catch (error) {
+    console.error("No se pudo borrar la foto pendiente:", error);
+  }
+}

@@ -27,7 +27,13 @@ import {
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import {
+  agregarMarcacionPendiente,
+  pareceFallaDeConexion,
+  guardarFotoPendienteTienda,
+  leerFotoPendienteTienda,
+  borrarFotoPendienteTienda,
+} from "@/lib/cola-marcaciones";
 import { distanciaMetros, UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 
 const ESTILOS_URGENCIA: Record<
@@ -295,6 +301,18 @@ function MarcadoVisitaTienda({
   // o simplemente el GPS fallando dentro de un edificio.
   const [avisoLejos, setAvisoLejos] = useState<{ tipo: "llegada" | "salida"; metros: number } | null>(null);
 
+  // Si la foto quedó pendiente de un reintento manual (GPS falló o el envío
+  // dio un error que no es de conexión) y la persona cerró la app antes de
+  // tocar "Reintentar envío", acá se recupera al volver a abrir la tarjeta.
+  useEffect(() => {
+    const guardada = leerFotoPendienteTienda(tienda.id);
+    if (guardada) {
+      setPendiente(guardada);
+      setMensaje("Tenías una foto sin enviar — toca \"Reintentar envío\" para completarla.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tienda.id]);
+
   const ETIQUETA_PASO: Record<Paso, string> = {
     comprimiendo: "Preparando la foto...",
     ubicando: "Obteniendo tu ubicación...",
@@ -338,6 +356,7 @@ function MarcadoVisitaTienda({
 
       if (resultado.exito) {
         setPendiente(null);
+        borrarFotoPendienteTienda(tienda.id);
         reproducirSonidoExito();
         setMarcadoRecien(tipo);
         window.setTimeout(() => setMarcadoRecien(null), 900);
@@ -371,6 +390,7 @@ function MarcadoVisitaTienda({
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         });
         setPendiente(null);
+        borrarFotoPendienteTienda(tienda.id);
         reproducirSonidoAlerta();
         setMensaje("Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
       } else {
@@ -392,6 +412,7 @@ function MarcadoVisitaTienda({
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
       setPendiente({ tipo, foto, horaCapturadaMs });
+      guardarFotoPendienteTienda(tienda.id, { tipo, foto, horaCapturadaMs });
       await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
