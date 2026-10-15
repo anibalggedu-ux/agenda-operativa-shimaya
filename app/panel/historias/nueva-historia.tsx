@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, AlertTriangle, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import { crearHistoria } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
@@ -402,7 +403,7 @@ export default function NuevaHistoriaBoton({
         onChange={handleArchivoVideo}
       />
 
-      {menuAbierto && (
+      {menuAbierto && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
           onClick={() => setMenuAbierto(false)}
@@ -506,10 +507,11 @@ export default function NuevaHistoriaBoton({
               En Galería puedes elegir varias fotos a la vez. Un video se publica hasta {DURACION_MAXIMA_VIDEO_SEG} segundos -- si dura más, eliges qué tramo usar.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {menuVideoAbierto && (
+      {menuVideoAbierto && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
           onClick={() => setMenuVideoAbierto(false)}
@@ -569,10 +571,11 @@ export default function NuevaHistoriaBoton({
               Se publican hasta {DURACION_MAXIMA_VIDEO_SEG} segundos -- si dura más, eliges qué tramo usar.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {videoParaRecortar && (
+      {videoParaRecortar && createPortal(
         <RecortarVideo
           archivo={videoParaRecortar.archivo}
           duracionTotal={videoParaRecortar.duracionTotal}
@@ -581,10 +584,11 @@ export default function NuevaHistoriaBoton({
             setVideoParaRecortar(null);
             onPublicado?.();
           }}
-        />
+        />,
+        document.body
       )}
 
-      {borradorVideo && (
+      {borradorVideo && createPortal(
         <ComposerVideoHistoria
           archivo={borradorVideo.archivo}
           previewUrl={borradorVideo.previewUrl}
@@ -593,10 +597,11 @@ export default function NuevaHistoriaBoton({
             cancelarVideo();
             onPublicado?.();
           }}
-        />
+        />,
+        document.body
       )}
 
-      {borradores && (
+      {borradores && createPortal(
         <ComposerHistoria
           fotos={borradores}
           onCambiarFoto={(i, foto) =>
@@ -610,10 +615,11 @@ export default function NuevaHistoriaBoton({
           publicando={publicando}
           mensaje={mensaje}
           progresoPublicacion={progresoPublicacion}
-        />
+        />,
+        document.body
       )}
 
-      {modoTexto && (
+      {modoTexto && createPortal(
         <ComposerTexto
           onCancelar={() => {
             setModoTexto(false);
@@ -622,7 +628,8 @@ export default function NuevaHistoriaBoton({
           onPublicar={publicarTexto}
           publicando={publicando}
           mensaje={mensaje}
-        />
+        />,
+        document.body
       )}
     </>
   );
