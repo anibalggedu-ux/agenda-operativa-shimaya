@@ -9,6 +9,8 @@ import { hoyPeru, sumarDias } from "@/lib/fechas";
 // con el mismo secreto compartido (APOYOS_SSO_SECRET) que vence en 2 minutos. No se manda la dirección escrita,
 // solo coordenadas redondeadas (~100 m).
 export const dynamic = "force-dynamic";
+// Las consultas a la base no se guardan en la caché de datos de Next: con ella, los supervisores asignados llegaban a Apoyos con datos de días atrás.
+export const fetchCache = "force-no-store";
 
 // Días de descanso fijo guardados como LUNES…DOMINGO (sin tilde) -> 1..7 (lunes = 1).
 const DIA_ISO: Record<string, number> = { LUNES: 1, MARTES: 2, MIERCOLES: 3, JUEVES: 4, VIERNES: 5, SABADO: 6, DOMINGO: 7 };
