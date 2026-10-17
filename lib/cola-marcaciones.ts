@@ -5,7 +5,13 @@
 // componente SincronizadorOffline la reenvía sola apenas vuelve la conexión,
 // usando esa hora original -- no la hora en que por fin logra conectar.
 
-export type AccionMarcacion = "llegada-tienda" | "salida-tienda" | "llegada-evento" | "salida-evento";
+export type AccionMarcacion =
+  | "llegada-tienda"
+  | "salida-tienda"
+  | "llegada-evento"
+  | "salida-evento"
+  | "salida-break"
+  | "entrada-break";
 
 export type MarcacionPendiente = {
   id: string;
@@ -13,9 +19,14 @@ export type MarcacionPendiente = {
   rutaActivaId?: string | null;
   reporteId?: string | null;
   comunicadoId?: string;
+  // Solo para "entrada-break" -- el id de la fila de marcaciones_break que
+  // ya quedó creada al marcar la salida.
+  breakId?: string;
   foto: string;
-  lat: number;
-  lng: number;
+  // El break no pide GPS -- opcionales para no forzar un 0,0 falso en esos
+  // casos (ver salida-break/entrada-break en enviarPendiente).
+  lat?: number;
+  lng?: number;
   horaCapturadaMs: number;
   // Justificativo opcional de tardanza, solo para "llegada-tienda".
   justificativoTardanza?: string;
@@ -92,7 +103,15 @@ export function pareceFallaDeConexion(error: unknown): boolean {
 // ni en la base (nunca se llegó a enviar) -- y más tarde la tienda aparecía
 // como si no se hubiera marcado nada (caso real: Anibal Garrido, tienda El
 // Polo, oct 2026).
-export type FotoPendienteTienda = { tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number };
+// "llegada"/"salida" son para tienda y evento; "entrada" es la vuelta del
+// break (la salida del break reutiliza "salida"). breakId solo aplica a
+// "entrada", para saber a qué fila de marcaciones_break corresponde.
+export type FotoPendienteTienda = {
+  tipo: "llegada" | "salida" | "entrada";
+  foto: string;
+  horaCapturadaMs: number;
+  breakId?: string;
+};
 
 function clavePendiente(tiendaCardId: string): string {
   return `shimaya_foto_pendiente_${tiendaCardId}`;

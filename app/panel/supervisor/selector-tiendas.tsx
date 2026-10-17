@@ -33,6 +33,7 @@ import {
   guardarFotoPendienteTienda,
   leerFotoPendienteTienda,
   borrarFotoPendienteTienda,
+  type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
 import { distanciaMetros, UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 
@@ -284,9 +285,7 @@ function MarcadoVisitaTienda({
   // Antes la foto y el GPS se pedían juntos con Promise.all: si el GPS
   // fallaba, se descartaba la foto recién tomada y había que volver a abrir
   // la cámara. Ahora se puede reintentar solo la ubicación y el envío.
-  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number } | null>(
-    null
-  );
+  const [pendiente, setPendiente] = useState<FotoPendienteTienda | null>(null);
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
   // Fecha elegida por la persona cuando marca salida de madrugada (ver
@@ -423,7 +422,7 @@ function MarcadoVisitaTienda({
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacion(pendiente.tipo, pendiente.foto, pendiente.horaCapturadaMs);
+    await enviarMarcacion(pendiente.tipo as "llegada" | "salida", pendiente.foto, pendiente.horaCapturadaMs);
   }
 
   const ocupado = paso !== null;

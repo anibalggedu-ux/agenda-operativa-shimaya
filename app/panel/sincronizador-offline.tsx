@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { marcarLlegadaTienda, marcarSalidaTienda } from "./supervisor/actions";
 import { marcarLlegadaEvento, marcarSalidaEvento } from "./anuncios-actions";
+import { marcarSalidaBreak, marcarEntradaBreak } from "./break-actions";
 import { guardarChecklistVisita } from "./checklist-visita-actions";
 import {
   obtenerMarcacionesPendientes,
@@ -24,8 +25,8 @@ async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boole
       return marcarLlegadaTienda(
         item.rutaActivaId ?? null,
         item.reporteId ?? null,
-        item.lat,
-        item.lng,
+        item.lat!,
+        item.lng!,
         item.foto,
         item.horaCapturadaMs,
         item.justificativoTardanza
@@ -34,16 +35,20 @@ async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boole
       return marcarSalidaTienda(
         item.rutaActivaId ?? null,
         item.reporteId ?? null,
-        item.lat,
-        item.lng,
+        item.lat!,
+        item.lng!,
         item.foto,
         item.horaCapturadaMs,
         item.fechaAsistenciaElegida
       );
     case "llegada-evento":
-      return marcarLlegadaEvento(item.comunicadoId!, item.lat, item.lng, item.foto, item.horaCapturadaMs);
+      return marcarLlegadaEvento(item.comunicadoId!, item.lat!, item.lng!, item.foto, item.horaCapturadaMs);
     case "salida-evento":
-      return marcarSalidaEvento(item.comunicadoId!, item.lat, item.lng, item.foto, item.horaCapturadaMs);
+      return marcarSalidaEvento(item.comunicadoId!, item.lat!, item.lng!, item.foto, item.horaCapturadaMs);
+    case "salida-break":
+      return marcarSalidaBreak(item.foto, item.horaCapturadaMs);
+    case "entrada-break":
+      return marcarEntradaBreak(item.breakId!, item.foto, item.horaCapturadaMs);
   }
 }
 

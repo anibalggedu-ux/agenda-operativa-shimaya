@@ -16,6 +16,19 @@ import {
   type BreakHoy,
   type BreakHistorial,
 } from "./break-actions";
+import {
+  agregarMarcacionPendiente,
+  pareceFallaDeConexion,
+  guardarFotoPendienteTienda,
+  leerFotoPendienteTienda,
+  borrarFotoPendienteTienda,
+  type FotoPendienteTienda,
+} from "@/lib/cola-marcaciones";
+
+// Solo puede haber un break en curso a la vez por persona -- una clave fija
+// (no por tienda) alcanza para guardar/restaurar la foto pendiente de este
+// widget.
+const CLAVE_PENDIENTE_BREAK = "break-widget";
 
 const AVISO_ANTES_SEG = 5 * 60;
 
@@ -90,9 +103,22 @@ export default function BreakWidget() {
   const [enviando, setEnviando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+  // Foto ya comprimida esperando un reintento manual (el envío falló por un
+  // motivo que no es de conexión) -- se persiste en localStorage para que
+  // sobreviva un cierre/recarga de la app (ver selector-tiendas.tsx, mismo
+  // problema con la tienda El Polo).
+  const [pendiente, setPendiente] = useState<FotoPendienteTienda | null>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
   const inputEntrada = useRef<HTMLInputElement>(null);
   const avisoEnviado = useRef(false);
+
+  useEffect(() => {
+    const guardada = leerFotoPendienteTienda(CLAVE_PENDIENTE_BREAK);
+    if (guardada) {
+      setPendiente(guardada);
+      setMensaje({ texto: 'Tenías una foto sin enviar — toca "Reintentar envío" para completarla.', exito: false });
+    }
+  }, []);
 
   // en_curso: ya salió a break y todavía no marca entrada -- ahí se muestra
   // el cronómetro. completado: ya usó su único break del día -- queda
@@ -143,18 +169,17 @@ export default function BreakWidget() {
     return () => clearInterval(intervalo);
   }, [activo]);
 
-  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>, tipo: "salida" | "entrada") {
-    const archivo = e.target.files?.[0];
-    e.target.value = "";
-    if (!archivo) return;
-    setMensaje(null);
+  async function enviarMarcacionBreak(tipo: "salida" | "entrada", foto: string, horaCapturadaMs: number, breakId?: string) {
     setEnviando(true);
     try {
-      const foto = await comprimirFotoComoBase64(archivo);
       const resultado =
-        tipo === "salida" ? await marcarSalidaBreak(foto) : await marcarEntradaBreak(activo!.id, foto);
+        tipo === "salida"
+          ? await marcarSalidaBreak(foto, horaCapturadaMs)
+          : await marcarEntradaBreak(breakId ?? activo!.id, foto, horaCapturadaMs);
       setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
       if (resultado.exito) {
+        setPendiente(null);
+        borrarFotoPendienteTienda(CLAVE_PENDIENTE_BREAK);
         reproducirSonidoExito();
         // Deja ver el anillo + check un instante antes de refrescar -- si se
         // llama a cargar() de una, la pantalla cambia de golpe (cronómetro
@@ -168,11 +193,54 @@ export default function BreakWidget() {
         reproducirSonidoAlerta();
       }
     } catch (err: any) {
-      reproducirSonidoAlerta();
-      setMensaje({ texto: err?.message || "No se pudo procesar la foto.", exito: false });
+      if (pareceFallaDeConexion(err)) {
+        // Sin señal -- queda en la cola del celular y se reenvía sola con la
+        // hora real de este intento en cuanto vuelva la conexión.
+        agregarMarcacionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          accion: tipo === "salida" ? "salida-break" : "entrada-break",
+          breakId: tipo === "entrada" ? breakId ?? activo!.id : undefined,
+          foto,
+          horaCapturadaMs,
+          etiqueta: tipo === "salida" ? "Salida a break" : "Entrada de break",
+        });
+        setPendiente(null);
+        borrarFotoPendienteTienda(CLAVE_PENDIENTE_BREAK);
+        reproducirSonidoAlerta();
+        setMensaje({ texto: "Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.", exito: false });
+      } else {
+        reproducirSonidoAlerta();
+        setMensaje({ texto: err?.message || "Ocurrió un error.", exito: false });
+      }
     } finally {
       setEnviando(false);
     }
+  }
+
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>, tipo: "salida" | "entrada") {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    const horaCapturadaMs = Date.now();
+    setMensaje(null);
+    try {
+      const foto = await comprimirFotoComoBase64(archivo);
+      const breakId = tipo === "entrada" ? activo!.id : undefined;
+      const dato: FotoPendienteTienda = { tipo, foto, horaCapturadaMs, breakId };
+      setPendiente(dato);
+      guardarFotoPendienteTienda(CLAVE_PENDIENTE_BREAK, dato);
+      await enviarMarcacionBreak(tipo, foto, horaCapturadaMs, breakId);
+    } catch (err: any) {
+      reproducirSonidoAlerta();
+      setMensaje({ texto: err?.message || "No se pudo procesar la foto.", exito: false });
+      setEnviando(false);
+    }
+  }
+
+  async function reintentar() {
+    if (!pendiente) return;
+    setMensaje(null);
+    await enviarMarcacionBreak(pendiente.tipo as "salida" | "entrada", pendiente.foto, pendiente.horaCapturadaMs, pendiente.breakId);
   }
 
   async function handleNoSalio() {
@@ -328,6 +396,19 @@ export default function BreakWidget() {
         <p className={`text-xs font-bold text-center ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
           {mensaje.texto}
         </p>
+      )}
+
+      {pendiente && !enviando && (
+        <div className="w-full bg-marca-rojo/10 border border-marca-rojo/40 rounded-[3px] p-3 space-y-2">
+          <p className="text-marca-tenue text-[11px]">Tu foto quedó guardada — no hace falta tomarla de nuevo.</p>
+          <button
+            type="button"
+            onClick={reintentar}
+            className="w-full min-h-[44px] bg-marca-rojo hover:bg-marca-rojoclaro text-marca-textofuerte font-black text-xs uppercase tracking-widest rounded-[3px] transition"
+          >
+            Reintentar envío
+          </button>
+        </div>
       )}
 
       {historial.length > 0 && (
