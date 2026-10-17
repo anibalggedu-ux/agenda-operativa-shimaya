@@ -2,11 +2,12 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirSesion } from "@/lib/session";
-import { diaLaboralPeru, horaPeru, formatearHora, diaSemanaPeru } from "@/lib/fechas";
+import { diaLaboralPeru, formatearHora, diaSemanaPeru } from "@/lib/fechas";
 import { expandirRangoFechas } from "@/lib/puntualidad";
 import { subirFotoMarcacion, obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import { enviarCorreo } from "@/lib/email";
 import { notificarPush } from "@/lib/notificar-push";
+import { resolverHoraMarcacion } from "@/lib/marcacion-offline";
 
 // Marcación de salida/entrada del break, disponible para cualquier rol (a
 // diferencia de la Bitácora de Campo, que es solo para quien tiene
@@ -176,7 +177,14 @@ export async function obtenerMisUltimosBreaks(limite = 10): Promise<BreakHistori
   );
 }
 
-export async function marcarSalidaBreak(fotoBase64: string): Promise<ResultadoBreak> {
+export async function marcarSalidaBreak(
+  fotoBase64: string,
+  // epoch ms de cuando el celular capturó la foto -- si el envío falla por
+  // falta de señal y se reintenta más tarde (ver lib/cola-marcaciones.ts),
+  // esto evita que el break quede registrado con la hora del reintento en
+  // vez de la hora real en que la persona salió. Ver resolverHoraMarcacion.
+  horaCapturadaMs?: number
+): Promise<ResultadoBreak> {
   const sesion = await exigirSesion();
   if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar tu salida a break." };
 
@@ -205,7 +213,7 @@ export async function marcarSalidaBreak(fotoBase64: string): Promise<ResultadoBr
   }
 
   const duracionMin = usuario?.duracion_break_min ?? DURACION_BREAK_MIN;
-  const horaSalida = horaPeru();
+  const horaSalida = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "salida a break");
   const horaLimite = sumarMinutosAHora(horaSalida, duracionMin);
   const fotoBlobPath = `${sesion.id}/break-salida-${Date.now()}.jpg`;
 
@@ -274,7 +282,11 @@ export async function marcarNoSalioBreak(): Promise<ResultadoBreak> {
   return { exito: true, mensaje: "Quedó registrado que hoy no saliste a break." };
 }
 
-export async function marcarEntradaBreak(breakId: string, fotoBase64: string): Promise<ResultadoBreak> {
+export async function marcarEntradaBreak(
+  breakId: string,
+  fotoBase64: string,
+  horaCapturadaMs?: number
+): Promise<ResultadoBreak> {
   const sesion = await exigirSesion();
   if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar tu entrada." };
 
@@ -286,7 +298,7 @@ export async function marcarEntradaBreak(breakId: string, fotoBase64: string): P
     .maybeSingle();
   if (!actual || actual.usuario_id !== sesion.id) return { exito: false, mensaje: "No se encontró tu break." };
 
-  const horaEntrada = horaPeru();
+  const horaEntrada = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "entrada de break");
   const fotoBlobPath = `${sesion.id}/break-entrada-${Date.now()}.jpg`;
 
   let fotoGuardada = true;

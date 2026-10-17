@@ -12,7 +12,14 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { recordarUnaVez, reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { formatearHora } from "@/lib/fechas";
-import { agregarMarcacionPendiente, pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import {
+  agregarMarcacionPendiente,
+  pareceFallaDeConexion,
+  guardarFotoPendienteTienda,
+  leerFotoPendienteTienda,
+  borrarFotoPendienteTienda,
+  type FotoPendienteTienda,
+} from "@/lib/cola-marcaciones";
 
 // Tarjeta independiente para marcar entrada/salida a un anuncio/evento del
 // día (ej. una reunión en otra sede) — no toca la asignación de tienda del
@@ -21,11 +28,21 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
   type Paso = "comprimiendo" | "ubicando" | "subiendo";
   const [paso, setPaso] = useState<Paso | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
-  const [pendiente, setPendiente] = useState<{ tipo: "llegada" | "salida"; foto: string; horaCapturadaMs: number } | null>(
-    null
-  );
+  const [pendiente, setPendiente] = useState<FotoPendienteTienda | null>(null);
   const inputLlegada = useRef<HTMLInputElement>(null);
   const inputSalida = useRef<HTMLInputElement>(null);
+
+  // Restaura la foto pendiente de reintento si la persona cerró/recargó la
+  // app antes de tocar "Reintentar envío" (ver selector-tiendas.tsx, mismo
+  // problema con la tienda El Polo).
+  useEffect(() => {
+    const guardada = leerFotoPendienteTienda(evento.comunicadoId);
+    if (guardada) {
+      setPendiente(guardada);
+      setMensaje("Tenías una foto sin enviar — toca \"Reintentar envío\" para completarla.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evento.comunicadoId]);
 
   const ETIQUETA_PASO: Record<Paso, string> = {
     comprimiendo: "Preparando la foto...",
@@ -54,6 +71,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
 
       if (resultado.exito) {
         setPendiente(null);
+        borrarFotoPendienteTienda(evento.comunicadoId);
         reproducirSonidoExito();
         onMarcado();
       } else {
@@ -73,6 +91,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${evento.mensaje}`,
         });
         setPendiente(null);
+        borrarFotoPendienteTienda(evento.comunicadoId);
         setMensaje("Sin señal — tu marcación quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
       } else {
         setMensaje(err?.message || "Ocurrió un error.");
@@ -92,6 +111,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
       setPendiente({ tipo, foto, horaCapturadaMs });
+      guardarFotoPendienteTienda(evento.comunicadoId, { tipo, foto, horaCapturadaMs });
       await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
@@ -102,7 +122,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacion(pendiente.tipo, pendiente.foto, pendiente.horaCapturadaMs);
+    await enviarMarcacion(pendiente.tipo as "llegada" | "salida", pendiente.foto, pendiente.horaCapturadaMs);
   }
 
   const ocupado = paso !== null;
