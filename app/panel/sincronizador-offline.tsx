@@ -6,6 +6,7 @@ import { marcarLlegadaTienda, marcarSalidaTienda } from "./supervisor/actions";
 import { marcarLlegadaEvento, marcarSalidaEvento } from "./anuncios-actions";
 import { marcarSalidaBreak, marcarEntradaBreak } from "./break-actions";
 import { guardarChecklistVisita } from "./checklist-visita-actions";
+import { subirFotoEvidencia } from "./evidencias-actions";
 import {
   obtenerMarcacionesPendientes,
   quitarMarcacionPendiente,
@@ -18,6 +19,12 @@ import {
   suscribirseACambiosDeColaChecklists,
   type ChecklistPendiente,
 } from "@/lib/cola-checklists";
+import {
+  obtenerEvidenciasPendientes,
+  quitarEvidenciaPendiente,
+  suscribirseACambiosDeColaEvidencias,
+  type FotoEvidenciaPendiente,
+} from "@/lib/cola-evidencias";
 
 async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boolean }> {
   switch (item.accion) {
@@ -57,6 +64,11 @@ async function enviarChecklistPendiente(item: ChecklistPendiente): Promise<{ exi
   return { exito: resultado.exito };
 }
 
+async function enviarEvidenciaPendiente(item: FotoEvidenciaPendiente): Promise<{ exito: boolean }> {
+  const resultado = await subirFotoEvidencia(item.tipo, item.registroId, item.dataUrl, item.pie, item.miniDataUrl);
+  return { exito: resultado.exito };
+}
+
 // Vive montado una sola vez en PanelShell (todos los portales) -- reenvía
 // solas cualquier marcación de ingreso/salida y cualquier checklist de
 // visita que hayan quedado pendientes por falta de señal (típico en los
@@ -68,17 +80,20 @@ async function enviarChecklistPendiente(item: ChecklistPendiente): Promise<{ exi
 export default function SincronizadorOffline() {
   const [pendientes, setPendientes] = useState<MarcacionPendiente[]>([]);
   const [checklistsPendientes, setChecklistsPendientes] = useState<ChecklistPendiente[]>([]);
+  const [evidenciasPendientes, setEvidenciasPendientes] = useState<FotoEvidenciaPendiente[]>([]);
   const [sincronizando, setSincronizando] = useState(false);
 
   const actualizar = useCallback(() => {
     setPendientes(obtenerMarcacionesPendientes());
     setChecklistsPendientes(obtenerChecklistsPendientes());
+    setEvidenciasPendientes(obtenerEvidenciasPendientes());
   }, []);
 
   const sincronizar = useCallback(async () => {
     const lista = obtenerMarcacionesPendientes();
     const listaChecklists = obtenerChecklistsPendientes();
-    if (lista.length === 0 && listaChecklists.length === 0) return;
+    const listaEvidencias = obtenerEvidenciasPendientes();
+    if (lista.length === 0 && listaChecklists.length === 0 && listaEvidencias.length === 0) return;
     setSincronizando(true);
     for (const item of lista) {
       try {
@@ -101,6 +116,16 @@ export default function SincronizadorOffline() {
         break;
       }
     }
+    for (const item of listaEvidencias) {
+      try {
+        const resultado = await enviarEvidenciaPendiente(item);
+        if (resultado?.exito) {
+          quitarEvidenciaPendiente(item.id);
+        }
+      } catch {
+        break;
+      }
+    }
     setSincronizando(false);
     actualizar();
   }, [actualizar]);
@@ -109,6 +134,7 @@ export default function SincronizadorOffline() {
     actualizar();
     const desuscribir = suscribirseACambiosDeCola(actualizar);
     const desuscribirChecklists = suscribirseACambiosDeColaChecklists(actualizar);
+    const desuscribirEvidencias = suscribirseACambiosDeColaEvidencias(actualizar);
     window.addEventListener("online", sincronizar);
     // Reintento periódico además del evento "online" -- en varios celulares
     // (sobre todo iOS) ese evento no siempre dispara al recuperar señal.
@@ -117,20 +143,16 @@ export default function SincronizadorOffline() {
     return () => {
       desuscribir();
       desuscribirChecklists();
+      desuscribirEvidencias();
       window.removeEventListener("online", sincronizar);
       clearInterval(intervalo);
     };
   }, [actualizar, sincronizar]);
 
-  const total = pendientes.length + checklistsPendientes.length;
+  const total = pendientes.length + checklistsPendientes.length + evidenciasPendientes.length;
   if (total === 0) return null;
 
-  const etiqueta =
-    pendientes.length > 0 && checklistsPendientes.length > 0
-      ? `${total} pendientes por enviar`
-      : pendientes.length > 0
-        ? `${pendientes.length} marcación${pendientes.length === 1 ? "" : "es"} pendiente${pendientes.length === 1 ? "" : "s"} por enviar`
-        : `${checklistsPendientes.length} checklist${checklistsPendientes.length === 1 ? "" : "s"} pendiente${checklistsPendientes.length === 1 ? "" : "s"} por enviar`;
+  const etiqueta = `${total} pendiente${total === 1 ? "" : "s"} por enviar`;
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-amber-500/50 bg-marca-superficie py-1.5 pl-3 pr-1.5 shadow-lg">
