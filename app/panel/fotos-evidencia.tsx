@@ -13,6 +13,7 @@ import {
   type TipoRegistroEvidencia,
 } from "@/lib/evidencias-constantes";
 import type { FotoPdf } from "@/lib/generar-pdf";
+import { agregarEvidenciaPendiente, quitarEvidenciaPendiente } from "@/lib/cola-evidencias";
 
 // Fotos opcionales al final del checklist de visita y de la auditoría:
 // varias fotos, cada una con su pie. Se comprimen al elegirlas y se suben
@@ -209,9 +210,23 @@ export async function subirFotosEvidencia(
 
   for (const foto of fotos) {
     if (foto.estado === "subida") continue;
+    // Encolada en el celular ANTES de intentar subirla (no recién si falla):
+    // así, si la app se cierra a mitad de la subida, SincronizadorOffline la
+    // termina de subir sola la próxima vez que haya señal, aunque el cierre
+    // haya sido antes de que este intento siquiera fallara.
+    agregarEvidenciaPendiente({
+      id: foto.id,
+      tipo,
+      registroId,
+      dataUrl: foto.dataUrl,
+      miniDataUrl: foto.miniDataUrl,
+      pie: foto.pie,
+      etiqueta: tipo === "checklist" ? "Foto de checklist" : "Foto de auditoría",
+    });
     actualizar(foto.id, { estado: "subiendo", error: undefined });
     try {
       const r = await subirFotoEvidencia(tipo, registroId, foto.dataUrl, foto.pie, foto.miniDataUrl);
+      if (r.exito) quitarEvidenciaPendiente(foto.id);
       actualizar(foto.id, r.exito ? { estado: "subida" } : { estado: "error", error: r.mensaje });
     } catch {
       actualizar(foto.id, { estado: "error", error: "Sin conexión" });
