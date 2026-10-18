@@ -21,3 +21,9 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agente QA — reportes y fixtures generados, nunca credenciales de prueba subidas a GitHub
+/scripts/agente-qa/reportes/*.md
+/scripts/agente-qa/reportes/*.json
+/scripts/agente-qa/fixtures/
+/scripts/agente-qa/.env.qa.local
