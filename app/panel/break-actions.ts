@@ -203,12 +203,26 @@ export async function marcarSalidaBreak(
       .eq("usuario_id", sesion.id)
       .eq("fecha", fecha)
       .maybeSingle(),
-    supabase.from("usuarios").select("duracion_break_min").eq("id", sesion.id).maybeSingle(),
+    supabase.from("usuarios").select("duracion_break_min, dias_descanso").eq("id", sesion.id).maybeSingle(),
   ]);
   if (existente && !existente.no_salio) {
     return {
       exito: false,
       mensaje: existente.hora_entrada ? "Ya usaste tu break de hoy." : "Ya tienes un break en curso.",
+    };
+  }
+
+  // Mismo bloqueo que la autoasignación de tienda: si hoy es su descanso
+  // semanal fijo, no se marca break por su cuenta aunque de algún modo ya
+  // tenga una tienda asignada ese día (ej. una ruta especial asignada a
+  // mano) -- tiene que pedirle al coordinador que le cambie el descanso. La
+  // pantalla ya oculta el botón en este caso (obtenerPermiteBreakHoy), esto
+  // es el mismo chequeo del lado del servidor, para que no se pueda marcar
+  // igual si el botón llegó a mostrarse con datos desactualizados.
+  if ((usuario?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
+    return {
+      exito: false,
+      mensaje: `Hoy es tu día de descanso. Pídele a tu coordinador que te lo cambie, o mándale la solicitud desde "Mis solicitudes".`,
     };
   }
 

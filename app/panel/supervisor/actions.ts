@@ -472,6 +472,25 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
   const fecha = paraManana ? sumarDias(hoyPeru(), 1) : hoyPeru();
   const etiquetaFecha = paraManana ? "mañana" : "hoy";
 
+  // Si ese día es su descanso semanal fijo, no se autoasigna solo -- tiene
+  // que pedirle al coordinador que se lo cambie (a mano, o mandando la
+  // solicitud desde "Mis solicitudes"), igual que con el break más abajo.
+  // Antes esto no se revisaba acá -- caso real: Renzo Palomino se autoasignó
+  // La Molina un lunes (su descanso registrado), y recién se notó porque el
+  // widget de break desapareció (esa pantalla sí respeta el descanso, pero
+  // la autoasignación de tienda no).
+  const { data: usuarioDescanso } = await supabase
+    .from("usuarios")
+    .select("dias_descanso")
+    .eq("id", sesion.id)
+    .maybeSingle();
+  if ((usuarioDescanso?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
+    return {
+      exito: false,
+      mensaje: `${paraManana ? "Mañana" : "Hoy"} es tu día de descanso. Pídele a tu coordinador que te lo cambie, o mándale la solicitud desde "Mis solicitudes".`,
+    };
+  }
+
   // .limit(1) en vez de maybeSingle(): no hay nada que impida tener varias
   // tiendas autoasignadas el mismo día (ni límite de cuántas), así que acá
   // solo interesa si ESTA tienda puntual ya se repite -- maybeSingle()
