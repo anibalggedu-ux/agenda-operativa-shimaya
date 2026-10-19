@@ -1487,6 +1487,50 @@ export async function obtenerObservacionesTiendasFijas(
   }));
 }
 
+// Quien escribió la observación solo se enteraba de la respuesta o del
+// "leído" si entraba por su cuenta a "Mis Reportes" -- sugerencia real de
+// Carlos Monasterios (capacitador): avisarle apenas el supervisor de esa
+// tienda responde o marca como leída, en vez de que tenga que ir a
+// revisarlo él mismo.
+async function notificarAutorObservacion(
+  reporteId: string,
+  tiendaNombre: string,
+  respondidoPor: string,
+  respuesta: string | null
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: reporte } = await supabase
+      .from("rutas_diarias")
+      .select("usuario_id, usuarios!usuario_id(email)")
+      .eq("id", reporteId)
+      .maybeSingle();
+    const autorId = reporte?.usuario_id;
+    const autorEmail = (reporte as any)?.usuarios?.email as string | undefined;
+    if (!autorId) return;
+
+    const cuerpo = respuesta
+      ? `${respondidoPor} respondió tu observación de ${tiendaNombre}.`
+      : `${respondidoPor} marcó como leída tu observación de ${tiendaNombre}.`;
+    await notificarPush([autorId], { titulo: "💬 Respuesta a tu observación", cuerpo });
+
+    if (!autorEmail) return;
+    await enviarCorreo({
+      para: autorEmail,
+      tituloEmoji: "💬",
+      asunto: respuesta ? `${respondidoPor} respondió tu observación` : `${respondidoPor} marcó tu observación como leída`,
+      cuerpoHtml: `
+        <p><strong>${respondidoPor}</strong> ${respuesta ? "respondió" : "marcó como leída"} tu observación de
+        <strong>${tiendaNombre}</strong>.</p>
+        ${respuesta ? `<p style="background:#f4f4f5; border-radius:6px; padding:12px; margin:12px 0;">${escaparHtml(respuesta)}</p>` : ""}
+        <p style="color:#8b8d92; font-size:12px;">Entra a "Mis Reportes" en tu panel para ver el detalle.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la respuesta a la observación:", error);
+  }
+}
+
 export async function responderObservacionTiendaFija(
   _prevState: ResultadoReporte,
   formData: FormData
@@ -1505,7 +1549,7 @@ export async function responderObservacionTiendaFija(
 
   const { data: reporte, error: errorReporte } = await supabase
     .from("rutas_diarias")
-    .select("tienda_id")
+    .select("tienda_id, tiendas!tienda_id(nombre)")
     .eq("id", reporteId)
     .maybeSingle();
 
@@ -1538,6 +1582,9 @@ export async function responderObservacionTiendaFija(
     .eq("id", reporteId);
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
+
+  await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, respuesta);
+
   return { exito: true, mensaje: "Respuesta enviada." };
 }
 
@@ -1552,7 +1599,7 @@ export async function marcarObservacionLeida(reporteId: string): Promise<Resulta
 
   const { data: reporte, error: errorReporte } = await supabase
     .from("rutas_diarias")
-    .select("tienda_id")
+    .select("tienda_id, leido, tiendas!tienda_id(nombre)")
     .eq("id", reporteId)
     .maybeSingle();
 
@@ -1574,6 +1621,14 @@ export async function marcarObservacionLeida(reporteId: string): Promise<Resulta
 
   const { error } = await supabase.from("rutas_diarias").update({ leido: true }).eq("id", reporteId);
   if (error) return { exito: false, mensaje: "No se pudo marcar como leída." };
+
+  // Si ya estaba leído, no se vuelve a avisar -- sin esto, cada vez que se
+  // recarga la pantalla con este botón visible se mandaría el mismo push de
+  // nuevo.
+  if (!reporte.leido) {
+    await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, null);
+  }
+
   return { exito: true };
 }
 
