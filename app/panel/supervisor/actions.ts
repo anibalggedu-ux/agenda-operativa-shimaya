@@ -405,15 +405,30 @@ export async function obtenerTiendasAsignadasHoy(): Promise<TiendaAsignadaHoy[]>
   if (!sesion || !tieneBitacora(sesion.rol)) throw new Error("No autorizado.");
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("rutas_activas")
-    .select("tiendas!tienda_id(id, nombre, lat, lon)")
-    .eq("usuario_id", sesion.id)
-    .eq("fecha_planificada", hoyPeru());
-  if (error) throw new Error("No se pudo cargar tus tiendas de hoy.");
+  const hoy = hoyPeru();
+  // Mientras la visita está "en curso" (llegaste pero todavía no mandaste el
+  // reporte) vive en rutas_activas -- apenas se envía el reporte, se borra
+  // de ahí y pasa a rutas_diarias (ver enviarReporte). Si este checklist
+  // solo mirara rutas_activas, la tienda desaparecía de este selector apenas
+  // se reportaba la visita, aunque la persona siguiera ahí sin haber
+  // marcado salida todavía -- caso real: Anibal en Santa Anita, ya había
+  // reportado la visita y el checklist no le dejaba elegir la tienda.
+  const [{ data: activas, error: errorActivas }, { data: diarias, error: errorDiarias }] = await Promise.all([
+    supabase
+      .from("rutas_activas")
+      .select("tiendas!tienda_id(id, nombre, lat, lon)")
+      .eq("usuario_id", sesion.id)
+      .eq("fecha_planificada", hoy),
+    supabase
+      .from("rutas_diarias")
+      .select("tiendas!tienda_id(id, nombre, lat, lon)")
+      .eq("usuario_id", sesion.id)
+      .eq("fecha", hoy),
+  ]);
+  if (errorActivas || errorDiarias) throw new Error("No se pudo cargar tus tiendas de hoy.");
 
   const vistas = new Map<string, TiendaAsignadaHoy>();
-  (data ?? []).forEach((r: any) => {
+  [...(activas ?? []), ...(diarias ?? [])].forEach((r: any) => {
     const t = r.tiendas;
     if (t && !vistas.has(t.id)) {
       vistas.set(t.id, { id: t.id, nombre: t.nombre, lat: t.lat === null ? null : Number(t.lat), lon: t.lon === null ? null : Number(t.lon) });
