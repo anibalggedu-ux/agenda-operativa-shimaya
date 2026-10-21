@@ -6,6 +6,7 @@ import { X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { cerrarSesionAction } from "./logout-action";
 import ThemeToggle from "./theme-toggle";
 import SincronizadorOffline from "./sincronizador-offline";
+import RegistradorServiceWorker from "./registrador-service-worker";
 import OndaDorada from "./onda-dorada";
 import TelonBienvenida from "./telon-bienvenida";
 import Brasas from "./brasas";
@@ -336,6 +337,7 @@ export default function PanelShell({
       {activo === idHome && <Brasas />}
 
       <SincronizadorOffline />
+      <RegistradorServiceWorker />
       <OndaDorada />
       <TelonBienvenida nombre={nombre} />
       <Celebracion />

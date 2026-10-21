@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sin conexión — Shimaya</title>
+<style>
+  :root {
+    --fondo: 10 10 11;
+    --superficie: 20 19 18;
+    --borde: 44 41 37;
+    --texto: 239 233 223;
+    --textofuerte: 248 243 235;
+    --tenue: 146 138 126;
+    --rojo: 211 30 43;
+    --rojoclaro: 226 55 68;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --fondo: 246 243 237;
+      --superficie: 255 255 255;
+      --borde: 222 215 204;
+      --texto: 36 32 27;
+      --textofuerte: 20 17 13;
+      --tenue: 112 104 93;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    padding-top: calc(24px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    background: rgb(var(--fondo));
+    color: rgb(var(--texto));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .tarjeta {
+    max-width: 24rem;
+    width: 100%;
+    background: rgb(var(--superficie));
+    border: 1px solid rgb(var(--borde));
+    border-radius: 6px;
+    padding: 28px 24px;
+    text-align: center;
+  }
+  .icono {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    color: rgb(var(--rojoclaro));
+  }
+  h1 {
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: rgb(var(--textofuerte));
+    margin: 0 0 8px;
+  }
+  p {
+    font-size: 0.875rem;
+    color: rgb(var(--tenue));
+    line-height: 1.5;
+    margin: 0 0 20px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 3px;
+    background: rgb(var(--rojo));
+    color: rgb(var(--textofuerte));
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  button:active { background: rgb(var(--rojoclaro)); }
+</style>
+</head>
+<body>
+  <div class="tarjeta">
+    <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0" />
+      <line x1="12" y1="20" x2="12.01" y2="20" />
+    </svg>
+    <h1>Sin conexión</h1>
+    <p>Esta pantalla todavía no se abrió con conexión, así que no quedó guardada en tu celular. Apenas vuelva la señal, se va a poder abrir igual que el resto.</p>
+    <button onclick="location.reload()">Reintentar</button>
+  </div>
+</body>
+</html>
