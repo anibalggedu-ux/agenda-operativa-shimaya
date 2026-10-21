@@ -60,17 +60,24 @@ self.addEventListener("fetch", (evento) => {
   // Archivos propios de Next con hash en el nombre -- inmutables, se pueden
   // guardar para siempre sin riesgo de quedar "viejos": una build nueva usa
   // nombres de archivo distintos, nunca pisa estos.
+  //
+  // El guardado en caché (caches.open(...).then(...)) va envuelto en
+  // evento.waitUntil en los tres casos de abajo -- sin eso, es un trabajo
+  // "de fondo" que el navegador no se compromete a terminar: si la persona
+  // cierra la app (o se queda sin señal) justo después de que la pantalla ya
+  // cargó, puede cortarlo a mitad de camino, y esa pantalla queda SIN
+  // guardar pese a haberse visto. waitUntil le avisa al navegador "no demos
+  // por terminado este fetch hasta que esto también termine".
   if (url.pathname.startsWith("/_next/static/")) {
     evento.respondWith(
-      caches.match(peticion).then(
-        (guardado) =>
-          guardado ||
-          fetch(peticion).then((respuesta) => {
-            const copia = respuesta.clone();
-            caches.open(CACHE_ESTATICOS).then((c) => c.put(peticion, copia));
-            return respuesta;
-          })
-      )
+      caches.match(peticion).then((guardado) => {
+        if (guardado) return guardado;
+        return fetch(peticion).then((respuesta) => {
+          const copia = respuesta.clone();
+          evento.waitUntil(caches.open(CACHE_ESTATICOS).then((c) => c.put(peticion, copia)));
+          return respuesta;
+        });
+      })
     );
     return;
   }
@@ -84,7 +91,7 @@ self.addEventListener("fetch", (evento) => {
       fetch(peticion)
         .then((respuesta) => {
           const copia = respuesta.clone();
-          caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia));
+          evento.waitUntil(caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia)));
           return respuesta;
         })
         .catch(() => caches.match(peticion).then((guardado) => guardado || caches.match(URL_SIN_CONEXION)))
@@ -101,7 +108,7 @@ self.addEventListener("fetch", (evento) => {
     fetch(peticion)
       .then((respuesta) => {
         const copia = respuesta.clone();
-        caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia));
+        evento.waitUntil(caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia)));
         return respuesta;
       })
       .catch(() => caches.match(peticion).then((guardado) => guardado || Promise.reject()))
