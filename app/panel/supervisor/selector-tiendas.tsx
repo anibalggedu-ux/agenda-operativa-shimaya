@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useFormState, useFormStatus } from "react-dom";
 import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation, LocateFixed } from "lucide-react";
 import {
   obtenerTiendasClasificadas,
@@ -35,6 +34,7 @@ import {
   borrarFotoPendienteTienda,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
+import { agregarReportePendiente } from "@/lib/cola-reportes";
 import { distanciaMetros, UMBRAL_LEJOS_METROS } from "@/lib/distancia-recta";
 
 const ESTILOS_URGENCIA: Record<
@@ -72,8 +72,7 @@ const ESTILOS_URGENCIA: Record<
 };
 const estadoInicialReporte: ResultadoReporte = { exito: false };
 
-function BotonEnviar({ esEdicion }: { esEdicion: boolean }) {
-  const { pending } = useFormStatus();
+function BotonEnviar({ esEdicion, pending }: { esEdicion: boolean; pending: boolean }) {
   return (
     <button
       type="submit"
@@ -665,11 +664,54 @@ export default function SelectorTiendas({
     }
   }
 
-  const [estadoNuevo, formActionNuevo] = useFormState(enviarReporte, estadoInicialReporte);
-  const [estadoEditar, formActionEditar] = useFormState(editarReporte, estadoInicialReporte);
+  const [estadoNuevo, setEstadoNuevo] = useState<ResultadoReporte>(estadoInicialReporte);
+  const [estadoEditar, setEstadoEditar] = useState<ResultadoReporte>(estadoInicialReporte);
+  const [enviandoReporte, setEnviandoReporte] = useState(false);
 
   const esEdicion = !!seleccionada?.reporteId;
   const estadoActivo = esEdicion ? estadoEditar : estadoNuevo;
+
+  async function handleEnviarReporte(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setEnviandoReporte(true);
+    if (esEdicion) {
+      try {
+        setEstadoEditar(await editarReporte(estadoInicialReporte, formData));
+      } catch (err: any) {
+        setEstadoEditar({ exito: false, mensaje: err?.message || "No se pudo guardar el reporte." });
+      } finally {
+        setEnviandoReporte(false);
+      }
+      return;
+    }
+    try {
+      setEstadoNuevo(await enviarReporte(estadoInicialReporte, formData));
+    } catch (err) {
+      if (pareceFallaDeConexion(err)) {
+        // Sin señal -- queda en la cola del celular y el indicador global lo
+        // reenvía solo en cuanto vuelva la conexión. No se pierde la
+        // observación ya escrita.
+        agregarReportePendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          rutaActivaId: String(formData.get("rutaActivaId") || ""),
+          tiendaId: String(formData.get("tiendaId") || ""),
+          observacion: String(formData.get("observacion") || ""),
+          actividad: String(formData.get("actividad") || ""),
+          etiqueta: `Reporte — ${seleccionada?.tiendaNombre ?? "tienda"}`,
+        });
+        reproducirSonidoAlerta();
+        setEstadoNuevo({
+          exito: false,
+          mensaje: "Sin señal — tu reporte quedó guardado en el celular y se enviará solo cuando vuelva la conexión.",
+        });
+      } else {
+        setEstadoNuevo({ exito: false, mensaje: (err as any)?.message || "No se pudo enviar el reporte." });
+      }
+    } finally {
+      setEnviandoReporte(false);
+    }
+  }
 
   function cargar() {
     setCargando(true);
@@ -910,7 +952,7 @@ export default function SelectorTiendas({
 
       {seleccionada && (
         <form
-          action={esEdicion ? formActionEditar : formActionNuevo}
+          onSubmit={handleEnviarReporte}
           className="bg-marca-superficie border border-marca-rojo/40 rounded-[3px] p-5 space-y-4"
         >
           {esEdicion ? (
@@ -964,7 +1006,7 @@ export default function SelectorTiendas({
               Cancelar
             </button>
             <div className="flex-1">
-              <BotonEnviar esEdicion={esEdicion} />
+              <BotonEnviar esEdicion={esEdicion} pending={enviandoReporte} />
             </div>
           </div>
 

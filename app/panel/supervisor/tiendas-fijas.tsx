@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
 import { Store, ClipboardList, Check } from "lucide-react";
 import {
   obtenerMisTiendasFijas,
@@ -16,6 +15,8 @@ import {
   type ChecklistTiendaFija,
 } from "./actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
+import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { agregarObservacionPendiente } from "@/lib/cola-observaciones";
 
 function SelectorFechas({
   desde,
@@ -57,8 +58,7 @@ function SelectorFechas({
 
 const estadoInicial: ResultadoReporte = { exito: false };
 
-function BotonResponder() {
-  const { pending } = useFormStatus();
+function BotonResponder({ pending }: { pending: boolean }) {
   return (
     <button
       type="submit"
@@ -77,22 +77,64 @@ function ObservacionItem({
   obs: ObservacionTiendaFija;
   onRespondida: () => void;
 }) {
-  const [estado, formAction] = useFormState(responderObservacionTiendaFija, estadoInicial);
+  const [estado, setEstado] = useState<ResultadoReporte>(estadoInicial);
+  const [enviando, setEnviando] = useState(false);
   const [marcando, setMarcando] = useState(false);
   const [errorLeido, setErrorLeido] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (estado.exito) onRespondida();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado]);
+  async function handleResponder(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const respuesta = String(new FormData(e.currentTarget).get("respuesta") || "").trim();
+    setEnviando(true);
+    try {
+      const resultado = await responderObservacionTiendaFija(estadoInicial, new FormData(e.currentTarget));
+      setEstado(resultado);
+      if (resultado.exito) onRespondida();
+    } catch (err) {
+      if (pareceFallaDeConexion(err)) {
+        // Sin señal -- queda en la cola del celular y el indicador global la
+        // reenvía sola en cuanto vuelva la conexión.
+        agregarObservacionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          tipo: "respuesta",
+          reporteId: obs.id,
+          respuesta,
+          etiqueta: `Respuesta a observación — ${obs.tiendaNombre}`,
+        });
+        setEstado({
+          exito: false,
+          mensaje: "Sin señal — tu respuesta quedó guardada en el celular y se enviará sola cuando vuelva la conexión.",
+        });
+      } else {
+        setEstado({ exito: false, mensaje: (err as any)?.message || "No se pudo enviar la respuesta." });
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   async function handleMarcarLeido() {
     setMarcando(true);
     setErrorLeido(null);
-    const resultado = await marcarObservacionLeida(obs.id);
-    setMarcando(false);
-    if (resultado.exito) onRespondida();
-    else setErrorLeido(resultado.mensaje || "No se pudo marcar como leída.");
+    try {
+      const resultado = await marcarObservacionLeida(obs.id);
+      if (resultado.exito) onRespondida();
+      else setErrorLeido(resultado.mensaje || "No se pudo marcar como leída.");
+    } catch (err) {
+      if (pareceFallaDeConexion(err)) {
+        agregarObservacionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          tipo: "leido",
+          reporteId: obs.id,
+          etiqueta: `Marcar leído — ${obs.tiendaNombre}`,
+        });
+        setErrorLeido("Sin señal — quedó guardado en el celular y se marcará solo cuando vuelva la conexión.");
+      } else {
+        setErrorLeido((err as any)?.message || "No se pudo marcar como leída.");
+      }
+    } finally {
+      setMarcando(false);
+    }
   }
 
   return (
@@ -117,7 +159,7 @@ function ObservacionItem({
           <p className="text-marca-textofuerte text-sm mt-1">{obs.respuesta}</p>
         </div>
       ) : (
-        <form action={formAction} className="mt-3 space-y-2">
+        <form onSubmit={handleResponder} className="mt-3 space-y-2">
           <input type="hidden" name="reporteId" value={obs.id} />
           <textarea
             name="respuesta"
@@ -127,7 +169,7 @@ function ObservacionItem({
             className="w-full p-2.5 bg-marca-superficie2 border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
           />
           <div className="flex items-center gap-3">
-            <BotonResponder />
+            <BotonResponder pending={enviando} />
             <button
               type="button"
               onClick={handleMarcarLeido}
