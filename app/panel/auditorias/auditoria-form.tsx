@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
 import { RotateCcw, Check } from "lucide-react";
 import {
   crearAuditoria,
@@ -11,8 +10,10 @@ import {
   type TiendaBasicaAuditoria,
   type ResultadoAuditoria,
 } from "./actions";
-import { hoyPeru } from "@/lib/fechas";
+import { hoyPeru, formatearFechaLegible } from "@/lib/fechas";
 import { reproducirSonidoAlerta, reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
+import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { agregarAuditoriaPendiente, serializarFormData } from "@/lib/cola-auditorias";
 import {
   AvisoFotosPendientes,
   SelectorFotosEvidencia,
@@ -36,8 +37,7 @@ const estadoInicial: ResultadoAuditoria = { exito: false };
 const clasesInput =
   "w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro";
 
-function BotonEnviar() {
-  const { pending } = useFormStatus();
+function BotonEnviar({ pending }: { pending: boolean }) {
   return (
     <button
       type="submit"
@@ -64,7 +64,8 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
   const [cargando, setCargando] = useState(true);
   const [calificados, setCalificados] = useState(0);
   const [borradorRestaurado, setBorradorRestaurado] = useState(false);
-  const [estado, formAction] = useFormState(crearAuditoria, estadoInicial);
+  const [estado, setEstado] = useState<ResultadoAuditoria>(estadoInicial);
+  const [enviando, setEnviando] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   // Las fotos no van en el FormData: se suben una por una después de
   // guardar, con el id de la auditoría ya creada.
@@ -131,6 +132,43 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
     } catch {}
   }, [cargando, items]);
 
+  async function handleEnviar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = formRef.current;
+    if (!form) return;
+    const formData = new FormData(form);
+    setEnviando(true);
+    let resultado: ResultadoAuditoria;
+    try {
+      resultado = await crearAuditoria(estadoInicial, formData);
+    } catch (err) {
+      setEnviando(false);
+      if (pareceFallaDeConexion(err)) {
+        // Sin señal -- queda en la cola del celular (la FormData "aplanada",
+        // reconstruible más tarde) y el indicador global la reenvía sola en
+        // cuanto vuelva la conexión. No se pierde lo ya cargado.
+        const tiendaNombre = tiendas.find((t) => t.id === String(formData.get("tiendaId") || ""))?.nombre ?? "tienda";
+        const fecha = String(formData.get("fecha") || "");
+        agregarAuditoriaPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          datos: serializarFormData(form),
+          etiqueta: `Auditoría — ${tiendaNombre}${fecha ? ` (${formatearFechaLegible(fecha)})` : ""}`,
+        });
+        reproducirSonidoAlerta();
+        setEstado({
+          exito: false,
+          mensaje: "Sin señal — tu auditoría quedó guardada en el celular y se enviará sola cuando vuelva la conexión.",
+        });
+      } else {
+        reproducirSonidoAlerta();
+        setEstado({ exito: false, mensaje: (err as any)?.message || "No se pudo guardar la auditoría." });
+      }
+      return;
+    }
+    setEnviando(false);
+    setEstado(resultado);
+  }
+
   async function subirFotos(auditoriaId: string, lista: FotoPendiente[]) {
     setSubiendoFotos(true);
     const fallidas = await subirFotosEvidencia("auditoria", auditoriaId, lista, setFotos);
@@ -188,7 +226,7 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
   }
 
   return (
-    <form ref={formRef} action={formAction} onChange={guardarBorrador} className="space-y-6">
+    <form ref={formRef} onSubmit={handleEnviar} onChange={guardarBorrador} className="space-y-6">
       {borradorRestaurado && (
         <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-3 flex items-center justify-between gap-3 flex-wrap">
           <p className="text-marca-tenue text-xs flex items-center gap-1.5">
@@ -425,7 +463,7 @@ export default function AuditoriaForm({ onGuardado }: { onGuardado: () => void }
         </div>
       )}
 
-      {!(estado.exito && fotos.length > 0) && <BotonEnviar />}
+      {!(estado.exito && fotos.length > 0) && <BotonEnviar pending={enviando} />}
 
       {estado.mensaje && (
         <p
