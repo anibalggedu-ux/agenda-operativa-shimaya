@@ -12,9 +12,30 @@ import { useEffect } from "react";
 export default function RegistradorServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
-      console.error("No se pudo registrar el Service Worker:", error);
-    });
+
+    // La primerísima carga de una pantalla (antes de que el Service Worker
+    // termine de instalarse) nunca pasa por su manejador de fetch, así que
+    // esa pantalla queda "sin guardar" aunque la persona ya la haya visto --
+    // probado en campo: al reabrir sin señal mostraba "Sin conexión" en vez
+    // de la pantalla recién vista. Apenas el Service Worker toma el control
+    // (o si ya lo tenía), se repite la misma petición una vez por su cuenta
+    // -- esa sí pasa por su manejador y queda guardada para la próxima.
+    function precargarPaginaActual() {
+      fetch(window.location.href, { cache: "reload" }).catch(() => {});
+    }
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => {
+        if (navigator.serviceWorker.controller) {
+          precargarPaginaActual();
+        } else {
+          navigator.serviceWorker.addEventListener("controllerchange", precargarPaginaActual, { once: true });
+        }
+      })
+      .catch((error) => {
+        console.error("No se pudo registrar el Service Worker:", error);
+      });
   }, []);
 
   return null;
