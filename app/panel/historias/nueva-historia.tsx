@@ -7,6 +7,8 @@ import { crearHistoria } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { esTemporadaHalloween } from "@/lib/fechas";
 import { reproducirSonidoAlerta } from "@/lib/sonido";
+import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { agregarHistoriaPendiente } from "@/lib/cola-historias";
 import ComposerTexto from "./composer-texto";
 import RecortarFoto from "./recortar-foto";
 import ComposerVideoHistoria from "./composer-video";
@@ -311,24 +313,49 @@ export default function NuevaHistoriaBoton({
     setMensaje(null);
     setPublicando(true);
     setProgresoPublicacion(items.length > 1 ? { actual: 0, total: items.length } : null);
+    let encoladas = 0;
     try {
       for (let i = 0; i < items.length; i++) {
-        // Sin miniatura: en el plan Hobby de Vercel cada archivo subido
-        // gasta una de las ~2.000 operaciones del mes, y las historias son
-        // las que más suben después de las marcaciones.
-        const resultado = await crearHistoria(items[i].foto, items[i].texto);
-        if (!resultado.exito) {
-          reproducirSonidoAlerta();
-          setMensaje(
-            items.length > 1
-              ? resultado.mensaje || `No se pudo publicar la foto ${i + 1} de ${items.length}.`
-              : resultado.mensaje || "No se pudo publicar la foto."
-          );
-          return;
+        try {
+          // Sin miniatura: en el plan Hobby de Vercel cada archivo subido
+          // gasta una de las ~2.000 operaciones del mes, y las historias son
+          // las que más suben después de las marcaciones.
+          const resultado = await crearHistoria(items[i].foto, items[i].texto);
+          if (!resultado.exito) {
+            reproducirSonidoAlerta();
+            setMensaje(
+              items.length > 1
+                ? resultado.mensaje || `No se pudo publicar la foto ${i + 1} de ${items.length}.`
+                : resultado.mensaje || "No se pudo publicar la foto."
+            );
+            return;
+          }
+        } catch (err) {
+          if (!pareceFallaDeConexion(err)) throw err;
+          // Sin señal -- queda en la cola del celular y el indicador global
+          // la reenvía sola en cuanto vuelva la conexión. Se sigue con las
+          // demás fotos del lote igual (probablemente también sin señal,
+          // pero no cuesta nada intentarlo).
+          agregarHistoriaPendiente({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            fotoDataUrl: items[i].foto,
+            texto: items[i].texto,
+            etiqueta: "Historia (foto)",
+          });
+          encoladas++;
         }
         if (items.length > 1) setProgresoPublicacion({ actual: i + 1, total: items.length });
       }
       setBorradores(null);
+      if (encoladas > 0) {
+        reproducirSonidoAlerta();
+        const plural = encoladas > 1;
+        setMensaje(
+          `Sin señal — ${encoladas} de ${items.length} foto${items.length > 1 ? "s" : ""} quedaron guardadas en el celular y se enviar${
+            plural ? "án" : "á"
+          } sola${plural ? "s" : ""} cuando vuelva la conexión.`
+        );
+      }
       onPublicado?.();
     } catch (err: any) {
       reproducirSonidoAlerta();
@@ -352,6 +379,17 @@ export default function NuevaHistoriaBoton({
         setMensaje(resultado.mensaje || "No se pudo publicar la historia.");
       }
     } catch (err: any) {
+      if (pareceFallaDeConexion(err)) {
+        agregarHistoriaPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          fotoDataUrl,
+          etiqueta: "Historia (texto)",
+        });
+        setModoTexto(false);
+        setMensaje("Sin señal — tu historia quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
+        onPublicado?.();
+        return;
+      }
       reproducirSonidoAlerta();
       setMensaje(err?.message || "No se pudo publicar la historia.");
     } finally {
