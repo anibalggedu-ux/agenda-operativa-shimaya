@@ -70,7 +70,7 @@ self.addEventListener("fetch", (evento) => {
   // por terminado este fetch hasta que esto también termine".
   if (url.pathname.startsWith("/_next/static/")) {
     evento.respondWith(
-      caches.match(peticion).then((guardado) => {
+      caches.match(peticion, { ignoreVary: true }).then((guardado) => {
         if (guardado) return guardado;
         return fetch(peticion).then((respuesta) => {
           const copia = respuesta.clone();
@@ -94,7 +94,17 @@ self.addEventListener("fetch", (evento) => {
           evento.waitUntil(caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia)));
           return respuesta;
         })
-        .catch(() => caches.match(peticion).then((guardado) => guardado || caches.match(URL_SIN_CONEXION)))
+        .catch(() =>
+          // ignoreVary: true -- Next.js agrega cabeceras Vary (para la
+          // navegación entre rutas) y por defecto Cache API las respeta al
+          // buscar: si la petición que falló ahora no trae exactamente las
+          // mismas cabeceras que la que se guardó (algo que varía solo con
+          // que el navegador arme la petición un poco distinto cada vez),
+          // la búsqueda fallaba igual aunque la URL fuera idéntica.
+          caches
+            .match(peticion, { ignoreVary: true })
+            .then((guardado) => guardado || caches.match(URL_SIN_CONEXION))
+        )
     );
     return;
   }
@@ -111,7 +121,7 @@ self.addEventListener("fetch", (evento) => {
         evento.waitUntil(caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia)));
         return respuesta;
       })
-      .catch(() => caches.match(peticion).then((guardado) => guardado || Promise.reject()))
+      .catch(() => caches.match(peticion, { ignoreVary: true }).then((guardado) => guardado || Promise.reject()))
   );
 });
 

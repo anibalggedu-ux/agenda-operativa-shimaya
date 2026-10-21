@@ -80,6 +80,26 @@
     cursor: pointer;
   }
   button:active { background: rgb(var(--rojoclaro)); }
+  details {
+    margin-top: 18px;
+    text-align: left;
+    font-size: 0.7rem;
+    color: rgb(var(--tenue));
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.65rem;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 8px 0 0;
+    font-size: 0.65rem;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -91,6 +111,51 @@
     <h1>Sin conexión</h1>
     <p>Esta pantalla todavía no se abrió con conexión, así que no quedó guardada en tu celular. Apenas vuelva la señal, se va a poder abrir igual que el resto.</p>
     <button onclick="location.reload()">Reintentar</button>
+    <details>
+      <summary>Detalles técnicos</summary>
+      <pre id="diagnostico">Cargando...</pre>
+    </details>
   </div>
+  <script>
+    // Diagnóstico visible en pantalla -- para poder revisar por qué quedó
+    // sin guardar esta pantalla sin necesitar herramientas de desarrollador
+    // en el celular (ver app/panel/registrador-service-worker.tsx y
+    // public/sw.js).
+    (async function () {
+      const el = document.getElementById("diagnostico");
+      const lineas = [];
+      try {
+        lineas.push("serviceWorker soportado: " + ("serviceWorker" in navigator));
+        if ("serviceWorker" in navigator) {
+          lineas.push("controller activo: " + !!navigator.serviceWorker.controller);
+          if (navigator.serviceWorker.controller) {
+            lineas.push("  script: " + navigator.serviceWorker.controller.scriptURL);
+            lineas.push("  estado: " + navigator.serviceWorker.controller.state);
+          }
+          const registros = await navigator.serviceWorker.getRegistrations();
+          lineas.push("registros: " + registros.length);
+          registros.forEach((r, i) => {
+            const sw = r.active || r.installing || r.waiting;
+            lineas.push(`  [${i}] scope=${r.scope} estado=${sw ? sw.state : "?"}`);
+          });
+        }
+        if ("caches" in window) {
+          const nombres = await caches.keys();
+          lineas.push("cachés: " + (nombres.length ? nombres.join(", ") : "(ninguna)"));
+          for (const nombre of nombres) {
+            const c = await caches.open(nombre);
+            const claves = await c.keys();
+            lineas.push(`  ${nombre}: ${claves.length} guardado(s)`);
+            claves.slice(0, 6).forEach((req) => lineas.push("    - " + req.url));
+          }
+        } else {
+          lineas.push("caches: no soportado en este navegador");
+        }
+      } catch (err) {
+        lineas.push("error al diagnosticar: " + (err && err.message ? err.message : String(err)));
+      }
+      el.textContent = lineas.join("\n");
+    })();
+  </script>
 </body>
 </html>
