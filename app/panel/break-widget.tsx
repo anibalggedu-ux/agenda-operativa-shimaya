@@ -226,7 +226,14 @@ export default function BreakWidget() {
     try {
       const foto = await comprimirFotoComoBase64(archivo);
       const breakId = tipo === "entrada" ? activo!.id : undefined;
-      const dato: FotoPendienteTienda = { tipo, foto, horaCapturadaMs, breakId };
+      const dato: FotoPendienteTienda = {
+        origen: "break",
+        tipo,
+        foto,
+        horaCapturadaMs,
+        breakId,
+        etiqueta: tipo === "salida" ? "Salida a break" : "Entrada de break",
+      };
       setPendiente(dato);
       guardarFotoPendienteTienda(CLAVE_PENDIENTE_BREAK, dato);
       await enviarMarcacionBreak(tipo, foto, horaCapturadaMs, breakId);

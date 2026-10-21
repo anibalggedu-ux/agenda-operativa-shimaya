@@ -410,8 +410,17 @@ function MarcadoVisitaTienda({
     try {
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
-      setPendiente({ tipo, foto, horaCapturadaMs });
-      guardarFotoPendienteTienda(tienda.id, { tipo, foto, horaCapturadaMs });
+      const dato: FotoPendienteTienda = {
+        origen: "tienda",
+        tipo,
+        foto,
+        horaCapturadaMs,
+        etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
+        rutaActivaId: tienda.rutaActivaId,
+        reporteId: tienda.reporteId,
+      };
+      setPendiente(dato);
+      guardarFotoPendienteTienda(tienda.id, dato);
       await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");

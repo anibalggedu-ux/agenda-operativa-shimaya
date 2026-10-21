@@ -110,8 +110,16 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
     try {
       setPaso("comprimiendo");
       const foto = await comprimirFotoComoBase64(archivo);
-      setPendiente({ tipo, foto, horaCapturadaMs });
-      guardarFotoPendienteTienda(evento.comunicadoId, { tipo, foto, horaCapturadaMs });
+      const dato: FotoPendienteTienda = {
+        origen: "evento",
+        tipo,
+        foto,
+        horaCapturadaMs,
+        etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${evento.mensaje}`,
+        comunicadoId: evento.comunicadoId,
+      };
+      setPendiente(dato);
+      guardarFotoPendienteTienda(evento.comunicadoId, dato);
       await enviarMarcacion(tipo, foto, horaCapturadaMs);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
