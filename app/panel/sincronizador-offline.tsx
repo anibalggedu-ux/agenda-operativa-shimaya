@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { WifiOff, RefreshCw } from "lucide-react";
+import { WifiOff, RefreshCw, ImageOff } from "lucide-react";
 import { marcarLlegadaTienda, marcarSalidaTienda } from "./supervisor/actions";
 import { marcarLlegadaEvento, marcarSalidaEvento } from "./anuncios-actions";
 import { marcarSalidaBreak, marcarEntradaBreak } from "./break-actions";
 import { guardarChecklistVisita } from "./checklist-visita-actions";
 import { subirFotoEvidencia } from "./evidencias-actions";
+import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import {
   obtenerMarcacionesPendientes,
   quitarMarcacionPendiente,
   suscribirseACambiosDeCola,
+  obtenerTodasLasFotosPendientes,
+  borrarFotoPendientePorClave,
+  suscribirseACambiosDeFotosPendientes,
   type MarcacionPendiente,
+  type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
 import {
   obtenerChecklistsPendientes,
@@ -69,6 +74,29 @@ async function enviarEvidenciaPendiente(item: FotoEvidenciaPendiente): Promise<{
   return { exito: resultado.exito };
 }
 
+// Reintento genérico de una foto que quedó en espera de reintento MANUAL
+// (GPS falló, o el servidor devolvió un error que no es de conexión) --
+// reconstruye la misma llamada que haría la tarjeta de origen (tienda,
+// evento o break), sin depender de que esa tarjeta siga montada. Pide GPS
+// de nuevo porque, salvo para break, el motivo más común de que haya
+// quedado acá es justamente que el GPS falló la primera vez.
+async function reintentarFotoPendiente(dato: FotoPendienteTienda): Promise<{ exito: boolean; mensaje?: string }> {
+  if (dato.origen === "break") {
+    return dato.tipo === "entrada"
+      ? marcarEntradaBreak(dato.breakId!, dato.foto, dato.horaCapturadaMs)
+      : marcarSalidaBreak(dato.foto, dato.horaCapturadaMs);
+  }
+  const coords = await obtenerUbicacionActual();
+  if (dato.origen === "evento") {
+    return dato.tipo === "llegada"
+      ? marcarLlegadaEvento(dato.comunicadoId!, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs)
+      : marcarSalidaEvento(dato.comunicadoId!, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs);
+  }
+  return dato.tipo === "llegada"
+    ? marcarLlegadaTienda(dato.rutaActivaId ?? null, dato.reporteId ?? null, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs)
+    : marcarSalidaTienda(dato.rutaActivaId ?? null, dato.reporteId ?? null, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs);
+}
+
 // Vive montado una sola vez en PanelShell (todos los portales) -- reenvía
 // solas cualquier marcación de ingreso/salida y cualquier checklist de
 // visita que hayan quedado pendientes por falta de señal (típico en los
@@ -81,13 +109,36 @@ export default function SincronizadorOffline() {
   const [pendientes, setPendientes] = useState<MarcacionPendiente[]>([]);
   const [checklistsPendientes, setChecklistsPendientes] = useState<ChecklistPendiente[]>([]);
   const [evidenciasPendientes, setEvidenciasPendientes] = useState<FotoEvidenciaPendiente[]>([]);
+  const [fotosPendientes, setFotosPendientes] = useState<{ clave: string; dato: FotoPendienteTienda }[]>([]);
   const [sincronizando, setSincronizando] = useState(false);
+  const [reintentandoClave, setReintentandoClave] = useState<string | null>(null);
 
   const actualizar = useCallback(() => {
     setPendientes(obtenerMarcacionesPendientes());
     setChecklistsPendientes(obtenerChecklistsPendientes());
     setEvidenciasPendientes(obtenerEvidenciasPendientes());
+    setFotosPendientes(obtenerTodasLasFotosPendientes());
   }, []);
+
+  // A diferencia de la cola de arriba, estas fotos NO se reintentan solas --
+  // puede ser un rechazo real del servidor, no solo falta de señal -- pero sí
+  // tienen que quedar siempre visibles, sin importar en qué tienda/evento/
+  // pantalla esté la persona ahora mismo (ver lib/cola-marcaciones.ts, caso
+  // Elizabeth Vera).
+  async function reintentarFoto(clave: string, dato: FotoPendienteTienda) {
+    setReintentandoClave(clave);
+    try {
+      const resultado = await reintentarFotoPendiente(dato);
+      if (resultado?.exito) {
+        borrarFotoPendientePorClave(clave);
+        actualizar();
+      }
+    } catch {
+      // Sigue sin poder enviarse -- se deja tal cual para otro intento.
+    } finally {
+      setReintentandoClave(null);
+    }
+  }
 
   const sincronizar = useCallback(async () => {
     const lista = obtenerMarcacionesPendientes();
@@ -135,6 +186,7 @@ export default function SincronizadorOffline() {
     const desuscribir = suscribirseACambiosDeCola(actualizar);
     const desuscribirChecklists = suscribirseACambiosDeColaChecklists(actualizar);
     const desuscribirEvidencias = suscribirseACambiosDeColaEvidencias(actualizar);
+    const desuscribirFotos = suscribirseACambiosDeFotosPendientes(actualizar);
     window.addEventListener("online", sincronizar);
     // Reintento periódico además del evento "online" -- en varios celulares
     // (sobre todo iOS) ese evento no siempre dispara al recuperar señal.
@@ -144,29 +196,53 @@ export default function SincronizadorOffline() {
       desuscribir();
       desuscribirChecklists();
       desuscribirEvidencias();
+      desuscribirFotos();
       window.removeEventListener("online", sincronizar);
       clearInterval(intervalo);
     };
   }, [actualizar, sincronizar]);
 
-  const total = pendientes.length + checklistsPendientes.length + evidenciasPendientes.length;
+  const total = pendientes.length + checklistsPendientes.length + evidenciasPendientes.length + fotosPendientes.length;
   if (total === 0) return null;
 
-  const etiqueta = `${total} pendiente${total === 1 ? "" : "s"} por enviar`;
-
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-amber-500/50 bg-marca-superficie py-1.5 pl-3 pr-1.5 shadow-lg">
-      <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-      <p className="text-[11px] font-bold text-amber-300">{etiqueta}</p>
-      <button
-        type="button"
-        onClick={sincronizar}
-        disabled={sincronizando}
-        aria-label="Reintentar ahora"
-        className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 text-amber-400 disabled:opacity-50"
-      >
-        <RefreshCw className={`w-3.5 h-3.5 ${sincronizando ? "animate-spin" : ""}`} />
-      </button>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
+      {fotosPendientes.length > 0 && (
+        <div className="flex w-[min(92vw,22rem)] flex-col gap-1 rounded-[3px] border border-amber-500/50 bg-marca-superficie p-2 shadow-lg">
+          {fotosPendientes.map(({ clave, dato }) => (
+            <div key={clave} className="flex items-center gap-2">
+              <ImageOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-amber-300">{dato.etiqueta}</p>
+              <button
+                type="button"
+                onClick={() => reintentarFoto(clave, dato)}
+                disabled={reintentandoClave === clave}
+                className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 disabled:opacity-50"
+              >
+                {reintentandoClave === clave ? "Enviando..." : "Reintentar"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(pendientes.length > 0 || checklistsPendientes.length > 0 || evidenciasPendientes.length > 0) && (
+        <div className="flex items-center gap-2 rounded-full border border-amber-500/50 bg-marca-superficie py-1.5 pl-3 pr-1.5 shadow-lg">
+          <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+          <p className="text-[11px] font-bold text-amber-300">
+            {pendientes.length + checklistsPendientes.length + evidenciasPendientes.length} pendiente
+            {pendientes.length + checklistsPendientes.length + evidenciasPendientes.length === 1 ? "" : "s"} por enviar
+          </p>
+          <button
+            type="button"
+            onClick={sincronizar}
+            disabled={sincronizando}
+            aria-label="Reintentar ahora"
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 text-amber-400 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${sincronizando ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
