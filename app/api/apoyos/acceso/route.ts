@@ -38,9 +38,10 @@ export async function GET(req: Request) {
     .sign(new TextEncoder().encode(secreto));
 
   const base = (process.env.APOYOS_URL || URL_APOYOS_POR_DEFECTO).replace(/\/+$/, "");
-  // Enlace directo a un mensaje de soporte (viene de la notificación push): ?ir=soporte-123. Solo se acepta ese formato.
+  // Enlace directo (viene de la notificación push): a un mensaje de soporte (?ir=soporte-123) o al horario de una tienda y semana
+  // (?ir=horario-12-20261026). Solo se aceptan esos dos formatos.
   const ir = new URL(req.url).searchParams.get("ir") ?? "";
-  const destino = /^soporte-\d{1,9}$/.test(ir) ? `&ir=${ir}` : "";
+  const destino = /^(soporte-\d{1,9}|horario-\d{1,9}-\d{8})$/.test(ir) ? `&ir=${ir}` : "";
   // El enlace va en el "#" (fragmento): no viaja al servidor ni queda en registros.
   const res = NextResponse.redirect(`${base}/sso#t=${enlace}${destino}`, 302);
   res.headers.set("Cache-Control", "no-store");
