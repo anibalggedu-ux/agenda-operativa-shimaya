@@ -101,9 +101,21 @@ self.addEventListener("fetch", (evento) => {
           // mismas cabeceras que la que se guardó (algo que varía solo con
           // que el navegador arme la petición un poco distinto cada vez),
           // la búsqueda fallaba igual aunque la URL fuera idéntica.
-          caches
-            .match(peticion, { ignoreVary: true })
-            .then((guardado) => guardado || caches.match(URL_SIN_CONEXION))
+          caches.match(peticion, { ignoreVary: true }).then((guardado) => {
+            if (guardado) return guardado;
+            // La URL exacta no está guardada -- el caso típico es "/", que
+            // ESTANDO CONECTADO redirige sola al panel según la sesión (JWT
+            // en una cookie), pero esa redirección en sí nunca queda
+            // guardada porque nunca llega a completarse sin señal. Mejor
+            // abrir la última pantalla del panel que sí esté guardada que
+            // mandar a la persona a un callejón sin salida.
+            return caches.open(CACHE_PAGINAS).then((c) =>
+              c.keys().then((claves) => {
+                const delPanel = claves.find((req) => new URL(req.url).pathname.startsWith("/panel/"));
+                return delPanel ? c.match(delPanel) : null;
+              })
+            );
+          }).then((guardado) => guardado || caches.match(URL_SIN_CONEXION))
         )
     );
     return;
