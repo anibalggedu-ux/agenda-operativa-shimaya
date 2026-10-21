@@ -20,6 +20,8 @@ import {
 } from "./actions";
 import { obtenerRachaPublicacion } from "./social-actions";
 import { reproducirSonidoExito, reproducirSonidoLogro } from "@/lib/sonido";
+import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
+import { agregarComentarioPendiente, agregarReaccionPendiente } from "@/lib/cola-historias";
 import NuevaHistoriaBoton, { obtenerEmojisHistoria } from "./nueva-historia";
 import EstadoVacio from "../estado-vacio";
 
@@ -335,12 +337,26 @@ function VisorHistorias({
 
   async function reaccionar(emoji: string) {
     setReaccionando(true);
-    const resultado = await alternarReaccion(historia.id, emoji);
-    if (resultado.exito) {
-      setDetalle((d) => (d ? { ...d, reacciones: resultado.reacciones ?? [], miReaccion: resultado.miReaccion ?? null } : d));
-      if (resultado.miReaccion) reproducirSonidoExito();
-    } else {
-      setMensaje(resultado.mensaje || "No se pudo reaccionar.");
+    try {
+      const resultado = await alternarReaccion(historia.id, emoji);
+      if (resultado.exito) {
+        setDetalle((d) => (d ? { ...d, reacciones: resultado.reacciones ?? [], miReaccion: resultado.miReaccion ?? null } : d));
+        if (resultado.miReaccion) reproducirSonidoExito();
+      } else {
+        setMensaje(resultado.mensaje || "No se pudo reaccionar.");
+      }
+    } catch (err) {
+      if (pareceFallaDeConexion(err)) {
+        agregarReaccionPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          historiaId: historia.id,
+          emoji,
+          etiqueta: "Reacción a historia",
+        });
+        setMensaje("Sin señal — tu reacción quedó guardada en el celular y se enviará sola cuando vuelva la conexión.");
+      } else {
+        setMensaje((err as any)?.message || "No se pudo reaccionar.");
+      }
     }
     setReaccionando(false);
   }
@@ -349,15 +365,32 @@ function VisorHistorias({
     const texto = comentarioTexto.trim();
     if (!texto) return;
     setEnviandoComentario(true);
-    const resultado = await agregarComentario(historia.id, texto, respondiendoA?.id ?? null);
-    if (resultado.exito) {
-      setComentarioTexto("");
-      setRespondiendoA(null);
-      const actualizado = await obtenerDetalleHistoria(historia.id);
-      setDetalle(actualizado);
-      reproducirSonidoExito();
-    } else {
-      setMensaje(resultado.mensaje || "No se pudo publicar el comentario.");
+    try {
+      const resultado = await agregarComentario(historia.id, texto, respondiendoA?.id ?? null);
+      if (resultado.exito) {
+        setComentarioTexto("");
+        setRespondiendoA(null);
+        const actualizado = await obtenerDetalleHistoria(historia.id);
+        setDetalle(actualizado);
+        reproducirSonidoExito();
+      } else {
+        setMensaje(resultado.mensaje || "No se pudo publicar el comentario.");
+      }
+    } catch (err) {
+      if (pareceFallaDeConexion(err)) {
+        agregarComentarioPendiente({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          historiaId: historia.id,
+          texto,
+          padreId: respondiendoA?.id ?? null,
+          etiqueta: "Comentario en historia",
+        });
+        setComentarioTexto("");
+        setRespondiendoA(null);
+        setMensaje("Sin señal — tu comentario quedó guardado en el celular y se enviará solo cuando vuelva la conexión.");
+      } else {
+        setMensaje((err as any)?.message || "No se pudo publicar el comentario.");
+      }
     }
     setEnviandoComentario(false);
   }

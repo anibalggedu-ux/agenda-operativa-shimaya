@@ -14,6 +14,7 @@ import { marcarSalidaBreak, marcarEntradaBreak } from "./break-actions";
 import { guardarChecklistVisita } from "./checklist-visita-actions";
 import { subirFotoEvidencia } from "./evidencias-actions";
 import { crearAuditoria } from "./auditorias/actions";
+import { crearHistoria, agregarComentario, alternarReaccion } from "./historias/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import {
   obtenerMarcacionesPendientes,
@@ -56,6 +57,20 @@ import {
   suscribirseACambiosDeColaObservaciones,
   type ObservacionPendiente,
 } from "@/lib/cola-observaciones";
+import {
+  obtenerHistoriasPendientes,
+  quitarHistoriaPendiente,
+  suscribirseACambiosDeColaHistorias,
+  obtenerComentariosPendientes,
+  quitarComentarioPendiente,
+  suscribirseACambiosDeColaComentarios,
+  obtenerReaccionesPendientes,
+  quitarReaccionPendiente,
+  suscribirseACambiosDeColaReacciones,
+  type HistoriaPendiente,
+  type ComentarioHistoriaPendiente,
+  type ReaccionHistoriaPendiente,
+} from "@/lib/cola-historias";
 
 async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boolean }> {
   switch (item.accion) {
@@ -127,6 +142,21 @@ async function enviarObservacionPendiente(item: ObservacionPendiente): Promise<{
   return { exito: resultado.exito };
 }
 
+async function enviarHistoriaPendiente(item: HistoriaPendiente): Promise<{ exito: boolean }> {
+  const resultado = await crearHistoria(item.fotoDataUrl, item.texto, item.miniDataUrl);
+  return { exito: resultado.exito };
+}
+
+async function enviarComentarioPendiente(item: ComentarioHistoriaPendiente): Promise<{ exito: boolean }> {
+  const resultado = await agregarComentario(item.historiaId, item.texto, item.padreId ?? null);
+  return { exito: resultado.exito };
+}
+
+async function enviarReaccionPendiente(item: ReaccionHistoriaPendiente): Promise<{ exito: boolean }> {
+  const resultado = await alternarReaccion(item.historiaId, item.emoji);
+  return { exito: resultado.exito };
+}
+
 // Reintento genérico de una foto que quedó en espera de reintento MANUAL
 // (GPS falló, o el servidor devolvió un error que no es de conexión) --
 // reconstruye la misma llamada que haría la tarjeta de origen (tienda,
@@ -165,6 +195,9 @@ export default function SincronizadorOffline() {
   const [auditoriasPendientes, setAuditoriasPendientes] = useState<AuditoriaPendiente[]>([]);
   const [reportesPendientes, setReportesPendientes] = useState<ReportePendiente[]>([]);
   const [observacionesPendientes, setObservacionesPendientes] = useState<ObservacionPendiente[]>([]);
+  const [historiasPendientes, setHistoriasPendientes] = useState<HistoriaPendiente[]>([]);
+  const [comentariosPendientes, setComentariosPendientes] = useState<ComentarioHistoriaPendiente[]>([]);
+  const [reaccionesPendientes, setReaccionesPendientes] = useState<ReaccionHistoriaPendiente[]>([]);
   const [fotosPendientes, setFotosPendientes] = useState<{ clave: string; dato: FotoPendienteTienda }[]>([]);
   const [sincronizando, setSincronizando] = useState(false);
   const [reintentandoClave, setReintentandoClave] = useState<string | null>(null);
@@ -176,6 +209,9 @@ export default function SincronizadorOffline() {
     setAuditoriasPendientes(obtenerAuditoriasPendientes());
     setReportesPendientes(obtenerReportesPendientes());
     setObservacionesPendientes(obtenerObservacionesPendientes());
+    setHistoriasPendientes(obtenerHistoriasPendientes());
+    setComentariosPendientes(obtenerComentariosPendientes());
+    setReaccionesPendientes(obtenerReaccionesPendientes());
     setFotosPendientes(obtenerTodasLasFotosPendientes());
   }, []);
 
@@ -206,13 +242,19 @@ export default function SincronizadorOffline() {
     const listaAuditorias = obtenerAuditoriasPendientes();
     const listaReportes = obtenerReportesPendientes();
     const listaObservaciones = obtenerObservacionesPendientes();
+    const listaHistorias = obtenerHistoriasPendientes();
+    const listaComentarios = obtenerComentariosPendientes();
+    const listaReacciones = obtenerReaccionesPendientes();
     if (
       lista.length === 0 &&
       listaChecklists.length === 0 &&
       listaEvidencias.length === 0 &&
       listaAuditorias.length === 0 &&
       listaReportes.length === 0 &&
-      listaObservaciones.length === 0
+      listaObservaciones.length === 0 &&
+      listaHistorias.length === 0 &&
+      listaComentarios.length === 0 &&
+      listaReacciones.length === 0
     )
       return;
     setSincronizando(true);
@@ -277,6 +319,36 @@ export default function SincronizadorOffline() {
         break;
       }
     }
+    for (const item of listaHistorias) {
+      try {
+        const resultado = await enviarHistoriaPendiente(item);
+        if (resultado?.exito) {
+          quitarHistoriaPendiente(item.id);
+        }
+      } catch {
+        break;
+      }
+    }
+    for (const item of listaComentarios) {
+      try {
+        const resultado = await enviarComentarioPendiente(item);
+        if (resultado?.exito) {
+          quitarComentarioPendiente(item.id);
+        }
+      } catch {
+        break;
+      }
+    }
+    for (const item of listaReacciones) {
+      try {
+        const resultado = await enviarReaccionPendiente(item);
+        if (resultado?.exito) {
+          quitarReaccionPendiente(item.id);
+        }
+      } catch {
+        break;
+      }
+    }
     setSincronizando(false);
     actualizar();
   }, [actualizar]);
@@ -289,6 +361,9 @@ export default function SincronizadorOffline() {
     const desuscribirAuditorias = suscribirseACambiosDeColaAuditorias(actualizar);
     const desuscribirReportes = suscribirseACambiosDeColaReportes(actualizar);
     const desuscribirObservaciones = suscribirseACambiosDeColaObservaciones(actualizar);
+    const desuscribirHistorias = suscribirseACambiosDeColaHistorias(actualizar);
+    const desuscribirComentarios = suscribirseACambiosDeColaComentarios(actualizar);
+    const desuscribirReacciones = suscribirseACambiosDeColaReacciones(actualizar);
     const desuscribirFotos = suscribirseACambiosDeFotosPendientes(actualizar);
     window.addEventListener("online", sincronizar);
     // Reintento periódico además del evento "online" -- en varios celulares
@@ -302,6 +377,9 @@ export default function SincronizadorOffline() {
       desuscribirAuditorias();
       desuscribirReportes();
       desuscribirObservaciones();
+      desuscribirHistorias();
+      desuscribirComentarios();
+      desuscribirReacciones();
       desuscribirFotos();
       window.removeEventListener("online", sincronizar);
       clearInterval(intervalo);
@@ -315,6 +393,9 @@ export default function SincronizadorOffline() {
     auditoriasPendientes.length +
     reportesPendientes.length +
     observacionesPendientes.length +
+    historiasPendientes.length +
+    comentariosPendientes.length +
+    reaccionesPendientes.length +
     fotosPendientes.length;
   if (total === 0) return null;
 
@@ -343,7 +424,10 @@ export default function SincronizadorOffline() {
         evidenciasPendientes.length > 0 ||
         auditoriasPendientes.length > 0 ||
         reportesPendientes.length > 0 ||
-        observacionesPendientes.length > 0) && (
+        observacionesPendientes.length > 0 ||
+        historiasPendientes.length > 0 ||
+        comentariosPendientes.length > 0 ||
+        reaccionesPendientes.length > 0) && (
         <div className="flex items-center gap-2 rounded-full border border-amber-500/50 bg-marca-superficie py-1.5 pl-3 pr-1.5 shadow-lg">
           <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
           {(() => {
@@ -353,7 +437,10 @@ export default function SincronizadorOffline() {
               evidenciasPendientes.length +
               auditoriasPendientes.length +
               reportesPendientes.length +
-              observacionesPendientes.length;
+              observacionesPendientes.length +
+              historiasPendientes.length +
+              comentariosPendientes.length +
+              reaccionesPendientes.length;
             return (
               <p className="text-[11px] font-bold text-amber-300">
                 {n} pendiente{n === 1 ? "" : "s"} por enviar
