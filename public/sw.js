@@ -169,6 +169,13 @@ self.addEventListener("notificationclick", (evento) => {
   evento.notification.close();
   const url = evento.notification.data?.url || "/";
 
+  // Los enlaces que salen de la app hacia otro sitio (ej. un mensaje de soporte en Coordinación de Apoyos) se abren en una ventana
+  // nueva: si se usara la pestaña de la app ya abierta, solo se enfocaría y el enlace se perdería.
+  if (url.startsWith("/api/")) {
+    evento.waitUntil(self.clients.openWindow(url));
+    return;
+  }
+
   evento.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((listaClientes) => {
       for (const cliente of listaClientes) {

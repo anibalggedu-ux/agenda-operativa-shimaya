@@ -38,8 +38,11 @@ export async function GET(req: Request) {
     .sign(new TextEncoder().encode(secreto));
 
   const base = (process.env.APOYOS_URL || URL_APOYOS_POR_DEFECTO).replace(/\/+$/, "");
+  // Enlace directo a un mensaje de soporte (viene de la notificación push): ?ir=soporte-123. Solo se acepta ese formato.
+  const ir = new URL(req.url).searchParams.get("ir") ?? "";
+  const destino = /^soporte-\d{1,9}$/.test(ir) ? `&ir=${ir}` : "";
   // El enlace va en el "#" (fragmento): no viaja al servidor ni queda en registros.
-  const res = NextResponse.redirect(`${base}/sso#t=${enlace}`, 302);
+  const res = NextResponse.redirect(`${base}/sso#t=${enlace}${destino}`, 302);
   res.headers.set("Cache-Control", "no-store");
   res.headers.set("Referrer-Policy", "no-referrer");
   return res;
