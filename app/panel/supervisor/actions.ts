@@ -597,6 +597,7 @@ export async function enviarReporte(
   // llegada/salida a la tienda (si ya se hizo) también se arrastra, para no
   // perderla al pasar de "pendiente" a "reportado".
   let asignadoEn: string | null = null;
+  let origenVisita: { autoasignada: boolean | null; area: string | null; enfoque: string | null } | null = null;
   // La visita quedó registrada el día que se PLANIFICÓ/marcó (fecha_planificada
   // de rutas_activas), no el día en que por fin se escribe la observación y
   // se aprieta "enviar" — sin esto, una visita del lunes reportada recién el
@@ -627,11 +628,14 @@ export async function enviarReporte(
     const { data: activa } = await supabase
       .from("rutas_activas")
       .select(
-        "created_at, fecha_planificada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id"
+        "created_at, fecha_planificada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id, autoasignada, area, enfoque"
       )
       .eq("id", rutaActivaId)
       .maybeSingle();
     asignadoEn = activa?.created_at ?? null;
+    // La visita reportada conserva si la tienda la asignó el coordinador o se la autoasignó la persona (junto con el área y el enfoque):
+    // sin esto, al borrarse de rutas_activas se perdía ese dato.
+    origenVisita = { autoasignada: activa?.autoasignada ?? null, area: activa?.area ?? null, enfoque: activa?.enfoque ?? null };
     if (activa?.fecha_planificada) fecha = activa.fecha_planificada;
     if (activa) {
       marcacionTienda = {
@@ -680,7 +684,7 @@ export async function enviarReporte(
   if (existente) {
     const { error } = await supabase
       .from("rutas_diarias")
-      .update({ observacion, actividad, ...marcacionTienda })
+      .update({ observacion, actividad, ...marcacionTienda, ...(origenVisita ?? {}) })
       .eq("id", existente.id);
     if (error) {
       return { exito: false, mensaje: "No se pudo actualizar el reporte. Intenta de nuevo." };
@@ -695,6 +699,7 @@ export async function enviarReporte(
       actividad,
       asignado_en: asignadoEn,
       ...marcacionTienda,
+      ...(origenVisita ?? {}),
     });
     if (errorInsert) {
       return { exito: false, mensaje: "No se pudo guardar el reporte. Intenta de nuevo." };
