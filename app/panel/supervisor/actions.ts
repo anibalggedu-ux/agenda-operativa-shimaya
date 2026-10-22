@@ -1516,6 +1516,7 @@ async function notificarAutorObservacion(
   reporteId: string,
   tiendaNombre: string,
   respondidoPor: string,
+  respondidoPorId: string,
   respuesta: string | null
 ): Promise<void> {
   try {
@@ -1529,6 +1530,10 @@ async function notificarAutorObservacion(
     const autorEmail = (reporte as any)?.usuarios?.email as string | undefined;
     const autorRol = (reporte as any)?.usuarios?.rol as string | undefined;
     if (!autorId) return;
+    // Puede pasar que la misma persona sea autora del reporte Y responsable
+    // fija de esa tienda (ej. alguien que hace campo y oficina a la vez) --
+    // sin esto, se mandaría a sí misma un push/correo de "te respondieron".
+    if (autorId === respondidoPorId) return;
 
     const cuerpo = respuesta
       ? `${respondidoPor} respondió tu observación de ${tiendaNombre}.`
@@ -1608,7 +1613,7 @@ export async function responderObservacionTiendaFija(
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
 
-  await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, respuesta);
+  await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, sesion.id, respuesta);
 
   return { exito: true, mensaje: "Respuesta enviada." };
 }
@@ -1651,7 +1656,7 @@ export async function marcarObservacionLeida(reporteId: string): Promise<Resulta
   // recarga la pantalla con este botón visible se mandaría el mismo push de
   // nuevo.
   if (!reporte.leido) {
-    await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, null);
+    await notificarAutorObservacion(reporteId, (reporte as any).tiendas?.nombre ?? "tu tienda", sesion.nombre, sesion.id, null);
   }
 
   return { exito: true };
