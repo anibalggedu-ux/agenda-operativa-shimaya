@@ -37,6 +37,8 @@ export async function POST(req: Request) {
   // Aviso al supervisor de que un líder confirmó el horario de una semana: abre Apoyos directo en esa tienda y semana.
   const horarioTienda = Number(cuerpo.horario_store_id);
   const horarioSemana = String(cuerpo.horario_semana ?? "");
+  // Aviso de que un apoyo no se concretó: abre el dashboard de Apoyos, donde está la justificación del líder.
+  const abreDashboard = cuerpo.destino === "dashboard";
   if (!UUID.test(usuarioId) || !titulo) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
   const supabase = supabaseServer();
@@ -47,6 +49,7 @@ export async function POST(req: Request) {
 
   const url = Number.isInteger(horarioTienda) && horarioTienda > 0 && horarioTienda < 1_000_000_000 && /^\d{4}-\d{2}-\d{2}$/.test(horarioSemana)
     ? `/api/apoyos/acceso?ir=horario-${horarioTienda}-${horarioSemana.replace(/-/g, "")}`
+    : abreDashboard ? "/api/apoyos/acceso?ir=dashboard"
     : Number.isInteger(ticket) && ticket > 0 && ticket < 1_000_000_000 ? `/api/apoyos/acceso?ir=soporte-${ticket}` : "/api/apoyos/acceso";
   await notificarPush([usuarioId], { titulo, cuerpo: texto, url });
   return NextResponse.json({ ok: true });
