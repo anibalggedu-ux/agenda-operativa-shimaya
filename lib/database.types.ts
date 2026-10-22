@@ -1353,8 +1353,11 @@ export type Database = {
       rutas_diarias: {
         Row: {
           actividad: string | null
+          area: string | null
           asignado_en: string | null
+          autoasignada: boolean | null
           created_at: string | null
+          enfoque: string | null
           fecha: string
           foto_llegada_blob: string | null
           foto_salida_blob: string | null
@@ -1375,8 +1378,11 @@ export type Database = {
         }
         Insert: {
           actividad?: string | null
+          area?: string | null
           asignado_en?: string | null
+          autoasignada?: boolean | null
           created_at?: string | null
+          enfoque?: string | null
           fecha: string
           foto_llegada_blob?: string | null
           foto_salida_blob?: string | null
@@ -1397,8 +1403,11 @@ export type Database = {
         }
         Update: {
           actividad?: string | null
+          area?: string | null
           asignado_en?: string | null
+          autoasignada?: boolean | null
           created_at?: string | null
+          enfoque?: string | null
           fecha?: string
           foto_llegada_blob?: string | null
           foto_salida_blob?: string | null
