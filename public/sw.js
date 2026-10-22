@@ -163,8 +163,9 @@ self.addEventListener("push", (evento) => {
 });
 
 // Al tocar la notificación O el botón "Abrir app": si ya hay una pestaña de
-// la app abierta, la enfoca; si no, abre una nueva. Es el mismo destino en
-// ambos casos, así que no hace falta distinguir evento.action.
+// la app abierta, la lleva al destino del push y la enfoca; si no, abre una
+// nueva directo en ese destino. Es el mismo destino en ambos casos, así que
+// no hace falta distinguir evento.action.
 self.addEventListener("notificationclick", (evento) => {
   evento.notification.close();
   const url = evento.notification.data?.url || "/";
@@ -180,6 +181,15 @@ self.addEventListener("notificationclick", (evento) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((listaClientes) => {
       for (const cliente of listaClientes) {
         if (cliente.url.includes(self.location.origin) && "focus" in cliente) {
+          // Antes solo se enfocaba la pestaña existente, dejándola donde
+          // estuviera -- con destinos puntuales (ej. "Mis Reportes" con un
+          // comentario nuevo resaltado) eso significaba tocar la
+          // notificación y seguir viendo lo que ya tenía en pantalla.
+          // navigate() lleva esa misma pestaña al destino antes de
+          // enfocarla; si el navegador no lo soporta, al menos la enfoca.
+          if ("navigate" in cliente) {
+            return cliente.navigate(url).then((c) => (c || cliente).focus());
+          }
           return cliente.focus();
         }
       }

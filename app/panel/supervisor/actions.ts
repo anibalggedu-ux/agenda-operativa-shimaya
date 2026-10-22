@@ -1517,17 +1517,22 @@ async function notificarAutorObservacion(
     const supabase = supabaseServer();
     const { data: reporte } = await supabase
       .from("rutas_diarias")
-      .select("usuario_id, usuarios!usuario_id(email)")
+      .select("usuario_id, usuarios!usuario_id(email, rol)")
       .eq("id", reporteId)
       .maybeSingle();
     const autorId = reporte?.usuario_id;
     const autorEmail = (reporte as any)?.usuarios?.email as string | undefined;
+    const autorRol = (reporte as any)?.usuarios?.rol as string | undefined;
     if (!autorId) return;
 
     const cuerpo = respuesta
       ? `${respondidoPor} respondió tu observación de ${tiendaNombre}.`
       : `${respondidoPor} marcó como leída tu observación de ${tiendaNombre}.`;
-    await notificarPush([autorId], { titulo: "💬 Respuesta a tu observación", cuerpo });
+    // Directo a "Mis Reportes", con ESE reporte resaltado y con scroll
+    // automático (ver mis-reportes.tsx) -- antes mandaba a Inicio sin más y
+    // había que entrar a mano a buscarlo.
+    const enlace = `${URL_APP}/panel/${autorRol ?? "supervisor"}?seccion=reportes&reporteId=${reporteId}`;
+    await notificarPush([autorId], { titulo: "💬 Respuesta a tu observación", cuerpo, url: enlace });
 
     if (!autorEmail) return;
     await enviarCorreo({
@@ -1538,7 +1543,7 @@ async function notificarAutorObservacion(
         <p><strong>${respondidoPor}</strong> ${respuesta ? "respondió" : "marcó como leída"} tu observación de
         <strong>${tiendaNombre}</strong>.</p>
         ${respuesta ? `<p style="background:#f4f4f5; border-radius:6px; padding:12px; margin:12px 0;">${escaparHtml(respuesta)}</p>` : ""}
-        <p style="color:#8b8d92; font-size:12px;">Entra a "Mis Reportes" en tu panel para ver el detalle.</p>
+        <p style="margin:16px 0 0;"><a href="${enlace}" style="color:#e23744; font-weight:700;">Ver en "Mis Reportes" →</a></p>
       `,
     });
   } catch (error) {

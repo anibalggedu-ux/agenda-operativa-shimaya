@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import { Check, MessageSquare, FolderOpen } from "lucide-react";
 import { obtenerMisReportesRecientes, editarReporte, type MiReporte, type ResultadoReporte } from "./actions";
 import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
@@ -114,7 +115,7 @@ function FormularioEdicion({
 
 const LARGO_PREVIA = 90;
 
-function FilaReporte({ reporte }: { reporte: MiReporte }) {
+function FilaReporte({ reporte, resaltado }: { reporte: MiReporte; resaltado: boolean }) {
   const [editando, setEditando] = useState(false);
   const [expandido, setExpandido] = useState(false);
   const [version, setVersion] = useState(reporte);
@@ -124,7 +125,12 @@ function FilaReporte({ reporte }: { reporte: MiReporte }) {
     esLarga && !expandido ? version.observacion.slice(0, LARGO_PREVIA) + "…" : version.observacion;
 
   return (
-    <div className="bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2.5">
+    <div
+      id={`reporte-${reporte.id}`}
+      className={`bg-marca-fondo border rounded-[3px] px-3 py-2.5 transition-colors duration-500 ${
+        resaltado ? "border-marca-rojoclaro ring-2 ring-marca-rojoclaro/40" : "border-marca-borde"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-marca-textofuerte font-bold text-sm truncate">
@@ -191,10 +197,22 @@ function FilaReporte({ reporte }: { reporte: MiReporte }) {
 }
 
 export default function MisReportes() {
+  // Enlace directo desde el push/correo de "te respondieron una
+  // observación" (ver notificarAutorObservacion en supervisor/actions.ts):
+  // /panel/<rol>?seccion=reportes&reporteId=<id> -- antes mandaba a Inicio
+  // sin más, y había que entrar a mano a buscar el reporte.
+  const parametros = useSearchParams();
+  const reporteIdResaltado = parametros.get("reporteId");
+  const [yaHizoScroll, setYaHizoScroll] = useState(false);
+  const [mostrarResaltado, setMostrarResaltado] = useState(true);
+
   const [reportes, setReportes] = useState<MiReporte[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [desde, setDesde] = useState(hoyPeru());
+  // Si se viene a buscar un reporte puntual, el rango por defecto de "Hoy"
+  // probablemente no lo incluya (la respuesta puede llegar días después) --
+  // se amplía a 30 días, el mismo máximo que ya ofrece el selector de abajo.
+  const [desde, setDesde] = useState(reporteIdResaltado ? sumarDias(hoyPeru(), -29) : hoyPeru());
   const [hasta, setHasta] = useState(hoyPeru());
 
   function cargar() {
@@ -209,6 +227,19 @@ export default function MisReportes() {
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desde, hasta]);
+
+  // Apenas carga la lista, si el reporte buscado ya está en pantalla, se le
+  // hace scroll y se resalta un momento -- una sola vez, para no volver a
+  // saltar ahí si la persona cambia el filtro de fechas después.
+  useEffect(() => {
+    if (!reporteIdResaltado || yaHizoScroll || cargando) return;
+    if (!reportes.some((r) => r.id === reporteIdResaltado)) return;
+    const el = document.getElementById(`reporte-${reporteIdResaltado}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setYaHizoScroll(true);
+    const temporizador = window.setTimeout(() => setMostrarResaltado(false), 3000);
+    return () => window.clearTimeout(temporizador);
+  }, [reporteIdResaltado, yaHizoScroll, cargando, reportes]);
 
   return (
     <div className="bg-marca-superficie border border-marca-rojo/25 rounded-[3px] p-4 space-y-2.5">
@@ -255,7 +286,7 @@ export default function MisReportes() {
       ) : (
         <div className="space-y-1.5">
           {reportes.map((r) => (
-            <FilaReporte key={r.id} reporte={r} />
+            <FilaReporte key={r.id} reporte={r} resaltado={mostrarResaltado && r.id === reporteIdResaltado} />
           ))}
         </div>
       )}
