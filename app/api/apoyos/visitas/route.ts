@@ -3,16 +3,16 @@ import { jwtVerify } from "jose";
 import { supabaseServer } from "@/lib/supabase-server";
 import { hoyPeru, sumarDias } from "@/lib/fechas";
 
-// Visitas de supervisores y capacitadores a las tiendas, para el dashboard de la app de Coordinación de Apoyos.
+// Visitas de supervisores, capacitadores y coordinadores a las tiendas, para el dashboard de la app de Coordinación de Apoyos.
 // Junta las visitas ya reportadas (rutas_diarias), las que siguen pendientes (rutas_activas) y, para recuperar el origen de las visitas
 // viejas, el historial de asignaciones del coordinador. Solo lectura. Solo la app de apoyos puede pedirla: llega un enlace firmado con el
 // mismo secreto compartido (APOYOS_SSO_SECRET) que vence en 2 minutos.
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-const ROLES = ["supervisor", "capacitador"];
+const ROLES = ["supervisor", "capacitador", "coordinador"];
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_DIAS = 120;
+const MAX_DIAS = 400;
 
 type Fila = Record<string, any>;
 // PostgREST devuelve como máximo 1000 filas por consulta: se pide por tramos hasta que ya no haya más.
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     const filas: Record<string, unknown>[] = [];
     const agregar = (r: Fila, fecha: string, estado: "reportada" | "pendiente" | "sin_reporte") => {
       const p = persona.get(String(r.usuario_id));
-      if (!p) return; // solo supervisores y capacitadores
+      if (!p) return; // solo supervisores, capacitadores y coordinadores
       const plan = planificada.get(`${fecha}|${r.usuario_id}|${r.tienda_id}`);
       const origen = r.autoasignada === true ? "autoasignada" : r.autoasignada === false ? "asignada" : plan ? "asignada" : null;
       filas.push({
