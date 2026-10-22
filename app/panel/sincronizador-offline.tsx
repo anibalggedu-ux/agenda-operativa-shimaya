@@ -235,6 +235,37 @@ export default function SincronizadorOffline() {
     }
   }
 
+  // Por el mismo motivo de arriba, puede ser un rechazo real y no solo falta
+  // de señal -- sin esta salida, un dato que el servidor nunca va a aceptar
+  // (ej. la ruta/tienda ya no existe) se quedaría pidiendo "Reintentar" para
+  // siempre, sin forma de sacárselo de encima.
+  function descartarFoto(clave: string) {
+    if (!window.confirm("¿Descartar esta marcación? No se va a poder recuperar.")) return;
+    borrarFotoPendientePorClave(clave);
+    actualizar();
+  }
+
+  function descartarEvidencia(id: string) {
+    if (!window.confirm("¿Descartar esta foto? No se va a poder recuperar.")) return;
+    quitarEvidenciaPendiente(id);
+    actualizar();
+  }
+
+  async function reintentarEvidencia(item: FotoEvidenciaPendiente) {
+    setReintentandoClave(item.id);
+    try {
+      const resultado = await enviarEvidenciaPendiente(item);
+      if (resultado?.exito) {
+        quitarEvidenciaPendiente(item.id);
+        actualizar();
+      }
+    } catch {
+      // Sigue sin señal -- se deja en la cola para el próximo intento.
+    } finally {
+      setReintentandoClave(null);
+    }
+  }
+
   const sincronizar = useCallback(async () => {
     const lista = obtenerMarcacionesPendientes();
     const listaChecklists = obtenerChecklistsPendientes();
@@ -401,7 +432,7 @@ export default function SincronizadorOffline() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
-      {fotosPendientes.length > 0 && (
+      {(fotosPendientes.length > 0 || evidenciasPendientes.length > 0) && (
         <div className="flex w-[min(92vw,22rem)] flex-col gap-1 rounded-[3px] border border-amber-500/50 bg-marca-superficie p-2 shadow-lg">
           {fotosPendientes.map(({ clave, dato }) => (
             <div key={clave} className="flex items-center gap-2">
@@ -414,6 +445,36 @@ export default function SincronizadorOffline() {
                 className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 disabled:opacity-50"
               >
                 {reintentandoClave === clave ? "Enviando..." : "Reintentar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => descartarFoto(clave)}
+                disabled={reintentandoClave === clave}
+                className="shrink-0 rounded-full border border-amber-500/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400/70 hover:text-amber-300 disabled:opacity-50"
+              >
+                Descartar
+              </button>
+            </div>
+          ))}
+          {evidenciasPendientes.map((item) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <ImageOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              <p className="min-w-0 flex-1 truncate text-[11px] font-bold text-amber-300">{item.etiqueta}</p>
+              <button
+                type="button"
+                onClick={() => reintentarEvidencia(item)}
+                disabled={reintentandoClave === item.id}
+                className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400 disabled:opacity-50"
+              >
+                {reintentandoClave === item.id ? "Enviando..." : "Reintentar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => descartarEvidencia(item.id)}
+                disabled={reintentandoClave === item.id}
+                className="shrink-0 rounded-full border border-amber-500/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-400/70 hover:text-amber-300 disabled:opacity-50"
+              >
+                Descartar
               </button>
             </div>
           ))}

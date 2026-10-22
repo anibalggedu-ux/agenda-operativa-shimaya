@@ -125,7 +125,12 @@ self.addEventListener("fetch", (evento) => {
   // de las propias páginas, etc.) -- red primero, y si no hay señal, la
   // última copia guardada de esa misma petición si existe; si no, se deja
   // fallar como fallaría sin este Service Worker (cada pantalla ya maneja
-  // su propio estado de "no se pudo cargar").
+  // su propio estado de "no se pudo cargar"). A propósito SIN ignoreVary acá
+  // (a diferencia de la navegación de arriba): Next.js usa cabeceras como
+  // Next-Router-State-Tree para pedir datos de una pestaña/segmento puntual
+  // del panel bajo la MISMA URL -- ignorar esas cabeceras podría devolver
+  // guardado el contenido de otra pestaña distinta, mostrando la sección
+  // equivocada en vez de fallar limpio.
   evento.respondWith(
     fetch(peticion)
       .then((respuesta) => {
@@ -133,7 +138,7 @@ self.addEventListener("fetch", (evento) => {
         evento.waitUntil(caches.open(CACHE_PAGINAS).then((c) => c.put(peticion, copia)));
         return respuesta;
       })
-      .catch(() => caches.match(peticion, { ignoreVary: true }).then((guardado) => guardado || Promise.reject()))
+      .catch(() => caches.match(peticion).then((guardado) => guardado || Promise.reject()))
   );
 });
 
