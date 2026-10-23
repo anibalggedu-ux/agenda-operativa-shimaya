@@ -34,6 +34,10 @@ Las Server Actions viven en archivos `actions.ts` (o `*-actions.ts`) junto a las
 
 **`tiendas_permanentes`** (qué tiendas están asignadas de forma fija a quién) se borra en blando: quitar una asignación pone `fecha_fin` en vez de borrar la fila, así que la tabla también sirve de historial. Cualquier consulta contra ella que busque asignaciones "actuales" tiene que filtrar `.is("fecha_fin", null)` — una consulta que no lo hace es un bug (esto pasó repetidas veces en el código: widgets de pantalla, búsqueda de destinatarios de notificaciones por correo, y chequeos de autorización de "¿es esta tu tienda asignada?" necesitaron esta corrección). La única excepción a propósito es `obtenerRotacionTienda` en `app/panel/analitica/actions.ts`, que existe justamente para mostrar el historial completo.
 
+### Estatus de tienda (dotación de personal)
+
+Central Analítica tiene un botón **Estatus de tienda** (`app/panel/boton-estatus-tienda.tsx`, solo supervisor, coordinador y gerente) junto al de Apoyos. Abre el módulo de dotación de la app de Coordinación de Apoyos (Cloudflare) con el mismo enlace firmado de `/api/apoyos/acceso`, usando `?ir=estatus`; no hay datos ni tablas de dotación en este repo ni en Supabase. Quién puede editar ahí (RRHH) lo decide Apoyos por el id de usuario de Agenda (`sub` del enlace), no este botón.
+
 ### Manejo de hora de Perú
 
 Toda lógica de "qué día/hora es" debe pasar por `hoyPeru()` / `horaPeru()` / `diaSemanaPeru()` etc. de `lib/fechas.ts`, nunca `new Date()` directo. Los helpers calculan la hora de pared de Perú (UTC-5) corriendo `Date.now()` (un instante absoluto) y leyéndolo de vuelta con getters UTC — no sumando `getTimezoneOffset()`, que es para leer con getters *locales* y duplica el offset en silencio en un celular cuya zona horaria del sistema operativo ya es Perú. `diaLaboralPeru()` además trata las horas antes de las 6am como si todavía fueran "ayer", para los cierres de tienda de capacitador pasada la medianoche.
