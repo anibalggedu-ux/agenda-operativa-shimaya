@@ -15,6 +15,16 @@ export function hoyPeru(): string {
   return ahoraEnPeru().toISOString().slice(0, 10);
 }
 
+// Primer día del mes en curso (hora Perú) -- filtro por defecto de las
+// pantallas de métricas/rankings (Central Analítica, Reporte de
+// Cumplimiento, Historial de Monitoreo, Reportes de Coordinador): a
+// diferencia de "últimos 30 días", esto se reinicia solo el día 1 de cada
+// mes, para que la métrica muestre "lo que va del mes" en vez de una
+// ventana corrediza.
+export function inicioMesPeru(): string {
+  return hoyPeru().slice(0, 7) + "-01";
+}
+
 export function horaPeru(): string {
   return ahoraEnPeru().toISOString().slice(11, 19);
 }

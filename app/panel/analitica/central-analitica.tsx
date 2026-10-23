@@ -22,7 +22,7 @@ import {
 } from "./actions";
 import { obtenerVitrinaTrofeos, type FilaVitrina } from "../puntos-actions";
 import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
-import { hoyPeru, sumarDias, formatearFechaLegible } from "@/lib/fechas";
+import { hoyPeru, sumarDias, inicioMesPeru, formatearFechaLegible } from "@/lib/fechas";
 import RankingTiendas from "./ranking-tiendas";
 import TiendasTardanzas from "./tiendas-tardanzas";
 import ReporteTienda from "./reporte-tienda";
@@ -145,7 +145,10 @@ export default function CentralAnalitica({ mostrarApoyos = false, mostrarLibro =
   const parametros = useSearchParams();
   const checklistId = parametros.get("checklist");
 
-  const [desde, setDesde] = useState<string>(() => sumarDias(hoyPeru(), checklistId ? -180 : -30));
+  // Por defecto, el mes en curso (se reinicia solo el día 1) -- salvo el
+  // enlace directo a un checklist puntual, que sigue necesitando una
+  // ventana amplia para encontrarlo aunque sea de otro mes.
+  const [desde, setDesde] = useState<string>(() => (checklistId ? sumarDias(hoyPeru(), -180) : inicioMesPeru()));
   const [hasta, setHasta] = useState<string>(hoyPeru());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);

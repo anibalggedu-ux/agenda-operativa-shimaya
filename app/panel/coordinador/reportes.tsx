@@ -16,7 +16,7 @@ import {
   type HistorialTienda,
   type HistorialPersona,
 } from "./actions";
-import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, hoyPeru, inicioMesPeru } from "@/lib/fechas";
 import {
   generarPdfHistorialTienda,
   generarPdfHistorialPersona,
@@ -214,7 +214,7 @@ function TabObservaciones() {
 function TabPorTienda() {
   const [tiendas, setTiendas] = useState<TiendaBasica[]>([]);
   const [tiendaId, setTiendaId] = useState("");
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [desde, setDesde] = useState(inicioMesPeru());
   const [hasta, setHasta] = useState(hoyPeru());
   const [historial, setHistorial] = useState<HistorialTienda | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -342,7 +342,7 @@ function TabPorTienda() {
 function TabPorPersona() {
   const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
   const [usuarioId, setUsuarioId] = useState("");
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [desde, setDesde] = useState(inicioMesPeru());
   const [hasta, setHasta] = useState(hoyPeru());
   const [historial, setHistorial] = useState<HistorialPersona | null>(null);
   const [cargando, setCargando] = useState(false);

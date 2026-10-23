@@ -7,7 +7,7 @@ import {
   type ReporteNoCumplimiento,
   type FilaCumplimiento,
 } from "./reporte-cumplimiento-actions";
-import { hoyPeru, sumarDias, formatearFechaCorta } from "@/lib/fechas";
+import { hoyPeru, inicioMesPeru, formatearFechaCorta } from "@/lib/fechas";
 import { generarPdfNoCumplimiento } from "@/lib/generar-pdf";
 import BloqueColapsable from "../bloque-colapsable";
 import EstadoVacio from "../estado-vacio";
@@ -41,7 +41,7 @@ function Lista({ filas, sufijo, vacio }: { filas: FilaCumplimiento[]; sufijo: st
 }
 
 export default function ReporteCumplimiento() {
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -7));
+  const [desde, setDesde] = useState(inicioMesPeru());
   const [hasta, setHasta] = useState(hoyPeru());
   const [datos, setDatos] = useState<ReporteNoCumplimiento | null>(null);
   const [cargando, setCargando] = useState(true);
