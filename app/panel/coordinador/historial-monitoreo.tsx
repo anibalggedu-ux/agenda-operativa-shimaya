@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Camera } from "lucide-react";
 import { obtenerAsistenciaGeneral, type AsistenciaGeneral } from "./actions";
-import { formatearFechaLegible, formatearHora, hoyPeru, sumarDias } from "@/lib/fechas";
+import { formatearFechaLegible, formatearHora, hoyPeru, inicioMesPeru } from "@/lib/fechas";
 
 function SelectorFechas({
   desde,
@@ -76,7 +76,7 @@ function Marcacion({
 }
 
 export default function HistorialMonitoreo() {
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [desde, setDesde] = useState(inicioMesPeru());
   const [hasta, setHasta] = useState(hoyPeru());
   const [busqueda, setBusqueda] = useState("");
 
