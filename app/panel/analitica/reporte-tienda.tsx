@@ -11,7 +11,7 @@ import {
   type EncargadoRotacion,
 } from "./actions";
 import { procesarObservacionesConIA } from "./ia-actions";
-import { formatearFechaLegible, hoyPeru, sumarDias } from "@/lib/fechas";
+import { formatearFechaLegible, hoyPeru, inicioMesPeru } from "@/lib/fechas";
 import { generarPdfHistorialTienda } from "@/lib/generar-pdf";
 
 function SelectorFechas({
@@ -54,7 +54,7 @@ function SelectorFechas({
 export default function ReporteTienda() {
   const [tiendas, setTiendas] = useState<TiendaBasicaAnalitica[]>([]);
   const [tiendaId, setTiendaId] = useState("");
-  const [desde, setDesde] = useState(sumarDias(hoyPeru(), -30));
+  const [desde, setDesde] = useState(inicioMesPeru());
   const [hasta, setHasta] = useState(hoyPeru());
   const [historial, setHistorial] = useState<HistorialTiendaAnalitica | null>(null);
   const [rotacion, setRotacion] = useState<EncargadoRotacion[]>([]);
