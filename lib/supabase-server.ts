@@ -24,5 +24,20 @@ export function supabaseServer() {
 
   return createClient<Database>(url, serviceKey, {
     auth: { persistSession: false },
+    // Sin esto, Next.js (App Router) puede guardar en caché las llamadas
+    // fetch() que supabase-js hace por dentro, incluso en una ruta marcada
+    // "force-dynamic" -- confirmado en producción: una consulta nueva a
+    // marcaciones_break devolvía siempre la misma respuesta vieja (0 filas)
+    // pese a que, probando la MISMA consulta directo contra PostgREST, sí
+    // traía la fila real. Caso real: el cron de "5 min de break" nunca
+    // detectó un break real durante horas, porque la primera vez que corrió
+    // tras el último deploy no había nadie en break, y esa respuesta vacía
+    // quedó pegada para todas las corridas siguientes. cache: "no-store"
+    // obliga a que cada consulta vaya siempre a la base, nunca a una
+    // respuesta guardada -- justo lo que se espera de este cliente, que ya
+    // existe para tener siempre el dato real sin pasar por RLS.
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
 }
