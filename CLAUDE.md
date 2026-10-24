@@ -36,7 +36,7 @@ Las Server Actions viven en archivos `actions.ts` (o `*-actions.ts`) junto a las
 
 ### Estatus de tienda (dotación de personal)
 
-Central Analítica tiene un botón **Estatus de tienda** (`app/panel/boton-estatus-tienda.tsx`, solo supervisor, coordinador y gerente) junto al de Apoyos. Abre el módulo de dotación de la app de Coordinación de Apoyos (Cloudflare) con el mismo enlace firmado de `/api/apoyos/acceso`, usando `?ir=estatus`; no hay datos ni tablas de dotación en este repo ni en Supabase. Quién puede editar ahí (RRHH) lo decide Apoyos por el id de usuario de Agenda (`sub` del enlace), no este botón.
+Central Analítica tiene un único botón (`app/panel/boton-apoyos.tsx`, solo supervisor, coordinador y gerente) que abre la app de Coordinación de Apoyos (Cloudflare) con el enlace firmado de `/api/apoyos/acceso`; ahí están las pestañas Horarios, Dashboard y **Estatus de tienda** (módulo de dotación; `?ir=estatus` abre directo esa pestaña). No hay datos ni tablas de dotación en este repo ni en Supabase. Quién puede editar lo decide Apoyos por el id de usuario de Agenda (`sub` del enlace), no este botón: el moderador (administrador del módulo con "acceso total") entra con la aplicación completa de coordinador; los demás supervisores, coordinadores y gerentes, en solo lectura.
 
 ### Manejo de hora de Perú
 

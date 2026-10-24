@@ -1,6 +1,7 @@
 import { CalendarDays, ExternalLink } from "lucide-react";
 
-// Acceso a "Horarios de las tiendas" (app de Coordinación de Apoyos, solo lectura). Vive en Central Analítica.
+// Acceso único a la app de Coordinación de Apoyos: horarios, dashboard y Estatus de tienda (dotación de personal). Vive en Central Analítica.
+// Quién puede editar lo decide Apoyos por el id de usuario de Agenda (`sub` del enlace firmado): el moderador entra con acceso completo; el resto, en solo lectura.
 // Solo se muestra a supervisor, coordinador y gerente (la página que lo usa pasa `mostrarApoyos`);
 // la ruta /api/apoyos/acceso además lo vuelve a comprobar en el servidor.
 export default function BotonApoyos() {
@@ -15,8 +16,8 @@ export default function BotonApoyos() {
         <CalendarDays className="w-5 h-5" />
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block text-marca-textofuerte text-sm font-bold">Horarios de las tiendas</span>
-        <span className="block text-marca-tenue text-[11px]">Horarios, menú y dashboard de apoyos de todas las tiendas · solo lectura</span>
+        <span className="block text-marca-textofuerte text-sm font-bold">Apoyos y estatus de tienda</span>
+        <span className="block text-marca-tenue text-[11px]">Horarios, dashboard, personal activo, vacantes y requerimientos de todas las tiendas</span>
       </span>
       <ExternalLink className="w-4 h-4 text-marca-tenue shrink-0" />
     </a>
