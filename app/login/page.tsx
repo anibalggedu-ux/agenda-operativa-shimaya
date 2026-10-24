@@ -1,11 +1,17 @@
 import LoginForm from "./login-form";
-import { esTemporadaHalloween } from "@/lib/fechas";
+import { esTemporadaHalloween, esTemporadaVerano } from "@/lib/fechas";
 
 export default function LoginPage() {
   // Octubre: Shimayito aterriza en versión zombie (descolorido, tambaleante,
   // con telarañas) antes de recuperar su color normal -- mismo mecanismo de
   // siempre (animar-intro-mascota), solo con un modificador de clase.
   const halloween = esTemporadaHalloween();
+  // Nov-mar: tanto la mascota como el logo oficial cambian a la versión de
+  // verano (el pingüino Shimaya en la playa) -- a diferencia de Halloween,
+  // acá sí se reemplaza la imagen entera, no solo un filtro CSS encima.
+  const verano = esTemporadaVerano();
+  const srcMascota = verano ? "/mascota-verano.jpg" : "/logo-shimaya-personaje.png";
+  const srcLogoOficial = verano ? "/mascota-verano.jpg" : "/logo-shimaya.jpeg";
   return (
     <main className="min-h-screen flex items-center justify-center bg-marca-fondo text-marca-texto p-4 font-body">
       <div className="w-full max-w-md">
@@ -49,7 +55,7 @@ export default function LoginPage() {
               </>
             )}
             <img
-              src="/logo-shimaya-personaje.png"
+              src={srcMascota}
               alt=""
               aria-hidden="true"
               className={`animar-intro-mascota absolute inset-0 w-full h-full object-contain drop-shadow-lg ${
@@ -57,13 +63,16 @@ export default function LoginPage() {
               }`}
             />
             {/* El logo oficial: mismo círculo recortado de siempre, sin
-                ningún cambio — solo arranca invisible y se revela cuando la
-                mascota termina de desvanecerse. */}
+                ningún cambio fuera de temporada — solo arranca invisible y
+                se revela cuando la mascota termina de desvanecerse. En
+                verano usa la misma imagen nueva que la mascota (object-
+                contain en vez de cover, para no recortar el texto "Shimaya
+                ramen" de abajo dentro del círculo chico). */}
             <div className="animar-logo-oficial relative w-20 h-20 rounded-full overflow-hidden ring-1 ring-marca-rojo/40">
               <img
-                src="/logo-shimaya.jpeg"
+                src={srcLogoOficial}
                 alt="Shimaya Ramen"
-                className="w-full h-full object-cover"
+                className={`w-full h-full ${verano ? "object-contain bg-marca-superficie" : "object-cover"}`}
               />
             </div>
           </div>

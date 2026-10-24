@@ -277,6 +277,14 @@ export function reproducirSonidoFantasma(): void {
   tocar([987.77, 830.61, 698.46, 587.33], 0.13, [30, 30, 30, 60], 0.4);
 }
 
+// Toque de temporada (solo en la ventana de verano, ver esTemporadaVerano en
+// lib/fechas.ts): silbido corto y ascendente (al revés del de Halloween),
+// una vez al abrir Inicio. Respeta igual el paquete elegido y el interruptor
+// de sonido/vibración.
+export function reproducirSonidoVerano(): void {
+  tocar([523.25, 659.25, 783.99, 1046.5], 0.13, [30, 30, 30, 60], 0.4);
+}
+
 // El navegador no deja sonar nada hasta que la persona toca la pantalla por
 // primera vez. Para avisos que aparecen al abrir la app (evento o encuesta
 // nueva), se espera a ese primer toque y recién ahí suena — una sola vez.

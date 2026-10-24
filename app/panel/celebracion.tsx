@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { esTemporadaHalloween } from "@/lib/fechas";
+import { esTemporadaHalloween, esTemporadaVerano } from "@/lib/fechas";
 
 // Celebración dorada: se dispara sola cuando suena "logro" (checklist o
 // auditoría con Excelente, puntos recibidos en regalo, o racha de historias
 // que sube — ver lib/sonido.ts). Un solo componente, montado una vez en
 // PanelShell, cubre los 4 casos sin tocar cada pantalla.
 //
-// En octubre, en vez de los cuadritos dorados caen hojas y murciélagos —
-// mismo mecanismo de caída (celebracion-cae), solo cambia qué partícula se
-// dibuja.
+// En octubre, en vez de los cuadritos dorados caen hojas y murciélagos; de
+// nov a mar caen hojas de palmera y soles — mismo mecanismo de caída
+// (celebracion-cae), solo cambia qué partícula se dibuja. Octubre y verano
+// nunca están activos a la vez (ver esTemporadaHalloween/esTemporadaVerano).
 const CANTIDAD = 22;
 
 type Particula = {
@@ -20,15 +21,17 @@ type Particula = {
   duracion: number;
   deriva: number;
   tamano: number;
-  tipo: "cuadro" | "hoja" | "murcielago";
+  tipo: "cuadro" | "hoja" | "murcielago" | "palmera" | "sol";
 };
 
 export default function Celebracion() {
   const [particulas, setParticulas] = useState<Particula[] | null>(null);
   const [halloween, setHalloween] = useState(false);
+  const [verano, setVerano] = useState(false);
 
   useEffect(() => {
     setHalloween(esTemporadaHalloween());
+    setVerano(esTemporadaVerano());
   }, []);
 
   useEffect(() => {
@@ -41,16 +44,32 @@ export default function Celebracion() {
         duracion: 1.5 + (i % 5) * 0.25,
         deriva: (i % 2 === 0 ? 1 : -1) * (20 + (i % 6) * 12),
         tamano: i % 4 === 0 ? 7 : 5,
-        tipo: !halloween ? "cuadro" : i % 3 === 0 ? "murcielago" : "hoja",
+        tipo: halloween
+          ? i % 3 === 0
+            ? "murcielago"
+            : "hoja"
+          : verano
+            ? i % 3 === 0
+              ? "sol"
+              : "palmera"
+            : "cuadro",
       }));
       setParticulas(nuevas);
       window.setTimeout(() => setParticulas(null), 2400);
     }
     window.addEventListener("shimaya:celebracion", alCelebrar);
     return () => window.removeEventListener("shimaya:celebracion", alCelebrar);
-  }, [halloween]);
+  }, [halloween, verano]);
 
   if (!particulas) return null;
+
+  const emojiPorTipo: Record<Particula["tipo"], string | null> = {
+    cuadro: null,
+    hoja: "🍂",
+    murcielago: "🦇",
+    palmera: "🌴",
+    sol: "☀️",
+  };
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[110] overflow-hidden">
@@ -71,7 +90,7 @@ export default function Celebracion() {
             "--celebracion-deriva": `${p.deriva}px`,
           }}
         >
-          {p.tipo === "hoja" ? "🍂" : p.tipo === "murcielago" ? "🦇" : null}
+          {emojiPorTipo[p.tipo]}
         </span>
       ))}
     </div>

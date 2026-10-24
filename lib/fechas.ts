@@ -158,6 +158,15 @@ export function esTemporadaHalloween(): boolean {
   return mes === 10;
 }
 
+// Ventana de ambientación de verano (verano austral: 1 de noviembre al 31 de
+// marzo) -- mismo patrón que esTemporadaHalloween, solo decorativo/sonoro,
+// nunca afecta datos ni lógica operativa. No se solapa con octubre
+// (Halloween), así que ambas ambientaciones nunca están activas a la vez.
+export function esTemporadaVerano(): boolean {
+  const [, mes] = hoyPeru().split("-").map(Number);
+  return mes === 11 || mes === 12 || mes <= 3;
+}
+
 export function formatearHora(horaHHMMSS: string): string {
   const partes = horaHHMMSS.split(":");
   const h = Number(partes[0]);

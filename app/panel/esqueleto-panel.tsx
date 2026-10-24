@@ -1,4 +1,4 @@
-import { esTemporadaHalloween } from "@/lib/fechas";
+import { esTemporadaHalloween, esTemporadaVerano } from "@/lib/fechas";
 
 // Esqueleto de carga para loading.tsx de cada ruta bajo /panel -- se ve
 // mientras el servidor arma la página (sesión + datos iniciales), en vez de
@@ -7,6 +7,7 @@ import { esTemporadaHalloween } from "@/lib/fechas";
 // (ver globals.css) en lugar de texto real.
 export default function EsqueletoPanel() {
   const halloween = esTemporadaHalloween();
+  const verano = esTemporadaVerano();
   return (
     <div className="relative min-h-screen bg-marca-fondo text-marca-texto font-body">
       <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-marca-borde bg-marca-superficie px-4 sm:px-6 py-3">
@@ -21,6 +22,11 @@ export default function EsqueletoPanel() {
       {halloween && (
         <p className="text-center text-calabaza text-[11px] font-bold tracking-wide pt-3">
           Despertando a los fantasmas...
+        </p>
+      )}
+      {verano && (
+        <p className="text-center text-verano text-[11px] font-bold tracking-wide pt-3">
+          Calentando la arena...
         </p>
       )}
 
