@@ -13,8 +13,8 @@ import {
 } from "./resumen-dia-actions";
 import { recalcularEtaConUbicacion } from "./supervisor/actions";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
-import { formatearFechaLegible, formatearHora, esTemporadaHalloween, hoyPeru, horaPeru } from "@/lib/fechas";
-import { reproducirSonidoFantasma, reproducirAlPrimerToque } from "@/lib/sonido";
+import { formatearFechaLegible, formatearHora, esTemporadaHalloween, esTemporadaVerano, hoyPeru, horaPeru } from "@/lib/fechas";
+import { reproducirSonidoFantasma, reproducirSonidoVerano, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
 
 // Arma las frases de alerta de puntualidad de una persona — puede haber más
@@ -244,26 +244,48 @@ export default function ResumenDelDia({
     setFechaHoy(`${formatearFechaLegible(hoy)} de ${hoy.slice(0, 4)}`);
   }, []);
 
-  // Ambientación de Halloween (24-31 de octubre): solo visual/sonora, un
-  // toque único al abrir Inicio -- nunca cambia datos ni comportamiento.
+  // Ambientación de Halloween (24-31 de octubre) o de verano (nov-mar): solo
+  // visual/sonora, un toque único al abrir Inicio -- nunca cambia datos ni
+  // comportamiento. Nunca están activas a la vez (ver esTemporadaHalloween/
+  // esTemporadaVerano en lib/fechas.ts).
   const [halloween, setHalloween] = useState(false);
+  const [verano, setVerano] = useState(false);
   useEffect(() => {
     setHalloween(esTemporadaHalloween());
+    setVerano(esTemporadaVerano());
   }, []);
   useEffect(() => {
-    if (!halloween) return;
-    reproducirAlPrimerToque(() => reproducirSonidoFantasma());
-  }, [halloween]);
+    if (halloween) {
+      reproducirAlPrimerToque(() => reproducirSonidoFantasma());
+    } else if (verano) {
+      reproducirAlPrimerToque(() => reproducirSonidoVerano());
+    }
+  }, [halloween, verano]);
 
-  const emojiSaludo = !halloween ? "👋" : saludo === "Buenos días" ? "🎃" : saludo === "Buenas tardes" ? "🦇" : "👻";
+  const temporadaActiva = halloween || verano;
+  const emojiSaludo = halloween
+    ? saludo === "Buenos días"
+      ? "🎃"
+      : saludo === "Buenas tardes"
+        ? "🦇"
+        : "👻"
+    : verano
+      ? saludo === "Buenos días"
+        ? "☀️"
+        : saludo === "Buenas tardes"
+          ? "🏖️"
+          : "🌴"
+      : "👋";
   const separadorSaludo = halloween && saludo === "Buenas noches" ? "... si te atreves," : ",";
 
   // Toca para encender: un toque en el emoji del saludo suelta un chispazo
-  // de partículas naranjas alrededor -- puro detalle, no bloquea nada.
+  // de partículas (naranjas en Halloween, coral en verano) alrededor -- puro
+  // detalle, no bloquea nada.
   type Chispa = { id: number; dx: number; dy: number };
   const [chispas, setChispas] = useState<Chispa[]>([]);
   function tocarEmoji() {
-    reproducirSonidoFantasma();
+    if (halloween) reproducirSonidoFantasma();
+    else if (verano) reproducirSonidoVerano();
     const nuevas: Chispa[] = Array.from({ length: 10 }).map((_, i) => {
       const angulo = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
       const vel = 16 + Math.random() * 12;
@@ -273,31 +295,40 @@ export default function ResumenDelDia({
     window.setTimeout(() => setChispas([]), 650);
   }
 
-  // Truco o trato del día: una vez por día de octubre (guardado en
-  // localStorage, es solo una conveniencia de este celular, no un dato real)
-  // aparece una frase de la casa al abrir Inicio.
+  // Truco o trato del día (Halloween) / Especial de verano del día: una vez
+  // por día de la temporada activa (guardado en localStorage, es solo una
+  // conveniencia de este celular, no un dato real) aparece una frase de la
+  // casa al abrir Inicio.
   const FRASES_TRATO = [
     "🎃 Hoy hasta los fantasmas llegan temprano a su tienda.",
     "🦇 Que ningún duende te robe el break de hoy.",
     "👻 Marca tu salida -- ni los fantasmas se quedan atrapados en una tienda.",
     "🍬 Un checklist completo hoy ahuyenta cualquier mal espíritu.",
   ];
+  const FRASES_VERANO = [
+    "☀️ Hidrátate seguido en ruta -- hoy toca calor fuerte en la costa.",
+    "🧴 Aplica protector solar antes de salir a ruta.",
+    "🏖️ Marca tu salida antes de que se ponga el sol -- ni en la playa se olvida.",
+    "🍍 Un checklist completo hoy es la mejor excusa para un refresco después.",
+  ];
   const [trato, setTrato] = useState<string | null>(null);
   useEffect(() => {
-    if (!halloween) return;
+    if (!temporadaActiva) return;
     try {
       const hoy = hoyPeru();
-      const visto = localStorage.getItem("shimaya_trato_fecha");
+      const clave = halloween ? "shimaya_trato_fecha" : "shimaya_verano_fecha";
+      const visto = localStorage.getItem(clave);
       if (visto !== hoy) {
-        setTrato(FRASES_TRATO[Math.floor(Math.random() * FRASES_TRATO.length)]);
+        const frases = halloween ? FRASES_TRATO : FRASES_VERANO;
+        setTrato(frases[Math.floor(Math.random() * frases.length)]);
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [halloween]);
+  }, [halloween, verano]);
   function cerrarTrato() {
     setTrato(null);
     try {
-      localStorage.setItem("shimaya_trato_fecha", hoyPeru());
+      localStorage.setItem(halloween ? "shimaya_trato_fecha" : "shimaya_verano_fecha", hoyPeru());
     } catch {}
   }
 
@@ -328,7 +359,7 @@ export default function ResumenDelDia({
         <h2 className="font-display text-xl sm:text-2xl font-semibold text-marca-textofuerte">
           {saludo}
           {separadorSaludo} <span className="text-marca-rojoclaro italic">{primerNombre}</span>{" "}
-          {halloween ? (
+          {temporadaActiva ? (
             <span className="relative inline-block">
               <button
                 type="button"
@@ -342,7 +373,7 @@ export default function ResumenDelDia({
                 <span
                   key={c.id}
                   aria-hidden
-                  className="chispa"
+                  className={halloween ? "chispa" : "chispa-verano"}
                   style={{
                     // @ts-expect-error variables CSS propias, leídas solo por el keyframe
                     "--chispa-dx": `${c.dx}px`,
@@ -447,7 +478,7 @@ export default function ResumenDelDia({
 
       {trato && (
         <div className="mb-3 bg-marca-superficie/60 border border-marca-borde rounded-[3px] px-3 py-2 flex items-center gap-2.5">
-          <span aria-hidden className="text-sm leading-none">🍬</span>
+          <span aria-hidden className="text-sm leading-none">{halloween ? "🍬" : "🍹"}</span>
           <p className="text-marca-tenue text-[11px] flex-1">{trato}</p>
           <button
             type="button"

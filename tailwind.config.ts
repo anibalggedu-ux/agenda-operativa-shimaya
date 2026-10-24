@@ -24,6 +24,9 @@ const config: Config = {
         // Acento de temporada (Halloween, octubre) -- separado de "marca"
         // porque no es parte de la identidad permanente, solo un overlay.
         calabaza: "rgb(var(--calabaza) / <alpha-value>)",
+        // Acento de temporada (verano austral, nov-mar) -- mismo patrón que
+        // "calabaza", coral de atardecer en vez de naranja de calabaza.
+        verano: "rgb(var(--marca-verano) / <alpha-value>)",
         // Advertencia/éxito -- reemplazan los amber-*/emerald-* de Tailwind
         // (fijos, no se leían bien en tema claro) en estados de alerta leve y
         // de "todo bien" en vez de hex sueltos repetidos por componente.

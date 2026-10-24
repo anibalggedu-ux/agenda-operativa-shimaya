@@ -11,6 +11,9 @@
   --marca-oro: 217 178 106;
   /* Acento de temporada (Halloween, octubre) — igual en ambos temas. */
   --calabaza: 255 139 46;
+  /* Acento de temporada (verano austral, nov-mar) — coral de atardecer,
+     igual en ambos temas. */
+  --marca-verano: 255 126 95;
   /* Advertencia/éxito — igual en ambos temas, para que se lean bien en texto
      sobre fondo casi negro (tema oscuro) y casi blanco (tema claro). */
   --advertencia: 217 119 6;
@@ -249,9 +252,12 @@ body::before {
 }
 /* Octubre: hojas y murciélagos en vez de los cuadritos dorados -- mismo
    keyframe de caída, solo que la partícula es texto (el emoji) en vez de un
-   fondo de color. */
+   fondo de color. Verano (nov-mar): mismo mecanismo, hojas de palmera y
+   soles en vez de hojas/murciélagos. */
 .celebracion-particula-hoja,
-.celebracion-particula-murcielago {
+.celebracion-particula-murcielago,
+.celebracion-particula-palmera,
+.celebracion-particula-sol {
   background: none;
   box-shadow: none;
   line-height: 1;
@@ -901,6 +907,38 @@ textarea:focus {
     transform: translate(var(--chispa-dx, 0), var(--chispa-dy, 0));
     opacity: 0;
   }
+}
+
+/* Verano (nov-mar) · Menú: mismo resplandor que Halloween en el aro del
+   ícono activo, pero en coral de atardecer en vez de naranja de calabaza --
+   ver .aro-linterna-activo/.icono-linterna arriba. */
+.aro-brisa-activo {
+  animation: brisa-resplandor 2.6s ease-in-out infinite;
+}
+.icono-brisa:not([aria-current="true"]):active span:first-child,
+.icono-brisa:hover span:first-child {
+  box-shadow: 0 0 7px 0 rgb(var(--marca-verano) / 0.3);
+}
+@keyframes brisa-resplandor {
+  0%, 100% { box-shadow: 0 0 10px 1px rgb(var(--marca-verano) / 0.45); }
+  45% { box-shadow: 0 0 7px 0px rgb(var(--marca-verano) / 0.3); }
+  55% { box-shadow: 0 0 13px 2px rgb(var(--marca-verano) / 0.55); }
+}
+
+/* Verano (nov-mar) · Inicio: "toca para encender" en coral, mismo mecanismo
+   que .chispa (Halloween) con el keyframe chispa-estalla ya existente. */
+.chispa-verano {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  border-radius: 50%;
+  background: rgb(var(--marca-verano));
+  box-shadow: 0 0 4px 0 rgb(var(--marca-verano) / 0.7);
+  pointer-events: none;
+  animation: chispa-estalla 0.6s ease-out forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
