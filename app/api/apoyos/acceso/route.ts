@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { obtenerSesion } from "@/lib/session";
 
-// Botón "Horarios de las tiendas": abre la app de Coordinación de Apoyos en modo SOLO LECTURA
-// sin pedir otra contraseña. Se genera un enlace firmado que vence en 60 segundos y solo sirve una vez
+// Botón "Apoyos y estatus de tienda": abre la app de Coordinación de Apoyos sin pedir otra contraseña (por defecto en SOLO LECTURA;
+// Apoyos decide por el id de usuario de este enlace si la persona tiene acceso completo de coordinador). Se genera un enlace firmado que vence en 60 segundos y solo sirve una vez
 // (la app de apoyos lo verifica con el mismo secreto). Solo supervisor, coordinador y gerente.
 // Los capacitadores y cualquier otro rol quedan fuera. Si el secreto no está configurado, no se abre nada.
 export const dynamic = "force-dynamic";

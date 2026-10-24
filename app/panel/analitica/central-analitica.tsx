@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { LineChart, Trophy, Car, Target, AlertTriangle, Store, LayoutDashboard, TrendingUp, FileText, User } from "lucide-react";
 import BotonApoyos from "../boton-apoyos";
-import BotonEstatusTienda from "../boton-estatus-tienda";
 import BotonLibro from "../boton-libro";
 import BotonPropinas from "../boton-propinas";
 import {
@@ -227,7 +226,6 @@ export default function CentralAnalitica({ mostrarApoyos = false, mostrarLibro =
   return (
     <div className="space-y-6">
       {mostrarApoyos && <BotonApoyos />}
-      {mostrarApoyos && <BotonEstatusTienda />}
       {mostrarLibro && <BotonLibro />}
       <BotonPropinas />
       <div className="flex flex-col sm:flex-row gap-3 bg-marca-superficie border border-marca-borde rounded-[3px] p-4">
