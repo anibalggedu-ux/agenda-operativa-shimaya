@@ -13,7 +13,7 @@ import Brasas from "./brasas";
 import Celebracion from "./celebracion";
 import RecordatorioChecker from "./mi-agenda/recordatorio-checker";
 import AvisoPrivacidadModal from "./aviso-privacidad-modal";
-import { esTemporadaHalloween } from "@/lib/fechas";
+import { esTemporadaHalloween, esTemporadaVerano } from "@/lib/fechas";
 
 export type ItemMenuPanel = {
   id: string;
@@ -39,18 +39,20 @@ function BotonBarra({
   item,
   activo,
   halloween,
+  verano,
   onClick,
 }: {
   item: ItemMenuPanel;
   activo: boolean;
   halloween: boolean;
+  verano: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0 ${
-        halloween ? "icono-linterna" : ""
+        halloween ? "icono-linterna" : verano ? "icono-brisa" : ""
       }`}
       aria-current={activo}
     >
@@ -59,7 +61,9 @@ function BotonBarra({
           activo
             ? halloween
               ? "bg-calabaza/20 text-calabaza aro-linterna-activo"
-              : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
+              : verano
+                ? "bg-verano/20 text-verano aro-brisa-activo"
+                : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
             : "text-marca-tenue"
         }`}
       >
@@ -85,12 +89,14 @@ function BarraFlotante({
   items,
   activo,
   halloween,
+  verano,
   onSeleccionar,
   onAbrirMas,
 }: {
   items: ItemMenuPanel[];
   activo: string;
   halloween: boolean;
+  verano: boolean;
   onSeleccionar: (id: string) => void;
   onAbrirMas: () => void;
 }) {
@@ -109,6 +115,7 @@ function BarraFlotante({
           item={item}
           activo={activo === item.id}
           halloween={halloween}
+          verano={verano}
           onClick={() => onSeleccionar(item.id)}
         />
       ))}
@@ -116,7 +123,7 @@ function BarraFlotante({
         <button
           onClick={onAbrirMas}
           className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0 ${
-            halloween ? "icono-linterna" : ""
+            halloween ? "icono-linterna" : verano ? "icono-brisa" : ""
           }`}
         >
           <span
@@ -124,7 +131,9 @@ function BarraFlotante({
               activoEnMas
                 ? halloween
                   ? "bg-calabaza/20 text-calabaza aro-linterna-activo"
-                  : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
+                  : verano
+                    ? "bg-verano/20 text-verano aro-brisa-activo"
+                    : "bg-oro/20 text-marca-rojoclaro profundidad-activo"
                 : "text-marca-tenue"
             }`}
           >
@@ -143,11 +152,13 @@ function BotonItem({
   item,
   activo,
   halloween,
+  verano,
   onClick,
 }: {
   item: ItemMenuPanel;
   activo: boolean;
   halloween: boolean;
+  verano: boolean;
   onClick: () => void;
 }) {
   return (
@@ -157,8 +168,10 @@ function BotonItem({
         activo
           ? halloween
             ? "text-calabaza bg-calabaza/15 icono-linterna aro-linterna-activo"
-            : "text-marca-rojoclaro bg-marca-rojo/15"
-          : `text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2 ${halloween ? "icono-linterna" : ""}`
+            : verano
+              ? "text-verano bg-verano/15 icono-brisa aro-brisa-activo"
+              : "text-marca-rojoclaro bg-marca-rojo/15"
+          : `text-marca-tenue hover:text-marca-texto hover:bg-marca-superficie2 ${halloween ? "icono-linterna" : verano ? "icono-brisa" : ""}`
       }`}
     >
       <span className="shrink-0">{item.icono}</span>
@@ -212,8 +225,10 @@ export default function PanelShell({
   const [activo, setActivo] = useState(idInicial);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [halloween, setHalloween] = useState(false);
+  const [verano, setVerano] = useState(false);
   useEffect(() => {
     setHalloween(esTemporadaHalloween());
+    setVerano(esTemporadaVerano());
   }, []);
 
   const seccionActiva = items.find((i) => i.id === activo) ?? items[0];
@@ -292,7 +307,7 @@ export default function PanelShell({
             </div>
             <nav className="flex-1 py-2 overflow-y-auto">
               {itemsDrawer.map((item) => (
-                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} onClick={() => seleccionar(item.id)} />
+                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} verano={verano} onClick={() => seleccionar(item.id)} />
               ))}
             </nav>
           </aside>
@@ -317,7 +332,7 @@ export default function PanelShell({
           <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 bg-marca-superficie border-r border-marca-borde">
             <nav className="flex-1 py-2 overflow-y-auto">
               {items.map((item) => (
-                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} onClick={() => seleccionar(item.id)} />
+                <BotonItem key={item.id} item={item} activo={activo === item.id} halloween={halloween} verano={verano} onClick={() => seleccionar(item.id)} />
               ))}
             </nav>
           </aside>
@@ -332,7 +347,7 @@ export default function PanelShell({
         </div>
       </div>
 
-      <BarraFlotante items={items} activo={activo} halloween={halloween} onSeleccionar={seleccionar} onAbrirMas={() => setDrawerAbierto(true)} />
+      <BarraFlotante items={items} activo={activo} halloween={halloween} verano={verano} onSeleccionar={seleccionar} onAbrirMas={() => setDrawerAbierto(true)} />
 
       {activo === idHome && <Brasas />}
 

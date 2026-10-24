@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { X, AlertTriangle, Camera, UserRound, Images, Type, Video as VideoIcon } from "lucide-react";
 import { crearHistoria } from "./actions";
 import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
-import { esTemporadaHalloween } from "@/lib/fechas";
+import { esTemporadaHalloween, esTemporadaVerano } from "@/lib/fechas";
 import { reproducirSonidoAlerta } from "@/lib/sonido";
 import { pareceFallaDeConexion } from "@/lib/cola-marcaciones";
 import { agregarHistoriaPendiente } from "@/lib/cola-historias";
@@ -31,9 +31,13 @@ const EMOJIS_HISTORIA_BASE = [
 // Solo en octubre (ver esTemporadaHalloween) -- el resto del año no aparecen,
 // igual que el resto de la ambientación de temporada de la app.
 const EMOJIS_HALLOWEEN = ["🎃", "👻", "🦇", "🕷️"];
+// Solo de nov a mar (ver esTemporadaVerano) -- mismo patrón que Halloween.
+const EMOJIS_VERANO = ["☀️", "🏖️", "🌴", "🍹"];
 
 export function obtenerEmojisHistoria(): string[] {
-  return esTemporadaHalloween() ? [...EMOJIS_HISTORIA_BASE, ...EMOJIS_HALLOWEEN] : EMOJIS_HISTORIA_BASE;
+  if (esTemporadaHalloween()) return [...EMOJIS_HISTORIA_BASE, ...EMOJIS_HALLOWEEN];
+  if (esTemporadaVerano()) return [...EMOJIS_HISTORIA_BASE, ...EMOJIS_VERANO];
+  return EMOJIS_HISTORIA_BASE;
 }
 const TEXTO_MAXIMO = 200;
 // Tope de duración de un video de historia -- ver obtenerDuracionVideo.
