@@ -67,7 +67,7 @@ export interface User {
 }
 
 /** Crea un usuario con rol (insert directo, como haría el procedimiento de alta) e inicia sesión. */
-export async function userWithSession(api: Api, role: Role, name = role): Promise<User> {
+export async function userWithSession(api: Api, role: Role, name: string = role): Promise<User> {
   const id = newId();
   const email = `${name}-${id.slice(0, 8)}@prueba.shimaya.test`;
   await env.DB.prepare("INSERT INTO users (id, email, display_name, role, password_hash) VALUES (?, ?, ?, ?, ?)")

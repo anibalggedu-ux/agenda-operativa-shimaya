@@ -209,7 +209,8 @@ adminRoutes.post("/coupons/search", async (c) => {
   const q = new Q();
   const nowP = q.p(c.get("now").toISOString());
   const eff = effectiveStatusSql(nowP);
-  const where = ["1 = 1"];
+  // La consulta de conteo y la de página comparten parámetros: ambas deben referenciar la hora (D1 rechaza bindings sin usar).
+  const where = [`${nowP} IS NOT NULL`];
   if (f.campaignId) where.push(`c.campaign_id = ${q.p(f.campaignId)}`);
   if (f.state) where.push(`(${eff}) = ${q.p(f.state)}`);
   if (f.code) where.push(`c.code LIKE ${q.p(`${f.code}%`)}`);

@@ -45,8 +45,8 @@ export function createApp(deps: Deps = { now: () => new Date() }) {
       for (const [k, v] of Object.entries(err.headers)) c.header(k, v);
       return c.json({ error: err.code, message: err.message, ...err.extra }, err.status);
     }
-    // Sin parámetros ni cuerpo en el log: podrían contener códigos o datos personales.
-    console.error("unhandled", err instanceof Error ? err.name : "unknown");
+    // Se registra el mensaje del error (recortado), nunca parámetros ni cuerpos: podrían contener códigos o datos personales.
+    console.error("unhandled", err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : "unknown");
     return c.json({ error: "internal", message: "Ocurrió un error inesperado. Intenta de nuevo." }, 500);
   });
 

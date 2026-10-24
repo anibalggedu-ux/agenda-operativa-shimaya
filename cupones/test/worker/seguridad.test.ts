@@ -52,7 +52,10 @@ describe("matriz de permisos: acceso cruzado entre roles, llamando directo a la 
       expect(anon.status, `${ep.name} sin sesión`).toBe(401);
       for (const role of Object.keys(users) as Role[]) {
         const res = await api.call(ep.method, ep.path, { body: ep.body, headers: ep.headers, cookie: users[role].cookie });
-        if (ep.allowed.includes(role)) expect([401, 403], `${ep.name} permitido a ${role}`).not.toContain(res.status);
+        if (ep.allowed.includes(role)) {
+          expect([401, 403], `${ep.name} permitido a ${role}`).not.toContain(res.status);
+          expect(res.status, `${ep.name} no debe fallar con 5xx`).toBeLessThan(500);
+        }
         else expect(res.status, `${ep.name} debe negarse a ${role}`).toBe(403);
       }
     }

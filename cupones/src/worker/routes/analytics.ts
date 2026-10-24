@@ -43,13 +43,20 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
   const toIso = f.to ? limaDayEndExclusiveIso(f.to) : null;
 
   // Cohorte de inventario: cupones EMITIDOS (created_at) dentro del rango y de la campaña.
-  const inv = new Q();
-  const nowP = inv.p(now.toISOString());
-  const invWhere = ["1 = 1"];
-  if (f.campaignId) invWhere.push(`c.campaign_id = ${inv.p(f.campaignId)}`);
-  if (fromIso) invWhere.push(`c.created_at >= ${inv.p(fromIso)}`);
-  if (toIso) invWhere.push(`c.created_at < ${inv.p(toIso)}`);
-  const invFrom = `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id WHERE ${invWhere.join(" AND ")}`;
+  // Cada consulta arma sus propios parámetros: D1 rechaza bindings que el SQL no usa.
+  const invFrom = (q: Q) => {
+    const where = ["1 = 1"];
+    if (f.campaignId) where.push(`c.campaign_id = ${q.p(f.campaignId)}`);
+    if (fromIso) where.push(`c.created_at >= ${q.p(fromIso)}`);
+    if (toIso) where.push(`c.created_at < ${q.p(toIso)}`);
+    return `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id WHERE ${where.join(" AND ")}`;
+  };
+  const stateQ = new Q();
+  const nowP = stateQ.p(now.toISOString());
+  const stateSql = `SELECT ${effectiveStatusSql(nowP)} AS k, COUNT(*) AS n ${invFrom(stateQ)} GROUP BY k`;
+  const campQ = new Q();
+  const campSql = `SELECT ca.id AS campaignId, ca.name, COUNT(*) AS issued, SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
+           ${invFrom(campQ)} GROUP BY ca.id, ca.name ORDER BY issued DESC, ca.name`;
 
   // Actividad: canjes realizados (redeemed_at) dentro del rango y de la campaña.
   const act = new Q();
@@ -61,13 +68,8 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
   const lima = "r.redeemed_at, '-5 hours'";
 
   const [byState, byCampaign, total, day, week, month, hour] = await db.batch([
-    db.prepare(`SELECT ${effectiveStatusSql(nowP)} AS k, COUNT(*) AS n ${invFrom} GROUP BY k`).bind(...inv.params),
-    db
-      .prepare(
-        `SELECT ca.id AS campaignId, ca.name, COUNT(*) AS issued, SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
-           ${invFrom} GROUP BY ca.id, ca.name ORDER BY issued DESC, ca.name`,
-      )
-      .bind(...inv.params),
+    db.prepare(stateSql).bind(...stateQ.params),
+    db.prepare(campSql).bind(...campQ.params),
     db.prepare(`SELECT COUNT(*) AS n ${actFrom}`).bind(...act.params),
     db.prepare(`SELECT strftime('%Y-%m-%d', ${lima}) AS k, COUNT(*) AS n ${actFrom} GROUP BY k ORDER BY k`).bind(...act.params),
     db
