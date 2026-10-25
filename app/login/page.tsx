@@ -8,10 +8,14 @@ export default function LoginPage() {
   const halloween = esTemporadaHalloween();
   // Nov-mar: tanto la mascota como el logo oficial cambian a la versión de
   // verano (el pingüino Shimaya en la playa) -- a diferencia de Halloween,
-  // acá sí se reemplaza la imagen entera, no solo un filtro CSS encima.
+  // acá sí se reemplaza la imagen entera, no solo un filtro CSS encima. PNG
+  // con el fondo ya quitado (flood fill desde los bordes, respetando los
+  // ojos del pingüino) en vez del .jpg original con fondo negro cuadrado --
+  // así se ve bien tanto en tema oscuro como claro, sin un recuadro negro
+  // alrededor.
   const verano = esTemporadaVerano();
-  const srcMascota = verano ? "/mascota-verano.jpg" : "/logo-shimaya-personaje.png";
-  const srcLogoOficial = verano ? "/mascota-verano.jpg" : "/logo-shimaya.jpeg";
+  const srcMascota = verano ? "/mascota-verano.png" : "/logo-shimaya-personaje.png";
+  const srcLogoOficial = verano ? "/mascota-verano.png" : "/logo-shimaya.jpeg";
   return (
     <main className="min-h-screen flex items-center justify-center bg-marca-fondo text-marca-texto p-4 font-body">
       <div className="w-full max-w-md">
