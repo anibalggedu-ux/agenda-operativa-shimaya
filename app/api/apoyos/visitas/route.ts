@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { supabaseServer } from "@/lib/supabase-server";
-import { hoyPeru, sumarDias } from "@/lib/fechas";
+import { hoyPeru, sumarDias, horaPeru } from "@/lib/fechas";
 
 // Visitas de supervisores, capacitadores y coordinadores a las tiendas, para el dashboard de la app de Coordinación de Apoyos.
 // Junta las visitas ya reportadas (rutas_diarias), las que siguen pendientes (rutas_activas) y, para recuperar el origen de las visitas
@@ -55,17 +55,28 @@ export async function GET(req: Request) {
     const tienda = new Map((tiendas.data ?? []).map((x) => [String(x.id), String(x.nombre)] as const));
 
     const [diarias, activas, historial] = await Promise.all([
-      todas((a, b) => supabase.from("rutas_diarias").select("fecha, usuario_id, tienda_id, hora_llegada, hora_salida, autoasignada, area, enfoque").gte("fecha", desde).lte("fecha", hasta).order("fecha").range(a, b)),
-      todas((a, b) => supabase.from("rutas_activas").select("fecha_planificada, usuario_id, tienda_id, hora_llegada, hora_salida, autoasignada, area, enfoque").gte("fecha_planificada", desde).lte("fecha_planificada", hasta).order("fecha_planificada").range(a, b)),
+      todas((a, b) => supabase.from("rutas_diarias").select("fecha, usuario_id, tienda_id, hora_llegada, hora_salida, autoasignada, area, enfoque, incognito").gte("fecha", desde).lte("fecha", hasta).order("fecha").range(a, b)),
+      todas((a, b) => supabase.from("rutas_activas").select("fecha_planificada, usuario_id, tienda_id, hora_llegada, hora_salida, autoasignada, area, enfoque, incognito").gte("fecha_planificada", desde).lte("fecha_planificada", hasta).order("fecha_planificada").range(a, b)),
       todas((a, b) => supabase.from("historial_asignaciones").select("fecha_planificada, usuario_id, tienda_id, area, enfoque").gte("fecha_planificada", desde).lte("fecha_planificada", hasta).order("fecha_planificada").range(a, b)),
     ]);
 
     // Las visitas viejas ya reportadas no guardan si fueron asignadas: si el coordinador la había planificado (historial), se recupera de ahí.
     const planificada = new Map(historial.map((h) => [`${h.fecha_planificada}|${h.usuario_id}|${h.tienda_id}`, h] as const));
+    // "Ir de incógnito": la visita no aparece acá (en el feed de Apoyos) hasta
+    // las 2pm hora Perú del día que corresponda. Las pantallas internas de
+    // Shimaya (Central Analítica, calendario) no pasan por este endpoint, así
+    // que siguen mostrando la visita de inmediato sin ningún cambio.
+    const horaActual = horaPeru();
+    const yaSonLasDos = horaActual >= "14:00:00";
     const filas: Record<string, unknown>[] = [];
     const agregar = (r: Fila, fecha: string, estado: "reportada" | "pendiente" | "sin_reporte") => {
       const p = persona.get(String(r.usuario_id));
       if (!p) return; // solo supervisores, capacitadores y coordinadores
+      // De incógnito hasta las 2pm DEL DÍA DE LA VISITA: una fecha futura
+      // todavía no llegó a su propio mediodía-2pm, así que se oculta entera;
+      // la de hoy se oculta solo hasta que el reloj cruce las 2pm; una fecha
+      // ya pasada siempre se muestra (su 2pm ya quedó atrás).
+      if (r.incognito === true && (fecha > hoy || (fecha === hoy && !yaSonLasDos))) return;
       const plan = planificada.get(`${fecha}|${r.usuario_id}|${r.tienda_id}`);
       const origen = r.autoasignada === true ? "autoasignada" : r.autoasignada === false ? "asignada" : plan ? "asignada" : null;
       filas.push({

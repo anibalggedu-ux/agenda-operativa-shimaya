@@ -468,7 +468,16 @@ async function notificarCoordinadoresAutoasignacion(
   }
 }
 
-export async function autoasignarTienda(tiendaId: string, paraManana = false): Promise<ResultadoReporte> {
+export async function autoasignarTienda(
+  tiendaId: string,
+  paraManana = false,
+  // true = esta visita no aparece en el horario que ve Coordinación de
+  // Apoyos hasta las 2pm hora Perú del día de la visita (ver
+  // app/api/apoyos/visitas/route.ts) -- el resto de la app (Central
+  // Analítica, calendario, reportes) la sigue mostrando de inmediato, sin
+  // cambios.
+  incognito = false
+): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
     return { exito: false, mensaje: "No autorizado." };
@@ -577,6 +586,7 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
     fecha_planificada: fecha,
     autoasignada: true,
     origen_tienda_id: origenTiendaId,
+    incognito,
   });
   if (error) return { exito: false, mensaje: "No se pudo asignar la tienda." };
 
@@ -586,6 +596,78 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
     exito: true,
     mensaje: `Te asignaste ${tienda.nombre} para ${etiquetaFecha}.${paraManana ? "" : " Ya puedes reportar la visita."}`,
   };
+}
+
+async function notificarCoordinadoresVentaDescanso(nombreUsuario: string, fecha: string): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: coordinadores } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("rol", "coordinador")
+      .eq("activo", true);
+
+    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "🔁",
+      asunto: `${nombreUsuario} vendió su descanso del ${formatearFechaLegible(fecha)}`,
+      cuerpoHtml: `
+        <p><strong>${nombreUsuario}</strong> decidió trabajar en su día de descanso fijo del
+        ${formatearFechaLegible(fecha)} -- lo registró por su cuenta desde su panel, sin pedírtelo a ti.</p>
+        <p style="color:#8b8d92; font-size:12px;">Úsalo solo como aviso; no hace falta que hagas nada. Su
+        descanso fijo de todas las semanas no cambió, solo esta fecha puntual queda exenta.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la venta de descanso:", error);
+  }
+}
+
+// Autoservicio para "vender" el día de descanso fijo: antes, la única forma
+// de dejar trabajar a alguien en su descanso era que el coordinador le
+// cambiara el día de descanso FIJO del perfil a mano (lo que lo dejaba mal
+// configurado todas las semanas siguientes -- caso real: Jesús González, 26
+// oct). Ahora la propia persona puede registrar una excepción puntual (tipo
+// "Trabaja su descanso" en asignaciones_especiales, que ya exime el bloqueo
+// de autoasignarTienda) y autoasignarse en el mismo paso, sin esperar a
+// nadie -- el coordinador solo recibe un aviso, no una aprobación.
+export async function venderDescansoYAutoasignar(
+  tiendaId: string,
+  paraManana = false,
+  incognito = false
+): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+
+  const supabase = supabaseServer();
+  const fecha = paraManana ? sumarDias(hoyPeru(), 1) : hoyPeru();
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("dias_descanso")
+    .eq("id", sesion.id)
+    .maybeSingle();
+  if (!(usuario?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
+    return { exito: false, mensaje: `${paraManana ? "Mañana" : "Hoy"} no es tu día de descanso.` };
+  }
+
+  const { error } = await supabase.from("asignaciones_especiales").insert({
+    usuario_id: sesion.id,
+    tipo: "Trabaja su descanso",
+    fecha_inicio: fecha,
+    fecha_fin: fecha,
+    motivo: "Autoservicio: vendió su descanso.",
+  });
+  if (error) return { exito: false, mensaje: "No se pudo registrar la excepción de descanso." };
+
+  await notificarCoordinadoresVentaDescanso(sesion.nombre, fecha);
+
+  return autoasignarTienda(tiendaId, paraManana, incognito);
 }
 
 export async function enviarReporte(
@@ -614,7 +696,12 @@ export async function enviarReporte(
   // llegada/salida a la tienda (si ya se hizo) también se arrastra, para no
   // perderla al pasar de "pendiente" a "reportado".
   let asignadoEn: string | null = null;
-  let origenVisita: { autoasignada: boolean | null; area: string | null; enfoque: string | null } | null = null;
+  let origenVisita: {
+    autoasignada: boolean | null;
+    area: string | null;
+    enfoque: string | null;
+    incognito: boolean;
+  } | null = null;
   // La visita quedó registrada el día que se PLANIFICÓ/marcó (fecha_planificada
   // de rutas_activas), no el día en que por fin se escribe la observación y
   // se aprieta "enviar" — sin esto, una visita del lunes reportada recién el
@@ -645,14 +732,19 @@ export async function enviarReporte(
     const { data: activa } = await supabase
       .from("rutas_activas")
       .select(
-        "created_at, fecha_planificada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id, autoasignada, area, enfoque"
+        "created_at, fecha_planificada, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, origen_tienda_id, autoasignada, area, enfoque, incognito"
       )
       .eq("id", rutaActivaId)
       .maybeSingle();
     asignadoEn = activa?.created_at ?? null;
-    // La visita reportada conserva si la tienda la asignó el coordinador o se la autoasignó la persona (junto con el área y el enfoque):
-    // sin esto, al borrarse de rutas_activas se perdía ese dato.
-    origenVisita = { autoasignada: activa?.autoasignada ?? null, area: activa?.area ?? null, enfoque: activa?.enfoque ?? null };
+    // La visita reportada conserva si la tienda la asignó el coordinador o se la autoasignó la persona (junto con el área, el enfoque y si
+    // quedó marcada como incógnito para Apoyos): sin esto, al borrarse de rutas_activas se perdía ese dato.
+    origenVisita = {
+      autoasignada: activa?.autoasignada ?? null,
+      area: activa?.area ?? null,
+      enfoque: activa?.enfoque ?? null,
+      incognito: activa?.incognito ?? false,
+    };
     if (activa?.fecha_planificada) fecha = activa.fecha_planificada;
     if (activa) {
       marcacionTienda = {

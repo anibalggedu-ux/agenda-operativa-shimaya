@@ -8,6 +8,7 @@ import {
   editarReporte,
   obtenerTodasLasTiendas,
   autoasignarTienda,
+  venderDescansoYAutoasignar,
   marcarLlegadaTienda,
   marcarSalidaTienda,
   recalcularEtaConUbicacion,
@@ -21,6 +22,8 @@ import {
   formatearHora,
   horaPeru,
   hoyPeru,
+  sumarDias,
+  diaSemanaPeru,
   diaLaboralPeru,
   esMadrugadaPeru,
 } from "@/lib/fechas";
@@ -85,11 +88,21 @@ function BotonEnviar({ esEdicion, pending }: { esEdicion: boolean; pending: bool
   );
 }
 
-function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
+function AsignarmeTienda({
+  onAsignado,
+  diasDescanso,
+}: {
+  onAsignado: () => void;
+  // Días de descanso fijo del usuario (ej. ["LUNES"]) -- para avisar ANTES
+  // de intentar la autoasignación si la fecha elegida cae en su descanso, en
+  // vez de solo mostrar el error que devuelve el servidor.
+  diasDescanso: string[] | null;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [tiendas, setTiendas] = useState<TiendaBasicaBitacora[]>([]);
   const [tiendaId, setTiendaId] = useState("");
   const [fecha, setFecha] = useState<"hoy" | "manana">("hoy");
+  const [incognito, setIncognito] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
   const [cargandoTiendas, setCargandoTiendas] = useState(false);
@@ -116,14 +129,30 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
       setMensaje({ texto: "Selecciona una tienda.", exito: false });
       return;
     }
-    setEnviando(true);
-    setMensaje(null);
-    const resultado = await autoasignarTienda(tiendaId, fecha === "manana");
+    const paraManana = fecha === "manana";
+    const fechaElegida = paraManana ? sumarDias(hoyPeru(), 1) : hoyPeru();
+    const esDescansoFijo = (diasDescanso ?? []).includes(diaSemanaPeru(fechaElegida));
+
+    let resultado: ResultadoReporte;
+    if (esDescansoFijo) {
+      const confirmado = window.confirm(
+        `${paraManana ? "Mañana" : "Hoy"} es tu día de descanso. ¿Quieres vender tu descanso y asignarte igual esta tienda? Tu coordinador recibirá un aviso.`
+      );
+      if (!confirmado) return;
+      setEnviando(true);
+      setMensaje(null);
+      resultado = await venderDescansoYAutoasignar(tiendaId, paraManana, incognito);
+    } else {
+      setEnviando(true);
+      setMensaje(null);
+      resultado = await autoasignarTienda(tiendaId, paraManana, incognito);
+    }
     setEnviando(false);
     setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
     if (resultado.exito) {
       setTiendaId("");
       setFecha("hoy");
+      setIncognito(false);
       onAsignado();
     }
   }
@@ -199,6 +228,18 @@ function AsignarmeTienda({ onAsignado }: { onAsignado: () => void }) {
               </select>
             </label>
           </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={incognito}
+              onChange={(e) => setIncognito(e.target.checked)}
+              className="mt-0.5 accent-marca-rojo w-4 h-4 shrink-0"
+            />
+            <span className="text-marca-tenue text-[11px] leading-snug">
+              <span className="text-marca-texto font-bold">Ir de incógnito</span> — no aparece en el horario de
+              Coordinación de Apoyos hasta las 2pm de ese día.
+            </span>
+          </label>
           <div className="flex items-center gap-4">
             <button
               onClick={handleAsignar}
@@ -808,7 +849,7 @@ export default function SelectorTiendas({
         <p className="text-marca-tenue text-sm italic">
           No tienes tiendas asignadas ni reportes editables en este momento.
         </p>
-        <AsignarmeTienda onAsignado={cargar} />
+        <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
       </div>
     );
   }
@@ -823,7 +864,7 @@ export default function SelectorTiendas({
         </div>
       )}
 
-      <AsignarmeTienda onAsignado={cargar} />
+      <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
 
       {grupos.map((grupo) => {
         const estilo = ESTILOS_URGENCIA[grupo.urgencia];
