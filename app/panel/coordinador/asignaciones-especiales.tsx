@@ -14,7 +14,14 @@ import {
 import { formatearFechaLegible, hoyPeru } from "@/lib/fechas";
 import SelectorGrid from "./selector-grid";
 
-const TIPOS = ["Vacaciones", "Permiso", "Descanso Semanal", "Licencia", "Misión Especial"] as const;
+const TIPOS = [
+  "Vacaciones",
+  "Permiso",
+  "Descanso Semanal",
+  "Licencia",
+  "Misión Especial",
+  "Trabaja su descanso",
+] as const;
 
 const ESTILOS_TIPO: Record<string, string> = {
   Vacaciones: "text-sky-400 border-sky-500/40 bg-sky-950/20",
@@ -22,6 +29,12 @@ const ESTILOS_TIPO: Record<string, string> = {
   "Descanso Semanal": "text-orange-400 border-orange-500/40 bg-orange-950/20",
   Licencia: "text-violet-400 border-violet-500/40 bg-violet-950/20",
   "Misión Especial": "text-fuchsia-400 border-fuchsia-500/40 bg-fuchsia-950/20",
+  // Caso puntual inverso a "Descanso Semanal": la persona TRABAJA un día que
+  // por perfil le tocaba descansar (ej. "vendió" su descanso), en vez de
+  // tocarle el día de descanso fijo del perfil (que de otro modo queda mal
+  // todas las semanas siguientes) -- exime los mismos bloqueos que las demás
+  // asignaciones especiales, solo para esa fecha puntual.
+  "Trabaja su descanso": "text-emerald-400 border-emerald-500/40 bg-emerald-950/20",
 };
 
 const estadoInicial: ResultadoAccion = { exito: false };

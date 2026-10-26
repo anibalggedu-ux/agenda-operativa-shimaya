@@ -196,7 +196,7 @@ export async function marcarSalidaBreak(
   // break" (ver marcarNoSalioBreak) no cuenta como break real: si cambia de
   // opinión y sí quiere salir, ese mismo registro se convierte en uno real
   // en vez de bloquearlo.
-  const [{ data: existente }, { data: usuario }] = await Promise.all([
+  const [{ data: existente }, { data: usuario }, { data: especiales }] = await Promise.all([
     supabase
       .from("marcaciones_break")
       .select("id, hora_entrada, no_salio")
@@ -204,6 +204,12 @@ export async function marcarSalidaBreak(
       .eq("fecha", fecha)
       .maybeSingle(),
     supabase.from("usuarios").select("duracion_break_min, dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("asignaciones_especiales")
+      .select("fecha_inicio, fecha_fin")
+      .eq("usuario_id", sesion.id)
+      .lte("fecha_inicio", fecha)
+      .gte("fecha_fin", fecha),
   ]);
   if (existente && !existente.no_salio) {
     return {
@@ -218,8 +224,15 @@ export async function marcarSalidaBreak(
   // mano) -- tiene que pedirle al coordinador que le cambie el descanso. La
   // pantalla ya oculta el botón en este caso (obtenerPermiteBreakHoy), esto
   // es el mismo chequeo del lado del servidor, para que no se pueda marcar
-  // igual si el botón llegó a mostrarse con datos desactualizados.
-  if ((usuario?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
+  // igual si el botón llegó a mostrarse con datos desactualizados. Una
+  // asignación especial vigente para la fecha exime igual que arriba --
+  // antes esto NO se revisaba acá, así que un caso exento por
+  // asignaciones_especiales (el botón sí se mostraba, vía
+  // obtenerPermiteBreakHoy) se rechazaba igual al tocarlo.
+  const exentoPorEspecial = (especiales ?? []).some((e) =>
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
+  );
+  if (!exentoPorEspecial && (usuario?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
     return {
       exito: false,
       mensaje: `Hoy es tu día de descanso. Pídele a tu coordinador que te lo cambie, o mándale la solicitud desde "Mis solicitudes".`,

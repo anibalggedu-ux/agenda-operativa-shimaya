@@ -636,7 +636,8 @@ export type TipoAsignacionEspecial =
   | "Permiso"
   | "Descanso Semanal"
   | "Licencia"
-  | "Misión Especial";
+  | "Misión Especial"
+  | "Trabaja su descanso";
 
 export type AsignacionEspecial = {
   id: string;

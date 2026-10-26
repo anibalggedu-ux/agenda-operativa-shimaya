@@ -13,7 +13,7 @@ import {
   calcularProximaFechaAnual,
   formatearFechaLegible,
 } from "@/lib/fechas";
-import { resolverHoraLimite, esTarde } from "@/lib/puntualidad";
+import { resolverHoraLimite, esTarde, expandirRangoFechas } from "@/lib/puntualidad";
 import { MAX_DIAS_DESCANSO } from "../coordinador/constantes";
 import { obtenerClimaDiario, resumirClimaDia, type ResumenClimaDia } from "@/lib/clima";
 import { enviarCorreo, URL_APP, escaparHtml } from "@/lib/email";
@@ -494,12 +494,29 @@ export async function autoasignarTienda(tiendaId: string, paraManana = false): P
   // La Molina un lunes (su descanso registrado), y recién se notó porque el
   // widget de break desapareció (esa pantalla sí respeta el descanso, pero
   // la autoasignación de tienda no).
-  const { data: usuarioDescanso } = await supabase
-    .from("usuarios")
-    .select("dias_descanso")
-    .eq("id", sesion.id)
-    .maybeSingle();
-  if ((usuarioDescanso?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
+  //
+  // Una asignación especial vigente para esa fecha puntual (de cualquier
+  // tipo -- Vacaciones, Permiso, Licencia, Misión Especial, Descanso Semanal
+  // o "Trabaja su descanso") exime este bloqueo, igual que ya hace
+  // obtenerPermiteBreakHoy en break-actions.ts -- así un caso excepcional
+  // ("vendió su descanso de hoy") se resuelve con una fila puntual en
+  // asignaciones_especiales en vez de editar el día de descanso FIJO del
+  // perfil (que de otro modo queda mal todas las semanas siguientes). Caso
+  // real: Jesús González, 26 oct -- antes de esto, la única forma de
+  // dejarlo trabajar hoy era cambiarle el descanso fijo a otro día.
+  const [{ data: usuarioDescanso }, { data: especiales }] = await Promise.all([
+    supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
+    supabase
+      .from("asignaciones_especiales")
+      .select("fecha_inicio, fecha_fin")
+      .eq("usuario_id", sesion.id)
+      .lte("fecha_inicio", fecha)
+      .gte("fecha_fin", fecha),
+  ]);
+  const exentoPorEspecial = (especiales ?? []).some((e) =>
+    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
+  );
+  if (!exentoPorEspecial && (usuarioDescanso?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
     return {
       exito: false,
       mensaje: `${paraManana ? "Mañana" : "Hoy"} es tu día de descanso. Pídele a tu coordinador que te lo cambie, o mándale la solicitud desde "Mis solicitudes".`,
