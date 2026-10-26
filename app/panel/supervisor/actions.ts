@@ -713,6 +713,48 @@ export async function enviarReporte(
   return { exito: true, mensaje: "Reporte enviado correctamente." };
 }
 
+// Visitas que quedaron con llegada (y a veces salida) marcada pero nunca se
+// reportaron -- se quedan en rutas_activas para siempre si nadie hace nada
+// (caso real: Camila Vicente, San Felipe, se autoasignó la misma tienda dos
+// días seguidos y la del día anterior quedó colgada sin reportar hasta que
+// se borró a mano). Esto deja que la propia persona la descarte cuando se
+// da cuenta, en vez de esperar a que alguien más la encuentre -- solo para
+// visitas de un día ANTERIOR a hoy: la de hoy se completa normal (marcar
+// salida + enviar reporte), nunca se descarta.
+export async function descartarVisitaPendiente(rutaActivaId: string): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+  if (!rutaActivaId) {
+    return { exito: false, mensaje: "Visita no encontrada." };
+  }
+
+  const supabase = supabaseServer();
+  const { data: visita } = await supabase
+    .from("rutas_activas")
+    .select("id, usuario_id, fecha_planificada")
+    .eq("id", rutaActivaId)
+    .maybeSingle();
+
+  if (!visita || visita.usuario_id !== sesion.id) {
+    return { exito: false, mensaje: "Visita no encontrada." };
+  }
+  if (visita.fecha_planificada >= hoyPeru()) {
+    return {
+      exito: false,
+      mensaje: "La visita de hoy no se descarta -- márcala como completada (salida + reporte).",
+    };
+  }
+
+  const { error } = await supabase.from("rutas_activas").delete().eq("id", rutaActivaId);
+  if (error) {
+    return { exito: false, mensaje: "No se pudo descartar la visita. Intenta de nuevo." };
+  }
+
+  return { exito: true, mensaje: "Visita descartada." };
+}
+
 // ---------- Marcación de llegada/salida a cada tienda del día ----------
 //
 // Se marca al llegar y al irse de CADA tienda asignada ese día, con foto y

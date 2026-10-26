@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation, LocateFixed } from "lucide-react";
+import { Circle, AlertTriangle, Zap, MapPin, DoorOpen, Camera, CircleCheck, Lock, BedDouble, Navigation, LocateFixed, Trash2 } from "lucide-react";
 import {
   obtenerTiendasClasificadas,
   enviarReporte,
@@ -11,6 +11,7 @@ import {
   marcarLlegadaTienda,
   marcarSalidaTienda,
   recalcularEtaConUbicacion,
+  descartarVisitaPendiente,
   type TiendaClasificada,
   type ResultadoReporte,
   type TiendaBasicaBitacora,
@@ -664,6 +665,37 @@ export default function SelectorTiendas({
     }
   }
 
+  // Visitas de un día anterior que quedaron sin reportar (llegada marcada,
+  // nunca se tocó "Enviar reporte") -- se pueden descartar desde acá en vez
+  // de quedar colgadas para siempre (caso real: Camila Vicente, San Felipe,
+  // se autoasignó la misma tienda dos días seguidos y la del día anterior
+  // nunca se cerró).
+  const [descartandoId, setDescartandoId] = useState<string | null>(null);
+
+  async function handleDescartarVisita(tienda: TiendaClasificada) {
+    if (!tienda.rutaActivaId) return;
+    if (
+      !window.confirm(
+        "¿Descartar esta visita? No vas a poder reportarla después -- se pierde el registro de esa visita."
+      )
+    ) {
+      return;
+    }
+    setDescartandoId(tienda.rutaActivaId);
+    try {
+      const resultado = await descartarVisitaPendiente(tienda.rutaActivaId);
+      if (resultado.exito) {
+        cargar();
+      } else {
+        window.alert(resultado.mensaje ?? "No se pudo descartar la visita.");
+      }
+    } catch (err: any) {
+      window.alert(err?.message || "No se pudo descartar la visita.");
+    } finally {
+      setDescartandoId(null);
+    }
+  }
+
   const [estadoNuevo, setEstadoNuevo] = useState<ResultadoReporte>(estadoInicialReporte);
   const [estadoEditar, setEstadoEditar] = useState<ResultadoReporte>(estadoInicialReporte);
   const [enviandoReporte, setEnviandoReporte] = useState(false);
@@ -928,6 +960,19 @@ export default function SelectorTiendas({
                         <MapPin className="w-3 h-3" /> Waze
                       </a>
                     </div>
+
+                    {(tienda.urgencia === "AYER" || tienda.urgencia === "ANTES_DE_AYER") &&
+                      tienda.rutaActivaId && (
+                        <button
+                          type="button"
+                          onClick={() => handleDescartarVisita(tienda)}
+                          disabled={descartandoId === tienda.rutaActivaId}
+                          className="w-full flex items-center justify-center gap-1.5 mt-2 text-[10.5px] text-marca-tenue hover:text-marca-rojoclaro font-bold uppercase tracking-wide py-2 border border-dashed border-marca-borde hover:border-marca-rojoclaro/50 rounded-[3px] transition disabled:opacity-60"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          {descartandoId === tienda.rutaActivaId ? "Descartando..." : "Descartar visita"}
+                        </button>
+                      )}
 
                     {bloqueada ? (
                       <p className="flex items-start gap-1.5 mt-2 pt-2 border-t border-marca-borde/60 text-[10.5px] text-marca-tenue">

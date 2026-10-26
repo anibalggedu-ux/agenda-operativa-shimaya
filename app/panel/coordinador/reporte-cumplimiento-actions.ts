@@ -2,8 +2,16 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { exigirGerenteOCoordinador } from "@/lib/session";
-import { diaSemanaPeru, hoyPeru } from "@/lib/fechas";
+import { diaSemanaPeru, hoyPeru, sumarDias } from "@/lib/fechas";
 import { esTarde, resolverHoraLimite, expandirRangoFechas } from "@/lib/puntualidad";
+
+// Umbral para "visitas sin reportar": una vez pasadas las 48h de
+// VENTANA_EDICION_HORAS (ver app/panel/supervisor/actions.ts), la propia
+// persona ya ni siquiera puede ver o descartar la visita desde su panel --
+// por eso coordinador/gerente necesitan verla acá, para darle seguimiento
+// antes de que se quede colgada para siempre (caso real: Camila Vicente,
+// San Felipe, 24 oct -- llegada marcada, nunca se reportó).
+const DIAS_SIN_REPORTAR_AVISO = 2;
 
 // Reporte de no cumplimiento: pensado para que coordinador/gerente revisen,
 // en un rango de fechas, quiénes se salen de lo esperado en 6 frentes
@@ -17,6 +25,19 @@ import { esTarde, resolverHoraLimite, expandirRangoFechas } from "@/lib/puntuali
 // no solo cuántos.
 export type FilaCumplimiento = { usuarioId: string; usuarioNombre: string; rol: string; fechas: string[] };
 
+// Mismo agrupado por usuario que FilaCumplimiento, pero con el detalle de
+// cada visita atascada (tienda + si llegó a marcar llegada) en vez de solo
+// la fecha -- FilaCumplimiento no alcanza acá porque sus `fechas` se
+// formatean con formatearFechaCorta() en pantalla, que espera una fecha ISO
+// pura, no "fecha + tienda".
+export type VisitaSinReportar = { fecha: string; tienda: string; conLlegada: boolean };
+export type FilaVisitasSinReportar = {
+  usuarioId: string;
+  usuarioNombre: string;
+  rol: string;
+  visitas: VisitaSinReportar[];
+};
+
 export type ReporteNoCumplimiento = {
   desde: string;
   hasta: string;
@@ -26,6 +47,7 @@ export type ReporteNoCumplimiento = {
   sePasoBreak: FilaCumplimiento[];
   sinObservaciones: FilaCumplimiento[];
   sinChecklist: FilaCumplimiento[];
+  visitasSinReportar: FilaVisitasSinReportar[];
 };
 
 type UsuarioBase = {
@@ -49,6 +71,7 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     { data: reportes, error: errorReportes },
     { data: checklists, error: errorChecklists },
     { data: especiales, error: errorEspeciales },
+    { data: visitasActivas, error: errorVisitasActivas },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -73,9 +96,26 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
       .select("usuario_id, fecha_inicio, fecha_fin")
       .lte("fecha_inicio", hasta)
       .gte("fecha_fin", desde),
+    // Independiente del rango desde/hasta que elige la persona en pantalla
+    // -- esto es un chequeo de "qué quedó atascado" en TODA la cola, no solo
+    // en lo que se está mirando. Incluye coordinador (no solo supervisor/
+    // capacitador): también hace visitas de campo (ver tieneBitacora en
+    // lib/session.ts).
+    supabase
+      .from("rutas_activas")
+      .select("usuario_id, fecha_planificada, hora_llegada, tiendas!tienda_id(nombre), usuarios!usuario_id(nombre, rol, activo)")
+      .lt("fecha_planificada", sumarDias(hoyPeru(), -DIAS_SIN_REPORTAR_AVISO)),
   ]);
 
-  if (errorUsuarios || errorAsistencia || errorBreaks || errorReportes || errorChecklists || errorEspeciales) {
+  if (
+    errorUsuarios ||
+    errorAsistencia ||
+    errorBreaks ||
+    errorReportes ||
+    errorChecklists ||
+    errorEspeciales ||
+    errorVisitasActivas
+  ) {
     throw new Error("No se pudo cargar el reporte de no cumplimiento.");
   }
 
@@ -191,6 +231,39 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, fechas: [] as string[] }))
     .sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre));
 
+  // ---------- 7) Visitas sin reportar (independiente del rango de fechas) ----------
+  const visitasSinReportarPorUsuario = new Map<
+    string,
+    { usuarioNombre: string; rol: string; visitas: VisitaSinReportar[] }
+  >();
+  (visitasActivas ?? []).forEach((v: any) => {
+    const usuario = v.usuarios;
+    if (!usuario || !usuario.activo) return;
+    if (!["supervisor", "coordinador", "capacitador"].includes(usuario.rol)) return;
+    if (/generico/i.test(usuario.nombre ?? "")) return;
+
+    const entrada = visitasSinReportarPorUsuario.get(v.usuario_id) ?? {
+      usuarioNombre: usuario.nombre ?? "—",
+      rol: usuario.rol ?? "—",
+      visitas: [] as VisitaSinReportar[],
+    };
+    entrada.visitas.push({
+      fecha: v.fecha_planificada,
+      tienda: v.tiendas?.nombre ?? "—",
+      conLlegada: !!v.hora_llegada,
+    });
+    visitasSinReportarPorUsuario.set(v.usuario_id, entrada);
+  });
+
+  const visitasSinReportar: FilaVisitasSinReportar[] = Array.from(visitasSinReportarPorUsuario.entries())
+    .map(([usuarioId, { usuarioNombre, rol, visitas }]) => ({
+      usuarioId,
+      usuarioNombre,
+      rol,
+      visitas: visitas.sort((a, b) => a.fecha.localeCompare(b.fecha)),
+    }))
+    .sort((a, b) => b.visitas.length - a.visitas.length || a.usuarioNombre.localeCompare(b.usuarioNombre));
+
   return {
     desde,
     hasta,
@@ -200,5 +273,6 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     sePasoBreak: aFilas(sePasoBreakPorUsuario),
     sinObservaciones: aFilas(sinObservacionesPorUsuario),
     sinChecklist,
+    visitasSinReportar,
   };
 }
