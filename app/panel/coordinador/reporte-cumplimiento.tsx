@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList, FileDown } from "lucide-react";
+import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList, FileDown, AlertCircle } from "lucide-react";
 import {
   obtenerReporteNoCumplimiento,
   type ReporteNoCumplimiento,
   type FilaCumplimiento,
+  type FilaVisitasSinReportar,
 } from "./reporte-cumplimiento-actions";
 import { hoyPeru, inicioMesPeru, formatearFechaCorta } from "@/lib/fechas";
 import { generarPdfNoCumplimiento } from "@/lib/generar-pdf";
@@ -34,6 +35,37 @@ function Lista({ filas, sufijo, vacio }: { filas: FilaCumplimiento[]; sufijo: st
               {f.fechas.map((fecha) => formatearFechaCorta(fecha)).join(" · ")}
             </p>
           )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Independiente del selector de fechas de arriba -- muestra lo que está
+// atascado en TODA la cola (ver DIAS_SIN_REPORTAR_AVISO en
+// reporte-cumplimiento-actions.ts), no solo lo del rango elegido.
+function ListaVisitasSinReportar({ filas, vacio }: { filas: FilaVisitasSinReportar[]; vacio: string }) {
+  if (filas.length === 0) return <EstadoVacio mensaje={vacio} />;
+  return (
+    <div className="space-y-1.5">
+      {filas.map((f) => (
+        <div key={f.usuarioId} className="bg-marca-fondo border border-marca-borde rounded-[3px] px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-marca-texto text-sm">
+              {f.usuarioNombre} <span className="text-marca-tenue text-[11px] uppercase">({f.rol})</span>
+            </span>
+            <span className="text-marca-rojoclaro font-black text-sm shrink-0">
+              {f.visitas.length} visita{f.visitas.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="text-marca-tenue text-[11px] mt-1 space-y-0.5">
+            {f.visitas.map((v, i) => (
+              <p key={i} className="capitalize">
+                {formatearFechaCorta(v.fecha)} — {v.tienda}
+                {!v.conLlegada && " (sin llegada marcada)"}
+              </p>
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -115,6 +147,21 @@ export default function ReporteCumplimiento() {
           >
             <FileDown className="w-3.5 h-3.5" /> {generandoPdf ? "Generando..." : "Descargar PDF"}
           </button>
+
+          <BloqueColapsable
+            icono={<AlertCircle />}
+            titulo="VISITAS SIN REPORTAR"
+            badge={`${datos.visitasSinReportar.length}`}
+          >
+            <p className="text-marca-tenue text-[10.5px] mb-2">
+              Llegada marcada (y a veces hasta salida) pero nunca se envió el reporte — independiente del
+              rango de fechas de arriba, incluye TODO lo que lleva más de 2 días atascado.
+            </p>
+            <ListaVisitasSinReportar
+              filas={datos.visitasSinReportar}
+              vacio="No hay visitas atascadas sin reportar en este momento."
+            />
+          </BloqueColapsable>
 
           <BloqueColapsable icono={<Clock />} titulo="TARDANZAS" badge={`${datos.tardanzas.length}`}>
             <Lista filas={datos.tardanzas} sufijo="tardanza" vacio="Nadie llegó tarde en este rango." />
