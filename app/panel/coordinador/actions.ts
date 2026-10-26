@@ -388,6 +388,11 @@ export async function asignarRuta(
   const fechaPlanificada = String(formData.get("fechaPlanificada") || "");
   const area = String(formData.get("area") || "").trim();
   const enfoque = String(formData.get("enfoque") || "").trim();
+  // true = esta visita no aparece en el horario que ve Coordinación de
+  // Apoyos hasta las 2pm hora Perú del día de la visita (ver
+  // app/api/apoyos/visitas/route.ts) -- las pantallas internas de Shimaya
+  // (Central Analítica, calendario) la siguen mostrando de inmediato.
+  const incognito = formData.get("incognito") === "on";
 
   if (!usuarioId || !tiendaId || !fechaPlanificada) {
     return { exito: false, mensaje: "Selecciona usuario, tienda y fecha." };
@@ -404,6 +409,7 @@ export async function asignarRuta(
     fecha_planificada: fechaPlanificada,
     area: area || null,
     enfoque: enfoque || null,
+    incognito,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo asignar la ruta." };
