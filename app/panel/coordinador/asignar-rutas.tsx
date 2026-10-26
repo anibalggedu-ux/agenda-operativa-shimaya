@@ -582,6 +582,15 @@ export default function AsignarRutas() {
           </div>
         </div>
 
+        <label className="flex items-start gap-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] p-3 cursor-pointer">
+          <input type="checkbox" name="incognito" className="mt-0.5 accent-marca-rojo w-4 h-4 shrink-0" />
+          <span className="text-marca-tenue text-xs leading-snug">
+            <span className="text-marca-texto font-bold">Ir de incógnito</span> — esta visita no aparece en el
+            horario de Coordinación de Apoyos hasta las 2pm del día que corresponda. En Shimaya (Central
+            Analítica, calendario) se sigue viendo de inmediato, sin cambios.
+          </span>
+        </label>
+
         <BotonAsignar />
 
         {estado.mensaje && (

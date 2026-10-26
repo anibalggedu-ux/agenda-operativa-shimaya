@@ -1286,6 +1286,7 @@ export type Database = {
           hora_llegada: string | null
           hora_salida: string | null
           id: string
+          incognito: boolean
           origen_tienda_id: string | null
           tienda_id: string
           ubicacion_llegada: string | null
@@ -1303,6 +1304,7 @@ export type Database = {
           hora_llegada?: string | null
           hora_salida?: string | null
           id?: string
+          incognito?: boolean
           origen_tienda_id?: string | null
           tienda_id: string
           ubicacion_llegada?: string | null
@@ -1320,6 +1322,7 @@ export type Database = {
           hora_llegada?: string | null
           hora_salida?: string | null
           id?: string
+          incognito?: boolean
           origen_tienda_id?: string | null
           tienda_id?: string
           ubicacion_llegada?: string | null
@@ -1364,6 +1367,7 @@ export type Database = {
           hora_llegada: string | null
           hora_salida: string | null
           id: string
+          incognito: boolean
           leido: boolean | null
           observacion: string | null
           origen_tienda_id: string | null
@@ -1389,6 +1393,7 @@ export type Database = {
           hora_llegada?: string | null
           hora_salida?: string | null
           id?: string
+          incognito?: boolean
           leido?: boolean | null
           observacion?: string | null
           origen_tienda_id?: string | null
@@ -1414,6 +1419,7 @@ export type Database = {
           hora_llegada?: string | null
           hora_salida?: string | null
           id?: string
+          incognito?: boolean
           leido?: boolean | null
           observacion?: string | null
           origen_tienda_id?: string | null
