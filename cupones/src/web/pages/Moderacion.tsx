@@ -6,6 +6,7 @@ import { Analytics } from "./Analytics";
 import { Campanas, Cupones } from "../moderacion/catalogo";
 import { Importar } from "../moderacion/Importar";
 import { Auditoria, Canjes, Clientes } from "../moderacion/listados";
+import { Tiendas } from "../moderacion/tiendas";
 
 const TABS = [
   { id: "resumen", label: "Resumen" },
@@ -14,6 +15,7 @@ const TABS = [
   { id: "campanas", label: "Campañas" },
   { id: "cupones", label: "Cupones" },
   { id: "importar", label: "Importar CSV" },
+  { id: "tiendas", label: "Tiendas y PIN" },
   { id: "clientes", label: "Clientes" },
   { id: "auditoria", label: "Auditoría" },
 ] as const;
@@ -36,6 +38,7 @@ export function Moderacion() {
       {tab === "campanas" && <Campanas />}
       {tab === "cupones" && <Cupones />}
       {tab === "importar" && <Importar />}
+      {tab === "tiendas" && <Tiendas />}
       {tab === "clientes" && <Clientes />}
       {tab === "auditoria" && <Auditoria />}
     </main>

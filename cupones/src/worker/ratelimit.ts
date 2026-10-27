@@ -13,6 +13,9 @@ export interface Limit {
 export const LIMITS = {
   loginPerIp: { max: 20, windowSeconds: 15 * 60 },
   loginPerAccount: { max: 5, windowSeconds: 15 * 60 },
+  /** PIN de tienda: se cuentan solo los intentos (la clave es la tienda, no un dato personal). */
+  pinPerStore: { max: 10, windowSeconds: 15 * 60 },
+  pinPerIp: { max: 20, windowSeconds: 15 * 60 },
   lookupPerUser: { max: 90, windowSeconds: 60 },
   redeemPerUser: { max: 30, windowSeconds: 60 },
   /** Búsquedas/canjes fallidos (código inexistente o no canjeable): freno a adivinar códigos. */

@@ -21,17 +21,16 @@ Las migraciones son aditivas y versionadas (`migrations/NNNN_*.sql`); wrangler r
 ## 3. Primer moderador y demás usuarios
 ```bash
 npm run user:create -- --remote --email jefe@shimaya.pe --name "Nombre Apellido" --role moderador
-npm run user:create -- --remote --email caja1@shimaya.pe --name "Caja 1" --role validador
 npm run user:create -- --remote --email datos@shimaya.pe --name "Análisis" --role analista
 npm run user:create -- --remote --email caja1@shimaya.pe --reset-password     # olvidó su clave (cierra sus sesiones)
 ```
-La contraseña (mín. 12 caracteres) se pide por teclado sin eco (o `SHIMAYA_NEW_PASSWORD`); solo se guarda su hash. Con `--remote` pide confirmación. `--local` o `--remote` es obligatorio. Usa un correo y contraseña únicos por persona; entrégalos por un canal seguro y pide cambiarlos si lo ves necesario (restablecer con `--reset-password`).
+Los validadores **no** se crean por terminal: cada tienda se crea desde el panel del moderador (**Tiendas y PIN**), que genera su PIN. Por terminal solo se crean moderadores y analistas. La contraseña (mín. 12 caracteres) se pide por teclado sin eco (o `SHIMAYA_NEW_PASSWORD`); solo se guarda su hash. Con `--remote` pide confirmación. `--local` o `--remote` es obligatorio. Usa un correo y contraseña únicos por persona; entrégalos por un canal seguro y pide cambiarlos si lo ves necesario (restablecer con `--reset-password`).
 
 ## 4. Desplegar
 ```bash
 npm run build && npx wrangler deploy        # o: npm run deploy
 ```
-Sirve la API y la interfaz desde el mismo Worker (`*.workers.dev` o tu dominio en el panel de Cloudflare → Workers → Domains & Routes). Recomendado además: **reglas WAF / Rate Limiting de Cloudflare** sobre `/api/auth/login` y `/api/validador/*` (la app ya limita intentos en D1, esto lo refuerza en el borde) y Cloudflare Access si quieres restringir por red.
+Sirve la API y la interfaz desde el mismo Worker (`*.workers.dev` o tu dominio en el panel de Cloudflare → Workers → Domains & Routes). Recomendado además: **reglas WAF / Rate Limiting de Cloudflare** sobre `/api/auth/login`, `/api/auth/pin-login` y `/api/validador/*` (la app ya limita intentos en D1, esto lo refuerza en el borde) y Cloudflare Access si quieres restringir por red.
 
 Verificación posterior: abre la URL, inicia sesión con cada rol, consulta/canjea un cupón de prueba (créalo con el moderador) y revisa que el analista solo vea estadísticas.
 
@@ -48,3 +47,6 @@ Verificación posterior: abre la URL, inicia sesión con cada rol, consulta/canj
 
 ## 7. Qué NO está verificado hasta que lo hagas en tu cuenta
 Ejecución en D1 y Workers de producción (las pruebas usan la emulación local `workerd` + SQLite de Miniflare), rendimiento de PBKDF2 en tu plan, dominio/TLS, reglas WAF, Time Travel.
+
+## 8. Windows
+Los scripts de `npm run user:create` y `db:*` funcionan en Windows (PowerShell). Si `npm` dice que la ejecución de scripts está deshabilitada: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.

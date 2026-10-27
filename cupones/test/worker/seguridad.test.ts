@@ -35,6 +35,10 @@ const MATRIX: Endpoint[] = [
   { name: "errores de importación", method: "GET", path: `/api/admin/imports/${UUID}/errors`, allowed: ["moderador"] },
   { name: "auditoría", method: "GET", path: "/api/admin/audit", allowed: ["moderador"] },
   { name: "trabajadores", method: "GET", path: "/api/admin/workers", allowed: ["moderador"] },
+  { name: "listar tiendas", method: "GET", path: "/api/admin/stores", allowed: ["moderador"] },
+  { name: "crear tiendas", method: "POST", path: "/api/admin/stores", body: { names: [] }, allowed: ["moderador"] },
+  { name: "nuevo PIN de tienda", method: "POST", path: `/api/admin/stores/${UUID}/reset-pin`, body: {}, allowed: ["moderador"] },
+  { name: "activar o desactivar tienda", method: "POST", path: `/api/admin/stores/${UUID}/active`, body: { active: false }, allowed: ["moderador"] },
   { name: "estadísticas agregadas", method: "GET", path: "/api/analytics/report", allowed: ["moderador", "analista"] },
   { name: "campañas (solo nombre)", method: "GET", path: "/api/analytics/campaigns", allowed: ["moderador", "analista"] },
 ];

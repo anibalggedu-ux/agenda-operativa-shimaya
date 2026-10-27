@@ -8,6 +8,8 @@ import { auditStatement } from "../audit";
 import { requireRole } from "../auth";
 import { ApiError, type AppEnv, type Ctx, Q, pageParams, parse, readJson } from "../http";
 import { effectiveStatusSql } from "../status";
+import { hashPassword } from "../password";
+import { generatePin } from "../pin";
 import { newId } from "../util";
 import { buildReport } from "./analytics";
 
@@ -453,3 +455,85 @@ adminRoutes.get("/audit/actions", async (c) => {
   return c.json({ actions: r.results.map((x) => x.action) });
 });
 
+
+// --- Tiendas y PIN de acceso de los líderes ---------------------------------------------------------------
+const MAX_STORES_PER_REQUEST = 50;
+const storeNames = z.object({
+  names: z
+    .array(z.string().transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()))
+    .transform((a) => a.filter((n) => n !== ""))
+    .pipe(z.array(z.string().min(2, "Cada nombre necesita al menos 2 letras.").max(80, "Máximo 80 caracteres por nombre.")).min(1, "Escribe al menos una tienda.").max(MAX_STORES_PER_REQUEST, `Máximo ${MAX_STORES_PER_REQUEST} tiendas por vez.`)),
+});
+
+adminRoutes.get("/stores", async (c) => {
+  const r = await c.env.DB.prepare(
+    `SELECT s.id, s.name, s.active, s.pin_updated_at AS pinUpdatedAt, u.last_login_at AS lastLoginAt,
+            (SELECT COUNT(*) FROM redemptions r WHERE r.redeemed_by = s.user_id) AS redemptions
+       FROM stores s JOIN users u ON u.id = s.user_id ORDER BY s.name COLLATE NOCASE`,
+  ).all<{ id: string; name: string; active: number; pinUpdatedAt: string; lastLoginAt: string | null; redemptions: number }>();
+  return c.json({ stores: r.results.map((s) => ({ ...s, active: s.active === 1 })) });
+});
+
+/** Crea tiendas en lote. Cada una recibe un PIN al azar que se muestra UNA sola vez en esta respuesta. */
+adminRoutes.post("/stores", async (c) => {
+  const { names } = parse(storeNames, await readJson(c));
+  const now = c.get("now").toISOString();
+  const actor = c.get("user");
+  const db = c.env.DB;
+
+  const seen = new Set<string>();
+  const unique = names.filter((n) => !seen.has(n.toLowerCase()) && seen.add(n.toLowerCase()));
+  const existing = await db.prepare("SELECT name FROM stores").all<{ name: string }>();
+  const taken = new Set(existing.results.map((r) => r.name.toLowerCase()));
+  const created: { id: string; name: string; pin: string }[] = [];
+  const skipped = names.filter((n) => taken.has(n.toLowerCase()) || !unique.includes(n));
+
+  for (const name of unique) {
+    if (taken.has(name.toLowerCase())) continue;
+    const id = newId();
+    const userId = newId();
+    const pin = generatePin();
+    await db.batch([
+      // Sin contraseña utilizable: esta cuenta solo entra por el PIN de la tienda.
+      db
+        .prepare("INSERT INTO users (id, email, display_name, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, 'validador', 'sin-clave', ?, ?)")
+        .bind(userId, `tienda-${id}@tiendas.invalid`, name, now, now),
+      db
+        .prepare("INSERT INTO stores (id, name, user_id, pin_hash, pin_updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(id, name, userId, await hashPassword(pin), now, now),
+      auditStatement(db, now, { actorUserId: actor.id, action: "store_created", entityType: "store", entityId: id }),
+    ]);
+    created.push({ id, name, pin });
+  }
+  return c.json({ created, skipped }, 201);
+});
+
+adminRoutes.post("/stores/:id/reset-pin", async (c) => {
+  const id = parse(z.uuid(), c.req.param("id"));
+  const now = c.get("now").toISOString();
+  const found = await c.env.DB.prepare("SELECT id FROM stores WHERE id = ?").bind(id).first();
+  if (!found) throw new ApiError(404, "not_found", "No encontramos esa tienda.");
+  const pin = generatePin();
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE stores SET pin_hash = ?, pin_updated_at = ? WHERE id = ?").bind(await hashPassword(pin), now, id),
+    // El PIN anterior deja de servir y también se cierran las sesiones abiertas con él.
+    c.env.DB.prepare("DELETE FROM sessions WHERE user_id = (SELECT user_id FROM stores WHERE id = ?)").bind(id),
+    auditStatement(c.env.DB, now, { actorUserId: c.get("user").id, action: "store_pin_reset", entityType: "store", entityId: id }),
+  ]);
+  return c.json({ pin });
+});
+
+adminRoutes.post("/stores/:id/active", async (c) => {
+  const id = parse(z.uuid(), c.req.param("id"));
+  const { active } = parse(z.object({ active: z.boolean() }), await readJson(c));
+  const now = c.get("now").toISOString();
+  const found = await c.env.DB.prepare("SELECT user_id FROM stores WHERE id = ?").bind(id).first<{ user_id: string }>();
+  if (!found) throw new ApiError(404, "not_found", "No encontramos esa tienda.");
+  const v = active ? 1 : 0;
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE stores SET active = ? WHERE id = ?").bind(v, id),
+    c.env.DB.prepare("UPDATE users SET active = ?, updated_at = ? WHERE id = ?").bind(v, now, found.user_id),
+    auditStatement(c.env.DB, now, { actorUserId: c.get("user").id, action: active ? "store_activated" : "store_deactivated", entityType: "store", entityId: id }),
+  ]);
+  return c.json({ ok: true });
+});

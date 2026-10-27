@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 const root = join(import.meta.dirname, "..");
 const tmpDir = join(root, "scripts", ".tmp");
+// Se invoca wrangler con el propio Node: en Windows execFileSync("npx") falla (ENOENT/EINVAL) sin shell.
+const wranglerBin = join(root, "node_modules", "wrangler", "bin", "wrangler.js");
 
 export type Target = "--local" | "--remote";
 
@@ -13,7 +15,7 @@ export function runSql(target: Target, sql: string): string {
   const file = join(tmpDir, `sql-${process.pid}-${Date.now()}.sql`);
   writeFileSync(file, sql, { mode: 0o600 });
   try {
-    return execFileSync("npx", ["wrangler", "d1", "execute", "DB", target, "--file", file, "--json"], {
+    return execFileSync(process.execPath, [wranglerBin, "d1", "execute", "DB", target, "--file", file, "--json"], {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "inherit"],
@@ -25,7 +27,7 @@ export function runSql(target: Target, sql: string): string {
 
 export function querySql(target: Target, sql: string): unknown[] {
   mkdirSync(tmpDir, { recursive: true });
-  const out = execFileSync("npx", ["wrangler", "d1", "execute", "DB", target, "--command", sql, "--json"], {
+  const out = execFileSync(process.execPath, [wranglerBin, "d1", "execute", "DB", target, "--command", sql, "--json"], {
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
