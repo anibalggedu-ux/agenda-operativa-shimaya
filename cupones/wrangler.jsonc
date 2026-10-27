@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "shimaya-cupones",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "b770d7a2-8748-4f69-8dce-5f31133e34d3",
       "migrations_dir": "migrations"
     }
   ]
