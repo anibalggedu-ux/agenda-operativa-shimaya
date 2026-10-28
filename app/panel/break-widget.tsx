@@ -111,6 +111,12 @@ export default function BreakWidget() {
   const inputSalida = useRef<HTMLInputElement>(null);
   const inputEntrada = useRef<HTMLInputElement>(null);
   const avisoEnviado = useRef(false);
+  // Justificativo de tardanza (texto obligatorio + foto opcional) cuando se
+  // marca la entrada después de la hora límite -- mismo patrón que la
+  // llegada a tienda en app/panel/supervisor/selector-tiendas.tsx.
+  const [justificativo, setJustificativo] = useState("");
+  const [fotoJustificativo, setFotoJustificativo] = useState<string | null>(null);
+  const inputFotoJustificativo = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const guardada = leerFotoPendienteTienda(CLAVE_PENDIENTE_BREAK);
@@ -175,7 +181,13 @@ export default function BreakWidget() {
       const resultado =
         tipo === "salida"
           ? await marcarSalidaBreak(foto, horaCapturadaMs)
-          : await marcarEntradaBreak(breakId ?? activo!.id, foto, horaCapturadaMs);
+          : await marcarEntradaBreak(
+              breakId ?? activo!.id,
+              foto,
+              horaCapturadaMs,
+              justificativo.trim() || undefined,
+              fotoJustificativo || undefined
+            );
       setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
       if (resultado.exito) {
         setPendiente(null);
@@ -202,6 +214,8 @@ export default function BreakWidget() {
           breakId: tipo === "entrada" ? breakId ?? activo!.id : undefined,
           foto,
           horaCapturadaMs,
+          justificativoTardanza: tipo === "entrada" ? justificativo.trim() || undefined : undefined,
+          fotoJustificativoTardanza: tipo === "entrada" ? fotoJustificativo || undefined : undefined,
           etiqueta: tipo === "salida" ? "Salida a break" : "Entrada de break",
         });
         setPendiente(null);
@@ -244,6 +258,18 @@ export default function BreakWidget() {
     }
   }
 
+  async function handleFotoJustificativo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    try {
+      const foto = await comprimirFotoComoBase64(archivo);
+      setFotoJustificativo(foto);
+    } catch (err: any) {
+      setMensaje({ texto: err?.message || "No se pudo procesar la foto.", exito: false });
+    }
+  }
+
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
@@ -279,10 +305,19 @@ export default function BreakWidget() {
   // se enciende en vez de solo cambiar de color de golpe.
   const enAlerta = !!activo && (vencido || restantes <= AVISO_ANTES_SEG);
 
+  function handleAbrirEntrada() {
+    if (vencido && !justificativo.trim()) {
+      setMensaje({ texto: "Te pasaste del tiempo de break -- escribe el justificativo antes de marcar tu entrada.", exito: false });
+      return;
+    }
+    inputEntrada.current?.click();
+  }
+
   return (
     <div className="bg-marca-superficie border border-marca-borde rounded-2xl p-5 flex flex-col items-center gap-4">
       <input ref={inputSalida} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFoto(e, "salida")} />
       <input ref={inputEntrada} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFoto(e, "entrada")} />
+      <input ref={inputFotoJustificativo} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFotoJustificativo} />
 
       {completadoHoy ? (
         <>
@@ -378,11 +413,48 @@ export default function BreakWidget() {
             Saliste a las <b>{horaATexto(activo.horaSalida!)}</b> · vuelve antes de las{" "}
             <b className={vencido ? "text-marca-rojoclaro" : "text-oro"}>{horaATexto(activo.horaLimite!)}</b>
           </p>
+          {vencido && (
+            <div className="w-full space-y-1.5">
+              <label className="block text-marca-tenue text-[9.5px] uppercase font-bold">
+                Justificativo de tardanza (obligatorio)
+              </label>
+              <textarea
+                value={justificativo}
+                onChange={(e) => setJustificativo(e.target.value)}
+                disabled={enviando}
+                rows={2}
+                className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro disabled:opacity-50"
+                placeholder="Ej: tráfico, trámite médico, falla del bus..."
+              />
+              {fotoJustificativo ? (
+                <div className="flex items-center justify-between gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] px-2.5 py-2">
+                  <span className="text-marca-tenue text-[10.5px]">Foto adjunta</span>
+                  <button
+                    type="button"
+                    onClick={() => setFotoJustificativo(null)}
+                    disabled={enviando}
+                    className="text-marca-rojoclaro text-[10.5px] font-bold uppercase disabled:opacity-50"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => inputFotoJustificativo.current?.click()}
+                  disabled={enviando}
+                  className="w-full flex items-center justify-center gap-1.5 border border-marca-borde text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[10.5px] font-bold uppercase py-2 rounded-[3px] transition"
+                >
+                  <Camera className="w-3 h-3" /> Adjuntar foto (opcional)
+                </button>
+              )}
+            </div>
+          )}
           <div className="relative w-full">
             {confirmado && <span className="confirmacion-anillo" />}
             <button
               type="button"
-              onClick={() => inputEntrada.current?.click()}
+              onClick={handleAbrirEntrada}
               disabled={enviando || confirmado}
               className="w-full flex items-center justify-center gap-2 bg-marca-rojo hover:bg-marca-rojoclaro disabled:opacity-50 text-marca-textofuerte font-black py-3.5 rounded-full text-xs tracking-widest uppercase transition"
             >
