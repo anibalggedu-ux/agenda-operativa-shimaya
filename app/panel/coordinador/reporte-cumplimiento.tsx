@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList, FileDown, AlertCircle } from "lucide-react";
+import { AlertTriangle, Clock, LogOut, Coffee, Hourglass, FileText, ClipboardList, FileDown, AlertCircle, Trash2 } from "lucide-react";
 import {
   obtenerReporteNoCumplimiento,
   type ReporteNoCumplimiento,
@@ -160,6 +160,22 @@ export default function ReporteCumplimiento() {
             <ListaVisitasSinReportar
               filas={datos.visitasSinReportar}
               vacio="No hay visitas atascadas sin reportar en este momento."
+            />
+          </BloqueColapsable>
+
+          <BloqueColapsable
+            icono={<Trash2 />}
+            titulo="OLVIDÓ MARCAR SALIDA"
+            badge={`${datos.olvidoMarcarSalida.length}`}
+          >
+            <p className="text-marca-tenue text-[10.5px] mb-2">
+              Visitas que la propia persona descartó desde su Bitácora porque se olvidó de marcar la salida
+              de la tienda — dentro del rango de fechas de arriba.
+            </p>
+            <Lista
+              filas={datos.olvidoMarcarSalida}
+              sufijo="vez"
+              vacio="Nadie descartó una visita por olvido de salida en este rango."
             />
           </BloqueColapsable>
 

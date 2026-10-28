@@ -48,6 +48,7 @@ export type ReporteNoCumplimiento = {
   sinObservaciones: FilaCumplimiento[];
   sinChecklist: FilaCumplimiento[];
   visitasSinReportar: FilaVisitasSinReportar[];
+  olvidoMarcarSalida: FilaCumplimiento[];
 };
 
 type UsuarioBase = {
@@ -72,6 +73,7 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     { data: checklists, error: errorChecklists },
     { data: especiales, error: errorEspeciales },
     { data: visitasActivas, error: errorVisitasActivas },
+    { data: descartadas, error: errorDescartadas },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -104,7 +106,25 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     supabase
       .from("rutas_activas")
       .select("usuario_id, fecha_planificada, hora_llegada, tiendas!tienda_id(nombre), usuarios!usuario_id(nombre, rol, activo)")
-      .lt("fecha_planificada", sumarDias(hoyPeru(), -DIAS_SIN_REPORTAR_AVISO)),
+      .lt("fecha_planificada", sumarDias(hoyPeru(), -DIAS_SIN_REPORTAR_AVISO))
+      // Una visita ya descartada por la propia persona (ver
+      // descartarVisitaPendiente) no es una que "se le escapó en silencio"
+      // -- ya la vio y la resolvió. Cuenta aparte, en olvidoMarcarSalida.
+      .is("descartada_en", null),
+    // 8) Visitas que la propia persona descartó porque se olvidó de marcar
+    // salida -- sí usa el rango desde/hasta que elige coordinador/gerente en
+    // pantalla (a diferencia de "visitas sin reportar", que es independiente
+    // del rango), porque acá interesa el patrón dentro del período que se
+    // está mirando.
+    // Join directo a usuarios (en vez de mapaUsuarios, que solo trae
+    // supervisor/capacitador) porque coordinador también hace visitas de
+    // campo y puede descartar las suyas (ver tieneBitacora en lib/session.ts).
+    supabase
+      .from("rutas_activas")
+      .select("usuario_id, fecha_planificada, usuarios!usuario_id(nombre, rol, activo)")
+      .not("descartada_en", "is", null)
+      .gte("fecha_planificada", desde)
+      .lte("fecha_planificada", hasta),
   ]);
 
   if (
@@ -114,7 +134,8 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     errorReportes ||
     errorChecklists ||
     errorEspeciales ||
-    errorVisitasActivas
+    errorVisitasActivas ||
+    errorDescartadas
   ) {
     throw new Error("No se pudo cargar el reporte de no cumplimiento.");
   }
@@ -264,6 +285,35 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     }))
     .sort((a, b) => b.visitas.length - a.visitas.length || a.usuarioNombre.localeCompare(b.usuarioNombre));
 
+  // ---------- 8) Olvidó marcar salida (visitas descartadas por la persona) ----------
+  const olvidoMarcarSalidaPorUsuario = new Map<
+    string,
+    { usuarioNombre: string; rol: string; fechas: string[] }
+  >();
+  (descartadas ?? []).forEach((d: any) => {
+    const usuario = d.usuarios;
+    if (!usuario || !usuario.activo) return;
+    if (!["supervisor", "coordinador", "capacitador"].includes(usuario.rol)) return;
+    if (/generico/i.test(usuario.nombre ?? "")) return;
+
+    const entrada = olvidoMarcarSalidaPorUsuario.get(d.usuario_id) ?? {
+      usuarioNombre: usuario.nombre ?? "—",
+      rol: usuario.rol ?? "—",
+      fechas: [] as string[],
+    };
+    entrada.fechas.push(d.fecha_planificada);
+    olvidoMarcarSalidaPorUsuario.set(d.usuario_id, entrada);
+  });
+
+  const olvidoMarcarSalida: FilaCumplimiento[] = Array.from(olvidoMarcarSalidaPorUsuario.entries())
+    .map(([usuarioId, { usuarioNombre, rol, fechas }]) => ({
+      usuarioId,
+      usuarioNombre,
+      rol,
+      fechas: fechas.sort(),
+    }))
+    .sort((a, b) => b.fechas.length - a.fechas.length || a.usuarioNombre.localeCompare(b.usuarioNombre));
+
   return {
     desde,
     hasta,
@@ -274,5 +324,6 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     sinObservaciones: aFilas(sinObservacionesPorUsuario),
     sinChecklist,
     visitasSinReportar,
+    olvidoMarcarSalida,
   };
 }

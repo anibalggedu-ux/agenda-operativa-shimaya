@@ -143,6 +143,11 @@ export async function obtenerTiendasClasificadas(): Promise<{
         "id, fecha_planificada, area, enfoque, autoasignada, created_at, hora_llegada, ubicacion_llegada, foto_llegada_blob, hora_salida, ubicacion_salida, foto_salida_blob, tiendas!tienda_id(id, nombre, lat, lon)"
       )
       .eq("usuario_id", sesion.id)
+      // Una visita descartada (ver descartarVisitaPendiente) ya no debe
+      // volver a aparecer como tarjeta pendiente -- sigue existiendo en la
+      // base (con descartada_en) solo para que coordinador/gerente puedan
+      // ver el patrón, no para seguir mostrándose acá.
+      .is("descartada_en", null)
       .order("fecha_planificada", { ascending: false }),
     supabase
       .from("rutas_diarias")
@@ -856,7 +861,13 @@ export async function descartarVisitaPendiente(rutaActivaId: string): Promise<Re
     };
   }
 
-  const { error } = await supabase.from("rutas_activas").delete().eq("id", rutaActivaId);
+  // Se marca en vez de borrarse -- así coordinador/gerente pueden ver cuántas
+  // veces le pasa esto a cada persona (ver reporte-cumplimiento-actions.ts),
+  // en vez de perder el rastro de que la visita quedó sin cerrar.
+  const { error } = await supabase
+    .from("rutas_activas")
+    .update({ descartada_en: new Date().toISOString(), descartada_motivo: "Se olvidó de marcar salida." })
+    .eq("id", rutaActivaId);
   if (error) {
     return { exito: false, mensaje: "No se pudo descartar la visita. Intenta de nuevo." };
   }
