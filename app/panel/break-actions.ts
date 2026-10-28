@@ -312,7 +312,12 @@ export async function marcarNoSalioBreak(): Promise<ResultadoBreak> {
 export async function marcarEntradaBreak(
   breakId: string,
   fotoBase64: string,
-  horaCapturadaMs?: number
+  horaCapturadaMs?: number,
+  // Justificativo de tardanza (texto obligatorio cuando se pasó del límite +
+  // foto opcional, ver BreakWidget) -- mismo patrón que
+  // marcarLlegadaTienda/MarcadoVisitaTienda en app/panel/supervisor/actions.ts.
+  justificativoTardanza?: string,
+  fotoJustificativoBase64?: string
 ): Promise<ResultadoBreak> {
   const sesion = await exigirSesion();
   if (!fotoBase64) return { exito: false, mensaje: "Toma una foto para marcar tu entrada." };
@@ -326,6 +331,16 @@ export async function marcarEntradaBreak(
   if (!actual || actual.usuario_id !== sesion.id) return { exito: false, mensaje: "No se encontró tu break." };
 
   const horaEntrada = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "entrada de break");
+
+  // Revalidado del lado del servidor -- no alcanza con que el cliente lo
+  // exija, porque esta llamada también puede venir del sincronizador
+  // offline (ver lib/cola-marcaciones.ts) con datos guardados antes de este
+  // cambio.
+  const minutosPasadosPrevio = actual.hora_limite ? minutosEntreHoras(actual.hora_limite, horaEntrada) : 0;
+  if (minutosPasadosPrevio > 0 && !justificativoTardanza?.trim()) {
+    return { exito: false, mensaje: "Te pasaste del tiempo de break -- escribe el justificativo antes de marcar tu entrada." };
+  }
+
   const fotoBlobPath = `${sesion.id}/break-entrada-${Date.now()}.jpg`;
 
   let fotoGuardada = true;
@@ -336,9 +351,27 @@ export async function marcarEntradaBreak(
     fotoGuardada = false;
   }
 
+  // Foto del justificativo -- opcional y separada de la foto de entrada de
+  // arriba; si falla la subida no se bloquea la marcación.
+  let fotoJustificativoBlob: string | null = null;
+  if (fotoJustificativoBase64) {
+    const pathJustificativo = `${sesion.id}/break-justificativo-${Date.now()}.jpg`;
+    try {
+      await subirFotoMarcacion(pathJustificativo, fotoJustificativoBase64);
+      fotoJustificativoBlob = pathJustificativo;
+    } catch (error) {
+      console.error("No se pudo subir la foto del justificativo de tardanza:", error);
+    }
+  }
+
   const { error } = await supabase
     .from("marcaciones_break")
-    .update({ hora_entrada: horaEntrada, foto_entrada_blob: fotoGuardada ? fotoBlobPath : null })
+    .update({
+      hora_entrada: horaEntrada,
+      foto_entrada_blob: fotoGuardada ? fotoBlobPath : null,
+      justificativo_tardanza: justificativoTardanza?.trim() || null,
+      justificativo_tardanza_foto_blob: fotoJustificativoBlob,
+    })
     .eq("id", breakId);
   if (error) return { exito: false, mensaje: "No se pudo marcar tu entrada." };
 

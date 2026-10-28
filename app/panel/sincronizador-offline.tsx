@@ -82,7 +82,8 @@ async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boole
         item.lng!,
         item.foto,
         item.horaCapturadaMs,
-        item.justificativoTardanza
+        item.justificativoTardanza,
+        item.fotoJustificativoTardanza
       );
     case "salida-tienda":
       return marcarSalidaTienda(
@@ -101,7 +102,13 @@ async function enviarPendiente(item: MarcacionPendiente): Promise<{ exito: boole
     case "salida-break":
       return marcarSalidaBreak(item.foto, item.horaCapturadaMs);
     case "entrada-break":
-      return marcarEntradaBreak(item.breakId!, item.foto, item.horaCapturadaMs);
+      return marcarEntradaBreak(
+        item.breakId!,
+        item.foto,
+        item.horaCapturadaMs,
+        item.justificativoTardanza,
+        item.fotoJustificativoTardanza
+      );
   }
 }
 

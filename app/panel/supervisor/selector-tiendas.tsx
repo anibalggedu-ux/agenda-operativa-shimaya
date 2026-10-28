@@ -322,6 +322,10 @@ function MarcadoVisitaTienda({
   const [paso, setPaso] = useState<Paso | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [justificativo, setJustificativo] = useState("");
+  // Foto opcional adjunta a la explicación de tardanza -- separada de la
+  // foto obligatoria de la llegada en sí (comprobante de que llegaste).
+  const [fotoJustificativo, setFotoJustificativo] = useState<string | null>(null);
+  const inputFotoJustificativo = useRef<HTMLInputElement>(null);
   // La foto ya comprimida queda guardada acá hasta que el envío salga bien.
   // Antes la foto y el GPS se pedían juntos con Promise.all: si el GPS
   // fallaba, se descartaba la foto recién tomada y había que volver a abrir
@@ -382,7 +386,8 @@ function MarcadoVisitaTienda({
               coords.lng,
               foto,
               horaCapturadaMs,
-              justificativo.trim() || undefined
+              justificativo.trim() || undefined,
+              fotoJustificativo || undefined
             )
           : await marcarSalidaTienda(
               tienda.rutaActivaId,
@@ -426,6 +431,7 @@ function MarcadoVisitaTienda({
           lng: coords.lng,
           horaCapturadaMs,
           justificativoTardanza: tipo === "llegada" ? justificativo.trim() || undefined : undefined,
+          fotoJustificativoTardanza: tipo === "llegada" ? fotoJustificativo || undefined : undefined,
           fechaAsistenciaElegida: tipo === "salida" ? fechaSalidaElegidaRef.current ?? undefined : undefined,
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         });
@@ -469,6 +475,18 @@ function MarcadoVisitaTienda({
     }
   }
 
+  async function handleFotoJustificativo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    try {
+      const foto = await comprimirFotoComoBase64(archivo);
+      setFotoJustificativo(foto);
+    } catch (err: any) {
+      setMensaje(err?.message || "No se pudo procesar la foto.");
+    }
+  }
+
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
@@ -508,6 +526,10 @@ function MarcadoVisitaTienda({
 
   function abrirCamara(input: React.RefObject<HTMLInputElement>, tipo: "llegada" | "salida") {
     if (tipo === "llegada") {
+      if (permitirJustificativo && !justificativo.trim()) {
+        setMensaje("Llegaste tarde -- escribe el justificativo antes de marcar la llegada.");
+        return;
+      }
       if (!confirmarTurnoDeMadrugada()) return;
     } else {
       fechaSalidaElegidaRef.current = confirmarDiaSalida();
@@ -532,6 +554,14 @@ function MarcadoVisitaTienda({
         capture="environment"
         className="hidden"
         onChange={(e) => handleFoto(e, "salida")}
+      />
+      <input
+        ref={inputFotoJustificativo}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFotoJustificativo}
       />
 
       {tienda.horaLlegada ? (
@@ -561,9 +591,9 @@ function MarcadoVisitaTienda({
       {!tienda.horaLlegada && (
         <>
           {permitirJustificativo && (
-            <div className="mb-1">
+            <div className="mb-1 space-y-1.5">
               <label className="block text-marca-tenue text-[9.5px] uppercase font-bold mb-1">
-                Justificativo de tardanza (opcional)
+                Justificativo de tardanza (obligatorio)
               </label>
               <textarea
                 value={justificativo}
@@ -571,8 +601,30 @@ function MarcadoVisitaTienda({
                 disabled={ocupado}
                 rows={2}
                 className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-xs outline-none focus:border-marca-rojoclaro disabled:opacity-50"
-                placeholder="Ej: tráfico, trámite médico, falla del bus... (déjalo vacío si no aplica)"
+                placeholder="Ej: tráfico, trámite médico, falla del bus..."
               />
+              {fotoJustificativo ? (
+                <div className="flex items-center justify-between gap-2 bg-marca-fondo border border-marca-borde rounded-[3px] px-2.5 py-2">
+                  <span className="text-marca-tenue text-[10.5px]">Foto adjunta</span>
+                  <button
+                    type="button"
+                    onClick={() => setFotoJustificativo(null)}
+                    disabled={ocupado}
+                    className="text-marca-rojoclaro text-[10.5px] font-bold uppercase disabled:opacity-50"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => inputFotoJustificativo.current?.click()}
+                  disabled={ocupado}
+                  className="w-full flex items-center justify-center gap-1.5 border border-marca-borde text-marca-tenue hover:text-marca-texto disabled:opacity-50 text-[10.5px] font-bold uppercase py-2 rounded-[3px] transition"
+                >
+                  <Camera className="w-3 h-3" /> Adjuntar foto (opcional)
+                </button>
+              )}
             </div>
           )}
           <button

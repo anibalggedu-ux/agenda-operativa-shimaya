@@ -28,8 +28,10 @@ export type MarcacionPendiente = {
   lat?: number;
   lng?: number;
   horaCapturadaMs: number;
-  // Justificativo opcional de tardanza, solo para "llegada-tienda".
+  // Justificativo de tardanza (texto + foto opcional), para "llegada-tienda"
+  // y "entrada-break".
   justificativoTardanza?: string;
+  fotoJustificativoTardanza?: string;
   // Fecha elegida por la persona cuando marcó salida de madrugada (ver
   // confirmarDiaSalida en selector-tiendas.tsx), solo para "salida-tienda".
   fechaAsistenciaElegida?: string;

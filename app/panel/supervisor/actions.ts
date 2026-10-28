@@ -896,10 +896,13 @@ export async function sincronizarAsistenciaGeneral(
   ubicacion: string,
   fotoBlob: string | null,
   opciones?: {
-    // Justificativo opcional de tardanza, capturado junto con el ingreso
-    // (ver MarcadoVisitaTienda) -- solo se guarda si esta llamada termina
-    // siendo la que efectivamente fija el ingreso del día.
+    // Justificativo de tardanza (texto obligatorio + foto opcional),
+    // capturado junto con el ingreso (ver MarcadoVisitaTienda) -- solo se
+    // guarda si esta llamada termina siendo la que efectivamente fija el
+    // ingreso del día. marcarLlegadaTienda ya exige el texto del lado del
+    // servidor cuando corresponde, así que acá solo se guarda.
     justificativoTardanza?: string | null;
+    justificativoTardanzaFoto?: string | null;
     // Cuando la persona marca salida después de medianoche, se le pregunta
     // a qué día pertenece esa marcación (ver confirmarDiaSalida en
     // selector-tiendas.tsx) en vez de asumir siempre el turno de madrugada
@@ -932,6 +935,7 @@ export async function sincronizarAsistenciaGeneral(
           ubicacion_ingreso: ubicacion,
           foto_ingreso_blob: fotoBlob,
           justificativo_tardanza: opciones?.justificativoTardanza || null,
+          justificativo_tardanza_foto_blob: opciones?.justificativoTardanzaFoto || null,
         })
         .eq("id", existente.id);
     } else {
@@ -942,6 +946,7 @@ export async function sincronizarAsistenciaGeneral(
         ubicacion_ingreso: ubicacion,
         foto_ingreso_blob: fotoBlob,
         justificativo_tardanza: opciones?.justificativoTardanza || null,
+        justificativo_tardanza_foto_blob: opciones?.justificativoTardanzaFoto || null,
       });
     }
   } else {
@@ -1001,9 +1006,11 @@ export async function marcarLlegadaTienda(
   // ahora -- epoch ms del momento real en que se tocó el botón. Ver
   // lib/cola-marcaciones.ts y lib/marcacion-offline.ts.
   horaCapturadaMs?: number,
-  // Justificativo opcional de tardanza (ver MarcadoVisitaTienda) -- solo se
-  // guarda si esta llegada termina siendo la que fija el ingreso del día.
-  justificativoTardanza?: string
+  // Justificativo de tardanza (texto obligatorio cuando corresponde + foto
+  // opcional, ver MarcadoVisitaTienda) -- solo se guarda si esta llegada
+  // termina siendo la que fija el ingreso del día.
+  justificativoTardanza?: string,
+  fotoJustificativoBase64?: string
 ): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) return { exito: false, mensaje: "No autorizado." };
@@ -1014,6 +1021,34 @@ export async function marcarLlegadaTienda(
   if (!contexto) return { exito: false, mensaje: "No se encontró la asignación." };
 
   const hora = await resolverHoraMarcacion(supabase, sesion, horaCapturadaMs, "llegada a tienda");
+
+  // Si esta llegada va a fijar el ingreso general del día y ya pasó la hora
+  // límite de la persona, el justificativo de tardanza es obligatorio --
+  // revalidado acá, no solo en el cliente, porque esta llamada también puede
+  // venir del sincronizador offline (ver lib/marcacion-offline.ts) con datos
+  // guardados antes de este cambio. Mismo cálculo que
+  // mostrarJustificativoTardanza en obtenerTiendasClasificadas.
+  const [{ data: asistenciaHoy }, { data: usuarioParaTardanza }] = await Promise.all([
+    supabase
+      .from("asistencia")
+      .select("hora_ingreso")
+      .eq("usuario_id", sesion.id)
+      .eq("fecha", diaLaboralPeru())
+      .maybeSingle(),
+    supabase.from("usuarios").select("hora_limite_ingreso, horario_por_dia").eq("id", sesion.id).maybeSingle(),
+  ]);
+  if (!asistenciaHoy?.hora_ingreso) {
+    const horaLimite = resolverHoraLimite(
+      sesion.rol,
+      usuarioParaTardanza?.hora_limite_ingreso,
+      usuarioParaTardanza?.horario_por_dia as Record<string, string> | null,
+      diaSemanaPeru()
+    );
+    if (horaLimite && esTarde(hora, horaLimite) && !justificativoTardanza?.trim()) {
+      return { exito: false, mensaje: "Llegaste tarde -- escribe el justificativo antes de marcar la llegada." };
+    }
+  }
+
   const ubicacion = "https://www.google.com/maps?q=" + lat + "," + lng;
   const fotoBlobPath = `${sesion.id}/${contexto.tiendaId}-llegada-${Date.now()}.jpg`;
 
@@ -1030,6 +1065,20 @@ export async function marcarLlegadaTienda(
   }
   const fotoBlob = fotoGuardada ? fotoBlobPath : null;
 
+  // Foto del justificativo -- opcional y separada de la foto de llegada de
+  // arriba; si falla la subida no se bloquea la marcación, solo queda sin
+  // foto de respaldo.
+  let fotoJustificativoBlob: string | null = null;
+  if (fotoJustificativoBase64) {
+    const pathJustificativo = `${sesion.id}/${contexto.tiendaId}-justificativo-${Date.now()}.jpg`;
+    try {
+      await subirFotoMarcacion(pathJustificativo, fotoJustificativoBase64);
+      fotoJustificativoBlob = pathJustificativo;
+    } catch (error) {
+      console.error("No se pudo subir la foto del justificativo de tardanza:", error);
+    }
+  }
+
   const { error } = await supabase
     .from(contexto.tabla)
     .update({ hora_llegada: hora, ubicacion_llegada: ubicacion, foto_llegada_blob: fotoBlob })
@@ -1039,6 +1088,7 @@ export async function marcarLlegadaTienda(
 
   await sincronizarAsistenciaGeneral(supabase, sesion, "llegada", hora, ubicacion, fotoBlob, {
     justificativoTardanza: justificativoTardanza?.trim() || null,
+    justificativoTardanzaFoto: fotoJustificativoBlob,
   });
 
   return fotoGuardada
