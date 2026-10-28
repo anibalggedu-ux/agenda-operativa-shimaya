@@ -8,6 +8,7 @@ import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
 import { obtenerDashboardTiendas } from "./analitica/actions";
 import { obtenerClimaActual, resumirClimaActual } from "@/lib/clima";
+import { obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 import {
   calcularEstadoPuntualidad,
   construirItemsAlerta,
@@ -310,6 +311,15 @@ export type ResumenOperativo = {
   comunicadosDetalle: { tipo: string; fecha: string }[];
   rachaTop: { nombre: string; racha: number } | null;
   alertasPuntualidad: AlertaPuntualidadItem[];
+  // Llegadas/entradas de break tardías del día, con su justificativo (texto
+  // obligatorio + foto opcional, ver marcarLlegadaTienda/marcarEntradaBreak).
+  tardanzasConJustificativo: {
+    usuarioId: string;
+    usuarioNombre: string;
+    tipo: "ingreso" | "break";
+    texto: string;
+    fotoUrl: string | null;
+  }[];
 };
 
 const ROLES_CON_ASISTENCIA = ["supervisor", "capacitador"];
@@ -344,6 +354,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     { data: especialesEquipo },
     { data: permisosEquipo },
     { data: atendidas },
+    { data: breaksHoy },
   ] = await Promise.all([
     supabase.from("tiendas").select("id, nombre"),
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", diaLaboral),
@@ -369,7 +380,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .not("nombre", "ilike", "%generico%"),
     supabase
       .from("asistencia")
-      .select("usuario_id, fecha, hora_ingreso, hora_salida")
+      .select("usuario_id, fecha, hora_ingreso, hora_salida, justificativo_tardanza, justificativo_tardanza_foto_blob")
       .gte("fecha", desdeAlerta)
       .lte("fecha", diaLaboral),
     // Vacaciones, permisos, descanso médico o misión especial de todo el
@@ -390,6 +401,13 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
     supabase.from("alertas_puntualidad_atendidas").select("usuario_id, tipo, fecha_referencia"),
+    // Entradas de break tardías del día, con su justificativo -- aparte de
+    // asistenciaEquipo porque marcaciones_break es una tabla distinta.
+    supabase
+      .from("marcaciones_break")
+      .select("usuario_id, justificativo_tardanza, justificativo_tardanza_foto_blob")
+      .eq("fecha", diaLaboral)
+      .not("justificativo_tardanza", "is", null),
   ]);
 
   const asistenciaPorUsuario = new Map<string, Map<string, RegistroAsistencia>>();
@@ -474,6 +492,27 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   const conRacha = vitrina.filter((f) => f.rachaActual > 0);
   const top = conRacha.length > 0 ? conRacha.reduce((max, f) => (f.rachaActual > max.rachaActual ? f : max)) : null;
 
+  const nombrePorUsuario = new Map((colaboradores ?? []).map((u) => [u.id, u.nombre] as const));
+  const ingresosTardeHoy = (asistenciaEquipo ?? []).filter(
+    (a) => a.fecha === diaLaboral && a.justificativo_tardanza
+  );
+  const tardanzasConJustificativo = await Promise.all([
+    ...ingresosTardeHoy.map(async (a) => ({
+      usuarioId: a.usuario_id,
+      usuarioNombre: nombrePorUsuario.get(a.usuario_id) ?? "—",
+      tipo: "ingreso" as const,
+      texto: a.justificativo_tardanza!,
+      fotoUrl: await obtenerUrlTemporalFoto(a.justificativo_tardanza_foto_blob),
+    })),
+    ...(breaksHoy ?? []).map(async (b) => ({
+      usuarioId: b.usuario_id,
+      usuarioNombre: nombrePorUsuario.get(b.usuario_id) ?? "—",
+      tipo: "break" as const,
+      texto: b.justificativo_tardanza!,
+      fotoUrl: await obtenerUrlTemporalFoto(b.justificativo_tardanza_foto_blob),
+    })),
+  ]);
+
   return {
     tiendasCriticas,
     visitasHoy,
@@ -487,6 +526,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     comunicadosDetalle: (comunicadosSemana ?? []).map((c: any) => ({ tipo: c.tipo, fecha: c.created_at })),
     rachaTop: top ? { nombre: top.nombre, racha: top.rachaActual } : null,
     alertasPuntualidad,
+    tardanzasConJustificativo,
   };
 }
 
