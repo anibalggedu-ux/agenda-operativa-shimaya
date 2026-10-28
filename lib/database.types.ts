@@ -251,6 +251,7 @@ export type Database = {
           hora_salida: string | null
           id: string
           justificativo_tardanza: string | null
+          justificativo_tardanza_foto_blob: string | null
           ubicacion_ingreso: string | null
           ubicacion_salida: string | null
           usuario_id: string
@@ -263,6 +264,7 @@ export type Database = {
           hora_salida?: string | null
           id?: string
           justificativo_tardanza?: string | null
+          justificativo_tardanza_foto_blob?: string | null
           ubicacion_ingreso?: string | null
           ubicacion_salida?: string | null
           usuario_id: string
@@ -275,6 +277,7 @@ export type Database = {
           hora_salida?: string | null
           id?: string
           justificativo_tardanza?: string | null
+          justificativo_tardanza_foto_blob?: string | null
           ubicacion_ingreso?: string | null
           ubicacion_salida?: string | null
           usuario_id?: string
@@ -1164,6 +1167,8 @@ export type Database = {
           hora_limite: string | null
           hora_salida: string | null
           id: string
+          justificativo_tardanza: string | null
+          justificativo_tardanza_foto_blob: string | null
           no_salio: boolean
           usuario_id: string
         }
@@ -1177,6 +1182,8 @@ export type Database = {
           hora_limite?: string | null
           hora_salida?: string | null
           id?: string
+          justificativo_tardanza?: string | null
+          justificativo_tardanza_foto_blob?: string | null
           no_salio?: boolean
           usuario_id: string
         }
@@ -1190,6 +1197,8 @@ export type Database = {
           hora_limite?: string | null
           hora_salida?: string | null
           id?: string
+          justificativo_tardanza?: string | null
+          justificativo_tardanza_foto_blob?: string | null
           no_salio?: boolean
           usuario_id?: string
         }
@@ -1279,6 +1288,8 @@ export type Database = {
           area: string | null
           autoasignada: boolean
           created_at: string | null
+          descartada_en: string | null
+          descartada_motivo: string | null
           enfoque: string | null
           fecha_planificada: string
           foto_llegada_blob: string | null
@@ -1297,6 +1308,8 @@ export type Database = {
           area?: string | null
           autoasignada?: boolean
           created_at?: string | null
+          descartada_en?: string | null
+          descartada_motivo?: string | null
           enfoque?: string | null
           fecha_planificada: string
           foto_llegada_blob?: string | null
@@ -1315,6 +1328,8 @@ export type Database = {
           area?: string | null
           autoasignada?: boolean
           created_at?: string | null
+          descartada_en?: string | null
+          descartada_motivo?: string | null
           enfoque?: string | null
           fecha_planificada?: string
           foto_llegada_blob?: string | null
