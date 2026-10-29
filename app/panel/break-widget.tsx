@@ -175,7 +175,19 @@ export default function BreakWidget() {
     return () => clearInterval(intervalo);
   }, [activo]);
 
-  async function enviarMarcacionBreak(tipo: "salida" | "entrada", foto: string, horaCapturadaMs: number, breakId?: string) {
+  async function enviarMarcacionBreak(
+    tipo: "salida" | "entrada",
+    foto: string,
+    horaCapturadaMs: number,
+    breakId?: string,
+    // Explícitos en vez de leer siempre el estado `justificativo`/
+    // `fotoJustificativo` por cierre -- el reintento manual (ver reintentar())
+    // puede correr con el componente recién montado, con ese estado en
+    // blanco aunque la marcación original sí traía justificativo (mismo
+    // problema que en selector-tiendas.tsx).
+    justificativoOverride: string | undefined = justificativo.trim() || undefined,
+    fotoJustificativoOverride: string | null | undefined = fotoJustificativo
+  ) {
     setEnviando(true);
     try {
       const resultado =
@@ -185,8 +197,8 @@ export default function BreakWidget() {
               breakId ?? activo!.id,
               foto,
               horaCapturadaMs,
-              justificativo.trim() || undefined,
-              fotoJustificativo || undefined
+              justificativoOverride,
+              fotoJustificativoOverride || undefined
             );
       setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
       if (resultado.exito) {
@@ -214,8 +226,8 @@ export default function BreakWidget() {
           breakId: tipo === "entrada" ? breakId ?? activo!.id : undefined,
           foto,
           horaCapturadaMs,
-          justificativoTardanza: tipo === "entrada" ? justificativo.trim() || undefined : undefined,
-          fotoJustificativoTardanza: tipo === "entrada" ? fotoJustificativo || undefined : undefined,
+          justificativoTardanza: tipo === "entrada" ? justificativoOverride : undefined,
+          fotoJustificativoTardanza: tipo === "entrada" ? fotoJustificativoOverride || undefined : undefined,
           etiqueta: tipo === "salida" ? "Salida a break" : "Entrada de break",
         });
         setPendiente(null);
@@ -247,10 +259,15 @@ export default function BreakWidget() {
         horaCapturadaMs,
         breakId,
         etiqueta: tipo === "salida" ? "Salida a break" : "Entrada de break",
+        // Solo "entrada" -- igual que en selector-tiendas.tsx, viaja con la
+        // foto pendiente para que el reintento manual lo tenga disponible
+        // aunque el componente se haya vuelto a montar.
+        justificativoTardanza: tipo === "entrada" ? justificativo.trim() || undefined : undefined,
+        fotoJustificativoTardanza: tipo === "entrada" ? fotoJustificativo || undefined : undefined,
       };
       setPendiente(dato);
       guardarFotoPendienteTienda(CLAVE_PENDIENTE_BREAK, dato);
-      await enviarMarcacionBreak(tipo, foto, horaCapturadaMs, breakId);
+      await enviarMarcacionBreak(tipo, foto, horaCapturadaMs, breakId, dato.justificativoTardanza, dato.fotoJustificativoTardanza);
     } catch (err: any) {
       reproducirSonidoAlerta();
       setMensaje({ texto: err?.message || "No se pudo procesar la foto.", exito: false });
@@ -273,7 +290,14 @@ export default function BreakWidget() {
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacionBreak(pendiente.tipo as "salida" | "entrada", pendiente.foto, pendiente.horaCapturadaMs, pendiente.breakId);
+    await enviarMarcacionBreak(
+      pendiente.tipo as "salida" | "entrada",
+      pendiente.foto,
+      pendiente.horaCapturadaMs,
+      pendiente.breakId,
+      pendiente.justificativoTardanza,
+      pendiente.fotoJustificativoTardanza
+    );
   }
 
   async function handleNoSalio() {
