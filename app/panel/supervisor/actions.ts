@@ -522,13 +522,18 @@ export async function autoasignarTienda(
     supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("asignaciones_especiales")
-      .select("fecha_inicio, fecha_fin")
+      .select("tipo, fecha_inicio, fecha_fin")
       .eq("usuario_id", sesion.id)
       .lte("fecha_inicio", fecha)
       .gte("fecha_fin", fecha),
   ]);
-  const exentoPorEspecial = (especiales ?? []).some((e) =>
-    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
+  // Solo "Trabaja su descanso" exime este bloqueo puntual -- las demás
+  // asignaciones especiales (Vacaciones, Permiso, Licencia, Descanso
+  // Semanal, Misión Especial) no tienen por qué dejar autoasignarse una
+  // tienda nueva, así que no cuentan como exención acá (mismo criterio que
+  // obtenerPermiteBreakHoy/marcarSalidaBreak en break-actions.ts).
+  const exentoPorEspecial = (especiales ?? []).some(
+    (e) => e.tipo === "Trabaja su descanso" && expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
   );
   if (!exentoPorEspecial && (usuarioDescanso?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
     return {
