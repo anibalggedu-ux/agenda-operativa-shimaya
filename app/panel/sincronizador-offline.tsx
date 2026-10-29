@@ -173,7 +173,7 @@ async function enviarReaccionPendiente(item: ReaccionHistoriaPendiente): Promise
 async function reintentarFotoPendiente(dato: FotoPendienteTienda): Promise<{ exito: boolean; mensaje?: string }> {
   if (dato.origen === "break") {
     return dato.tipo === "entrada"
-      ? marcarEntradaBreak(dato.breakId!, dato.foto, dato.horaCapturadaMs)
+      ? marcarEntradaBreak(dato.breakId!, dato.foto, dato.horaCapturadaMs, dato.justificativoTardanza, dato.fotoJustificativoTardanza)
       : marcarSalidaBreak(dato.foto, dato.horaCapturadaMs);
   }
   const coords = await obtenerUbicacionActual();
@@ -183,7 +183,16 @@ async function reintentarFotoPendiente(dato: FotoPendienteTienda): Promise<{ exi
       : marcarSalidaEvento(dato.comunicadoId!, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs);
   }
   return dato.tipo === "llegada"
-    ? marcarLlegadaTienda(dato.rutaActivaId ?? null, dato.reporteId ?? null, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs)
+    ? marcarLlegadaTienda(
+        dato.rutaActivaId ?? null,
+        dato.reporteId ?? null,
+        coords.lat,
+        coords.lng,
+        dato.foto,
+        dato.horaCapturadaMs,
+        dato.justificativoTardanza,
+        dato.fotoJustificativoTardanza
+      )
     : marcarSalidaTienda(dato.rutaActivaId ?? null, dato.reporteId ?? null, coords.lat, coords.lng, dato.foto, dato.horaCapturadaMs);
 }
 

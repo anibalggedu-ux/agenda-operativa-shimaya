@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock, Navigation, LocateFixed } from "lucide-react";
+import { AlertTriangle, MapPin, TreePalm, Megaphone, Flame, Check, Pencil, Calendar, CircleCheck, Clock, Navigation, LocateFixed, Camera, MessageSquareWarning } from "lucide-react";
 import {
   obtenerResumenPersonal,
   obtenerResumenOperativo,
@@ -470,6 +470,39 @@ export default function ResumenDelDia({
                 >
                   <Check className="w-3 h-3" /> Atendido
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {esOperativo && operativo && operativo.tardanzasConJustificativo.length > 0 && (
+        <div className="mb-3 bg-marca-superficie border border-marca-borde rounded-[3px] p-3.5 space-y-2">
+          <p className="text-marca-tenue text-[10px] uppercase font-bold flex items-center gap-1.5">
+            <MessageSquareWarning className="w-3.5 h-3.5 text-marca-rojoclaro" /> Tardanzas justificadas de hoy (
+            {operativo.tardanzasConJustificativo.length})
+          </p>
+          <div className="space-y-1.5">
+            {operativo.tardanzasConJustificativo.map((t, i) => (
+              <div key={i} className="bg-marca-fondo border border-marca-borde rounded-[3px] p-2">
+                <p className="text-marca-texto text-xs">
+                  <span className="font-bold">{t.usuarioNombre}</span>{" "}
+                  <span className="text-marca-tenue uppercase text-[10px]">
+                    ({t.tipo === "ingreso" ? "ingreso" : "break"})
+                  </span>
+                  {t.fotoUrl && (
+                    <a
+                      href={t.fotoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-1.5 inline-flex text-marca-tenue hover:text-marca-rojoclaro"
+                      title="Ver foto"
+                    >
+                      <Camera className="w-3 h-3" />
+                    </a>
+                  )}
+                </p>
+                <p className="text-marca-tenue text-[11px] mt-0.5">{t.texto}</p>
               </div>
             ))}
           </div>
