@@ -6,6 +6,7 @@ import { diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
 import { coordsDeUrlMaps, distanciaMetros } from "@/lib/distancia-recta";
 import { obtenerUrlTemporalFotoPerfil, existeFotoPerfil } from "@/lib/blob-storage";
 import { obtenerVisitasEnRangoAnalitica } from "../analitica/actions";
+import { obtenerTiendasPermanentes } from "../coordinador/actions";
 
 // Igual que urlFotoPerfil en perfil/actions.ts: evita una consulta a Blob en
 // cada vista usando usuarios.tiene_foto_perfil, verificando una sola vez con
@@ -48,6 +49,12 @@ export type AsignacionEspecialVigente = {
   fechaFin: string;
 };
 
+export type PersonaConTiendasFijas = {
+  usuarioNombre: string;
+  rol: string;
+  tiendas: string[];
+};
+
 export type DashboardGerente = {
   kpis: {
     // Tiendas que ya enviaron su reporte hoy, y por separado las que tienen
@@ -64,6 +71,7 @@ export type DashboardGerente = {
   alertasAtrasadas: AlertaAtrasada[];
   personalDescansandoHoy: PersonaDescansando[];
   personalConAsignacionEspecial: AsignacionEspecialVigente[];
+  personalConTiendasFijas: PersonaConTiendasFijas[];
 };
 
 export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
@@ -83,6 +91,7 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
     asignacionesEspeciales,
     enCampoHoy,
     alertasLeidas,
+    tiendasPermanentes,
   ] = await Promise.all([
     supabase.from("rutas_diarias").select("tienda_id").eq("fecha", hoy),
     supabase
@@ -105,6 +114,10 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
     // ocultan de la lista, sin borrar la asignación pendiente de verdad
     // (rutas_activas sigue igual; ver alertas_atrasadas_leidas).
     supabase.from("alertas_atrasadas_leidas").select("ruta_activa_id"),
+    // Bloque "Tiendas permanentes" -- misma consulta que ya usa coordinador
+    // (obtenerTiendasPermanentes en coordinador/actions.ts), pensada para
+    // una captura rápida de quién tiene qué tienda fija.
+    obtenerTiendasPermanentes(),
   ]);
 
   if (visitasHoy.error || rutasActivas.error || usuariosDescanso.error || asignacionesEspeciales.error) {
@@ -148,6 +161,11 @@ export async function obtenerDashboardGerente(): Promise<DashboardGerente> {
       tipo: a.tipo,
       fechaInicio: a.fecha_inicio,
       fechaFin: a.fecha_fin,
+    })),
+    personalConTiendasFijas: tiendasPermanentes.map((s) => ({
+      usuarioNombre: s.usuarioNombre,
+      rol: s.rol,
+      tiendas: s.tiendas.map((t) => t.tiendaNombre),
     })),
   };
 }

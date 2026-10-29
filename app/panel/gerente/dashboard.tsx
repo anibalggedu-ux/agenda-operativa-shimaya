@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, BedDouble, Check, ClipboardList } from "lucide-react";
+import { AlertTriangle, BedDouble, Check, ClipboardList, Store } from "lucide-react";
 import { obtenerDashboardGerente, marcarAlertaAtrasadaLeida, type DashboardGerente } from "./actions";
 import { formatearFechaLegible } from "@/lib/fechas";
 
@@ -202,6 +202,40 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      <div>
+        <h2 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue mb-3">
+          <Store className="w-3.5 h-3.5 text-marca-rojoclaro" /> TIENDAS PERMANENTES POR PERSONA
+        </h2>
+        {datos.personalConTiendasFijas.length === 0 ? (
+          <p className="text-marca-tenue text-sm italic">Nadie tiene tiendas permanentes asignadas.</p>
+        ) : (
+          <div className="bg-marca-superficie border border-marca-borde rounded-[3px] divide-y divide-marca-borde">
+            {datos.personalConTiendasFijas.map((p, i) => (
+              <div key={i} className="p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <div className="sm:w-48 shrink-0">
+                  <span className="text-marca-textofuerte text-sm font-semibold">{p.usuarioNombre}</span>
+                  <span className="text-marca-tenue text-[10px] uppercase ml-2">{p.rol}</span>
+                </div>
+                {p.tiendas.length === 0 ? (
+                  <span className="text-marca-tenue text-xs italic">Sin tiendas asignadas</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.tiendas.map((t, j) => (
+                      <span
+                        key={j}
+                        className="text-[11px] font-semibold text-marca-textofuerte bg-marca-fondo border border-marca-borde rounded-full px-2.5 py-0.5"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
