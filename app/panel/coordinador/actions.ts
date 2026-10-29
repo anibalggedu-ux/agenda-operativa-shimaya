@@ -1154,7 +1154,10 @@ export type SupervisorConTiendas = {
 };
 
 export async function obtenerTiendasPermanentes(): Promise<SupervisorConTiendas[]> {
-  await exigirCoordinador();
+  // exigirGerenteOCoordinador (no solo coordinador): el panel de gerente
+  // también la usa, para el bloque de "Tiendas permanentes" del dashboard
+  // (una captura rápida de quién tiene qué tienda fija).
+  await exigirGerenteOCoordinador();
   const supabase = supabaseServer();
 
   const [{ data: usuarios, error: errorUsuarios }, { data: asignadas, error: errorAsignadas }] =
