@@ -1,0 +1,25 @@
+{
+  // Configuración del Worker de Shimaya Cupones.
+  // El database_id de abajo es un MARCADOR: reemplázalo con el id real que devuelve
+  // `wrangler d1 create shimaya-cupones` (ver README, sección "Base de datos").
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shimaya-cupones",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Solo /api/* pasa por el Worker primero; el resto lo sirve el hosting de assets.
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "shimaya-cupones",
+      "database_id": "b770d7a2-8748-4f69-8dce-5f31133e34d3",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

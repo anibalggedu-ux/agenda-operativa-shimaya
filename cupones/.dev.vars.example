@@ -1,0 +1,7 @@
+# Esta app no necesita secretos propios: la sesión usa tokens aleatorios guardados (hasheados) en D1
+# y las contraseñas se guardan con PBKDF2. Este archivo existe por si en el futuro se agrega alguno.
+# Los secretos de Cloudflare (CLOUDFLARE_API_TOKEN, etc.) NO van aquí ni en el repositorio:
+# se usan solo en tu terminal (`wrangler login`) o como secretos del repositorio en GitHub.
+#
+# Ejemplo (déjalo comentado):
+# MI_SECRETO=
