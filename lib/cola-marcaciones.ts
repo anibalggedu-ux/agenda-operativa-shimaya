@@ -131,6 +131,13 @@ export type FotoPendienteTienda = {
   // Solo "entrada" de break -- el id de la fila de marcaciones_break que ya
   // quedó creada al marcar la salida.
   breakId?: string;
+  // Justificativo de tardanza (texto obligatorio + foto opcional) -- solo
+  // "llegada" de tienda o "entrada" de break, y solo si esa marcación llegó
+  // tarde. Viaja junto con la foto pendiente para que el reintento manual
+  // (SincronizadorOffline) lo mande igual aunque el componente que lo pidió
+  // ya no esté montado (ver marcarLlegadaTienda/marcarEntradaBreak).
+  justificativoTardanza?: string;
+  fotoJustificativoTardanza?: string;
 };
 
 function clavePendiente(claveTarjeta: string): string {

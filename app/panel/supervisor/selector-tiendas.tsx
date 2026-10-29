@@ -363,7 +363,20 @@ function MarcadoVisitaTienda({
     subiendo: "Enviando (no cierres la app)...",
   };
 
-  async function enviarMarcacion(tipo: "llegada" | "salida", foto: string, horaCapturadaMs: number) {
+  async function enviarMarcacion(
+    tipo: "llegada" | "salida",
+    foto: string,
+    horaCapturadaMs: number,
+    // Explícitos en vez de leer siempre el estado `justificativo`/
+    // `fotoJustificativo` por cierre (closure) -- el reintento manual desde
+    // una foto pendiente (ver reintentar()) puede correr después de que el
+    // componente se haya vuelto a montar (la persona cerró y reabrió la
+    // app), momento en el que ese estado ya volvió a estar vacío aunque la
+    // marcación original sí traía justificativo. Por defecto usan el estado
+    // actual, para no tocar el flujo normal de envío.
+    justificativoOverride: string | undefined = justificativo.trim() || undefined,
+    fotoJustificativoOverride: string | null | undefined = fotoJustificativo
+  ) {
     let coords: { lat: number; lng: number };
     try {
       setPaso("ubicando");
@@ -386,8 +399,8 @@ function MarcadoVisitaTienda({
               coords.lng,
               foto,
               horaCapturadaMs,
-              justificativo.trim() || undefined,
-              fotoJustificativo || undefined
+              justificativoOverride,
+              fotoJustificativoOverride || undefined
             )
           : await marcarSalidaTienda(
               tienda.rutaActivaId,
@@ -430,8 +443,8 @@ function MarcadoVisitaTienda({
           lat: coords.lat,
           lng: coords.lng,
           horaCapturadaMs,
-          justificativoTardanza: tipo === "llegada" ? justificativo.trim() || undefined : undefined,
-          fotoJustificativoTardanza: tipo === "llegada" ? fotoJustificativo || undefined : undefined,
+          justificativoTardanza: tipo === "llegada" ? justificativoOverride : undefined,
+          fotoJustificativoTardanza: tipo === "llegada" ? fotoJustificativoOverride || undefined : undefined,
           fechaAsistenciaElegida: tipo === "salida" ? fechaSalidaElegidaRef.current ?? undefined : undefined,
           etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         });
@@ -465,10 +478,16 @@ function MarcadoVisitaTienda({
         etiqueta: `${tipo === "llegada" ? "Llegada" : "Salida"} — ${tienda.tiendaNombre}`,
         rutaActivaId: tienda.rutaActivaId,
         reporteId: tienda.reporteId,
+        // Solo "llegada" -- si el envío falla por algo que no es de conexión
+        // (ver más abajo), este dato queda guardado junto con la foto para
+        // que el reintento manual lo tenga disponible aunque el componente
+        // se haya vuelto a montar con el estado en blanco.
+        justificativoTardanza: tipo === "llegada" ? justificativo.trim() || undefined : undefined,
+        fotoJustificativoTardanza: tipo === "llegada" ? fotoJustificativo || undefined : undefined,
       };
       setPendiente(dato);
       guardarFotoPendienteTienda(tienda.id, dato);
-      await enviarMarcacion(tipo, foto, horaCapturadaMs);
+      await enviarMarcacion(tipo, foto, horaCapturadaMs, dato.justificativoTardanza, dato.fotoJustificativoTardanza);
     } catch (err: any) {
       setMensaje(err?.message || "No se pudo procesar la foto.");
       setPaso(null);
@@ -490,7 +509,13 @@ function MarcadoVisitaTienda({
   async function reintentar() {
     if (!pendiente) return;
     setMensaje(null);
-    await enviarMarcacion(pendiente.tipo as "llegada" | "salida", pendiente.foto, pendiente.horaCapturadaMs);
+    await enviarMarcacion(
+      pendiente.tipo as "llegada" | "salida",
+      pendiente.foto,
+      pendiente.horaCapturadaMs,
+      pendiente.justificativoTardanza,
+      pendiente.fotoJustificativoTardanza
+    );
   }
 
   const ocupado = paso !== null;
