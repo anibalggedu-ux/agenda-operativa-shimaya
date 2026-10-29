@@ -109,7 +109,7 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
       supabase.from("usuarios").select("dias_descanso").eq("id", sesion.id).maybeSingle(),
       supabase
         .from("asignaciones_especiales")
-        .select("fecha_inicio, fecha_fin")
+        .select("tipo, fecha_inicio, fecha_fin")
         .eq("usuario_id", sesion.id)
         .lte("fecha_inicio", diaLaboral)
         .gte("fecha_fin", diaLaboral),
@@ -124,13 +124,26 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
       supabase.from("rutas_diarias").select("id").eq("usuario_id", sesion.id).eq("fecha", diaLaboral).limit(1),
     ]);
 
-  const diasDescanso: string[] = usuario?.dias_descanso ?? [];
-  if (diasDescanso.includes(diaSemanaPeru(diaLaboral))) return false;
-
-  const exentoPorEspecial = (especiales ?? []).some((e) =>
+  const especialesHoy = (especiales ?? []).filter((e) =>
     expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(diaLaboral)
   );
-  if (exentoPorEspecial) return false;
+  // "Trabaja su descanso" (ver venderDescansoYAutoasignar, supervisor/actions.ts)
+  // es la ÚNICA asignación especial que debe EXIMIR el bloqueo de descanso fijo
+  // de abajo -- las demás (Vacaciones, Permiso, Descanso Semanal, Licencia,
+  // Misión Especial) siguen bloqueando el break igual que siempre, sin
+  // importar si coincide o no con el descanso fijo (si está de vacaciones, no
+  // tiene tienda, no tiene sentido ofrecerle break). Antes esto era un solo
+  // chequeo genérico: el bloqueo por dias_descanso se evaluaba primero y
+  // retornaba false sin revisar "Trabaja su descanso" -- caso real: Carlos
+  // Monasterios, 28 oct, vendió su descanso y se autoasignó con normalidad,
+  // pero el widget de break no le aparecía para nada.
+  const trabajaSuDescanso = especialesHoy.some((e) => e.tipo === "Trabaja su descanso");
+  const otraAsignacionEspecial = especialesHoy.some((e) => e.tipo !== "Trabaja su descanso");
+
+  const diasDescanso: string[] = usuario?.dias_descanso ?? [];
+  if (!trabajaSuDescanso && diasDescanso.includes(diaSemanaPeru(diaLaboral))) return false;
+
+  if (otraAsignacionEspecial) return false;
 
   const exentoPorPermiso = (permisos ?? []).some((p) =>
     expandirRangoFechas(p.fecha_inicio, p.fecha_fin).includes(diaLaboral)
@@ -206,7 +219,7 @@ export async function marcarSalidaBreak(
     supabase.from("usuarios").select("duracion_break_min, dias_descanso").eq("id", sesion.id).maybeSingle(),
     supabase
       .from("asignaciones_especiales")
-      .select("fecha_inicio, fecha_fin")
+      .select("tipo, fecha_inicio, fecha_fin")
       .eq("usuario_id", sesion.id)
       .lte("fecha_inicio", fecha)
       .gte("fecha_fin", fecha),
@@ -224,13 +237,14 @@ export async function marcarSalidaBreak(
   // mano) -- tiene que pedirle al coordinador que le cambie el descanso. La
   // pantalla ya oculta el botón en este caso (obtenerPermiteBreakHoy), esto
   // es el mismo chequeo del lado del servidor, para que no se pueda marcar
-  // igual si el botón llegó a mostrarse con datos desactualizados. Una
-  // asignación especial vigente para la fecha exime igual que arriba --
-  // antes esto NO se revisaba acá, así que un caso exento por
-  // asignaciones_especiales (el botón sí se mostraba, vía
-  // obtenerPermiteBreakHoy) se rechazaba igual al tocarlo.
-  const exentoPorEspecial = (especiales ?? []).some((e) =>
-    expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
+  // igual si el botón llegó a mostrarse con datos desactualizados. Solo
+  // "Trabaja su descanso" exime este bloqueo puntual -- las demás
+  // asignaciones especiales (Vacaciones, Permiso, Licencia, Descanso
+  // Semanal, Misión Especial) no tienen por qué dejar marcar un break, así
+  // que no cuentan como exención acá (mismo criterio que
+  // obtenerPermiteBreakHoy).
+  const exentoPorEspecial = (especiales ?? []).some(
+    (e) => e.tipo === "Trabaja su descanso" && expandirRangoFechas(e.fecha_inicio, e.fecha_fin).includes(fecha)
   );
   if (!exentoPorEspecial && (usuario?.dias_descanso ?? []).includes(diaSemanaPeru(fecha))) {
     return {
