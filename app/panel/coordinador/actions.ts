@@ -643,7 +643,8 @@ export type TipoAsignacionEspecial =
   | "Descanso Semanal"
   | "Licencia"
   | "Misión Especial"
-  | "Trabaja su descanso";
+  | "Trabaja su descanso"
+  | "Hora de ingreso especial";
 
 export type AsignacionEspecial = {
   id: string;
@@ -653,6 +654,9 @@ export type AsignacionEspecial = {
   fechaInicio: string;
   fechaFin: string;
   motivo: string | null;
+  // Solo para tipo "Hora de ingreso especial" (ej. "17:00:00") -- null para
+  // los demás tipos.
+  horaLimiteEspecial: string | null;
 };
 
 export async function obtenerAsignacionesEspeciales(): Promise<AsignacionEspecial[]> {
@@ -661,7 +665,7 @@ export async function obtenerAsignacionesEspeciales(): Promise<AsignacionEspecia
 
   const { data, error } = await supabase
     .from("asignaciones_especiales")
-    .select("id, usuario_id, tipo, fecha_inicio, fecha_fin, motivo, usuarios(nombre)")
+    .select("id, usuario_id, tipo, fecha_inicio, fecha_fin, motivo, hora_limite_especial, usuarios(nombre)")
     .gte("fecha_fin", hoyPeru())
     .order("fecha_inicio", { ascending: true });
 
@@ -675,6 +679,7 @@ export async function obtenerAsignacionesEspeciales(): Promise<AsignacionEspecia
     fechaInicio: a.fecha_inicio,
     fechaFin: a.fecha_fin,
     motivo: a.motivo,
+    horaLimiteEspecial: a.hora_limite_especial ?? null,
   }));
 }
 
@@ -689,6 +694,7 @@ export async function crearAsignacionEspecial(
   const fechaInicio = String(formData.get("fechaInicio") || "");
   const fechaFin = String(formData.get("fechaFin") || "");
   const motivo = String(formData.get("motivo") || "").trim();
+  const horaLimite = String(formData.get("horaLimite") || "").trim();
 
   if (!usuarioId || !tipo || !fechaInicio || !fechaFin) {
     return { exito: false, mensaje: "Completa usuario, tipo y rango de fechas." };
@@ -698,6 +704,10 @@ export async function crearAsignacionEspecial(
     return { exito: false, mensaje: "La fecha de fin no puede ser anterior a la de inicio." };
   }
 
+  if (tipo === "Hora de ingreso especial" && !horaLimite) {
+    return { exito: false, mensaje: "Indica la hora límite de ingreso para ese día." };
+  }
+
   const supabase = supabaseServer();
   const { error } = await supabase.from("asignaciones_especiales").insert({
     usuario_id: usuarioId,
@@ -705,6 +715,8 @@ export async function crearAsignacionEspecial(
     fecha_inicio: fechaInicio,
     fecha_fin: fechaFin,
     motivo: motivo || null,
+    hora_limite_especial:
+      tipo === "Hora de ingreso especial" ? (horaLimite.length === 5 ? `${horaLimite}:00` : horaLimite) : null,
   });
 
   if (error) return { exito: false, mensaje: "No se pudo registrar la asignación." };
@@ -728,6 +740,11 @@ export async function crearAsignacionEspecial(
           <li><strong>Tipo:</strong> ${tipo}</li>
           <li><strong>Desde:</strong> ${formatearFechaLegible(fechaInicio)}</li>
           <li><strong>Hasta:</strong> ${formatearFechaLegible(fechaFin)}</li>
+          ${
+            tipo === "Hora de ingreso especial" && horaLimite
+              ? `<li><strong>Hora límite ese día:</strong> ${horaLimite.slice(0, 5)}</li>`
+              : ""
+          }
           ${motivo ? `<li><strong>Motivo:</strong> ${escaparHtml(motivo)}</li>` : ""}
         </ul>
         <p style="color:#8b8d92; font-size:12px;">Registrado por ${sesion.nombre}.</p>

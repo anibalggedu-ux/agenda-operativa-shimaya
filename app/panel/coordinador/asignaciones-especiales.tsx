@@ -21,6 +21,7 @@ const TIPOS = [
   "Licencia",
   "Misión Especial",
   "Trabaja su descanso",
+  "Hora de ingreso especial",
 ] as const;
 
 const ESTILOS_TIPO: Record<string, string> = {
@@ -35,6 +36,11 @@ const ESTILOS_TIPO: Record<string, string> = {
   // todas las semanas siguientes) -- exime los mismos bloqueos que las demás
   // asignaciones especiales, solo para esa fecha puntual.
   "Trabaja su descanso": "text-emerald-400 border-emerald-500/40 bg-emerald-950/20",
+  // Caso puntual: la persona SÍ debe marcar, pero contra otra hora límite
+  // solo ese día (ej. un atraso avisado de palabra) -- así la racha/puntos
+  // de puntualidad la evalúan contra esa hora en vez de "perdonar" el día
+  // entero como hacen los demás tipos.
+  "Hora de ingreso especial": "text-cyan-400 border-cyan-500/40 bg-cyan-950/20",
 };
 
 const estadoInicial: ResultadoAccion = { exito: false };
@@ -59,6 +65,7 @@ export default function AsignacionesEspeciales() {
   const [error, setError] = useState<string | null>(null);
 
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [tipoElegido, setTipoElegido] = useState("");
 
   const [estado, formAction] = useFormState(crearAsignacionEspecial, estadoInicial);
 
@@ -81,6 +88,7 @@ export default function AsignacionesEspeciales() {
     if (estado.exito) {
       cargarTodo();
       setUsuarioId(null);
+      setTipoElegido("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
@@ -136,6 +144,8 @@ export default function AsignacionesEspeciales() {
             <select
               name="tipo"
               required
+              value={tipoElegido}
+              onChange={(e) => setTipoElegido(e.target.value)}
               className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
             >
               <option value="">Selecciona...</option>
@@ -146,6 +156,20 @@ export default function AsignacionesEspeciales() {
               ))}
             </select>
           </div>
+
+          {tipoElegido === "Hora de ingreso especial" && (
+            <div>
+              <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
+                Hora límite ese día
+              </label>
+              <input
+                type="time"
+                name="horaLimite"
+                required
+                className="w-full p-3 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-marca-tenue text-[10px] uppercase font-bold mb-1">
@@ -219,6 +243,7 @@ export default function AsignacionesEspeciales() {
                   </p>
                   <p className="text-[11px] opacity-80 capitalize mt-1">
                     {formatearFechaLegible(a.fechaInicio)} → {formatearFechaLegible(a.fechaFin)}
+                    {a.horaLimiteEspecial ? ` · hasta las ${a.horaLimiteEspecial.slice(0, 5)}` : ""}
                     {a.motivo ? " · " + a.motivo : ""}
                   </p>
                 </div>

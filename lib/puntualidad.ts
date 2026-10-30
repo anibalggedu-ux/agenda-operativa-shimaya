@@ -34,14 +34,21 @@ export function esTarde(horaIngreso: string, limite: string): boolean {
   return horaIngreso.slice(0, 5) > limite.slice(0, 5);
 }
 
+// horaEspecialDelDia viene de una asignación especial tipo "Hora de ingreso
+// especial" para esa fecha puntual (ver asignaciones_especiales) -- gana
+// sobre todo lo demás, porque es un permiso puntual ("hoy entra a las 5pm")
+// que no debe repetirse la semana siguiente como pasaría si se tocara
+// horario_por_dia, ni quedarse pegado para siempre como con
+// hora_limite_ingreso.
 export function resolverHoraLimite(
   rol: string,
   horaLimitePersonalizada?: string | null,
   horarioPorDia?: Record<string, string> | null,
-  diaSemana?: string
+  diaSemana?: string,
+  horaEspecialDelDia?: string | null
 ): string | undefined {
   const horaDelDia = diaSemana ? horarioPorDia?.[diaSemana] : undefined;
-  return horaDelDia ?? horaLimitePersonalizada ?? HORA_LIMITE_PUNTUALIDAD[rol];
+  return horaEspecialDelDia ?? horaDelDia ?? horaLimitePersonalizada ?? HORA_LIMITE_PUNTUALIDAD[rol];
 }
 
 // No hace falta mirar más atrás que esto: si el problema viene de antes,
@@ -87,7 +94,12 @@ export function calcularEstadoPuntualidad(
   diasExentos: Set<string> = new Set(),
   fechaIngreso: string | null = null,
   horaLimitePersonalizada: string | null = null,
-  horarioPorDia: Record<string, string> | null = null
+  horarioPorDia: Record<string, string> | null = null,
+  // fecha ISO -> hora límite especial de ese día puntual (asignación
+  // especial tipo "Hora de ingreso especial") -- un día cubierto acá se
+  // evalúa normal (a tiempo/tarde), solo que contra esta hora en vez del
+  // límite de siempre. No es lo mismo que esDiaExento: ese día NO se salta.
+  horasEspecialesPorFecha?: Map<string, string>
 ): AlertaPuntualidad {
   // Para horarios mixtos, la hora límite cambia según el día de la semana —
   // por eso se resuelve por fecha en cada punto, no una sola vez. limiteBase
@@ -95,7 +107,13 @@ export function calcularEstadoPuntualidad(
   // en absoluto (ej. gerente no).
   const limiteBase = resolverHoraLimite(rol, horaLimitePersonalizada);
   function limiteDe(fecha: string): string | undefined {
-    return resolverHoraLimite(rol, horaLimitePersonalizada, horarioPorDia, diaSemanaPeru(fecha));
+    return resolverHoraLimite(
+      rol,
+      horaLimitePersonalizada,
+      horarioPorDia,
+      diaSemanaPeru(fecha),
+      horasEspecialesPorFecha?.get(fecha)
+    );
   }
   // No se evalúa puntualidad antes de que la persona existiera como
   // colaborador — evita marcar "tardanza" en días previos a su ingreso.

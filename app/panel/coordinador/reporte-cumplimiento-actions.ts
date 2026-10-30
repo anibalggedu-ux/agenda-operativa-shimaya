@@ -95,7 +95,7 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     supabase.from("checklists_visita").select("usuario_id, fecha").gte("fecha", desde).lte("fecha", hasta),
     supabase
       .from("asignaciones_especiales")
-      .select("usuario_id, fecha_inicio, fecha_fin")
+      .select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial")
       .lte("fecha_inicio", hasta)
       .gte("fecha_fin", desde),
     // Independiente del rango desde/hasta que elige la persona en pantalla
@@ -148,8 +148,19 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
   // licencia, misión especial) -- mismo criterio que calcularPendientesBreak
   // en break-actions.ts, pero acumulado por usuario para consultarlo rápido.
   const diasEspecialesPorUsuario = new Map<string, Set<string>>();
+  // "Hora de ingreso especial" NO exime el día entero -- sigue siendo un día
+  // de trabajo real, solo que con otra hora límite (ver horasEspecialesPorUsuario).
+  const horasEspecialesPorUsuario = new Map<string, Map<string, string>>();
   (especiales ?? []).forEach((e: any) => {
     const fechas = expandirRangoFechas(e.fecha_inicio, e.fecha_fin).filter((f) => f >= desde && f <= hasta);
+    if (e.tipo === "Hora de ingreso especial") {
+      const mapaHoras = horasEspecialesPorUsuario.get(e.usuario_id) ?? new Map<string, string>();
+      fechas.forEach((f) => {
+        if (e.hora_limite_especial) mapaHoras.set(f, e.hora_limite_especial);
+      });
+      horasEspecialesPorUsuario.set(e.usuario_id, mapaHoras);
+      return;
+    }
     const set = diasEspecialesPorUsuario.get(e.usuario_id) ?? new Set<string>();
     fechas.forEach((f) => set.add(f));
     diasEspecialesPorUsuario.set(e.usuario_id, set);
@@ -196,7 +207,8 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
         usuario.rol,
         usuario.hora_limite_ingreso,
         usuario.horario_por_dia,
-        diaSemanaPeru(a.fecha)
+        diaSemanaPeru(a.fecha),
+        horasEspecialesPorUsuario.get(a.usuario_id)?.get(a.fecha)
       );
       if (limite && esTarde(a.hora_ingreso, limite)) agregarFecha(tardanzasPorUsuario, a.usuario_id, a.fecha);
 
