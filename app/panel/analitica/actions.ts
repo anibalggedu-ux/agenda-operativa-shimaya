@@ -5,6 +5,7 @@ import { exigirSesion } from "@/lib/session";
 import { hoyPeru, calcularAntiguedad, diasEntreFechas, sumarDias, formatearFechaCorta, diaSemanaPeru } from "@/lib/fechas";
 import { resolverHoraLimite, esTarde as compararTardanza } from "@/lib/puntualidad";
 import { cargarHistorialTienda } from "@/lib/historial-tienda";
+import { obtenerUrlTemporalFoto } from "@/lib/blob-storage";
 
 export type ReportesPorDia = { fecha: string; cantidad: number };
 
@@ -153,6 +154,68 @@ export async function obtenerRankingPuntualidad(
   });
 
   return Array.from(conteo.values()).sort((a, b) => b.cantidad - a.cantidad);
+}
+
+export type TardanzaJustificada = {
+  fecha: string;
+  usuarioNombre: string;
+  rol: string;
+  tipo: "ingreso" | "break";
+  texto: string;
+  fotoUrl: string | null;
+};
+
+// Lista de detalle (no un ranking) de las tardanzas con justificativo
+// obligatorio -- texto + foto opcional, ver marcarLlegadaTienda/
+// marcarEntradaBreak -- en el rango de fechas elegido. Misma idea que
+// "Tardanzas justificadas de hoy" del resumen operativo de coordinador/
+// gerente (resumen-dia-actions.ts), pero con memoria histórica en vez de
+// quedar fija al día de hoy.
+export async function obtenerTardanzasJustificadas(desde: string, hasta: string): Promise<TardanzaJustificada[]> {
+  await exigirSesion();
+  const supabase = supabaseServer();
+
+  const [{ data: ingresos, error: errorIngresos }, { data: breaks, error: errorBreaks }] = await Promise.all([
+    supabase
+      .from("asistencia")
+      .select("fecha, justificativo_tardanza, justificativo_tardanza_foto_blob, usuarios(nombre, rol)")
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .not("justificativo_tardanza", "is", null),
+    supabase
+      .from("marcaciones_break")
+      .select("fecha, justificativo_tardanza, justificativo_tardanza_foto_blob, usuarios(nombre, rol)")
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .not("justificativo_tardanza", "is", null),
+  ]);
+
+  if (errorIngresos || errorBreaks) throw new Error("No se pudo cargar las tardanzas justificadas.");
+
+  const filas = await Promise.all([
+    ...(ingresos ?? [])
+      .filter((r: any) => r.usuarios?.nombre && !/generico/i.test(r.usuarios.nombre))
+      .map(async (r: any) => ({
+        fecha: r.fecha,
+        usuarioNombre: r.usuarios.nombre as string,
+        rol: r.usuarios.rol as string,
+        tipo: "ingreso" as const,
+        texto: r.justificativo_tardanza as string,
+        fotoUrl: await obtenerUrlTemporalFoto(r.justificativo_tardanza_foto_blob),
+      })),
+    ...(breaks ?? [])
+      .filter((r: any) => r.usuarios?.nombre && !/generico/i.test(r.usuarios.nombre))
+      .map(async (r: any) => ({
+        fecha: r.fecha,
+        usuarioNombre: r.usuarios.nombre as string,
+        rol: r.usuarios.rol as string,
+        tipo: "break" as const,
+        texto: r.justificativo_tardanza as string,
+        fotoUrl: await obtenerUrlTemporalFoto(r.justificativo_tardanza_foto_blob),
+      })),
+  ]);
+
+  return filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
 // ---------- Visitas a tiendas (ranking + tardanzas + reporte por tienda) ----------

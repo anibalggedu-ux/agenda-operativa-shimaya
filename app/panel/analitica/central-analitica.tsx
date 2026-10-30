@@ -25,6 +25,7 @@ import { UMBRALES_MEDALLAS } from "@/lib/trofeos";
 import { hoyPeru, sumarDias, inicioMesPeru, formatearFechaLegible } from "@/lib/fechas";
 import RankingTiendas from "./ranking-tiendas";
 import TiendasTardanzas from "./tiendas-tardanzas";
+import TardanzasJustificadas from "./tardanzas-justificadas";
 import ReporteTienda from "./reporte-tienda";
 import RankingPorRol from "./ranking-por-rol";
 import DashboardTiendasVista from "./dashboard-tiendas";
@@ -406,6 +407,15 @@ export default function CentralAnalitica({ mostrarApoyos = false, mostrarLibro =
                   Toca el número de visitas o de colaboradores tarde para ver el detalle.
                 </p>
                 <TiendasTardanzas desde={desde} hasta={hasta} />
+              </section>
+
+              <section className="bg-marca-superficie border border-marca-borde rounded-[3px] p-5">
+                <h3 className="text-xs font-black tracking-widest text-marca-tenue mb-1 flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:text-marca-rojoclaro"><AlertTriangle /> TARDANZAS JUSTIFICADAS</h3>
+                <p className="text-marca-tenue text-[11px] mb-4">
+                  Explicación (texto + foto opcional) que cada persona deja al marcar tarde su
+                  ingreso o su entrada de vuelta al break.
+                </p>
+                <TardanzasJustificadas desde={desde} hasta={hasta} />
               </section>
             </div>
           )}
