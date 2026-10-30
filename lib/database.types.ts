@@ -209,6 +209,7 @@ export type Database = {
           created_at: string | null
           fecha_fin: string
           fecha_inicio: string
+          hora_limite_especial: string | null
           id: string
           motivo: string | null
           tipo: string
@@ -218,6 +219,7 @@ export type Database = {
           created_at?: string | null
           fecha_fin: string
           fecha_inicio: string
+          hora_limite_especial?: string | null
           id?: string
           motivo?: string | null
           tipo: string
@@ -227,6 +229,7 @@ export type Database = {
           created_at?: string | null
           fecha_fin?: string
           fecha_inicio?: string
+          hora_limite_especial?: string | null
           id?: string
           motivo?: string | null
           tipo?: string

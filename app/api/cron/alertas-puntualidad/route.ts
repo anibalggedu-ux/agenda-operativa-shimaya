@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       .eq("fecha", diaLaboral),
     supabase
       .from("asignaciones_especiales")
-      .select("usuario_id")
+      .select("usuario_id, tipo, hora_limite_especial")
       .lte("fecha_inicio", diaLaboral)
       .gte("fecha_fin", diaLaboral),
     supabase
@@ -76,8 +76,19 @@ export async function GET(request: Request) {
     asistenciaPorUsuario.set(a.usuario_id, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
   });
 
+  // "Hora de ingreso especial" no exime del todo -- se avisa igual si llega
+  // tarde, solo que contra la hora especial en vez de la de siempre.
+  const horaEspecialHoyPorUsuario = new Map<string, string>();
   const exentosHoy = new Set<string>([
-    ...(especialesHoy ?? []).map((e) => e.usuario_id),
+    ...(especialesHoy ?? [])
+      .filter((e) => {
+        if (e.tipo === "Hora de ingreso especial") {
+          if (e.hora_limite_especial) horaEspecialHoyPorUsuario.set(e.usuario_id, e.hora_limite_especial);
+          return false;
+        }
+        return true;
+      })
+      .map((e) => e.usuario_id),
     ...(permisosHoy ?? []).map((p) => p.usuario_id),
   ]);
 
@@ -101,7 +112,8 @@ export async function GET(request: Request) {
       new Set(),
       null,
       u.hora_limite_ingreso ?? null,
-      (u.horario_por_dia as Record<string, string> | null) ?? null
+      (u.horario_por_dia as Record<string, string> | null) ?? null,
+      horaEspecialHoyPorUsuario.has(u.id) ? new Map([[diaLaboral, horaEspecialHoyPorUsuario.get(u.id)!]]) : undefined
     );
 
     return estado.estadoHoy === "tarde" || estado.estadoHoy === "pendiente_tarde";

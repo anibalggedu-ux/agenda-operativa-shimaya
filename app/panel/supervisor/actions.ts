@@ -680,6 +680,73 @@ export async function venderDescansoYAutoasignar(
   return autoasignarTienda(tiendaId, paraManana, incognito);
 }
 
+async function notificarCoordinadoresHoraEspecial(
+  nombreUsuario: string,
+  fecha: string,
+  horaLimite: string
+): Promise<void> {
+  try {
+    const supabase = supabaseServer();
+    const { data: coordinadores } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("rol", "coordinador")
+      .eq("activo", true);
+
+    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
+    if (correos.length === 0) return;
+
+    await enviarCorreo({
+      para: correos,
+      tituloEmoji: "🕓",
+      asunto: `${nombreUsuario} registró una hora de ingreso especial para el ${formatearFechaLegible(fecha)}`,
+      cuerpoHtml: `
+        <p><strong>${nombreUsuario}</strong> registró por su cuenta que hoy (${formatearFechaLegible(fecha)})
+        su hora límite de ingreso es <strong>${horaLimite.slice(0, 5)}</strong> en vez de la de siempre.</p>
+        <p style="color:#8b8d92; font-size:12px;">Úsalo solo como aviso; no hace falta que hagas nada. Es
+        solo para esta fecha puntual, su horario normal no cambió.</p>
+      `,
+    });
+  } catch (error) {
+    console.error("No se pudo notificar la hora de ingreso especial:", error);
+  }
+}
+
+// Permiso puntual (ej. "hoy entra a las 5pm" avisado de palabra por un
+// coordinador) registrado por la propia persona, sin esperar que alguien se
+// lo cargue a mano -- la hora límite de ESE día queda guardada como
+// asignación especial, así la racha/puntos de puntualidad no la castigan
+// por algo que sí tenía permitido. No toca horario_por_dia (se repetiría
+// cada semana) ni hora_limite_ingreso (quedaría pegado para siempre).
+export async function pedirHoraIngresoEspecial(fecha: string, horaLimite: string): Promise<ResultadoReporte> {
+  const sesion = await obtenerSesion();
+  if (!sesion || !tieneBitacora(sesion.rol)) {
+    return { exito: false, mensaje: "No autorizado." };
+  }
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(horaLimite)) {
+    return { exito: false, mensaje: "Hora inválida." };
+  }
+  if (fecha < hoyPeru()) {
+    return { exito: false, mensaje: "No puedes registrar una hora especial para un día que ya pasó." };
+  }
+  const horaNormalizada = horaLimite.length === 5 ? `${horaLimite}:00` : horaLimite;
+
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("asignaciones_especiales").insert({
+    usuario_id: sesion.id,
+    tipo: "Hora de ingreso especial",
+    fecha_inicio: fecha,
+    fecha_fin: fecha,
+    hora_limite_especial: horaNormalizada,
+    motivo: "Autoservicio: hora de ingreso especial.",
+  });
+  if (error) return { exito: false, mensaje: "No se pudo registrar la hora especial." };
+
+  await notificarCoordinadoresHoraEspecial(sesion.nombre, fecha, horaNormalizada);
+
+  return { exito: true, mensaje: `Listo, hoy tu hora límite de ingreso queda en ${horaNormalizada.slice(0, 5)}.` };
+}
+
 export async function enviarReporte(
   _prevState: ResultadoReporte,
   formData: FormData
