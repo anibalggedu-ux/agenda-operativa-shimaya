@@ -100,7 +100,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     // no deben contar como tardanza ni salida faltante (ver lib/puntualidad.ts).
     supabase
       .from("asignaciones_especiales")
-      .select("fecha_inicio, fecha_fin")
+      .select("tipo, fecha_inicio, fecha_fin, hora_limite_especial")
       .eq("usuario_id", sesion.id)
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
@@ -133,7 +133,16 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     asistenciaPorFecha.set(a.fecha, { horaIngreso: a.hora_ingreso, horaSalida: a.hora_salida });
   });
   const diasExentosPropios = new Set<string>();
-  (especialesPropias ?? []).forEach((e) => {
+  // "Hora de ingreso especial" NO se perdona entera -- se evalúa igual que
+  // cualquier otro día, solo que contra su propia hora (ver más abajo).
+  const horasEspecialesPropias = new Map<string, string>();
+  (especialesPropias ?? []).forEach((e: any) => {
+    if (e.tipo === "Hora de ingreso especial") {
+      expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => {
+        if (e.hora_limite_especial) horasEspecialesPropias.set(f, e.hora_limite_especial);
+      });
+      return;
+    }
     expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => diasExentosPropios.add(f));
   });
   (permisosPropios ?? []).forEach((e) => {
@@ -150,7 +159,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     diasExentosPropios,
     usuarioPropio?.fecha_ingreso ?? null,
     usuarioPropio?.hora_limite_ingreso ?? null,
-    (usuarioPropio?.horario_por_dia as Record<string, string> | null) ?? null
+    (usuarioPropio?.horario_por_dia as Record<string, string> | null) ?? null,
+    horasEspecialesPropias
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -395,7 +405,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     // que solo cubre hoy y no trae usuario_id.
     supabase
       .from("asignaciones_especiales")
-      .select("usuario_id, fecha_inicio, fecha_fin")
+      .select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
     // Permisos/vacaciones pedidos por cada empleado y ya aprobados (tabla
@@ -424,7 +434,18 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
   });
 
   const diasExentosPorUsuario = new Map<string, Set<string>>();
-  (especialesEquipo ?? []).forEach((e) => {
+  // "Hora de ingreso especial" NO se perdona entera -- se evalúa igual que
+  // cualquier otro día, solo que contra su propia hora (ver abajo).
+  const horasEspecialesPorUsuario = new Map<string, Map<string, string>>();
+  (especialesEquipo ?? []).forEach((e: any) => {
+    if (e.tipo === "Hora de ingreso especial") {
+      const mapaHoras = horasEspecialesPorUsuario.get(e.usuario_id) ?? new Map<string, string>();
+      expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => {
+        if (e.hora_limite_especial) mapaHoras.set(f, e.hora_limite_especial);
+      });
+      horasEspecialesPorUsuario.set(e.usuario_id, mapaHoras);
+      return;
+    }
     const set = diasExentosPorUsuario.get(e.usuario_id) ?? new Set<string>();
     expandirRangoFechas(e.fecha_inicio, e.fecha_fin).forEach((f) => set.add(f));
     diasExentosPorUsuario.set(e.usuario_id, set);
@@ -455,7 +476,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       diasExentosPorUsuario.get(u.id) ?? new Set(),
       u.fecha_ingreso ?? null,
       u.hora_limite_ingreso ?? null,
-      (u.horario_por_dia as Record<string, string> | null) ?? null
+      (u.horario_por_dia as Record<string, string> | null) ?? null,
+      horasEspecialesPorUsuario.get(u.id)
     )
   );
 

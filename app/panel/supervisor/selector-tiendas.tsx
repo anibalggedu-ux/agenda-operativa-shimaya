@@ -9,6 +9,7 @@ import {
   obtenerTodasLasTiendas,
   autoasignarTienda,
   venderDescansoYAutoasignar,
+  pedirHoraIngresoEspecial,
   marcarLlegadaTienda,
   marcarSalidaTienda,
   recalcularEtaConUbicacion,
@@ -260,6 +261,98 @@ function AsignarmeTienda({
           </div>
         </div>
       )}
+      {mensaje && (
+        <p className={`text-xs font-bold ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
+          {mensaje.texto}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Permiso puntual (avisado de palabra por un coordinador, ej. "hoy entra a
+// las 5pm") para que la racha/puntos de puntualidad no castiguen ese día --
+// queda guardado como asignación especial, sin tocar el horario fijo de la
+// persona (ver pedirHoraIngresoEspecial en actions.ts).
+function HoraIngresoEspecial() {
+  const [abierto, setAbierto] = useState(false);
+  const [fecha, setFecha] = useState(hoyPeru());
+  const [hora, setHora] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; exito: boolean } | null>(null);
+
+  async function handleEnviar() {
+    if (!hora) {
+      setMensaje({ texto: "Elige una hora.", exito: false });
+      return;
+    }
+    setEnviando(true);
+    setMensaje(null);
+    const resultado = await pedirHoraIngresoEspecial(fecha, hora);
+    setEnviando(false);
+    setMensaje({ texto: resultado.mensaje ?? "", exito: resultado.exito });
+    if (resultado.exito) setHora("");
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="inline-flex items-center gap-2 bg-marca-superficie border border-marca-borde text-marca-tenue rounded-full pl-2 pr-4 py-2 text-[11.5px] font-black tracking-wide hover:border-marca-rojo/45 hover:text-marca-rojoclaro transition"
+      >
+        <span className="flex items-center justify-center w-[18px] h-[18px] rounded-full bg-marca-superficie2">
+          <AlertTriangle className="w-[11px] h-[11px]" />
+        </span>
+        Hora de ingreso especial
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-3">
+      <p className="text-marca-tenue text-[11px]">
+        Úsalo si tu coordinador te avisó que hoy puedes llegar a otra hora (de palabra, sin que haya quedado
+        registrado) — así no se te corta la racha ni pierdes puntos por una tardanza que sí tenías permitida.
+      </p>
+      <div className="flex gap-2">
+        <label className="flex flex-col gap-1 w-[118px] shrink-0">
+          <span className="text-marca-tenue text-[9.5px] font-black uppercase tracking-wider">Fecha</span>
+          <input
+            type="date"
+            value={fecha}
+            min={hoyPeru()}
+            onChange={(e) => setFecha(e.target.value)}
+            className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto font-bold text-xs outline-none focus:border-marca-rojoclaro"
+          />
+        </label>
+        <label className="flex flex-col gap-1 flex-1 min-w-0">
+          <span className="text-marca-tenue text-[9.5px] font-black uppercase tracking-wider">Hora límite</span>
+          <input
+            type="time"
+            value={hora}
+            onChange={(e) => setHora(e.target.value)}
+            className="w-full p-2.5 bg-marca-fondo border border-marca-borde rounded-[3px] text-marca-texto text-sm outline-none focus:border-marca-rojoclaro"
+          />
+        </label>
+      </div>
+      <div className="flex items-center gap-4">
+        <button
+          onClick={handleEnviar}
+          disabled={enviando}
+          className="flex-1 bg-marca-superficie2 hover:bg-marca-borde disabled:opacity-50 text-marca-texto font-black py-2.5 rounded-[3px] text-[11px] tracking-widest uppercase transition"
+        >
+          {enviando ? "Guardando..." : "Registrar"}
+        </button>
+        <button
+          onClick={() => {
+            setAbierto(false);
+            setMensaje(null);
+          }}
+          className="text-marca-tenue text-[11px] font-bold uppercase"
+        >
+          Cancelar
+        </button>
+      </div>
       {mensaje && (
         <p className={`text-xs font-bold ${mensaje.exito ? "text-emerald-400" : "text-marca-rojoclaro"}`}>
           {mensaje.texto}
@@ -926,7 +1019,10 @@ export default function SelectorTiendas({
         <p className="text-marca-tenue text-sm italic">
           No tienes tiendas asignadas ni reportes editables en este momento.
         </p>
-        <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
+        <div className="flex flex-wrap gap-2">
+          <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
+          <HoraIngresoEspecial />
+        </div>
       </div>
     );
   }
@@ -941,7 +1037,10 @@ export default function SelectorTiendas({
         </div>
       )}
 
-      <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
+      <div className="flex flex-wrap gap-2">
+        <AsignarmeTienda onAsignado={cargar} diasDescanso={diaDescanso} />
+        <HoraIngresoEspecial />
+      </div>
 
       {grupos.map((grupo) => {
         const estilo = ESTILOS_URGENCIA[grupo.urgencia];

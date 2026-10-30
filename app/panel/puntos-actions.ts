@@ -52,9 +52,12 @@ function puntosPorIngreso(
   horaIngreso: string,
   horaLimitePersonalizada?: string | null,
   horarioPorDia?: Record<string, string> | null,
-  diaSemana?: string
+  diaSemana?: string,
+  // Hora límite especial para ese día puntual (ver "Hora de ingreso
+  // especial" en asignaciones_especiales) -- gana sobre todo lo demás.
+  horaEspecialDelDia?: string | null
 ): number {
-  const limite = resolverHoraLimite(rol, horaLimitePersonalizada, horarioPorDia, diaSemana);
+  const limite = resolverHoraLimite(rol, horaLimitePersonalizada, horarioPorDia, diaSemana, horaEspecialDelDia);
   if (!limite) return 0;
 
   const minutosAntes = minutosDesdeMedianoche(limite) - minutosDesdeMedianoche(horaIngreso);
@@ -80,7 +83,11 @@ function calcularRachaYBono(
   rol: string,
   horaLimitePersonalizada?: string | null,
   horarioPorDia?: Record<string, string> | null,
-  diasConPermisoAprobado?: Set<string>
+  diasConPermisoAprobado?: Set<string>,
+  // fecha ISO -> hora límite especial de ese día (asignación especial tipo
+  // "Hora de ingreso especial") -- ese día NO entra en diasConPermisoAprobado
+  // (no se perdona, se evalúa igual pero contra esta hora).
+  horasEspecialesPorFecha?: Map<string, string>
 ): { racha: number; bono: number } {
   let inicio = fechaInicio;
   if (diasEntreFechas(inicio, hoy) > TOPE_DIAS_HACIA_ATRAS) {
@@ -102,7 +109,17 @@ function calcularRachaYBono(
 
     if (cursor === hoy && !horaIngreso) break; // el día de hoy aún no termina
 
-    if (horaIngreso && puntosPorIngreso(rol, horaIngreso, horaLimitePersonalizada, horarioPorDia, diaSemana) > 0) {
+    if (
+      horaIngreso &&
+      puntosPorIngreso(
+        rol,
+        horaIngreso,
+        horaLimitePersonalizada,
+        horarioPorDia,
+        diaSemana,
+        horasEspecialesPorFecha?.get(cursor)
+      ) > 0
+    ) {
       racha += 1;
       if (racha % RACHA_TRAMO === 0) bono += BONO_POR_TRAMO;
     } else {
@@ -266,7 +283,7 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     // Permiso puestas directamente por Coordinador desde "Asignar rutas" --
     // esta tabla no tiene flujo de aprobación aparte, ya es la asignación en
     // sí) -- mismo motivo: esos días tampoco deben romper la racha.
-    supabase.from("asignaciones_especiales").select("usuario_id, fecha_inicio, fecha_fin"),
+    supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial"),
   ]);
 
   if (
@@ -313,7 +330,21 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
   (solicitudesPermisoRes.data ?? []).forEach((s: any) => {
     marcarRangoProtegido(s.usuario_id, s.fecha_inicio, s.fecha_fin);
   });
+  // "Hora de ingreso especial" NO se perdona entera -- ese día se evalúa
+  // igual que cualquier otro, solo que contra su propia hora (ver abajo),
+  // así que se arma aparte y no entra en diasConPermisoPorUsuario.
+  const horasEspecialesPorUsuario = new Map<string, Map<string, string>>();
   (asignacionesEspecialesRes.data ?? []).forEach((a: any) => {
+    if (a.tipo === "Hora de ingreso especial") {
+      const mapa = horasEspecialesPorUsuario.get(a.usuario_id) ?? new Map<string, string>();
+      let cursor = a.fecha_inicio;
+      while (cursor <= a.fecha_fin) {
+        if (a.hora_limite_especial) mapa.set(cursor, a.hora_limite_especial);
+        cursor = sumarDias(cursor, 1);
+      }
+      horasEspecialesPorUsuario.set(a.usuario_id, mapa);
+      return;
+    }
     marcarRangoProtegido(a.usuario_id, a.fecha_inicio, a.fecha_fin);
   });
 
@@ -333,7 +364,8 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       a.hora_ingreso,
       a.usuarios?.hora_limite_ingreso,
       a.usuarios?.horario_por_dia,
-      diaSemanaPeru(a.fecha)
+      diaSemanaPeru(a.fecha),
+      horasEspecialesPorUsuario.get(a.usuario_id)?.get(a.fecha)
     );
     puntosPorUsuario.set(a.usuario_id, (puntosPorUsuario.get(a.usuario_id) ?? 0) + suma);
 
@@ -389,7 +421,8 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       u.rol,
       u.hora_limite_ingreso,
       u.horario_por_dia,
-      diasConPermisoPorUsuario.get(u.id)
+      diasConPermisoPorUsuario.get(u.id),
+      horasEspecialesPorUsuario.get(u.id)
     );
 
     const bonoHistoria = configBonoHistoria.activo
