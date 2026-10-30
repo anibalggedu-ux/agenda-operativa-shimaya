@@ -81,7 +81,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     obtenerMisPuntos(),
     supabase
       .from("comunicados")
-      .select("tipo, created_at, usuarios_destino")
+      .select("tipo, created_at, usuarios_destino, fecha_evento, hora_fin")
       .gte("created_at", sumarDias(hoy, -3) + "T00:00:00")
       .order("created_at", { ascending: false }),
     supabase
@@ -117,9 +117,15 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
 
   // Mismo filtro por destinatario que obtenerAnunciosRecientes — este
   // resumen no debe adelantar en el conteo/preview un comunicado dirigido a
-  // otra persona.
+  // otra persona. También se descarta un comunicado cuyo evento ya terminó
+  // (mismo criterio que ya usan Anuncios y Calendario, ver eventoFinalizado)
+  // -- antes esto solo miraba "publicado en los últimos 3 días", así que una
+  // reunión de ayer sin hora de fin seguía apareciendo como "reciente" el
+  // día siguiente, aunque ya hubiera pasado.
   const comunicadosVisibles = (comunicados ?? []).filter(
-    (c) => !c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)
+    (c) =>
+      (!c.usuarios_destino || c.usuarios_destino.length === 0 || c.usuarios_destino.includes(sesion.id)) &&
+      !eventoFinalizado(c.fecha_evento, c.hora_fin, hoy, horaActual)
   );
 
   const asistenciaPorFecha = new Map<string, RegistroAsistencia>();
