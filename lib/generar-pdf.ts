@@ -240,6 +240,12 @@ export type MarcacionParaPdf = {
   horaIngreso: string | null;
   horaSalida: string | null;
   tarde: boolean;
+  // Justificativo de tardanza (texto obligatorio + foto opcional, ver
+  // justificativo_tardanza en la tabla asistencia) -- solo viene presente en
+  // el historial propio (self-service); el historial de un colaborador visto
+  // por el coordinador no lo trae, así que simplemente no se dibuja ahí.
+  justificativoTardanza?: string | null;
+  justificativoTardanzaTieneFoto?: boolean;
 };
 
 // Dibuja la lista de marcaciones de entrada/salida, resaltando en rojo el
@@ -268,7 +274,14 @@ function dibujarMarcaciones(
   }
 
   marcaciones.forEach((m) => {
-    if (y + 6 > ALTO_PAGINA) {
+    const lineasJustificativo = m.justificativoTardanza
+      ? doc.splitTextToSize(
+          "Justificativo: " + m.justificativoTardanza + (m.justificativoTardanzaTieneFoto ? " (con foto)" : ""),
+          ANCHO_UTIL - 4
+        )
+      : [];
+    const altoBloque = 6 + lineasJustificativo.length * 4.5;
+    if (y + altoBloque > ALTO_PAGINA) {
       doc.addPage();
       y = 20;
     }
@@ -283,8 +296,14 @@ function dibujarMarcaciones(
       "  ·  Salida: " +
       (m.horaSalida ? formatearHora(m.horaSalida) : "—");
     doc.text(texto, 14, y);
-    doc.setTextColor(0, 0, 0);
     y += 5.5;
+    if (lineasJustificativo.length > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.text(lineasJustificativo, 18, y);
+      y += lineasJustificativo.length * 4.5;
+    }
+    doc.setTextColor(0, 0, 0);
   });
 
   return y + margenFinal;
@@ -436,6 +455,8 @@ export type MarcacionHistorial = {
   horaIngreso: string | null;
   horaSalida: string | null;
   tarde: boolean;
+  justificativoTardanza?: string | null;
+  justificativoTardanzaTieneFoto?: boolean;
 };
 
 const ROJO_TARDANZA: [number, number, number] = [220, 38, 38];
