@@ -74,6 +74,7 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     { data: especiales, error: errorEspeciales },
     { data: visitasActivas, error: errorVisitasActivas },
     { data: descartadas, error: errorDescartadas },
+    { data: tiendasFijas, error: errorTiendasFijas },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -125,6 +126,12 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
       .not("descartada_en", "is", null)
       .gte("fecha_planificada", desde)
       .lte("fecha_planificada", hasta),
+    // 9) Quién tiene tienda permanente/fija asignada (fecha_fin nula) --
+    // regla interna: esa persona no debería hacer checklist en su propia
+    // tienda, así que no enviar ninguno no es una falta para ella (ver
+    // "NO HACE CHECKLIST" más abajo). Mismo criterio que ya usa
+    // obtenerTiendasPermanentes en coordinador/actions.ts.
+    supabase.from("tiendas_permanentes").select("usuario_id").is("fecha_fin", null),
   ]);
 
   if (
@@ -135,7 +142,8 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
     errorChecklists ||
     errorEspeciales ||
     errorVisitasActivas ||
-    errorDescartadas
+    errorDescartadas ||
+    errorTiendasFijas
   ) {
     throw new Error("No se pudo cargar el reporte de no cumplimiento.");
   }
@@ -259,7 +267,13 @@ export async function obtenerReporteNoCumplimiento(desde: string, hasta: string)
   (checklists ?? []).forEach((c: any) => {
     if (mapaUsuarios.has(c.usuario_id)) checklistsPorUsuario.add(c.usuario_id);
   });
+  // Quien tiene tienda permanente asignada queda afuera de esta lista por
+  // completo -- no se le exige checklist en absoluto, sin importar si
+  // además visitó otras tiendas en el rango (regla interna: no hace
+  // checklist en su propia tienda).
+  const tienenTiendaPermanente = new Set<string>((tiendasFijas ?? []).map((t: any) => t.usuario_id));
   const sinChecklist: FilaCumplimiento[] = usuariosBase
+    .filter((u) => !tienenTiendaPermanente.has(u.id))
     .filter((u) => !checklistsPorUsuario.has(u.id))
     .map((u) => ({ usuarioId: u.id, usuarioNombre: u.nombre, rol: u.rol, fechas: [] as string[] }))
     .sort((a, b) => a.usuarioNombre.localeCompare(b.usuarioNombre));
