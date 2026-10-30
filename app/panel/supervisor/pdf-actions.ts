@@ -47,7 +47,7 @@ export async function obtenerHistorialMarcaciones(
   const [{ data, error }, { data: usuario }] = await Promise.all([
     supabase
       .from("asistencia")
-      .select("fecha, hora_ingreso, hora_salida")
+      .select("fecha, hora_ingreso, hora_salida, justificativo_tardanza, justificativo_tardanza_foto_blob")
       .eq("usuario_id", sesion.id)
       .gte("fecha", desde)
       .lte("fecha", hasta)
@@ -69,6 +69,8 @@ export async function obtenerHistorialMarcaciones(
       horaIngreso: a.hora_ingreso,
       horaSalida: a.hora_salida,
       tarde: !!(limite && a.hora_ingreso && esTarde(a.hora_ingreso, limite)),
+      justificativoTardanza: a.justificativo_tardanza,
+      justificativoTardanzaTieneFoto: !!a.justificativo_tardanza_foto_blob,
     };
   });
 }
@@ -102,7 +104,7 @@ export async function obtenerMisIncidenciasBreak(
       .lte("fecha", hasta),
     supabase
       .from("marcaciones_break")
-      .select("fecha, hora_salida, hora_limite, hora_entrada, no_salio")
+      .select("fecha, hora_salida, hora_limite, hora_entrada, no_salio, justificativo_tardanza, justificativo_tardanza_foto_blob")
       .eq("usuario_id", sesion.id)
       .gte("fecha", desde)
       .lte("fecha", hasta),
@@ -135,9 +137,12 @@ export async function obtenerMisIncidenciasBreak(
       }
       const minutosPasados = minutosEntre(b.hora_limite!, b.hora_entrada);
       if (minutosPasados > 0) {
+        const justificativo = b.justificativo_tardanza
+          ? ` Justificativo: ${b.justificativo_tardanza}${b.justificativo_tardanza_foto_blob ? " (con foto)" : ""}.`
+          : "";
         incidencias.push({
           fecha: a.fecha,
-          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite!.slice(0, 5)}).`,
+          detalle: `Se pasó ${minutosPasados} min del break (volvió a las ${b.hora_entrada.slice(0, 5)}, debía a las ${b.hora_limite!.slice(0, 5)}).${justificativo}`,
         });
       }
     });
