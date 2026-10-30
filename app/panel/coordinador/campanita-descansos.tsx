@@ -143,6 +143,13 @@ export default function CampanitaDescansos() {
                         )}
                         {item.datos.motivo && <> — {item.datos.motivo}</>}
                       </p>
+                    ) : item.datos.tipo === "Hora de ingreso especial" ? (
+                      <p className="text-[11px] text-marca-tenue mt-1">
+                        {formatearFechaLegible(item.datos.fechaInicio)} — ingreso a tiempo hasta las{" "}
+                        <span className="text-marca-textofuerte font-bold">
+                          {item.datos.horaLimite?.slice(0, 5) ?? "—"}
+                        </span>
+                      </p>
                     ) : (
                       <p className="text-[11px] text-marca-tenue mt-1">
                         <span className="text-marca-textofuerte font-bold">

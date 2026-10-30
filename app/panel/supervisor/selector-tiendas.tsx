@@ -312,7 +312,8 @@ function HoraIngresoEspecial() {
     <div className="bg-marca-superficie border border-marca-borde rounded-[3px] p-4 space-y-3">
       <p className="text-marca-tenue text-[11px]">
         Úsalo si tu coordinador te avisó que hoy puedes llegar a otra hora (de palabra, sin que haya quedado
-        registrado) — así no se te corta la racha ni pierdes puntos por una tardanza que sí tenías permitida.
+        registrado). Queda pendiente de que tu coordinador lo confirme — recién ahí no se te corta la racha ni
+        pierdes puntos por una tardanza que sí tenías permitida.
       </p>
       <div className="flex gap-2">
         <label className="flex flex-col gap-1 w-[118px] shrink-0">
