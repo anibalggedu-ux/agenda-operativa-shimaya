@@ -1494,6 +1494,8 @@ export type SolicitudPermisoPendiente = {
   fechaFin: string;
   motivo: string | null;
   createdAt: string;
+  // Solo para tipo "Hora de ingreso especial".
+  horaLimite: string | null;
 };
 
 export async function contarSolicitudesPermisoPendientes(): Promise<number> {
@@ -1515,7 +1517,7 @@ export async function obtenerSolicitudesPermisoPendientes(): Promise<SolicitudPe
 
   const { data, error } = await supabase
     .from("solicitudes_permiso")
-    .select("id, usuario_id, fecha_inicio, fecha_fin, motivo, tipo, created_at, usuarios(nombre)")
+    .select("id, usuario_id, fecha_inicio, fecha_fin, motivo, tipo, created_at, hora_limite, usuarios(nombre)")
     .eq("estado", "pendiente")
     .order("created_at", { ascending: true });
 
@@ -1530,6 +1532,7 @@ export async function obtenerSolicitudesPermisoPendientes(): Promise<SolicitudPe
     fechaFin: s.fecha_fin,
     motivo: s.motivo,
     createdAt: s.created_at,
+    horaLimite: s.hora_limite,
   }));
 }
 
@@ -1542,7 +1545,7 @@ export async function responderSolicitudPermiso(
 
   const { data: solicitud, error: errorSolicitud } = await supabase
     .from("solicitudes_permiso")
-    .select("usuario_id, fecha_inicio, fecha_fin, motivo, estado, tipo")
+    .select("usuario_id, fecha_inicio, fecha_fin, motivo, estado, tipo, hora_limite")
     .eq("id", id)
     .maybeSingle();
 
@@ -1555,6 +1558,7 @@ export async function responderSolicitudPermiso(
 
   const tipoSolicitud = solicitud.tipo ?? "Permiso";
   const esVacaciones = tipoSolicitud === "Vacaciones";
+  const esHoraEspecial = tipoSolicitud === "Hora de ingreso especial";
 
   if (aprobar) {
     const { error: errorAsignacion } = await supabase.from("asignaciones_especiales").insert({
@@ -1563,9 +1567,19 @@ export async function responderSolicitudPermiso(
       fecha_inicio: solicitud.fecha_inicio,
       fecha_fin: solicitud.fecha_fin,
       motivo: solicitud.motivo,
+      // Solo viaja para "Hora de ingreso especial" -- es lo que el cálculo
+      // de puntualidad/racha/puntos usa en vez del límite normal ese día
+      // (ver resolverHoraLimite en lib/puntualidad.ts). Para los demás tipos
+      // queda null, como siempre.
+      hora_limite_especial: esHoraEspecial ? solicitud.hora_limite : null,
     });
     if (errorAsignacion)
-      return { exito: false, mensaje: `No se pudo registrar ${esVacaciones ? "las vacaciones" : "el permiso"}.` };
+      return {
+        exito: false,
+        mensaje: esHoraEspecial
+          ? "No se pudo registrar la hora de ingreso especial."
+          : `No se pudo registrar ${esVacaciones ? "las vacaciones" : "el permiso"}.`,
+      };
   }
 
   const { error } = await supabase
@@ -1579,14 +1593,19 @@ export async function responderSolicitudPermiso(
 
   if (error) return { exito: false, mensaje: "No se pudo guardar la respuesta." };
 
+  const etiqueta = esHoraEspecial ? "hora de ingreso especial" : esVacaciones ? "vacaciones" : "permiso";
+  const horaTexto = solicitud.hora_limite ? solicitud.hora_limite.slice(0, 5) : "";
+
   await notificarPorPush(() =>
     notificarPush([solicitud.usuario_id], {
       titulo: aprobar
-        ? `✅ ${esVacaciones ? "Vacaciones" : "Permiso"} aprobado`
-        : `❌ ${esVacaciones ? "Vacaciones" : "Permiso"} rechazado`,
-      cuerpo: `Tu solicitud de ${esVacaciones ? "vacaciones" : "permiso"} fue ${
-        aprobar ? "aprobada" : "rechazada"
-      } por ${sesion.nombre}.`,
+        ? `✅ ${esHoraEspecial ? "Hora de ingreso especial" : esVacaciones ? "Vacaciones" : "Permiso"} aprobado${esVacaciones ? "as" : esHoraEspecial ? "a" : ""}`
+        : `❌ ${esHoraEspecial ? "Hora de ingreso especial" : esVacaciones ? "Vacaciones" : "Permiso"} rechazado${esVacaciones ? "as" : esHoraEspecial ? "a" : ""}`,
+      cuerpo: esHoraEspecial
+        ? aprobar
+          ? `Tu ingreso del ${formatearFechaLegible(solicitud.fecha_inicio)} ya cuenta a tiempo hasta las ${horaTexto} -- no pierdes racha ni puntos.`
+          : `Tu solicitud de hora de ingreso especial para el ${formatearFechaLegible(solicitud.fecha_inicio)} fue rechazada por ${sesion.nombre}.`
+        : `Tu solicitud de ${etiqueta} fue ${aprobar ? "aprobada" : "rechazada"} por ${sesion.nombre}.`,
     })
   );
 
@@ -1594,12 +1613,18 @@ export async function responderSolicitudPermiso(
     const contacto = await obtenerContacto(supabase, solicitud.usuario_id);
     if (!contacto?.email) return;
 
-    const etiqueta = esVacaciones ? "vacaciones" : "permiso";
     await enviarCorreo({
       para: contacto.email,
       tituloEmoji: aprobar ? "✅" : "❌",
       asunto: aprobar ? `Tu solicitud de ${etiqueta} fue aprobada` : `Tu solicitud de ${etiqueta} fue rechazada`,
-      cuerpoHtml: `
+      cuerpoHtml: esHoraEspecial
+        ? `
+        <p>Hola ${contacto.nombre},</p>
+        <p>Tu solicitud de hora de ingreso especial para el ${formatearFechaLegible(solicitud.fecha_inicio)}
+        (hasta las ${horaTexto}) fue <strong>${aprobar ? "aprobada" : "rechazada"}</strong> por ${sesion.nombre}.</p>
+        ${aprobar ? "<p>No se te va a cortar la racha ni vas a perder puntos por ese ingreso.</p>" : ""}
+      `
+        : `
         <p>Hola ${contacto.nombre},</p>
         <p>Tu solicitud de ${etiqueta} (${formatearFechaLegible(solicitud.fecha_inicio)} → ${formatearFechaLegible(
         solicitud.fecha_fin

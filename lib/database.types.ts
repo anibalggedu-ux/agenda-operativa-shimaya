@@ -1527,6 +1527,7 @@ export type Database = {
           estado: string
           fecha_fin: string
           fecha_inicio: string
+          hora_limite: string | null
           id: string
           motivo: string | null
           respondido_en: string | null
@@ -1539,6 +1540,7 @@ export type Database = {
           estado?: string
           fecha_fin: string
           fecha_inicio: string
+          hora_limite?: string | null
           id?: string
           motivo?: string | null
           respondido_en?: string | null
@@ -1551,6 +1553,7 @@ export type Database = {
           estado?: string
           fecha_fin?: string
           fecha_inicio?: string
+          hora_limite?: string | null
           id?: string
           motivo?: string | null
           respondido_en?: string | null

@@ -680,44 +680,15 @@ export async function venderDescansoYAutoasignar(
   return autoasignarTienda(tiendaId, paraManana, incognito);
 }
 
-async function notificarCoordinadoresHoraEspecial(
-  nombreUsuario: string,
-  fecha: string,
-  horaLimite: string
-): Promise<void> {
-  try {
-    const supabase = supabaseServer();
-    const { data: coordinadores } = await supabase
-      .from("usuarios")
-      .select("email")
-      .eq("rol", "coordinador")
-      .eq("activo", true);
-
-    const correos = (coordinadores ?? []).map((c) => c.email).filter((e): e is string => !!e);
-    if (correos.length === 0) return;
-
-    await enviarCorreo({
-      para: correos,
-      tituloEmoji: "🕓",
-      asunto: `${nombreUsuario} registró una hora de ingreso especial para el ${formatearFechaLegible(fecha)}`,
-      cuerpoHtml: `
-        <p><strong>${nombreUsuario}</strong> registró por su cuenta que hoy (${formatearFechaLegible(fecha)})
-        su hora límite de ingreso es <strong>${horaLimite.slice(0, 5)}</strong> en vez de la de siempre.</p>
-        <p style="color:#8b8d92; font-size:12px;">Úsalo solo como aviso; no hace falta que hagas nada. Es
-        solo para esta fecha puntual, su horario normal no cambió.</p>
-      `,
-    });
-  } catch (error) {
-    console.error("No se pudo notificar la hora de ingreso especial:", error);
-  }
-}
-
 // Permiso puntual (ej. "hoy entra a las 5pm" avisado de palabra por un
-// coordinador) registrado por la propia persona, sin esperar que alguien se
-// lo cargue a mano -- la hora límite de ESE día queda guardada como
-// asignación especial, así la racha/puntos de puntualidad no la castigan
-// por algo que sí tenía permitido. No toca horario_por_dia (se repetiría
-// cada semana) ni hora_limite_ingreso (quedaría pegado para siempre).
+// coordinador) pedido por la propia persona -- a diferencia de "vender
+// descanso" (autoservicio de efecto inmediato), esto SÍ queda pendiente de
+// que el coordinador lo confirme (mismo patrón que solicitarPermiso): recién
+// cuando lo aprueba desde la campanita (ver responderSolicitudPermiso en
+// coordinador/actions.ts) se crea la asignación especial que protege la
+// racha/puntos de puntualidad de ese día. No toca horario_por_dia (se
+// repetiría cada semana) ni hora_limite_ingreso (quedaría pegado para
+// siempre).
 export async function pedirHoraIngresoEspecial(fecha: string, horaLimite: string): Promise<ResultadoReporte> {
   const sesion = await obtenerSesion();
   if (!sesion || !tieneBitacora(sesion.rol)) {
@@ -727,24 +698,52 @@ export async function pedirHoraIngresoEspecial(fecha: string, horaLimite: string
     return { exito: false, mensaje: "Hora inválida." };
   }
   if (fecha < hoyPeru()) {
-    return { exito: false, mensaje: "No puedes registrar una hora especial para un día que ya pasó." };
+    return { exito: false, mensaje: "No puedes pedir una hora especial para un día que ya pasó." };
   }
   const horaNormalizada = horaLimite.length === 5 ? `${horaLimite}:00` : horaLimite;
+  const tipo = "Hora de ingreso especial";
 
   const supabase = supabaseServer();
-  const { error } = await supabase.from("asignaciones_especiales").insert({
+
+  // Igual que solicitarPermiso: si ya hay una pendiente de este tipo para
+  // esta misma fecha, se actualiza en vez de acumular varias solicitudes.
+  const { data: pendiente } = await supabase
+    .from("solicitudes_permiso")
+    .select("id")
+    .eq("usuario_id", sesion.id)
+    .eq("tipo", tipo)
+    .eq("fecha_inicio", fecha)
+    .eq("estado", "pendiente")
+    .maybeSingle();
+
+  if (pendiente) {
+    const { error } = await supabase
+      .from("solicitudes_permiso")
+      .update({ hora_limite: horaNormalizada, created_at: new Date().toISOString() })
+      .eq("id", pendiente.id);
+    if (error) return { exito: false, mensaje: "No se pudo actualizar tu solicitud." };
+    await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fecha, fecha, null, tipo, horaNormalizada);
+    return {
+      exito: true,
+      mensaje: `Solicitud actualizada a las ${horaNormalizada.slice(0, 5)} — pendiente de aprobación del coordinador.`,
+    };
+  }
+
+  const { error } = await supabase.from("solicitudes_permiso").insert({
     usuario_id: sesion.id,
-    tipo: "Hora de ingreso especial",
+    tipo,
     fecha_inicio: fecha,
     fecha_fin: fecha,
-    hora_limite_especial: horaNormalizada,
-    motivo: "Autoservicio: hora de ingreso especial.",
+    hora_limite: horaNormalizada,
   });
-  if (error) return { exito: false, mensaje: "No se pudo registrar la hora especial." };
+  if (error) return { exito: false, mensaje: "No se pudo enviar la solicitud." };
 
-  await notificarCoordinadoresHoraEspecial(sesion.nombre, fecha, horaNormalizada);
+  await notificarCoordinadoresSolicitudPermiso(sesion.nombre, fecha, fecha, null, tipo, horaNormalizada);
 
-  return { exito: true, mensaje: `Listo, hoy tu hora límite de ingreso queda en ${horaNormalizada.slice(0, 5)}.` };
+  return {
+    exito: true,
+    mensaje: `Solicitud enviada — queda pendiente de aprobación del coordinador para que no pierdas tu racha.`,
+  };
 }
 
 export async function enviarReporte(
@@ -1441,7 +1440,10 @@ async function notificarCoordinadoresSolicitudPermiso(
   fechaInicio: string,
   fechaFin: string,
   motivo: string | null,
-  tipo: string
+  tipo: string,
+  // Solo para tipo "Hora de ingreso especial" -- la hora que la persona pide
+  // que cuente como su límite de ingreso ese día puntual.
+  horaLimite?: string | null
 ): Promise<void> {
   try {
     const supabase = supabaseServer();
@@ -1452,11 +1454,19 @@ async function notificarCoordinadoresSolicitudPermiso(
       .eq("activo", true);
 
     const esVacaciones = tipo === "Vacaciones";
+    const esHoraEspecial = tipo === "Hora de ingreso especial";
+    const horaTexto = horaLimite ? horaLimite.slice(0, 5) : "";
     await notificarPush(
       (coordinadores ?? []).map((c) => c.id),
       {
-        titulo: esVacaciones ? "🏖️ Solicitud de vacaciones" : "📝 Solicitud de permiso",
-        cuerpo: `${nombreUsuario} pidió ${esVacaciones ? "vacaciones" : "un permiso anticipado"}.`,
+        titulo: esHoraEspecial
+          ? "🕓 Hora de ingreso especial"
+          : esVacaciones
+            ? "🏖️ Solicitud de vacaciones"
+            : "📝 Solicitud de permiso",
+        cuerpo: esHoraEspecial
+          ? `${nombreUsuario} pide que su ingreso del ${formatearFechaLegible(fechaInicio)} cuente a tiempo hasta las ${horaTexto}.`
+          : `${nombreUsuario} pidió ${esVacaciones ? "vacaciones" : "un permiso anticipado"}.`,
       }
     );
 
@@ -1465,11 +1475,23 @@ async function notificarCoordinadoresSolicitudPermiso(
 
     await enviarCorreo({
       para: correos,
-      tituloEmoji: esVacaciones ? "🏖️" : "📝",
-      asunto: esVacaciones
-        ? `${nombreUsuario} solicitó vacaciones`
-        : `${nombreUsuario} solicitó un permiso`,
-      cuerpoHtml: `
+      tituloEmoji: esHoraEspecial ? "🕓" : esVacaciones ? "🏖️" : "📝",
+      asunto: esHoraEspecial
+        ? `${nombreUsuario} pidió una hora de ingreso especial`
+        : esVacaciones
+          ? `${nombreUsuario} solicitó vacaciones`
+          : `${nombreUsuario} solicitó un permiso`,
+      cuerpoHtml: esHoraEspecial
+        ? `
+        <p><strong>${nombreUsuario}</strong> pide que su hora límite de ingreso del
+        <strong>${formatearFechaLegible(fechaInicio)}</strong> quede en <strong>${horaTexto}</strong> en vez
+        de la de siempre -- si lo apruebas, su racha/puntos de puntualidad no se ven afectados aunque marque
+        después de su hora normal.</p>
+        <p style="margin:0 0 16px;">
+          <a href="${ENLACE_SOLICITUDES}" style="color:#e23744; font-weight:700;">Revisar y aprobar/rechazar →</a>
+        </p>
+      `
+        : `
         <p><strong>${nombreUsuario}</strong> pidió ${esVacaciones ? "vacaciones planificadas" : "un permiso anticipado"}:</p>
         <ul style="padding-left:18px; margin:0 0 16px;">
           <li><strong>Fechas:</strong> ${formatearFechaLegible(fechaInicio)} → ${formatearFechaLegible(fechaFin)}</li>
