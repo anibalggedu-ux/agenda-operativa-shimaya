@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Paperclip, Check, Pencil, Trash2, Download } from "lucide-react";
+import { Paperclip, Check, Pencil, Trash2, Download, Share2 } from "lucide-react";
 import {
   obtenerDocumentos,
   obtenerUrlDescarga,
@@ -268,9 +268,11 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mensajeCompartido, setMensajeCompartido] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("todos");
   const [descargandoId, setDescargandoId] = useState<string | null>(null);
+  const [compartiendoId, setCompartiendoId] = useState<string | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [modal, setModal] = useState<{ modo: "crear" } | { modo: "editar"; doc: Documento } | null>(
     null
@@ -294,6 +296,31 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
       window.open(resultado.url, "_blank");
     } else {
       setError(resultado.error || "No se pudo descargar el archivo.");
+    }
+  }
+
+  // Mismo patrón ya usado en "Mis Historias" (ver app/panel/historias/mi-galeria.tsx):
+  // share nativo del celular si está disponible, y si no, copiar el link al
+  // portapapeles -- el link es público y estable (ver obtenerUrlDescarga), no
+  // vence, así que sirve igual compartido por WhatsApp que pegado en un chat.
+  async function handleCompartir(doc: Documento) {
+    setCompartiendoId(doc.id);
+    const resultado = await obtenerUrlDescarga(doc.id);
+    setCompartiendoId(null);
+    if (!resultado.url) {
+      setError(resultado.error || "No se pudo compartir el archivo.");
+      return;
+    }
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: doc.nombre, url: resultado.url });
+      } else {
+        await navigator.clipboard.writeText(resultado.url);
+        setError(null);
+        setMensajeCompartido("Enlace copiado.");
+      }
+    } catch {
+      // el usuario canceló el selector nativo de compartir -- no es un error real
     }
   }
 
@@ -365,6 +392,7 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
       </div>
 
       {error && <p className="text-marca-rojoclaro text-xs font-bold">{error}</p>}
+      {mensajeCompartido && <p className="text-marca-tenue text-xs font-bold">{mensajeCompartido}</p>}
 
       {filtrados.length === 0 ? (
         <p className="text-marca-tenue text-sm italic">No se encontraron documentos.</p>
@@ -426,6 +454,15 @@ export default function Documentos({ esAdmin }: { esAdmin: boolean }) {
                           </button>
                         </>
                       )}
+                      <button
+                        onClick={() => handleCompartir(doc)}
+                        disabled={compartiendoId === doc.id}
+                        title="Compartir"
+                        aria-label={`Compartir ${doc.nombre}`}
+                        className="w-8 h-8 rounded-[3px] border border-marca-borde text-marca-tenue hover:text-marca-texto transition flex items-center justify-center disabled:opacity-50"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={() => handleDescargar(doc)}
                         disabled={descargandoId === doc.id}
