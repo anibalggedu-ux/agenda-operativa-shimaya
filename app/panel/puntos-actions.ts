@@ -283,7 +283,13 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     // Permiso puestas directamente por Coordinador desde "Asignar rutas" --
     // esta tabla no tiene flujo de aprobación aparte, ya es la asignación en
     // sí) -- mismo motivo: esos días tampoco deben romper la racha.
-    supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial"),
+    // .order: si hay más de una "Hora de ingreso especial" vigente para el
+    // mismo día de la misma persona, la más reciente gana (el forEach de
+    // abajo sobreescribe el mapa en este orden).
+    supabase
+      .from("asignaciones_especiales")
+      .select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial, created_at")
+      .order("created_at", { ascending: true }),
   ]);
 
   if (
