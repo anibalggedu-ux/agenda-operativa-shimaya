@@ -100,10 +100,14 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     // no deben contar como tardanza ni salida faltante (ver lib/puntualidad.ts).
     supabase
       .from("asignaciones_especiales")
-      .select("tipo, fecha_inicio, fecha_fin, hora_limite_especial")
+      .select("tipo, fecha_inicio, fecha_fin, hora_limite_especial, created_at")
       .eq("usuario_id", sesion.id)
       .gte("fecha_fin", desdeAlerta)
-      .lte("fecha_inicio", diaLaboral),
+      .lte("fecha_inicio", diaLaboral)
+      // Si hay más de una "Hora de ingreso especial" vigente para el mismo
+      // día (ej. una se cargó mal y se reemplazó por otra), la más reciente
+      // gana -- el forEach de abajo sobreescribe el mapa en este orden.
+      .order("created_at", { ascending: true }),
     // Permisos/vacaciones que el propio usuario pidió y ya quedaron
     // aprobados (tabla aparte de asignaciones_especiales) — mismo motivo.
     supabase
@@ -405,9 +409,12 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     // que solo cubre hoy y no trae usuario_id.
     supabase
       .from("asignaciones_especiales")
-      .select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial")
+      .select("usuario_id, tipo, fecha_inicio, fecha_fin, hora_limite_especial, created_at")
       .gte("fecha_fin", desdeAlerta)
-      .lte("fecha_inicio", diaLaboral),
+      .lte("fecha_inicio", diaLaboral)
+      // Más reciente gana si hay más de una "Hora de ingreso especial"
+      // vigente para el mismo día de la misma persona.
+      .order("created_at", { ascending: true }),
     // Permisos/vacaciones pedidos por cada empleado y ya aprobados (tabla
     // aparte de asignaciones_especiales) — mismo motivo.
     supabase
