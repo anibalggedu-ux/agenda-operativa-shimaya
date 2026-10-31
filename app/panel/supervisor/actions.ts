@@ -831,27 +831,39 @@ export async function enviarReporte(
       )
       .eq("id", rutaActivaId)
       .maybeSingle();
-    asignadoEn = activa?.created_at ?? null;
+
+    if (!activa) {
+      // La ruta activa ya no existe -- esto pasa cuando esta misma visita ya
+      // se reportó con éxito antes (este mismo código la borra más abajo al
+      // terminar) y esta es una repetición del envío -- p. ej. el
+      // sincronizador offline reintentando un envío que sí llegó al
+      // servidor pero cuya confirmación no llegó al celular. Se responde
+      // éxito sin volver a insertar nada: de lo contrario, al no encontrar
+      // la fecha_planificada original, "fecha" se quedaba en el valor por
+      // defecto de HOY y se creaba un reporte duplicado fantasma fechado
+      // mal (casos reales: Rafael Reyes, Enson Márquez, Dayahiru Díaz).
+      return { exito: true, mensaje: "Reporte enviado correctamente." };
+    }
+
+    asignadoEn = activa.created_at ?? null;
     // La visita reportada conserva si la tienda la asignó el coordinador o se la autoasignó la persona (junto con el área, el enfoque y si
     // quedó marcada como incógnito para Apoyos): sin esto, al borrarse de rutas_activas se perdía ese dato.
     origenVisita = {
-      autoasignada: activa?.autoasignada ?? null,
-      area: activa?.area ?? null,
-      enfoque: activa?.enfoque ?? null,
-      incognito: activa?.incognito ?? false,
+      autoasignada: activa.autoasignada ?? null,
+      area: activa.area ?? null,
+      enfoque: activa.enfoque ?? null,
+      incognito: activa.incognito ?? false,
     };
-    if (activa?.fecha_planificada) fecha = activa.fecha_planificada;
-    if (activa) {
-      marcacionTienda = {
-        hora_llegada: activa.hora_llegada,
-        ubicacion_llegada: activa.ubicacion_llegada,
-        foto_llegada_blob: activa.foto_llegada_blob,
-        hora_salida: activa.hora_salida,
-        ubicacion_salida: activa.ubicacion_salida,
-        foto_salida_blob: activa.foto_salida_blob,
-        origen_tienda_id: activa.origen_tienda_id,
-      };
-    }
+    if (activa.fecha_planificada) fecha = activa.fecha_planificada;
+    marcacionTienda = {
+      hora_llegada: activa.hora_llegada,
+      ubicacion_llegada: activa.ubicacion_llegada,
+      foto_llegada_blob: activa.foto_llegada_blob,
+      hora_salida: activa.hora_salida,
+      ubicacion_salida: activa.ubicacion_salida,
+      foto_salida_blob: activa.foto_salida_blob,
+      origen_tienda_id: activa.origen_tienda_id,
+    };
   }
 
   // Mismo candado que editarReporte: pasadas las 48h desde que el
