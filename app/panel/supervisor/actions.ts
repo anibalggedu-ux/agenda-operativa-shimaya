@@ -131,6 +131,7 @@ export async function obtenerTiendasClasificadas(): Promise<{
     { data: activas, error: errorActivas },
     { data: reportes, error: errorReportes },
     { data: asistenciaHoy },
+    { data: horasEspecialesHoy },
   ] = await Promise.all([
     supabase
       .from("usuarios")
@@ -163,6 +164,19 @@ export async function obtenerTiendasClasificadas(): Promise<{
       .eq("usuario_id", sesion.id)
       .eq("fecha", diaLaboralPeru())
       .maybeSingle(),
+    // "Hora de ingreso especial" aprobada para hoy (ver venderDescansoYAutoasignar
+    // / pedirHoraIngresoEspecial) -- exime el límite normal del rol/horario
+    // mixto, reemplazándolo por esta hora puntual. .order: si hay más de una
+    // vigente para hoy (ej. una se cargó mal y se reemplazó por otra), la más
+    // reciente gana.
+    supabase
+      .from("asignaciones_especiales")
+      .select("hora_limite_especial, created_at")
+      .eq("usuario_id", sesion.id)
+      .eq("tipo", "Hora de ingreso especial")
+      .lte("fecha_inicio", hoy)
+      .gte("fecha_fin", hoy)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (errorActivas) throw new Error("No se pudo cargar las tiendas asignadas.");
@@ -172,11 +186,16 @@ export async function obtenerTiendasClasificadas(): Promise<{
   // general del día todavía no está marcado (la próxima "Marcar llegada" va
   // a ser la que lo fije -- ver sincronizarAsistenciaGeneral) y ya pasó la
   // hora límite de la persona.
+  const horaEspecialHoy = (horasEspecialesHoy ?? []).reduce<string | null>(
+    (acc, fila: any) => fila.hora_limite_especial ?? acc,
+    null
+  );
   const horaLimiteHoy = resolverHoraLimite(
     sesion.rol,
     usuario?.hora_limite_ingreso,
     usuario?.horario_por_dia as Record<string, string> | null,
-    diaSemanaPeru()
+    diaSemanaPeru(),
+    horaEspecialHoy
   );
   const mostrarJustificativoTardanza =
     !asistenciaHoy?.hora_ingreso && !!horaLimiteHoy && esTarde(horaPeru(), horaLimiteHoy);
@@ -1099,21 +1118,38 @@ export async function marcarLlegadaTienda(
   // venir del sincronizador offline (ver lib/marcacion-offline.ts) con datos
   // guardados antes de este cambio. Mismo cálculo que
   // mostrarJustificativoTardanza en obtenerTiendasClasificadas.
-  const [{ data: asistenciaHoy }, { data: usuarioParaTardanza }] = await Promise.all([
+  const diaLaboral = diaLaboralPeru();
+  const [{ data: asistenciaHoy }, { data: usuarioParaTardanza }, { data: horasEspecialesHoy }] = await Promise.all([
     supabase
       .from("asistencia")
       .select("hora_ingreso")
       .eq("usuario_id", sesion.id)
-      .eq("fecha", diaLaboralPeru())
+      .eq("fecha", diaLaboral)
       .maybeSingle(),
     supabase.from("usuarios").select("hora_limite_ingreso, horario_por_dia").eq("id", sesion.id).maybeSingle(),
+    // Mismo criterio que obtenerTiendasClasificadas: "Hora de ingreso
+    // especial" aprobada para hoy exime el límite normal; si hay más de una
+    // vigente (duplicada por error), la más reciente gana.
+    supabase
+      .from("asignaciones_especiales")
+      .select("hora_limite_especial, created_at")
+      .eq("usuario_id", sesion.id)
+      .eq("tipo", "Hora de ingreso especial")
+      .lte("fecha_inicio", diaLaboral)
+      .gte("fecha_fin", diaLaboral)
+      .order("created_at", { ascending: true }),
   ]);
   if (!asistenciaHoy?.hora_ingreso) {
+    const horaEspecialHoy = (horasEspecialesHoy ?? []).reduce<string | null>(
+      (acc, fila: any) => fila.hora_limite_especial ?? acc,
+      null
+    );
     const horaLimite = resolverHoraLimite(
       sesion.rol,
       usuarioParaTardanza?.hora_limite_ingreso,
       usuarioParaTardanza?.horario_por_dia as Record<string, string> | null,
-      diaSemanaPeru()
+      diaSemanaPeru(),
+      horaEspecialHoy
     );
     if (horaLimite && esTarde(hora, horaLimite) && !justificativoTardanza?.trim()) {
       return { exito: false, mensaje: "Llegaste tarde -- escribe el justificativo antes de marcar la llegada." };
