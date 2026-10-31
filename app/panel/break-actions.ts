@@ -120,8 +120,13 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
         .eq("estado", "aprobado")
         .lte("fecha_inicio", diaLaboral)
         .gte("fecha_fin", diaLaboral),
-      supabase.from("rutas_activas").select("id").eq("usuario_id", sesion.id).eq("fecha_planificada", diaLaboral).limit(1),
-      supabase.from("rutas_diarias").select("id").eq("usuario_id", sesion.id).eq("fecha", diaLaboral).limit(1),
+      supabase
+        .from("rutas_activas")
+        .select("id, hora_llegada")
+        .eq("usuario_id", sesion.id)
+        .eq("fecha_planificada", diaLaboral)
+        .limit(1),
+      supabase.from("rutas_diarias").select("id, hora_llegada").eq("usuario_id", sesion.id).eq("fecha", diaLaboral).limit(1),
     ]);
 
   const especialesHoy = (especiales ?? []).filter((e) =>
@@ -151,7 +156,15 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
   if (exentoPorPermiso) return false;
 
   const tieneTiendaHoy = (rutaActiva?.length ?? 0) > 0 || (rutaDiaria?.length ?? 0) > 0;
-  return tieneTiendaHoy;
+  if (!tieneTiendaHoy) return false;
+
+  // Además de tener tienda asignada, debe haber marcado la LLEGADA a esa
+  // tienda -- si no, el botón de break no debe aparecer todavía, para que
+  // no se confunda con "marcar llegada a tienda" (orden real del día:
+  // llegada -> break -> salida).
+  const yaMarcoLlegadaHoy =
+    (rutaActiva ?? []).some((r: any) => !!r.hora_llegada) || (rutaDiaria ?? []).some((r: any) => !!r.hora_llegada);
+  return yaMarcoLlegadaHoy;
 }
 
 // Historial de días ANTERIORES a hoy -- el de hoy, si ya está completo, lo
@@ -209,21 +222,29 @@ export async function marcarSalidaBreak(
   // break" (ver marcarNoSalioBreak) no cuenta como break real: si cambia de
   // opinión y sí quiere salir, ese mismo registro se convierte en uno real
   // en vez de bloquearlo.
-  const [{ data: existente }, { data: usuario }, { data: especiales }] = await Promise.all([
-    supabase
-      .from("marcaciones_break")
-      .select("id, hora_entrada, no_salio")
-      .eq("usuario_id", sesion.id)
-      .eq("fecha", fecha)
-      .maybeSingle(),
-    supabase.from("usuarios").select("duracion_break_min, dias_descanso").eq("id", sesion.id).maybeSingle(),
-    supabase
-      .from("asignaciones_especiales")
-      .select("tipo, fecha_inicio, fecha_fin")
-      .eq("usuario_id", sesion.id)
-      .lte("fecha_inicio", fecha)
-      .gte("fecha_fin", fecha),
-  ]);
+  const [{ data: existente }, { data: usuario }, { data: especiales }, { data: rutaActiva }, { data: rutaDiaria }] =
+    await Promise.all([
+      supabase
+        .from("marcaciones_break")
+        .select("id, hora_entrada, no_salio")
+        .eq("usuario_id", sesion.id)
+        .eq("fecha", fecha)
+        .maybeSingle(),
+      supabase.from("usuarios").select("duracion_break_min, dias_descanso").eq("id", sesion.id).maybeSingle(),
+      supabase
+        .from("asignaciones_especiales")
+        .select("tipo, fecha_inicio, fecha_fin")
+        .eq("usuario_id", sesion.id)
+        .lte("fecha_inicio", fecha)
+        .gte("fecha_fin", fecha),
+      supabase
+        .from("rutas_activas")
+        .select("id, hora_llegada")
+        .eq("usuario_id", sesion.id)
+        .eq("fecha_planificada", fecha)
+        .limit(1),
+      supabase.from("rutas_diarias").select("id, hora_llegada").eq("usuario_id", sesion.id).eq("fecha", fecha).limit(1),
+    ]);
   if (existente && !existente.no_salio) {
     return {
       exito: false,
@@ -250,6 +271,19 @@ export async function marcarSalidaBreak(
     return {
       exito: false,
       mensaje: `Hoy es tu día de descanso. Pídele a tu coordinador que te lo cambie, o mándale la solicitud desde "Mis solicitudes".`,
+    };
+  }
+
+  // Mismo criterio que obtenerPermiteBreakHoy: el break solo se habilita
+  // después de marcar la LLEGADA a la tienda -- esto es el chequeo del lado
+  // del servidor, para que no se pueda marcar igual si el botón llegó a
+  // mostrarse con datos desactualizados.
+  const yaMarcoLlegadaHoy =
+    (rutaActiva ?? []).some((r: any) => !!r.hora_llegada) || (rutaDiaria ?? []).some((r: any) => !!r.hora_llegada);
+  if (!yaMarcoLlegadaHoy) {
+    return {
+      exito: false,
+      mensaje: "Primero marca tu llegada a la tienda -- el break se habilita después de eso.",
     };
   }
 
