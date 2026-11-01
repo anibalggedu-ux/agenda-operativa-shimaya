@@ -27,3 +27,4 @@ next-env.d.ts
 /scripts/agente-qa/reportes/*.json
 /scripts/agente-qa/fixtures/
 /scripts/agente-qa/.env.qa.local
+/scripts/agente-qa/.proxy-shim.local.mjs

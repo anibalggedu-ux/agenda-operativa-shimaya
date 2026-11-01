@@ -62,17 +62,24 @@ async function main() {
 
   const tiendaCentro = tiendasCreadas.find((t) => t.nombre === "QA Tienda Centro")!;
 
+  // Las 4 filas necesitan exactamente las mismas claves -- un insert en lote
+  // con objetos de distinta forma hace que Supabase mande NULL explícito
+  // (no el default de la columna) para la clave que falte en cada fila, lo
+  // que rompe contra columnas NOT NULL como puede_registrar/puede_auditar.
   const USUARIOS = [
     {
       nombre: "QA Supervisor",
       rol: "supervisor",
       clave_hash: hashPassword(CLAVE_SUPERVISOR),
       puede_auditar: true,
+      puede_registrar: false,
     },
     {
       nombre: "QA Capacitador",
       rol: "capacitador",
       clave_hash: hashPassword(CLAVE_CAPACITADOR),
+      puede_auditar: false,
+      puede_registrar: false,
     },
     {
       nombre: "QA Coordinador",
@@ -85,6 +92,7 @@ async function main() {
       nombre: "QA Gerente",
       rol: "gerente",
       clave_hash: hashPassword(CLAVE_GERENTE),
+      puede_auditar: false,
       puede_registrar: true,
     },
   ];
