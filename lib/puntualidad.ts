@@ -99,7 +99,15 @@ export function calcularEstadoPuntualidad(
   // especial tipo "Hora de ingreso especial") -- un día cubierto acá se
   // evalúa normal (a tiempo/tarde), solo que contra esta hora en vez del
   // límite de siempre. No es lo mismo que esDiaExento: ese día NO se salta.
-  horasEspecialesPorFecha?: Map<string, string>
+  horasEspecialesPorFecha?: Map<string, string>,
+  // Respaldo de limiteFecha cuando no hay fecha_ingreso cargada (es un campo
+  // opcional al registrar a alguien) -- sin esto, una cuenta nueva sin
+  // historial de asistencia miraba igual los 45 días hacia atrás y, al no
+  // encontrar ningún registro en ninguno, contaba cada uno como "tarde":
+  // racha falsa de 45 días desde el primer día (caso real: QA Supervisor,
+  // detectado por el agente de QA). usuarios.created_at siempre existe, así
+  // que acota el lookback aunque nadie haya llenado fecha_ingreso.
+  fechaCreacionCuenta?: string | null
 ): AlertaPuntualidad {
   // Para horarios mixtos, la hora límite cambia según el día de la semana —
   // por eso se resuelve por fecha en cada punto, no una sola vez. limiteBase
@@ -118,7 +126,12 @@ export function calcularEstadoPuntualidad(
   // No se evalúa puntualidad antes de que la persona existiera como
   // colaborador — evita marcar "tardanza" en días previos a su ingreso.
   const topeLookback = sumarDias(hoy, -TOPE_DIAS_HACIA_ATRAS);
-  const limiteFecha = fechaIngreso && fechaIngreso > topeLookback ? fechaIngreso : topeLookback;
+  const limiteFecha =
+    fechaIngreso && fechaIngreso > topeLookback
+      ? fechaIngreso
+      : fechaCreacionCuenta && fechaCreacionCuenta > topeLookback
+        ? fechaCreacionCuenta
+        : topeLookback;
 
   function esDiaExento(fecha: string): boolean {
     return diasDescanso.includes(diaSemanaPeru(fecha)) || diasExentos.has(fecha);
