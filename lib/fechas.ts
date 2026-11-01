@@ -15,6 +15,13 @@ export function hoyPeru(): string {
   return ahoraEnPeru().toISOString().slice(0, 10);
 }
 
+// Mismo criterio que ahoraEnPeru(), pero para un instante arbitrario (ej.
+// usuarios.created_at) en vez de "ahora mismo" -- para convertir un
+// timestamp guardado a la fecha de pared de Perú en que ocurrió.
+export function fechaPeruDesde(timestampISO: string): string {
+  return new Date(new Date(timestampISO).getTime() + OFFSET_HORAS_PERU * 3600000).toISOString().slice(0, 10);
+}
+
 // Primer día del mes en curso (hora Perú) -- filtro por defecto de las
 // pantallas de métricas/rankings (Central Analítica, Reporte de
 // Cumplimiento, Historial de Monitoreo, Reportes de Coordinador): a

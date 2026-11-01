@@ -2,7 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { obtenerSesion, tieneBitacora } from "@/lib/session";
-import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru, diaLaboralPeru } from "@/lib/fechas";
+import { hoyPeru, horaPeru, sumarDias, diaSemanaPeru, diaLaboralPeru, fechaPeruDesde } from "@/lib/fechas";
 import { eventoFinalizado } from "@/lib/eventos";
 import { obtenerTiendasClasificadas } from "./supervisor/actions";
 import { obtenerMisPuntos, obtenerVitrinaTrofeos } from "./puntos-actions";
@@ -86,7 +86,7 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .order("created_at", { ascending: false }),
     supabase
       .from("usuarios")
-      .select("dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
+      .select("dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, created_at")
       .eq("id", sesion.id)
       .maybeSingle(),
     supabase
@@ -164,7 +164,8 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
     usuarioPropio?.fecha_ingreso ?? null,
     usuarioPropio?.hora_limite_ingreso ?? null,
     (usuarioPropio?.horario_por_dia as Record<string, string> | null) ?? null,
-    horasEspecialesPropias
+    horasEspecialesPropias,
+    usuarioPropio?.created_at ? fechaPeruDesde(usuarioPropio.created_at) : null
   );
 
   const cardsHoy = tiendas.filter((t) => t.urgencia === "HOY");
@@ -393,7 +394,7 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
     obtenerDashboardTiendas(sumarDias(diaLaboral, -30), diaLaboral),
     supabase
       .from("usuarios")
-      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia")
+      .select("id, nombre, rol, dias_descanso, fecha_ingreso, hora_limite_ingreso, horario_por_dia, created_at")
       .eq("activo", true)
       .in("rol", ROLES_CON_ASISTENCIA)
       // Cuentas de prueba -- no deben generar alertas de puntualidad.
@@ -484,7 +485,8 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       u.fecha_ingreso ?? null,
       u.hora_limite_ingreso ?? null,
       (u.horario_por_dia as Record<string, string> | null) ?? null,
-      horasEspecialesPorUsuario.get(u.id)
+      horasEspecialesPorUsuario.get(u.id),
+      u.created_at ? fechaPeruDesde(u.created_at) : null
     )
   );
 
