@@ -460,7 +460,10 @@ async function main() {
     process.exit(1);
   });
 
-  const browser = await chromium.launch({ headless: HEADLESS });
+  const browser = await chromium.launch({
+    headless: HEADLESS,
+    executablePath: process.env.QA_CHROMIUM_EXECUTABLE_PATH || undefined,
+  });
   try {
     for (const rol of SOLO_ROLES as Rol[]) {
       await explorarComoRol(browser, rol, anthropic);
