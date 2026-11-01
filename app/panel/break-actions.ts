@@ -142,8 +142,18 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
   // retornaba false sin revisar "Trabaja su descanso" -- caso real: Carlos
   // Monasterios, 28 oct, vendió su descanso y se autoasignó con normalidad,
   // pero el widget de break no le aparecía para nada.
+  // "Trabaja su descanso" y "Hora de ingreso especial" no le quitan la tienda
+  // del día a la persona -- sigue trabajando normal, solo que con el día de
+  // descanso cambiado o con otra hora límite de entrada. Por eso ninguna de
+  // las dos debe bloquear el break (caso real: Yrama Navas, Kennedy, "Hora
+  // de ingreso especial" a las 17:00 -- se le ocultó el botón de break aunque
+  // ya había marcado llegada normal). Las demás asignaciones especiales
+  // (Vacaciones, Permiso, Descanso Semanal, Licencia, Misión Especial) sí
+  // significan que ese día no hay tienda, así que esas sí siguen bloqueando.
   const trabajaSuDescanso = especialesHoy.some((e) => e.tipo === "Trabaja su descanso");
-  const otraAsignacionEspecial = especialesHoy.some((e) => e.tipo !== "Trabaja su descanso");
+  const otraAsignacionEspecial = especialesHoy.some(
+    (e) => e.tipo !== "Trabaja su descanso" && e.tipo !== "Hora de ingreso especial"
+  );
 
   const diasDescanso: string[] = usuario?.dias_descanso ?? [];
   if (!trabajaSuDescanso && diasDescanso.includes(diaSemanaPeru(diaLaboral))) return false;
