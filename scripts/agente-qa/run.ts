@@ -372,8 +372,8 @@ async function explorarComoRol(browser: Browser, rol: Rol, anthropic: Anthropic)
 
     historia.push({ role: "assistant", content: respuesta.content });
 
-    const llamada = respuesta.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    if (!llamada) {
+    const llamadas = respuesta.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+    if (llamadas.length === 0) {
       // No debería pasar con tool_choice auto + la instrucción de arriba, pero
       // si pasa, lo tratamos como un "esperar" para no trabar el loop.
       historia.push({
@@ -383,18 +383,29 @@ async function explorarComoRol(browser: Browser, rol: Rol, anthropic: Anthropic)
       continue;
     }
 
-    let resultadoTexto = "ok";
-    try {
-      resultadoTexto = await ejecutarAccion(page, llamada.name, llamada.input as any, rol);
-    } catch (err: any) {
-      resultadoTexto = `error al ejecutar la acción: ${err?.message || err}`;
+    // El prompt pide una sola llamada por paso, pero el modelo a veces
+    // devuelve más de un bloque tool_use en la misma respuesta -- cada
+    // tool_use de este turno necesita su tool_result en el siguiente
+    // mensaje o la API rechaza la conversación entera. Se ejecuta solo la
+    // primera llamada (la intención real de este diseño) y se responde con
+    // un resultado "no ejecutado" para cualquier otra, sin romper el turno.
+    const resultados: Anthropic.ToolResultBlockParam[] = [];
+    for (const [i, llamada] of llamadas.entries()) {
+      let resultadoTexto: string;
+      if (i > 0) {
+        resultadoTexto = "no ejecutado -- respondé con una sola llamada a herramienta por paso";
+      } else {
+        try {
+          resultadoTexto = await ejecutarAccion(page, llamada.name, llamada.input as any, rol);
+        } catch (err: any) {
+          resultadoTexto = `error al ejecutar la acción: ${err?.message || err}`;
+        }
+        if (llamada.name === "terminar") terminado = true;
+      }
+      resultados.push({ type: "tool_result", tool_use_id: llamada.id, content: resultadoTexto });
     }
-    if (llamada.name === "terminar") terminado = true;
 
-    historia.push({
-      role: "user",
-      content: [{ type: "tool_result", tool_use_id: llamada.id, content: resultadoTexto }],
-    });
+    historia.push({ role: "user", content: resultados });
   }
 
   await page.close();
