@@ -139,6 +139,22 @@ function levantarServidor(): Promise<ChildProcess> {
 type ElementoInteractivo = { idx: number; tag: string; tipo?: string; texto: string; deshabilitado: boolean };
 
 async function listarElementos(page: Page): Promise<ElementoInteractivo[]> {
+  // Si el paso anterior disparó una navegación (ej. redirect tras login),
+  // el evaluate puede caer justo cuando el contexto de la página vieja ya
+  // se destruyó y el nuevo todavía no está listo -- un reintento corto
+  // después de esperar a que la navegación termine resuelve esta carrera.
+  try {
+    return await listarElementosInterno(page);
+  } catch (error) {
+    if (error instanceof Error && /Execution context was destroyed/.test(error.message)) {
+      await page.waitForLoadState("domcontentloaded").catch(() => {});
+      return listarElementosInterno(page);
+    }
+    throw error;
+  }
+}
+
+async function listarElementosInterno(page: Page): Promise<ElementoInteractivo[]> {
   return page.evaluate(() => {
     const selector = 'a, button, input, textarea, select, [role="button"], [tabindex]:not([tabindex="-1"])';
     const nodos = Array.from(document.querySelectorAll(selector));
