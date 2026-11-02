@@ -454,7 +454,7 @@ export default function SincronizadorOffline() {
     // 0.75rem del borde, ver BarraFlotante en panel-shell.tsx) -- antes
     // quedaba justo encima de ella con mayor z-index y se comía los toques
     // a Inicio/Más mientras hubiera algo pendiente.
-    <div className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] lg:bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
+    <div className="fixed bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] lg:bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
       {(fotosPendientes.length > 0 || evidenciasPendientes.length > 0) && (
         <div className="flex w-[min(92vw,22rem)] flex-col gap-1 rounded-[3px] border border-amber-500/50 bg-marca-superficie p-2 shadow-lg">
           {fotosPendientes.map(({ clave, dato }) => (
