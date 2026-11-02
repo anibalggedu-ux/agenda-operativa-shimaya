@@ -22,6 +22,7 @@ import {
   guardarFotoPendienteTienda,
   leerFotoPendienteTienda,
   borrarFotoPendienteTienda,
+  marcarEnvioFotoPendiente,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
 
@@ -189,6 +190,7 @@ export default function BreakWidget() {
     fotoJustificativoOverride: string | null | undefined = fotoJustificativo
   ) {
     setEnviando(true);
+    marcarEnvioFotoPendiente(CLAVE_PENDIENTE_BREAK, true);
     try {
       const resultado =
         tipo === "salida"
@@ -240,6 +242,7 @@ export default function BreakWidget() {
       }
     } finally {
       setEnviando(false);
+      marcarEnvioFotoPendiente(CLAVE_PENDIENTE_BREAK, false);
     }
   }
 

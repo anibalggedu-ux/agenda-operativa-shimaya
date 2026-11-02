@@ -16,24 +16,27 @@ import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { formatearFechaLegible, formatearHora, esTemporadaHalloween, esTemporadaVerano, hoyPeru, horaPeru } from "@/lib/fechas";
 import { reproducirSonidoFantasma, reproducirSonidoVerano, reproducirAlPrimerToque } from "@/lib/sonido";
 import type { AlertaPuntualidad } from "@/lib/puntualidad";
+import { suscribirseAMarcacionesRegistradas } from "@/lib/cola-marcaciones";
 
 // Arma las frases de alerta de puntualidad de una persona — puede haber más
-// de una a la vez (ej. llegó tarde hoy Y además lleva racha).
+// de una a la vez (ej. llegó tarde hoy Y además lleva racha). Es la vista
+// propia de cada persona, así que va en segunda persona (la vista de equipo
+// de coordinador/gerente arma sus propios textos en lib/puntualidad.ts).
 function mensajesAlertaPuntualidad(a: AlertaPuntualidad): string[] {
   const mensajes: string[] = [];
   if (a.estadoHoy === "pendiente_tarde") {
-    mensajes.push("Todavía no marca su llegada hoy y ya pasó su hora límite.");
+    mensajes.push("Todavía no marcas tu llegada hoy y ya pasó tu hora límite.");
   } else if (a.estadoHoy === "tarde" && a.horaIngresoHoy) {
-    mensajes.push(`Hoy llegó tarde — marcó a las ${formatearHora(a.horaIngresoHoy)}.`);
+    mensajes.push(`Hoy llegaste tarde — marcaste a las ${formatearHora(a.horaIngresoHoy)}.`);
   }
   if (a.rachaTardanzas >= 2) {
-    mensajes.push(`Lleva ${a.rachaTardanzas} días seguidos llegando tarde o sin marcar entrada.`);
+    mensajes.push(`Llevas ${a.rachaTardanzas} días seguidos llegando tarde o sin marcar entrada.`);
   }
   if (a.rachaSinSalida >= 1 && a.fechaSinSalida) {
     mensajes.push(
       a.rachaSinSalida === 1
-        ? `No registró su salida el ${formatearFechaLegible(a.fechaSinSalida)}.`
-        : `No registra su salida desde hace ${a.rachaSinSalida} días (${formatearFechaLegible(a.fechaSinSalida)}).`
+        ? `No registraste tu salida el ${formatearFechaLegible(a.fechaSinSalida)}.`
+        : `No registras tu salida desde hace ${a.rachaSinSalida} días (${formatearFechaLegible(a.fechaSinSalida)}).`
     );
   }
   return mensajes;
@@ -172,6 +175,19 @@ export default function ResumenDelDia({
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esOperativo, reintentoCarga]);
+
+  // Apenas se registra una llegada/salida (en esta misma pantalla o desde la
+  // cola offline), se vuelve a pedir el resumen propio en segundo plano --
+  // sin esto la alerta "todavía no marcas tu llegada" seguía visible después
+  // de marcarla, hasta recargar la app (detectado por el agente de QA).
+  useEffect(() => {
+    if (esOperativo) return;
+    return suscribirseAMarcacionesRegistradas(() => {
+      obtenerResumenPersonal()
+        .then(setPersonal)
+        .catch(() => {});
+    });
+  }, [esOperativo]);
 
   function ordenarAlertas(alertas: ResumenOperativo["alertasPuntualidad"]) {
     return [...alertas].sort((a, b) => {

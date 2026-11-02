@@ -177,10 +177,42 @@ export function borrarFotoPendienteTienda(claveTarjeta: string): void {
   }
 }
 
+// La tarjeta guarda la foto como respaldo ANTES de enviarla (por si se corta
+// la señal a mitad del envío), así que durante ese intento la foto ya está
+// en localStorage aunque todavía no falló nada. Solo en memoria a propósito:
+// si la app se cierra a mitad del envío, al volver a abrirla ya no está "en
+// curso" y el aviso global la muestra para reintentar, como corresponde.
+const enviosEnCurso = new Set<string>();
+
+// Aviso de "se acaba de registrar una llegada/salida" para que pantallas que
+// muestran datos derivados de la asistencia (ej. la alerta de puntualidad
+// del Resumen del día) se refresquen sin tener que recargar la app.
+const EVENTO_MARCACION_REGISTRADA = "shimaya:marcacion-registrada";
+
+export function avisarMarcacionRegistrada(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(EVENTO_MARCACION_REGISTRADA));
+}
+
+export function suscribirseAMarcacionesRegistradas(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(EVENTO_MARCACION_REGISTRADA, callback);
+  return () => window.removeEventListener(EVENTO_MARCACION_REGISTRADA, callback);
+}
+
+export function marcarEnvioFotoPendiente(claveTarjeta: string, enCurso: boolean): void {
+  if (typeof window === "undefined") return;
+  if (enCurso) enviosEnCurso.add(clavePendiente(claveTarjeta));
+  else enviosEnCurso.delete(clavePendiente(claveTarjeta));
+  window.dispatchEvent(new Event(EVENTO_CAMBIO_FOTOS_PENDIENTES));
+}
+
 // Para el aviso global (SincronizadorOffline) -- recorre TODAS las fotos
 // pendientes de reintento manual, sin importar de qué tarjeta/tienda/evento
 // vinieron, así ninguna queda escondida detrás de una pantalla que la
-// persona ya no vuelve a abrir.
+// persona ya no vuelve a abrir. Se saltean las que su tarjeta está enviando
+// en este momento: ofrecer "Reintentar/Descartar" mientras el primer envío
+// sigue en curso invitaba a duplicar o descartar una marcación válida.
 export function obtenerTodasLasFotosPendientes(): { clave: string; dato: FotoPendienteTienda }[] {
   if (typeof window === "undefined") return [];
   const resultado: { clave: string; dato: FotoPendienteTienda }[] = [];
@@ -188,6 +220,7 @@ export function obtenerTodasLasFotosPendientes(): { clave: string; dato: FotoPen
     for (let i = 0; i < window.localStorage.length; i++) {
       const clave = window.localStorage.key(i);
       if (!clave || !clave.startsWith(PREFIJO_PENDIENTE)) continue;
+      if (enviosEnCurso.has(clave)) continue;
       try {
         const crudo = window.localStorage.getItem(clave);
         if (!crudo) continue;

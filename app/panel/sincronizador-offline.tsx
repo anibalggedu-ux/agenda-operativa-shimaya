@@ -23,6 +23,7 @@ import {
   obtenerTodasLasFotosPendientes,
   borrarFotoPendientePorClave,
   suscribirseACambiosDeFotosPendientes,
+  avisarMarcacionRegistrada,
   type MarcacionPendiente,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
@@ -243,6 +244,7 @@ export default function SincronizadorOffline() {
       if (resultado?.exito) {
         borrarFotoPendientePorClave(clave);
         actualizar();
+        avisarMarcacionRegistrada();
       }
     } catch {
       // Sigue sin poder enviarse -- se deja tal cual para otro intento.
@@ -310,6 +312,7 @@ export default function SincronizadorOffline() {
         const resultado = await enviarPendiente(item);
         if (resultado?.exito) {
           quitarMarcacionPendiente(item.id);
+          avisarMarcacionRegistrada();
         }
       } catch {
         // Sigue sin señal -- se deja en la cola para el próximo intento.
