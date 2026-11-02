@@ -37,6 +37,8 @@ import {
   guardarFotoPendienteTienda,
   leerFotoPendienteTienda,
   borrarFotoPendienteTienda,
+  marcarEnvioFotoPendiente,
+  avisarMarcacionRegistrada,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
 import { agregarReportePendiente } from "@/lib/cola-reportes";
@@ -471,6 +473,7 @@ function MarcadoVisitaTienda({
     justificativoOverride: string | undefined = justificativo.trim() || undefined,
     fotoJustificativoOverride: string | null | undefined = fotoJustificativo
   ) {
+    marcarEnvioFotoPendiente(tienda.id, true);
     let coords: { lat: number; lng: number };
     try {
       setPaso("ubicando");
@@ -479,6 +482,7 @@ function MarcadoVisitaTienda({
       reproducirSonidoAlerta();
       setMensaje(err?.message || "Ocurrió un error.");
       setPaso(null);
+      marcarEnvioFotoPendiente(tienda.id, false);
       return;
     }
 
@@ -519,6 +523,7 @@ function MarcadoVisitaTienda({
           setAvisoLejos(null);
         }
         onMarcado();
+        avisarMarcacionRegistrada();
       } else {
         reproducirSonidoAlerta();
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
@@ -552,6 +557,7 @@ function MarcadoVisitaTienda({
       }
     } finally {
       setPaso(null);
+      marcarEnvioFotoPendiente(tienda.id, false);
     }
   }
 

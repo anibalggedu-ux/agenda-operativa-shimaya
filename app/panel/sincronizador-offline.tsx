@@ -23,6 +23,7 @@ import {
   obtenerTodasLasFotosPendientes,
   borrarFotoPendientePorClave,
   suscribirseACambiosDeFotosPendientes,
+  avisarMarcacionRegistrada,
   type MarcacionPendiente,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
@@ -243,6 +244,7 @@ export default function SincronizadorOffline() {
       if (resultado?.exito) {
         borrarFotoPendientePorClave(clave);
         actualizar();
+        avisarMarcacionRegistrada();
       }
     } catch {
       // Sigue sin poder enviarse -- se deja tal cual para otro intento.
@@ -310,6 +312,7 @@ export default function SincronizadorOffline() {
         const resultado = await enviarPendiente(item);
         if (resultado?.exito) {
           quitarMarcacionPendiente(item.id);
+          avisarMarcacionRegistrada();
         }
       } catch {
         // Sigue sin señal -- se deja en la cola para el próximo intento.
@@ -447,7 +450,11 @@ export default function SincronizadorOffline() {
   if (total === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
+    // En celular va por encima de la barra de navegación inferior (fija a
+    // 0.75rem del borde, ver BarraFlotante en panel-shell.tsx) -- antes
+    // quedaba justo encima de ella con mayor z-index y se comía los toques
+    // a Inicio/Más mientras hubiera algo pendiente.
+    <div className="fixed bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] lg:bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
       {(fotosPendientes.length > 0 || evidenciasPendientes.length > 0) && (
         <div className="flex w-[min(92vw,22rem)] flex-col gap-1 rounded-[3px] border border-amber-500/50 bg-marca-superficie p-2 shadow-lg">
           {fotosPendientes.map(({ clave, dato }) => (

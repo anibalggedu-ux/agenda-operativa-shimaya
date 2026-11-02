@@ -18,6 +18,8 @@ import {
   guardarFotoPendienteTienda,
   leerFotoPendienteTienda,
   borrarFotoPendienteTienda,
+  marcarEnvioFotoPendiente,
+  avisarMarcacionRegistrada,
   type FotoPendienteTienda,
 } from "@/lib/cola-marcaciones";
 
@@ -51,6 +53,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
   };
 
   async function enviarMarcacion(tipo: "llegada" | "salida", foto: string, horaCapturadaMs: number) {
+    marcarEnvioFotoPendiente(evento.comunicadoId, true);
     let coords: { lat: number; lng: number };
     try {
       setPaso("ubicando");
@@ -59,6 +62,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
       reproducirSonidoAlerta();
       setMensaje(err?.message || "Ocurrió un error.");
       setPaso(null);
+      marcarEnvioFotoPendiente(evento.comunicadoId, false);
       return;
     }
 
@@ -74,6 +78,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
         borrarFotoPendienteTienda(evento.comunicadoId);
         reproducirSonidoExito();
         onMarcado();
+        avisarMarcacionRegistrada();
       } else {
         reproducirSonidoAlerta();
         setMensaje(resultado.mensaje || `No se pudo registrar la ${tipo}.`);
@@ -98,6 +103,7 @@ function TarjetaEvento({ evento, onMarcado }: { evento: EventoDeHoy; onMarcado: 
       }
     } finally {
       setPaso(null);
+      marcarEnvioFotoPendiente(evento.comunicadoId, false);
     }
   }
 

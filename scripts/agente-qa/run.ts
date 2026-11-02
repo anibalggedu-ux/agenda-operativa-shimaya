@@ -288,7 +288,13 @@ const TOOLS: Anthropic.Tool[] = [
 
 async function explorarComoRol(browser: Browser, rol: Rol, anthropic: Anthropic) {
   console.log(`\n=== ${rol.toUpperCase()} ===`);
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); // tamaño de celular, igual que el uso real
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 }, // tamaño de celular, igual que el uso real
+    // Ubicación simulada en "QA Tienda Centro" (ver seed.ts) -- sin esto el
+    // GPS siempre fallaba y el agente nunca podía completar una marcación.
+    geolocation: { latitude: -12.1075, longitude: -76.9739 },
+    permissions: ["geolocation"],
+  });
 
   const erroresDesdeUltimoPaso: string[] = [];
   page.on("console", (msg) => {
@@ -308,13 +314,23 @@ async function explorarComoRol(browser: Browser, rol: Rol, anthropic: Anthropic)
   page.on("filechooser", async (fc) => {
     await fc.setFiles(RUTA_FOTO_PRUEBA).catch(() => {});
   });
+  // Playwright descarta solo cualquier confirm()/alert() si nadie lo
+  // atiende -- un "¿Descartar esta marcación?" quedaba cancelado sin que el
+  // agente lo viera, y lo reportaba como "el botón no hace nada". Se acepta
+  // siempre, como haría alguien que de verdad quiso tocar ese botón.
+  page.on("dialog", async (d) => {
+    await d.accept().catch(() => {});
+  });
 
   // Login real a través de la interfaz (no una cookie fabricada a mano) --
   // es justo el primer tramo que cualquier error de login rompería.
   await page.goto(`http://localhost:${QA_APP_PORT}/login`);
   await page.fill('input[name="clave"]', CLAVES[rol]);
   await page.click('button:has-text("Ingresar al sistema")');
-  await page.waitForURL(`**/panel/${rol}`, { timeout: 15000 }).catch(() => {
+  // 60s y no 15s: en next dev la primera visita a /panel/<rol> se compila en
+  // el momento y puede tardar bastante más que en producción -- con 15s se
+  // reportaba "no se pudo iniciar sesión" aunque el login sí funcionaba.
+  await page.waitForURL(`**/panel/${rol}`, { timeout: 60000 }).catch(() => {
     hallazgos.push({
       rol,
       tipo: "reportado",
@@ -362,6 +378,7 @@ async function explorarComoRol(browser: Browser, rol: Rol, anthropic: Anthropic)
       system:
         `Estás probando "Agenda Operativa Shimaya", una app de gestión operativa de campo para una cadena de restaurantes en Perú, en un entorno de PRUEBA sin datos reales. ${PERSONAS[rol]}\n\n` +
         "Explorá como lo haría una persona real usando esto por primera vez: curioso, probando botones, leyendo lo que dice la pantalla, sin apurarte. Tu objetivo es encontrar fallas reales -- algo que no responde, un mensaje que no tiene sentido, datos que se contradicen, un error de consola, una pantalla que se ve rota -- no solo completar una tarea. Cuando encuentres algo así, llamá a reportar_hallazgo y seguí explorando. Si todo se ve y funciona bien en lo que probaste, no inventes fallas.\n\n" +
+        "Cuando un botón abre la cámara o el selector de archivos, el entorno de prueba adjunta automáticamente una foto de prueba (no vas a ver el selector) -- así que después de tocarlo SÍ hay una foto cargada, aunque no la hayas elegido vos. La ubicación GPS está simulada en la dirección de \"QA Tienda Centro\".\n\n" +
         "Respondé SIEMPRE con exactamente una llamada a una herramienta, nunca con texto solo. No repitas la misma acción si ya no cambia nada en pantalla -- si quedaste atascado, probá otra parte de la app o llamá a terminar.",
       tools: TOOLS,
       tool_choice: { type: "auto" },
