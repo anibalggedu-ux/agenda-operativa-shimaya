@@ -7,13 +7,13 @@ Los permisos se comprueban en el servidor en cada endpoint (`requireRole` en `sr
 | Capacidad | Validador | Moderador | Analista |
 |---|:-:|:-:|:-:|
 | Iniciar / cerrar sesión | ✔ (con el PIN de su tienda) | ✔ | ✔ |
-| Consultar un cupón (campaña, beneficio, vigencia, estado) | ✔ | ✘ | ✘ |
+| Consultar un cupón (campaña, beneficio, zona, vigencia, estado) | ✔ | ✘ | ✘ |
 | Confirmar canje | ✔ | ✘ | ✘ |
 | Registrar contacto del canje que acaba de hacer (30 min) | ✔ | ✘ | ✘ |
 | Ver historial de canjes (con datos del cliente si existen) | ✘ | ✔ | ✘ |
 | Ver clientes con consentimiento | ✘ | ✔ | ✘ |
 | Estadísticas agregadas y gráficos | ✘ | ✔ | ✔ |
-| Crear / editar campañas | ✘ | ✔ | ✘ |
+| Crear / editar campañas y sus zonas | ✘ | ✔ | ✘ |
 | Eliminar campaña (solo si no tiene cupones canjeados ni anulados) | ✘ | ✔ | ✘ |
 | Crear cupón individual / importar CSV | ✘ | ✔ | ✘ |
 | Anular cupón no canjeado (con motivo) | ✘ | ✔ | ✘ |
@@ -37,7 +37,7 @@ Cada cupón pertenece a una tienda: el código `0001` de Minka y el `0001` de El
 
 **Campañas que reinician el 1 al 1000:** un código es único por tienda *y campaña*; una campaña nueva puede volver a usar los mismos números. Si en una tienda coinciden varios cupones con el mismo número, el validador canjea el que está disponible hoy (la campaña vigente), luego el de la tienda sobre el que no tiene tienda, y por último el de la campaña más reciente. El cupón impreso no distingue campañas por sí solo: el líder debe comparar la campaña y el beneficio que muestra la pantalla con lo que dice el cupón. Evita dejar dos campañas vigentes a la vez con los mismos números en una misma tienda.
 
-**Zonas:** cada tienda puede tener una zona o sector (texto libre, en *Tiendas y PIN*). Las estadísticas muestran, por campaña, los cupones emitidos y canjeados y la tasa de canje por zona. El analista las ve (son solo totales).
+**Zonas por rango de número:** cada campaña puede definir zonas con un rango de números de cupón (ej. del 1 al 200 "Comercios menores", del 201 al 400 "Oficinas") en *Campañas → Zonas*. Los rangos valen para todas las tiendas y no pueden cruzarse. La zona se calcula con el número del cupón (0001 = 1) y no se guarda en el cupón: cambiar un rango se aplica de inmediato. El validador ve la zona al consultar y al canjear; el moderador la ve en el listado de cupones; las estadísticas (también para el analista) muestran emitidos, canjeados y tasa por zona. Los números fuera de todo rango aparecen como "Sin zona".
 
 ## Acceso de las tiendas con PIN
 

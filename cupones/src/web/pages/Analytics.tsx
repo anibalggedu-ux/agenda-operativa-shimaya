@@ -152,7 +152,7 @@ export function Analytics() {
                 ) : (
                   <Empty>Sin cupones en este filtro.</Empty>
                 )}
-                <p className="muted small">La zona sale de la tienda a la que pertenece cada cupón. Asigna zonas en Tiendas y PIN; las tiendas sin zona y los cupones anteriores sin tienda aparecen como “Sin zona”.</p>
+                <p className="muted small">La zona sale del rango de números de cada campaña (se define en Campañas → Zonas). Los cupones fuera de todo rango aparecen como “Sin zona”.</p>
               </section>
 
               <h2>Canjes</h2>

@@ -94,38 +94,74 @@ describe("campañas que reinician el 1 al 1000", () => {
   });
 });
 
-describe("zonas", () => {
-  it("el moderador asigna zonas y las estadísticas agrupan emitidos y canjeados por zona (el analista las ve)", async () => {
+describe("zonas por rango de número", () => {
+  const guardar = (api: ReturnType<typeof makeApi>, m: { cookie: string }, campaignId: string, zones: object[]) =>
+    api.call("PUT", `/api/admin/campaigns/${campaignId}/zones`, { cookie: m.cookie, body: { zones } });
+
+  it("el validador ve la zona del cupón según su número, al consultar y al canjear", async () => {
+    const { api, m, camp, minka } = await escenario();
+    expect((await guardar(api, m, camp.id, [{ name: "Comercios menores", from: 1, to: 200 }, { name: "Oficinas", from: 201, to: 400 }])).status).toBe(200);
+    for (const code of ["0001", "0200", "0201", "0999"]) await coupon(camp.id, { code, storeId: minka.id });
+
+    expect((await lookup(api, minka.user, "0001")).body.coupon.zone).toBe("Comercios menores");
+    expect((await lookup(api, minka.user, "0200")).body.coupon.zone).toBe("Comercios menores");
+    expect((await lookup(api, minka.user, "0201")).body.coupon.zone).toBe("Oficinas");
+    expect((await lookup(api, minka.user, "0999")).body.coupon.zone).toBeNull();
+    const r = await redeem(api, minka.user, "0201");
+    expect(r.body.redemption.zone).toBe("Oficinas");
+  });
+
+  it("rechaza rangos cruzados, invertidos o con nombre repetido, y no deja la campaña a medias", async () => {
+    const { api, m, camp } = await escenario();
+    await guardar(api, m, camp.id, [{ name: "A", from: 1, to: 10 }]);
+    expect((await guardar(api, m, camp.id, [{ name: "A", from: 1, to: 200 }, { name: "B", from: 150, to: 300 }])).status).toBe(422);
+    expect((await guardar(api, m, camp.id, [{ name: "A", from: 20, to: 10 }])).status).toBe(422);
+    expect((await guardar(api, m, camp.id, [{ name: "A", from: 1, to: 5 }, { name: "a", from: 6, to: 9 }])).status).toBe(422);
+    expect((await guardar(api, m, camp.id, [{ name: "", from: 1, to: 5 }])).status).toBe(422);
+    const list = await api.call("GET", `/api/admin/campaigns/${camp.id}/zones`, { cookie: m.cookie });
+    expect(list.body.zones).toMatchObject([{ name: "A", from: 1, to: 10 }]);
+    expect((await guardar(api, m, crypto.randomUUID(), [])).status).toBe(404);
+  });
+
+  it("cambiar un rango se aplica de inmediato a los cupones ya cargados; cada campaña tiene sus rangos", async () => {
+    const { api, m, camp, minka } = await escenario();
+    const otra = await campaign(api, { codeLength: 4 });
+    await coupon(camp.id, { code: "0150", storeId: minka.id });
+    await coupon(otra.id, { code: "0150", storeId: minka.id });
+    await guardar(api, m, camp.id, [{ name: "Norte", from: 1, to: 100 }]);
+    await guardar(api, m, otra.id, [{ name: "Sur", from: 100, to: 200 }]);
+    const zona = async () => (await api.call("POST", "/api/admin/coupons/search", { cookie: m.cookie, body: { campaignId: camp.id } })).body.items[0].zone;
+    expect(await zona()).toBeNull();
+    await guardar(api, m, camp.id, [{ name: "Norte", from: 1, to: 200 }]);
+    expect(await zona()).toBe("Norte");
+  });
+
+  it("las estadísticas agrupan emitidos y canjeados por zona (el analista las ve)", async () => {
     const { api, m, camp, minka, polo } = await escenario();
-    const otra = await storeWithSession(api, m);
-    expect((await api.call("POST", `/api/admin/stores/${minka.id}/zone`, { cookie: m.cookie, body: { zone: "  Lima   Norte " } })).body.zone).toBe("Lima Norte");
-    await api.call("POST", `/api/admin/stores/${polo.id}/zone`, { cookie: m.cookie, body: { zone: "Lima Norte" } });
+    await guardar(api, m, camp.id, [{ name: "Oficinas", from: 201, to: 400 }, { name: "Comercios menores", from: 1, to: 200 }]);
     for (const s of [minka, polo]) {
       await coupon(camp.id, { code: "0001", storeId: s.id });
       await coupon(camp.id, { code: "0002", storeId: s.id });
+      await coupon(camp.id, { code: "0250", storeId: s.id });
     }
-    await coupon(camp.id, { code: "0001", storeId: otra.id });
+    await coupon(camp.id, { code: "0900", storeId: minka.id });
     await redeem(api, minka.user, "0001");
+    await redeem(api, polo.user, "0250");
 
     const analista = await userWithSession(api, "analista");
     const rep = await api.call("GET", `/api/analytics/report?campaignId=${camp.id}`, { cookie: analista.cookie });
     expect(rep.body.byZone).toEqual([
-      { zone: "Lima Norte", stores: 2, issued: 4, redeemed: 1, redemptionRate: 0.25 },
+      { zone: "Comercios menores", stores: 2, issued: 4, redeemed: 1, redemptionRate: 0.25 },
+      { zone: "Oficinas", stores: 2, issued: 2, redeemed: 1, redemptionRate: 0.5 },
       { zone: null, stores: 1, issued: 1, redeemed: 0, redemptionRate: 0 },
     ]);
-    // Quitar la zona la deja "sin zona".
-    await api.call("POST", `/api/admin/stores/${polo.id}/zone`, { cookie: m.cookie, body: { zone: "" } });
-    const list = await api.call("GET", "/api/admin/stores", { cookie: m.cookie });
-    expect(list.body.stores.find((s: { id: string }) => s.id === polo.id).zone).toBeNull();
   });
 
-  it("al crear tiendas en lote se puede indicar la zona", async () => {
-    const { api, m } = await escenario();
-    const nombre = `Z ${crypto.randomUUID().slice(0, 6)}`;
-    const r = await api.call("POST", "/api/admin/stores", { cookie: m.cookie, body: { names: [nombre], zone: "Sur" } });
-    expect(r.status).toBe(201);
-    const list = await api.call("GET", "/api/admin/stores", { cookie: m.cookie });
-    expect(list.body.stores.find((s: { name: string }) => s.name === nombre).zone).toBe("Sur");
+  it("al eliminar la campaña se eliminan sus zonas", async () => {
+    const { api, m, camp } = await escenario();
+    await guardar(api, m, camp.id, [{ name: "Norte", from: 1, to: 100 }]);
+    expect((await api.call("DELETE", `/api/admin/campaigns/${camp.id}`, { cookie: m.cookie })).status).toBe(200);
+    expect(await count("SELECT COUNT(*) AS n FROM campaign_zones WHERE campaign_id = ?", camp.id)).toBe(0);
   });
 });
 

@@ -20,6 +20,8 @@ Las migraciones son aditivas y versionadas (`migrations/NNNN_*.sql`); wrangler r
 
 **Migración `0003_cupones_por_tienda.sql`:** reconstruye la tabla `coupons` (agrega `store_id` y cambia la unicidad del código a una por tienda). Conserva todos los cupones y canjes existentes, que quedan "sin tienda" (valen en cualquier tienda). Antes de aplicarla en producción exporta la base (`npx wrangler d1 export DB --remote --output respaldo.sql`) y, después, comprueba que el número de cupones y de canjes en el panel sea el mismo que antes.
 
+**Migración `0004_zonas_por_rango.sql`:** solo crea la tabla `campaign_zones` (zonas por rango de número, por campaña); no toca cupones ni canjes.
+
 ## 3. Primer moderador y demás usuarios
 ```bash
 npm run user:create -- --remote --email jefe@shimaya.pe --name "Nombre Apellido" --role moderador

@@ -7,7 +7,7 @@ import { Banner, Field, Mascot, Spinner, stateIcon, stateTone } from "../ui";
 
 interface Redemption {
   replayed: boolean;
-  redemption: { id: string; redeemedAt: string; campaign: string; benefit: string };
+  redemption: { id: string; redeemedAt: string; campaign: string; benefit: string; zone: string | null };
 }
 
 function newKey(): string {
@@ -101,6 +101,7 @@ export function Validar() {
                 <strong>{done.redemption.benefit}</strong>
               </p>
               <p className="muted small">{done.redemption.campaign}</p>
+              {done.redemption.zone && <p className="muted small">Zona: {done.redemption.zone}</p>}
               {done.replayed && <p className="muted small">Este canje ya estaba registrado; no se duplicó.</p>}
             </div>
           </div>
@@ -188,6 +189,12 @@ export function Validar() {
               <dd>{lookup.coupon.campaign}</dd>
               <dt>Beneficio</dt>
               <dd>{lookup.coupon.benefit}</dd>
+              {lookup.coupon.zone && (
+                <>
+                  <dt>Zona</dt>
+                  <dd>{lookup.coupon.zone}</dd>
+                </>
+              )}
               <dt>Vigencia</dt>
               <dd>
                 {formatLimaDate(lookup.coupon.validFrom)} al {formatLimaDate(new Date(Date.parse(lookup.coupon.validUntil) - 1).toISOString())}

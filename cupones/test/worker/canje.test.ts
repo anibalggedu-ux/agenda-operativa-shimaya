@@ -11,7 +11,7 @@ describe("consulta de cupones (no consume)", () => {
     expect(r.status).toBe(200);
     expect(r.body.state).toBe("available");
     expect(r.body.message).toBe("Cupón disponible");
-    expect(Object.keys(r.body.coupon).sort()).toEqual(["benefit", "campaign", "validFrom", "validUntil"]);
+    expect(Object.keys(r.body.coupon).sort()).toEqual(["benefit", "campaign", "validFrom", "validUntil", "zone"]);
     expect(r.body.coupon.campaign).toBe(camp.name);
   });
 

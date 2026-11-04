@@ -8,6 +8,7 @@ import { requireRole } from "../auth";
 import { ApiError, type AppEnv, type Ctx, clientIp, parse, readJson, tooManyRequests } from "../http";
 import { LIMITS, hit, isBlocked } from "../ratelimit";
 import { effectiveStatusSql } from "../status";
+import { zoneNameSql } from "../zones";
 import { newId } from "../util";
 
 /** Tiempo tras el canje durante el cual quien lo hizo puede asociarle datos de contacto. */
@@ -23,6 +24,7 @@ interface CouponRow {
   benefit: string;
   starts_at: string;
   ends_at: string;
+  zone: string | null;
 }
 
 /**
@@ -41,7 +43,7 @@ const scopedCouponId = (codeParam: string, userParam: string, nowParam: string) 
 async function findCoupon(db: D1Database, code: string, now: string, userId: string): Promise<CouponRow | null> {
   return db
     .prepare(
-      `SELECT c.id, ${effectiveStatusSql("?2")} AS state, ca.name AS campaign, ca.benefit, ca.starts_at, ca.ends_at
+      `SELECT c.id, ${effectiveStatusSql("?2")} AS state, ca.name AS campaign, ca.benefit, ca.starts_at, ca.ends_at, ${zoneNameSql("c")} AS zone
          FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id
         WHERE c.id = ${scopedCouponId("?1", "?3", "?2")}`,
     )
@@ -100,7 +102,7 @@ validatorRoutes.post("/coupons/lookup", async (c) => {
   return c.json<LookupResult>({
     state: row.state,
     message: STATE_LABELS[row.state],
-    coupon: { campaign: row.campaign, benefit: row.benefit, validFrom: row.starts_at, validUntil: row.ends_at },
+    coupon: { campaign: row.campaign, benefit: row.benefit, validFrom: row.starts_at, validUntil: row.ends_at, zone: row.zone },
   });
 });
 
@@ -111,12 +113,13 @@ interface RedemptionView {
   campaign: string;
   benefit: string;
   code: string;
+  zone: string | null;
 }
 
 async function findByKey(db: D1Database, userId: string, key: string): Promise<RedemptionView | null> {
   return db
     .prepare(
-      `SELECT r.id, r.redeemed_at, ca.name AS campaign, ca.benefit, c.code
+      `SELECT r.id, r.redeemed_at, ca.name AS campaign, ca.benefit, c.code, ${zoneNameSql("c")} AS zone
          FROM redemptions r JOIN coupons c ON c.id = r.coupon_id JOIN campaigns ca ON ca.id = r.campaign_id
         WHERE r.redeemed_by = ? AND r.idempotency_key = ?`,
     )
@@ -128,7 +131,7 @@ function redeemedResponse(c: Ctx, r: RedemptionView, replayed: boolean) {
   return c.json(
     {
       replayed,
-      redemption: { id: r.id, redeemedAt: r.redeemed_at, campaign: r.campaign, benefit: r.benefit },
+      redemption: { id: r.id, redeemedAt: r.redeemed_at, campaign: r.campaign, benefit: r.benefit, zone: r.zone },
       message: "Cupón canjeado correctamente",
     },
     replayed ? 200 : 201,

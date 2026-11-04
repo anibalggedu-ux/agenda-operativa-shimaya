@@ -8,7 +8,6 @@ import { DataGrid } from "./comunes";
 interface Store {
   id: string;
   name: string;
-  zone: string | null;
   active: boolean;
   pinUpdatedAt: string;
   lastLoginAt: string | null;
@@ -53,21 +52,6 @@ export function Tiendas() {
     }
   }
 
-  async function changeZone(s: Store) {
-    const entered = window.prompt(`Zona o sector de ${s.name} (deja vacío para quitarla):`, s.zone ?? "");
-    if (entered === null) return;
-    setBusyId(s.id);
-    setFail(null);
-    try {
-      await api("POST", `/api/admin/stores/${s.id}/zone`, { body: { zone: entered } });
-      list.reload();
-    } catch (err) {
-      setFail(errorMessage(err));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function setActive(s: Store, active: boolean) {
     if (!active && !window.confirm(`¿Desactivar ${s.name}? Perderá el acceso de inmediato.`)) return;
     setBusyId(s.id);
@@ -93,11 +77,10 @@ export function Tiendas() {
       {list.error && <Banner tone="bad" icon="⚠">{list.error}</Banner>}
       {list.data && list.data.stores.length === 0 && <Empty mascot>Aún no hay tiendas. Agrégalas para entregarles su PIN.</Empty>}
       {list.data && list.data.stores.length > 0 && (
-        <DataGrid head={[{ label: "Tienda" }, { label: "Zona" }, { label: "Estado" }, { label: "PIN cambiado" }, { label: "Último ingreso" }, { label: "Canjes", num: true }, { label: "" }]}>
+        <DataGrid head={[{ label: "Tienda" }, { label: "Estado" }, { label: "PIN cambiado" }, { label: "Último ingreso" }, { label: "Canjes", num: true }, { label: "" }]}>
           {list.data.stores.map((s) => (
             <tr key={s.id}>
               <td data-label="Tienda"><strong>{s.name}</strong></td>
-              <td data-label="Zona">{s.zone ?? <span className="muted">Sin zona</span>}</td>
               <td data-label="Estado">{s.active ? <span className="badge ok"><span aria-hidden="true">✔</span> Activa</span> : <span className="badge off"><span aria-hidden="true">○</span> Desactivada</span>}</td>
               <td data-label="PIN cambiado" className="small">{formatLima(s.pinUpdatedAt)}</td>
               <td data-label="Último ingreso" className="small">{s.lastLoginAt ? formatLima(s.lastLoginAt) : "Nunca"}</td>
@@ -105,7 +88,6 @@ export function Tiendas() {
               <td>
                 <div className="actions inline">
                   <button className="secondary small" disabled={busyId === s.id} onClick={() => resetPin(s)}>PIN nuevo</button>
-                  <button className="secondary small" disabled={busyId === s.id} onClick={() => changeZone(s)}>Zona</button>
                   <button className="secondary small" disabled={busyId === s.id} onClick={() => setActive(s, !s.active)}>{s.active ? "Desactivar" : "Activar"}</button>
                 </div>
               </td>
@@ -121,7 +103,6 @@ export function Tiendas() {
 
 function AddDialog({ onClose, onCreated }: { onClose(): void; onCreated(rows: Issued[]): void }) {
   const [text, setText] = useState("");
-  const [zone, setZone] = useState("");
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -133,7 +114,7 @@ function AddDialog({ onClose, onCreated }: { onClose(): void; onCreated(rows: Is
     setFail(null);
     try {
       const names = text.split("\n").map((n) => n.trim()).filter(Boolean);
-      const r = await api<{ created: Issued[]; skipped: string[] }>("POST", "/api/admin/stores", { body: { names, ...(zone.trim() ? { zone } : {}) } });
+      const r = await api<{ created: Issued[]; skipped: string[] }>("POST", "/api/admin/stores", { body: { names } });
       if (r.created.length === 0) {
         setSkipped(r.skipped);
         setFail("Todas esas tiendas ya existen.");
@@ -151,9 +132,6 @@ function AddDialog({ onClose, onCreated }: { onClose(): void; onCreated(rows: Is
         {fail && <Banner tone="bad" icon="⚠">{fail}{skipped.length > 0 && <> ({skipped.join(", ")})</>}</Banner>}
         <Field label="Nombres de las tiendas" hint="Una por línea. Hasta 50 por vez.">
           {(a) => <textarea {...a} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Tienda Miraflores\nTienda San Isidro"} />}
-        </Field>
-        <Field label="Zona o sector (opcional)" hint="Se aplica a todas las tiendas de esta lista. Sirve para medir las campañas por zona.">
-          {(a) => <input {...a} type="text" maxLength={60} value={zone} onChange={(e) => setZone(e.target.value)} />}
         </Field>
         <div className="actions inline">
           <button type="submit" disabled={busy || !text.trim()}>{busy && <Spinner />} Crear y generar PIN</button>

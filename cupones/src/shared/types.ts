@@ -35,5 +35,5 @@ export interface Page<T> {
 export interface LookupResult {
   state: CouponState | "not_found";
   message: string;
-  coupon?: { campaign: string; benefit: string; validFrom: string; validUntil: string };
+  coupon?: { campaign: string; benefit: string; validFrom: string; validUntil: string; zone: string | null };
 }

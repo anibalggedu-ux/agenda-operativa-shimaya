@@ -5,6 +5,7 @@ import { STATE_ORDER, type CouponState } from "../../shared/types";
 import { requireRole } from "../auth";
 import { type AppEnv, Q, parse } from "../http";
 import { effectiveStatusSql } from "../status";
+import { zoneNameSql } from "../zones";
 
 // SOLO agregados. Ninguna consulta de este archivo selecciona nombres, contactos, códigos de
 // cupón, ids de canje/cliente ni al trabajador que canjeó: esos datos nunca salen de la base hacia
@@ -45,12 +46,12 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
 
   // Cohorte de inventario: cupones EMITIDOS (created_at) dentro del rango y de la campaña.
   // Cada consulta arma sus propios parámetros: D1 rechaza bindings que el SQL no usa.
-  const invFrom = (q: Q, withStore = false) => {
+  const invFrom = (q: Q) => {
     const where = ["1 = 1"];
     if (f.campaignId) where.push(`c.campaign_id = ${q.p(f.campaignId)}`);
     if (fromIso) where.push(`c.created_at >= ${q.p(fromIso)}`);
     if (toIso) where.push(`c.created_at < ${q.p(toIso)}`);
-    return `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id ${withStore ? "LEFT JOIN stores st ON st.id = c.store_id " : ""}WHERE ${where.join(" AND ")}`;
+    return `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id WHERE ${where.join(" AND ")}`;
   };
   const stateQ = new Q();
   const nowP = stateQ.p(now.toISOString());
@@ -59,12 +60,12 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
   const campSql = `SELECT ca.id AS campaignId, ca.name, COUNT(*) AS issued, SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
            ${invFrom(campQ)} GROUP BY ca.id, ca.name ORDER BY issued DESC, ca.name`;
 
-  // Por zona: cupones emitidos y canjeados por la zona de la tienda (sin zona / sin tienda = null).
+  // Por zona: la zona sale del rango de números de la campaña que contiene el código (sin rango = null).
   const zoneQ = new Q();
-  const zoneSql = `SELECT st.zone AS zone, COUNT(DISTINCT c.store_id) AS stores, COUNT(*) AS issued,
+  const zoneSql = `SELECT ${zoneNameSql("c")} AS zone, COUNT(DISTINCT c.store_id) AS stores, COUNT(*) AS issued,
            SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
-           ${invFrom(zoneQ, true)}
-           GROUP BY st.zone ORDER BY (st.zone IS NULL), st.zone COLLATE NOCASE`;
+           ${invFrom(zoneQ)}
+           GROUP BY zone ORDER BY (zone IS NULL), zone COLLATE NOCASE`;
 
   // Actividad: canjes realizados (redeemed_at) dentro del rango y de la campaña.
   const act = new Q();

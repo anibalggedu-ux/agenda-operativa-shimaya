@@ -8,6 +8,7 @@ import { auditStatement } from "../audit";
 import { requireRole } from "../auth";
 import { ApiError, type AppEnv, type Ctx, Q, pageParams, parse, readJson } from "../http";
 import { effectiveStatusSql } from "../status";
+import { zoneNameSql } from "../zones";
 import { hashPassword } from "../password";
 import { generatePin } from "../pin";
 import { newId } from "../util";
@@ -196,6 +197,55 @@ adminRoutes.patch("/campaigns/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// --- Zonas por rango de número de cupón (por campaña) -------------------------------------------------
+const MAX_ZONES = 50;
+const zoneInput = z.object({
+  name: z
+    .string()
+    .transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim())
+    .pipe(z.string().min(1, "Escribe el nombre de la zona.").max(60, "Máximo 60 caracteres.")),
+  from: z.number().int("Solo números enteros.").min(0, "No puede ser negativo.").max(9_999_999_999_999),
+  to: z.number().int("Solo números enteros.").min(0, "No puede ser negativo.").max(9_999_999_999_999),
+});
+
+adminRoutes.get("/campaigns/:id/zones", async (c) => {
+  const id = parse(z.object({ id: z.uuid() }), { id: c.req.param("id") }).id;
+  const r = await c.env.DB.prepare("SELECT id, name, from_number AS \"from\", to_number AS \"to\" FROM campaign_zones WHERE campaign_id = ? ORDER BY from_number").bind(id).all();
+  return c.json({ zones: r.results });
+});
+
+/** Reemplaza todas las zonas de la campaña. Los rangos no pueden cruzarse ni repetir nombre. */
+adminRoutes.put("/campaigns/:id/zones", async (c) => {
+  const id = parse(z.object({ id: z.uuid() }), { id: c.req.param("id") }).id;
+  const { zones } = parse(z.object({ zones: z.array(zoneInput).max(MAX_ZONES, `Máximo ${MAX_ZONES} zonas.`) }).strict(), await readJson(c));
+  const db = c.env.DB;
+  if (!(await db.prepare("SELECT 1 AS x FROM campaigns WHERE id = ?").bind(id).first())) throw new ApiError(404, "not_found", "No encontramos esa campaña.");
+
+  const sorted = [...zones].sort((a, b) => a.from - b.from);
+  const names = new Set<string>();
+  for (const [i, zn] of sorted.entries()) {
+    if (zn.from > zn.to) throw new ApiError(422, "validation", `En “${zn.name}” el número inicial no puede ser mayor que el final.`);
+    if (names.has(zn.name.toLowerCase())) throw new ApiError(422, "validation", `El nombre “${zn.name}” está repetido.`);
+    names.add(zn.name.toLowerCase());
+    const prev = sorted[i - 1];
+    if (prev && zn.from <= prev.to) throw new ApiError(422, "validation", `Los rangos de “${prev.name}” y “${zn.name}” se cruzan.`);
+  }
+  const user = c.get("user");
+  const t = c.get("now").toISOString();
+  try {
+    await db.batch([
+      db.prepare("DELETE FROM campaign_zones WHERE campaign_id = ?1").bind(id),
+      ...sorted.map((zn) =>
+        db.prepare("INSERT INTO campaign_zones (id, campaign_id, name, from_number, to_number) VALUES (?1, ?2, ?3, ?4, ?5)").bind(newId(), id, zn.name, zn.from, zn.to),
+      ),
+      auditStatement(db, t, { actorUserId: user.id, action: "campaign_zones_updated", entityType: "campaign", entityId: id, details: { zones: sorted.length } }),
+    ]);
+  } catch {
+    throw new ApiError(409, "zones_conflict", "No se pudieron guardar las zonas: revisa que no se crucen ni repitan nombre.");
+  }
+  return c.json({ saved: sorted.length });
+});
+
 /**
  * Elimina una campaña y sus cupones. Solo si nunca se canjeó ni se anuló un cupón: los canjes y las
  * anulaciones son historial que la base de datos no deja borrar. En ese caso la salida es desactivarla.
@@ -227,6 +277,7 @@ adminRoutes.delete("/campaigns/:id", async (c) => {
   const t = c.get("now").toISOString();
   try {
     await db.batch([
+      db.prepare("DELETE FROM campaign_zones WHERE campaign_id = ?1").bind(id),
       db.prepare("DELETE FROM import_errors WHERE batch_id IN (SELECT id FROM import_batches WHERE campaign_id = ?1)").bind(id),
       db.prepare("DELETE FROM coupons WHERE campaign_id = ?1").bind(id),
       db.prepare("DELETE FROM import_batches WHERE campaign_id = ?1").bind(id),
@@ -265,7 +316,7 @@ adminRoutes.post("/coupons/search", async (c) => {
   return c.json(
     await paged(
       c.env.DB,
-      `SELECT c.id, c.code, ca.name AS campaign, st.name AS store, ${eff} AS state, c.created_at AS createdAt,
+      `SELECT c.id, c.code, ca.name AS campaign, st.name AS store, ${zoneNameSql("c")} AS zone, ${eff} AS state, c.created_at AS createdAt,
               c.void_reason AS voidReason, c.voided_at AS voidedAt, r.redeemed_at AS redeemedAt`,
       `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id LEFT JOIN stores st ON st.id = c.store_id LEFT JOIN redemptions r ON r.coupon_id = c.id
         WHERE ${where.join(" AND ")}`,
@@ -515,13 +566,7 @@ adminRoutes.get("/audit/actions", async (c) => {
 
 // --- Tiendas y PIN de acceso de los líderes ---------------------------------------------------------------
 const MAX_STORES_PER_REQUEST = 50;
-const zoneName = z
-  .string()
-  .transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim())
-  .pipe(z.string().max(60, "Máximo 60 caracteres."));
-
 const storeNames = z.object({
-  zone: zoneName.optional(),
   names: z
     .array(z.string().transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()))
     .transform((a) => a.filter((n) => n !== ""))
@@ -530,16 +575,16 @@ const storeNames = z.object({
 
 adminRoutes.get("/stores", async (c) => {
   const r = await c.env.DB.prepare(
-    `SELECT s.id, s.name, s.zone, s.active, s.pin_updated_at AS pinUpdatedAt, u.last_login_at AS lastLoginAt,
+    `SELECT s.id, s.name, s.active, s.pin_updated_at AS pinUpdatedAt, u.last_login_at AS lastLoginAt,
             (SELECT COUNT(*) FROM redemptions r WHERE r.redeemed_by = s.user_id) AS redemptions
        FROM stores s JOIN users u ON u.id = s.user_id ORDER BY s.name COLLATE NOCASE`,
-  ).all<{ id: string; name: string; zone: string | null; active: number; pinUpdatedAt: string; lastLoginAt: string | null; redemptions: number }>();
+  ).all<{ id: string; name: string; active: number; pinUpdatedAt: string; lastLoginAt: string | null; redemptions: number }>();
   return c.json({ stores: r.results.map((s) => ({ ...s, active: s.active === 1 })) });
 });
 
 /** Crea tiendas en lote. Cada una recibe un PIN al azar que se muestra UNA sola vez en esta respuesta. */
 adminRoutes.post("/stores", async (c) => {
-  const { names, zone } = parse(storeNames, await readJson(c));
+  const { names } = parse(storeNames, await readJson(c));
   const now = c.get("now").toISOString();
   const actor = c.get("user");
   const db = c.env.DB;
@@ -562,27 +607,13 @@ adminRoutes.post("/stores", async (c) => {
         .prepare("INSERT INTO users (id, email, display_name, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, 'validador', 'sin-clave', ?, ?)")
         .bind(userId, `tienda-${id}@tiendas.invalid`, name, now, now),
       db
-        .prepare("INSERT INTO stores (id, name, zone, user_id, pin_hash, pin_updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .bind(id, name, zone || null, userId, await hashPassword(pin), now, now),
+        .prepare("INSERT INTO stores (id, name, user_id, pin_hash, pin_updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(id, name, userId, await hashPassword(pin), now, now),
       auditStatement(db, now, { actorUserId: actor.id, action: "store_created", entityType: "store", entityId: id }),
     ]);
     created.push({ id, name, pin });
   }
   return c.json({ created, skipped }, 201);
-});
-
-/** Zona o sector de la tienda (texto libre; vacío = sin zona). Sirve para medir las campañas por zona. */
-adminRoutes.post("/stores/:id/zone", async (c) => {
-  const id = parse(z.uuid(), c.req.param("id"));
-  const { zone } = parse(z.object({ zone: zoneName }), await readJson(c));
-  const found = await c.env.DB.prepare("SELECT id FROM stores WHERE id = ?").bind(id).first();
-  if (!found) throw new ApiError(404, "not_found", "No encontramos esa tienda.");
-  const now = c.get("now").toISOString();
-  await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE stores SET zone = ? WHERE id = ?").bind(zone || null, id),
-    auditStatement(c.env.DB, now, { actorUserId: c.get("user").id, action: "store_zone_changed", entityType: "store", entityId: id }),
-  ]);
-  return c.json({ zone: zone || null });
 });
 
 adminRoutes.post("/stores/:id/reset-pin", async (c) => {

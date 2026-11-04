@@ -25,6 +25,7 @@ export function Campanas() {
   const list = useApi<{ campaigns: Campaign[] }>("/api/admin/campaigns");
   const [editing, setEditing] = useState<Campaign | "new" | null>(null);
   const [deleting, setDeleting] = useState<Campaign | null>(null);
+  const [zoning, setZoning] = useState<Campaign | null>(null);
   return (
     <section className="card">
       <div className="spread">
@@ -46,6 +47,7 @@ export function Campanas() {
               <td>
                 <div className="actions inline">
                   <button className="secondary small" onClick={() => setEditing(c)}>Editar</button>
+                  <button className="secondary small" onClick={() => setZoning(c)}>Zonas</button>
                   <button className="secondary small" onClick={() => setDeleting(c)}>Eliminar</button>
                 </div>
               </td>
@@ -53,9 +55,76 @@ export function Campanas() {
           ))}
         </DataGrid>
       )}
+      {zoning && <ZonesDialog campaign={zoning} onClose={() => setZoning(null)} />}
       {deleting && <DeleteCampaignDialog campaign={deleting} onClose={() => setDeleting(null)} onDone={() => { setDeleting(null); list.reload(); }} />}
       {editing && <CampaignDialog campaign={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); list.reload(); }} />}
     </section>
+  );
+}
+
+interface ZoneRow {
+  name: string;
+  from: string;
+  to: string;
+}
+
+/** Zonas de la campaña por rango de número de cupón (ej. del 1 al 200: Comercios menores). */
+function ZonesDialog({ campaign, onClose }: { campaign: Campaign; onClose(): void }) {
+  const [rows, setRows] = useState<ZoneRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api<{ zones: { name: string; from: number; to: number }[] }>("GET", `/api/admin/campaigns/${campaign.id}/zones`)
+      .then((d) => setRows(d.zones.map((z) => ({ name: z.name, from: String(z.from), to: String(z.to) }))))
+      .catch((e) => setError(errorMessage(e)));
+  }, [campaign.id]);
+
+  const change = (i: number, k: keyof ZoneRow, v: string) => {
+    setSaved(false);
+    setRows((rs) => rs && rs.map((r, j) => (j === i ? { ...r, [k]: k === "name" ? v : v.replace(/\D/g, "") } : r)));
+  };
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (busy || !rows) return;
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const zones = rows.map((r) => ({ name: r.name, from: Number(r.from), to: Number(r.to) }));
+      await api("PUT", `/api/admin/campaigns/${campaign.id}/zones`, { body: { zones } });
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog title={`Zonas de ${campaign.name}`} onClose={onClose}>
+      <form onSubmit={submit} noValidate>
+        <p className="muted small">Define qué números de cupón pertenecen a cada zona (ej. del 1 al 200: Comercios menores). Los rangos valen para todas las tiendas y no pueden cruzarse. Al validar un cupón, la tienda ve su zona, y las estadísticas se miden por zona. Los números fuera de todo rango quedan “Sin zona”.</p>
+        {error && <Banner tone="bad" icon="⚠">{error}</Banner>}
+        {saved && <Banner tone="ok" icon="✔">Zonas guardadas.</Banner>}
+        {!rows && !error && <p role="status"><Spinner /> Cargando…</p>}
+        {rows && rows.length === 0 && <p className="muted">Esta campaña aún no tiene zonas.</p>}
+        {rows?.map((r, i) => (
+          <div className="row" key={i}>
+            <Field label="Zona">{(a) => <input {...a} type="text" maxLength={60} value={r.name} onChange={(e) => change(i, "name", e.target.value)} />}</Field>
+            <Field label="Desde el número">{(a) => <input {...a} type="text" inputMode="numeric" maxLength={13} value={r.from} onChange={(e) => change(i, "from", e.target.value)} />}</Field>
+            <Field label="Hasta el número">{(a) => <input {...a} type="text" inputMode="numeric" maxLength={13} value={r.to} onChange={(e) => change(i, "to", e.target.value)} />}</Field>
+            <button type="button" className="secondary small" onClick={() => { setSaved(false); setRows(rows.filter((_, j) => j !== i)); }}>Quitar</button>
+          </div>
+        ))}
+        <div className="actions inline">
+          {rows && <button type="button" className="secondary" onClick={() => { setSaved(false); setRows([...rows, { name: "", from: "", to: "" }]); }}>Agregar zona</button>}
+          <button type="submit" disabled={busy || !rows || rows.some((r) => !r.name.trim() || r.from === "" || r.to === "")}>{busy && <Spinner />} Guardar zonas</button>
+          <button type="button" className="secondary" onClick={onClose}>Cerrar</button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -168,6 +237,7 @@ interface CouponRow {
   code: string;
   campaign: string;
   store: string | null;
+  zone: string | null;
   state: CouponState;
   createdAt: string;
   voidReason: string | null;
@@ -206,12 +276,13 @@ export function Cupones() {
       {!list.data && !list.error && <p role="status"><Spinner /> Cargando…</p>}
       {list.data && (list.data.items.length === 0 ? <Empty mascot>No hay cupones con estos filtros.</Empty> : (
         <>
-          <DataGrid head={[{ label: "Código" }, { label: "Tienda" }, { label: "Campaña" }, { label: "Estado" }, { label: "Creado (Lima)" }, { label: "Notas" }, { label: "" }]}>
+          <DataGrid head={[{ label: "Código" }, { label: "Tienda" }, { label: "Campaña" }, { label: "Zona" }, { label: "Estado" }, { label: "Creado (Lima)" }, { label: "Notas" }, { label: "" }]}>
             {list.data.items.map((c) => (
               <tr key={c.id}>
                 <td data-label="Código" className="mono">{c.code}</td>
                 <td data-label="Tienda">{c.store ?? "Todas (anterior)"}</td>
                 <td data-label="Campaña">{c.campaign}</td>
+                <td data-label="Zona">{c.zone ?? "—"}</td>
                 <td data-label="Estado"><StateBadge state={c.state} /></td>
                 <td data-label="Creado (Lima)" className="small">{formatLima(c.createdAt)}</td>
                 <td data-label="Notas" className="small">{c.redeemedAt ? `Canjeado ${formatLima(c.redeemedAt)}` : c.voidReason ? `Motivo: ${c.voidReason}` : "—"}</td>
