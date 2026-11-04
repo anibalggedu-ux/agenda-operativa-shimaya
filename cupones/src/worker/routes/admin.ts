@@ -196,6 +196,50 @@ adminRoutes.patch("/campaigns/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+/**
+ * Elimina una campaña y sus cupones. Solo si nunca se canjeó ni se anuló un cupón: los canjes y las
+ * anulaciones son historial que la base de datos no deja borrar. En ese caso la salida es desactivarla.
+ */
+adminRoutes.delete("/campaigns/:id", async (c) => {
+  const id = parse(z.object({ id: z.uuid() }), { id: c.req.param("id") }).id;
+  const db = c.env.DB;
+  const camp = await db.prepare("SELECT name FROM campaigns WHERE id = ?").bind(id).first<{ name: string }>();
+  if (!camp) throw new ApiError(404, "not_found", "No encontramos esa campaña.");
+  const stats = await db
+    .prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed,
+              SUM(CASE WHEN status = 'voided' THEN 1 ELSE 0 END) AS voided
+         FROM coupons WHERE campaign_id = ?`,
+    )
+    .bind(id)
+    .first<{ total: number; redeemed: number | null; voided: number | null }>();
+  const redeemed = stats?.redeemed ?? 0;
+  const voided = stats?.voided ?? 0;
+  const inUse = await db.prepare("SELECT 1 AS x FROM redemptions WHERE campaign_id = ? LIMIT 1").bind(id).first();
+  if (redeemed > 0 || inUse) {
+    throw new ApiError(409, "campaign_has_redemptions", "No se puede eliminar: la campaña ya tiene cupones canjeados y deben conservarse como historial. Puedes dejarla inactiva en Editar.");
+  }
+  if (voided > 0) {
+    throw new ApiError(409, "campaign_has_voided", "No se puede eliminar: la campaña tiene cupones anulados y deben conservarse como historial. Puedes dejarla inactiva en Editar.");
+  }
+  const user = c.get("user");
+  const t = c.get("now").toISOString();
+  try {
+    await db.batch([
+      db.prepare("DELETE FROM import_errors WHERE batch_id IN (SELECT id FROM import_batches WHERE campaign_id = ?1)").bind(id),
+      db.prepare("DELETE FROM coupons WHERE campaign_id = ?1").bind(id),
+      db.prepare("DELETE FROM import_batches WHERE campaign_id = ?1").bind(id),
+      db.prepare("DELETE FROM campaigns WHERE id = ?1").bind(id),
+      auditStatement(db, t, { actorUserId: user.id, action: "campaign_deleted", entityType: "campaign", entityId: id, details: { name: camp.name, coupons: stats?.total ?? 0 } }),
+    ]);
+  } catch {
+    // Un canje se coló entre la comprobación y el borrado: la base lo impide y no se borró nada.
+    throw new ApiError(409, "campaign_has_redemptions", "No se pudo eliminar: la campaña cambió mientras confirmabas. Revisa e intenta de nuevo.");
+  }
+  return c.json({ deleted: true, coupons: stats?.total ?? 0 });
+});
+
 // --- Cupones --------------------------------------------------------------------------------------------
 // Búsqueda por POST: el código de un cupón nunca viaja en la URL.
 const couponSearch = z

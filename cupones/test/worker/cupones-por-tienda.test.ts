@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { campaign, coupon, key, lookup, makeApi, redeem, storeWithSession, userWithSession } from "./helpers";
+import { campaign, count, coupon, key, lookup, makeApi, redeem, storeWithSession, userWithSession } from "./helpers";
 
 async function escenario() {
   const api = makeApi();
@@ -126,5 +126,52 @@ describe("zonas", () => {
     expect(r.status).toBe(201);
     const list = await api.call("GET", "/api/admin/stores", { cookie: m.cookie });
     expect(list.body.stores.find((s: { name: string }) => s.name === nombre).zone).toBe("Sur");
+  });
+});
+
+describe("eliminar campañas", () => {
+  const del = (api: ReturnType<typeof makeApi>, m: { cookie: string }, id: string) => api.call("DELETE", `/api/admin/campaigns/${id}`, { cookie: m.cookie });
+
+  it("elimina una campaña sin canjes con sus cupones y su historial de importación", async () => {
+    const { api, m, camp, minka } = await escenario();
+    const imp = await api.call("POST", "/api/admin/imports/confirm", { cookie: m.cookie, body: { campaignId: camp.id, storeId: minka.id, csv: "0001\n0002\nmalo\n", mode: "parcial" } });
+    expect(imp.status).toBe(201);
+    const r = await del(api, m, camp.id);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ deleted: true, coupons: 2 });
+    expect(await count("SELECT COUNT(*) AS n FROM coupons WHERE campaign_id = ?", camp.id)).toBe(0);
+    expect(await count("SELECT COUNT(*) AS n FROM campaigns WHERE id = ?", camp.id)).toBe(0);
+    expect(await count("SELECT COUNT(*) AS n FROM import_batches WHERE campaign_id = ?", camp.id)).toBe(0);
+    expect(await count("SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'campaign_deleted' AND entity_id = ?", camp.id)).toBe(1);
+  });
+
+  it("no elimina una campaña con cupones canjeados: deben conservarse", async () => {
+    const { api, m, camp, minka } = await escenario();
+    await coupon(camp.id, { code: "0001", storeId: minka.id });
+    await coupon(camp.id, { code: "0002", storeId: minka.id });
+    expect((await redeem(api, minka.user, "0001")).status).toBe(201);
+    const r = await del(api, m, camp.id);
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe("campaign_has_redemptions");
+    expect(await count("SELECT COUNT(*) AS n FROM coupons WHERE campaign_id = ?", camp.id)).toBe(2);
+  });
+
+  it("no elimina una campaña con cupones anulados", async () => {
+    const { api, m, camp, minka } = await escenario();
+    await coupon(camp.id, { code: "0001", storeId: minka.id });
+    await coupon(camp.id, { code: "0002", storeId: minka.id, status: "voided" });
+    const r = await del(api, m, camp.id);
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe("campaign_has_voided");
+    expect(await count("SELECT COUNT(*) AS n FROM coupons WHERE campaign_id = ?", camp.id)).toBe(2);
+  });
+
+  it("una campaña inexistente da 404 y los demás roles no pueden eliminar", async () => {
+    const { api, m, camp, minka } = await escenario();
+    expect((await del(api, m, crypto.randomUUID())).status).toBe(404);
+    const analista = await userWithSession(api, "analista");
+    expect((await del(api, analista, camp.id)).status).toBe(403);
+    expect((await del(api, minka.user, camp.id)).status).toBe(403);
+    expect(await count("SELECT COUNT(*) AS n FROM campaigns WHERE id = ?", camp.id)).toBe(1);
   });
 });

@@ -24,6 +24,7 @@ const emptyForm = { name: "", description: "", benefit: "", start: "", end: "", 
 export function Campanas() {
   const list = useApi<{ campaigns: Campaign[] }>("/api/admin/campaigns");
   const [editing, setEditing] = useState<Campaign | "new" | null>(null);
+  const [deleting, setDeleting] = useState<Campaign | null>(null);
   return (
     <section className="card">
       <div className="spread">
@@ -42,13 +43,53 @@ export function Campanas() {
               <td data-label="Estado">{c.status === "active" ? <span className="badge ok"><span aria-hidden="true">✔</span> Activa</span> : <span className="badge off"><span aria-hidden="true">○</span> Inactiva</span>}</td>
               <td data-label="Código">{c.codeLength} dígitos</td>
               <td data-label="Cupones" className="num">{num(c.redeemed)} / {num(c.coupons)}</td>
-              <td><button className="secondary small" onClick={() => setEditing(c)}>Editar</button></td>
+              <td>
+                <div className="actions inline">
+                  <button className="secondary small" onClick={() => setEditing(c)}>Editar</button>
+                  <button className="secondary small" onClick={() => setDeleting(c)}>Eliminar</button>
+                </div>
+              </td>
             </tr>
           ))}
         </DataGrid>
       )}
+      {deleting && <DeleteCampaignDialog campaign={deleting} onClose={() => setDeleting(null)} onDone={() => { setDeleting(null); list.reload(); }} />}
       {editing && <CampaignDialog campaign={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); list.reload(); }} />}
     </section>
+  );
+}
+
+function DeleteCampaignDialog({ campaign, onClose, onDone }: { campaign: Campaign; onClose(): void; onDone(): void }) {
+  const [sure, setSure] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (busy || !sure) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api("DELETE", `/api/admin/campaigns/${campaign.id}`);
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog title="Eliminar campaña" onClose={onClose}>
+      <form onSubmit={submit}>
+        <p>Vas a eliminar la campaña <strong>{campaign.name}</strong> y sus <strong>{num(campaign.coupons)}</strong> cupones. Esta acción no se puede deshacer.</p>
+        <p className="muted small">Solo se pueden eliminar campañas sin cupones canjeados ni anulados: esos quedan como historial. En ese caso déjala inactiva en Editar.</p>
+        {error && <Banner tone="bad" icon="⚠">{error}</Banner>}
+        <label className="check"><input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} /><span>Entiendo que se borrarán la campaña y todos sus cupones.</span></label>
+        <div className="actions inline">
+          <button type="submit" className="danger" disabled={busy || !sure}>{busy && <Spinner />} Eliminar campaña</button>
+          <button type="button" className="secondary" onClick={onClose}>Cancelar</button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

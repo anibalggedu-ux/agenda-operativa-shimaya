@@ -14,6 +14,7 @@ Los permisos se comprueban en el servidor en cada endpoint (`requireRole` en `sr
 | Ver clientes con consentimiento | ✘ | ✔ | ✘ |
 | Estadísticas agregadas y gráficos | ✘ | ✔ | ✔ |
 | Crear / editar campañas | ✘ | ✔ | ✘ |
+| Eliminar campaña (solo si no tiene cupones canjeados ni anulados) | ✘ | ✔ | ✘ |
 | Crear cupón individual / importar CSV | ✘ | ✔ | ✘ |
 | Anular cupón no canjeado (con motivo) | ✘ | ✔ | ✘ |
 | Crear tiendas, ver/generar PIN nuevos, activar o desactivar tiendas | ✘ | ✔ | ✘ |

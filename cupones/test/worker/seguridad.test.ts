@@ -26,6 +26,7 @@ const MATRIX: Endpoint[] = [
   { name: "listar campañas", method: "GET", path: "/api/admin/campaigns", allowed: ["moderador"] },
   { name: "crear campaña", method: "POST", path: "/api/admin/campaigns", body: {}, allowed: ["moderador"] },
   { name: "editar campaña", method: "PATCH", path: `/api/admin/campaigns/${UUID}`, body: {}, allowed: ["moderador"] },
+  { name: "eliminar campaña", method: "DELETE", path: `/api/admin/campaigns/${UUID}`, allowed: ["moderador"] },
   { name: "buscar cupones", method: "POST", path: "/api/admin/coupons/search", body: {}, allowed: ["moderador"] },
   { name: "crear cupón", method: "POST", path: "/api/admin/coupons", body: {}, allowed: ["moderador"] },
   { name: "anular cupón", method: "POST", path: `/api/admin/coupons/${UUID}/void`, body: {}, allowed: ["moderador"] },
