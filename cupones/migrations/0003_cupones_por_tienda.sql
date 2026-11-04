@@ -6,7 +6,10 @@
 -- crea con el esquema nuevo y se reinsertan las filas con el mismo nombre de tabla, que es lo que
 -- permite que `defer_foreign_keys` cuadre con los canjes que apuntan a los cupones. Los cupones que ya
 -- existen quedan con store_id NULL = "sin tienda" (valen en cualquier tienda, como hasta ahora).
--- Unicidad nueva: un código por tienda (y un código por cada cupón sin tienda).
+-- Unicidad nueva: un código por tienda y campaña (así cada campaña nueva puede volver a usar el 1 al 1000).
+-- Además cada tienda puede pertenecer a una zona/sector, para medir las campañas por zona.
+
+ALTER TABLE stores ADD COLUMN zone TEXT CHECK (zone IS NULL OR length(zone) BETWEEN 1 AND 60);
 
 PRAGMA defer_foreign_keys = on;
 
@@ -42,7 +45,8 @@ SELECT id, code, campaign_id, NULL, status, void_reason, voided_at, voided_by, i
 
 DROP TABLE coupons_copia;
 
-CREATE UNIQUE INDEX uq_coupons_tienda_codigo ON coupons (COALESCE(store_id, ''), code);
+CREATE UNIQUE INDEX uq_coupons_tienda_campana_codigo ON coupons (COALESCE(store_id, ''), campaign_id, code);
+CREATE INDEX idx_coupons_code ON coupons (code);
 CREATE INDEX idx_coupons_campaign_status ON coupons (campaign_id, status);
 CREATE INDEX idx_coupons_created ON coupons (created_at);
 CREATE INDEX idx_coupons_store ON coupons (store_id);

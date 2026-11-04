@@ -28,20 +28,22 @@ interface CouponRow {
 /**
  * Cada tienda tiene su propio juego de códigos: el validador solo alcanza los cupones de SU tienda
  * (la tienda sale de la sesión, nunca de lo que envíe el navegador) y los que no tienen tienda
- * asignada (anteriores a la separación por tienda). Si hubiera ambos con el mismo código, gana el de la tienda.
+ * asignada (anteriores a la separación por tienda). Un mismo número puede repetirse en varias campañas de la
+ * tienda (cada campaña nueva reinicia el 1 al 1000): se elige primero el que está disponible hoy, luego el de la
+ * tienda sobre el que no tiene tienda, y por último el de la campaña más reciente.
  */
-const scopedCouponId = (codeParam: string, userParam: string) =>
-  `(SELECT k.id FROM coupons k
+const scopedCouponId = (codeParam: string, userParam: string, nowParam: string) =>
+  `(SELECT k.id FROM coupons k JOIN campaigns kc ON kc.id = k.campaign_id
      WHERE k.code = ${codeParam}
        AND (k.store_id = (SELECT s.id FROM stores s WHERE s.user_id = ${userParam}) OR k.store_id IS NULL)
-     ORDER BY k.store_id IS NULL LIMIT 1)`;
+     ORDER BY (${effectiveStatusSql(nowParam, "k", "kc")} = 'available') DESC, k.store_id IS NULL, kc.starts_at DESC LIMIT 1)`;
 
 async function findCoupon(db: D1Database, code: string, now: string, userId: string): Promise<CouponRow | null> {
   return db
     .prepare(
       `SELECT c.id, ${effectiveStatusSql("?2")} AS state, ca.name AS campaign, ca.benefit, ca.starts_at, ca.ends_at
          FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id
-        WHERE c.id = ${scopedCouponId("?1", "?3")}`,
+        WHERE c.id = ${scopedCouponId("?1", "?3", "?2")}`,
     )
     .bind(code, now, userId)
     .first<CouponRow>();
@@ -166,7 +168,7 @@ validatorRoutes.post("/redemptions", async (c) => {
           `INSERT INTO redemptions (id, coupon_id, campaign_id, redeemed_by, redeemed_at, idempotency_key)
            SELECT ?1, c.id, c.campaign_id, ?2, ?3, ?4
              FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id
-            WHERE c.id = ${scopedCouponId("?5", "?2")} AND ${effectiveStatusSql("?3")} = 'available'`,
+            WHERE c.id = ${scopedCouponId("?5", "?2", "?3")} AND ${effectiveStatusSql("?3")} = 'available'`,
         )
         .bind(id, user.id, t, key, code),
       db

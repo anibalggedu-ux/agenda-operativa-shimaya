@@ -34,6 +34,10 @@ Separación de funciones: el moderador **no** puede canjear, y el validador no v
 
 Cada cupón pertenece a una tienda: el código `0001` de Minka y el `0001` de El Polo son cupones distintos y cada uno se canjea una sola vez. El validador solo alcanza los cupones de **su** tienda (la tienda sale de su sesión, no de lo que envíe el navegador). El moderador elige la tienda al crear un cupón o importar un CSV, y puede filtrar el listado por tienda. Los cupones creados antes de esta función no tienen tienda y siguen valiendo en cualquier tienda; si una tienda tiene un cupón con el mismo código que uno sin tienda, el de la tienda tiene prioridad. Un cupón no puede cambiar de tienda (lo impide la base de datos).
 
+**Campañas que reinician el 1 al 1000:** un código es único por tienda *y campaña*; una campaña nueva puede volver a usar los mismos números. Si en una tienda coinciden varios cupones con el mismo número, el validador canjea el que está disponible hoy (la campaña vigente), luego el de la tienda sobre el que no tiene tienda, y por último el de la campaña más reciente. El cupón impreso no distingue campañas por sí solo: el líder debe comparar la campaña y el beneficio que muestra la pantalla con lo que dice el cupón. Evita dejar dos campañas vigentes a la vez con los mismos números en una misma tienda.
+
+**Zonas:** cada tienda puede tener una zona o sector (texto libre, en *Tiendas y PIN*). Las estadísticas muestran, por campaña, los cupones emitidos y canjeados y la tasa de canje por zona. El analista las ve (son solo totales).
+
 ## Acceso de las tiendas con PIN
 
 Cada tienda es un validador con su propio PIN de 6 números; no hay correos ni contraseñas personales de tienda. El moderador las crea en **Tiendas y PIN** (por lote, una por línea): el sistema genera los PIN al azar y los muestra **una sola vez** (con descarga en CSV). Solo se guarda su hash (PBKDF2, igual que las contraseñas), nunca el PIN. El líder abre `/validar`, elige su tienda y escribe el PIN; el canje queda registrado a nombre de la tienda.

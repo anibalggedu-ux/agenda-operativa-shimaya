@@ -139,7 +139,9 @@ describe("campañas, cupones individuales y consultas del moderador", () => {
     const polo = await storeWithSession(api, m);
     const crear = (campaignId: string, storeId: string, code: string) => api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId, storeId, code } });
     expect((await crear(a.id, minka.id, "001122")).status).toBe(201);
-    expect((await crear(b.id, minka.id, "001122")).status).toBe(409);
+    expect((await crear(a.id, minka.id, "001122")).status).toBe(409);
+    // Otra campaña puede volver a usar el mismo número en la misma tienda (reinicio del 1 al 1000).
+    expect((await crear(b.id, minka.id, "001122")).status).toBe(201);
     expect((await crear(a.id, polo.id, "001122")).status).toBe(201);
     expect((await crear(a.id, minka.id, "00112")).status).toBe(422);
     expect((await crear(a.id, minka.id, "00112x")).status).toBe(422);

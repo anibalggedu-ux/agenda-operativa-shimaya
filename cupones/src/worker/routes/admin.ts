@@ -252,7 +252,7 @@ adminRoutes.post("/coupons", async (c) => {
       auditStatement(db, t, { actorUserId: user.id, action: "coupon_created", entityType: "coupon", entityId: id }),
     ]);
   } catch {
-    throw new ApiError(409, "code_exists", "Ese código ya existe en esa tienda. Cada tienda tiene sus propios códigos, sin repetirse dentro de la tienda.", {
+    throw new ApiError(409, "code_exists", "Ese código ya existe en esa tienda para esa campaña. Cada tienda tiene sus propios códigos; solo no pueden repetirse dentro de la misma campaña.", {
       fieldErrors: { code: "Ese código ya existe." },
     });
   }
@@ -334,12 +334,12 @@ async function analyzeImport(db: D1Database, campaignId: string, storeId: string
   const existing = new Set<string>();
   if (candidates.length > 0) {
     const r = await db
-      .prepare("SELECT code FROM coupons WHERE store_id = ?2 AND code IN (SELECT value FROM json_each(?1))")
-      .bind(JSON.stringify(candidates), storeId)
+      .prepare("SELECT code FROM coupons WHERE store_id = ?2 AND campaign_id = ?3 AND code IN (SELECT value FROM json_each(?1))")
+      .bind(JSON.stringify(candidates), storeId, campaignId)
       .all<{ code: string }>();
     for (const row of r.results) existing.add(row.code);
   }
-  for (const r of rows) if (!r.error && existing.has(r.code)) r.error = "Ese código ya existe en esa tienda.";
+  for (const r of rows) if (!r.error && existing.has(r.code)) r.error = "Ese código ya existe en esa tienda para esta campaña.";
   return {
     campaignId,
     storeId,
@@ -471,7 +471,13 @@ adminRoutes.get("/audit/actions", async (c) => {
 
 // --- Tiendas y PIN de acceso de los líderes ---------------------------------------------------------------
 const MAX_STORES_PER_REQUEST = 50;
+const zoneName = z
+  .string()
+  .transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim())
+  .pipe(z.string().max(60, "Máximo 60 caracteres."));
+
 const storeNames = z.object({
+  zone: zoneName.optional(),
   names: z
     .array(z.string().transform((n) => n.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()))
     .transform((a) => a.filter((n) => n !== ""))
@@ -480,16 +486,16 @@ const storeNames = z.object({
 
 adminRoutes.get("/stores", async (c) => {
   const r = await c.env.DB.prepare(
-    `SELECT s.id, s.name, s.active, s.pin_updated_at AS pinUpdatedAt, u.last_login_at AS lastLoginAt,
+    `SELECT s.id, s.name, s.zone, s.active, s.pin_updated_at AS pinUpdatedAt, u.last_login_at AS lastLoginAt,
             (SELECT COUNT(*) FROM redemptions r WHERE r.redeemed_by = s.user_id) AS redemptions
        FROM stores s JOIN users u ON u.id = s.user_id ORDER BY s.name COLLATE NOCASE`,
-  ).all<{ id: string; name: string; active: number; pinUpdatedAt: string; lastLoginAt: string | null; redemptions: number }>();
+  ).all<{ id: string; name: string; zone: string | null; active: number; pinUpdatedAt: string; lastLoginAt: string | null; redemptions: number }>();
   return c.json({ stores: r.results.map((s) => ({ ...s, active: s.active === 1 })) });
 });
 
 /** Crea tiendas en lote. Cada una recibe un PIN al azar que se muestra UNA sola vez en esta respuesta. */
 adminRoutes.post("/stores", async (c) => {
-  const { names } = parse(storeNames, await readJson(c));
+  const { names, zone } = parse(storeNames, await readJson(c));
   const now = c.get("now").toISOString();
   const actor = c.get("user");
   const db = c.env.DB;
@@ -512,13 +518,27 @@ adminRoutes.post("/stores", async (c) => {
         .prepare("INSERT INTO users (id, email, display_name, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, 'validador', 'sin-clave', ?, ?)")
         .bind(userId, `tienda-${id}@tiendas.invalid`, name, now, now),
       db
-        .prepare("INSERT INTO stores (id, name, user_id, pin_hash, pin_updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(id, name, userId, await hashPassword(pin), now, now),
+        .prepare("INSERT INTO stores (id, name, zone, user_id, pin_hash, pin_updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, name, zone || null, userId, await hashPassword(pin), now, now),
       auditStatement(db, now, { actorUserId: actor.id, action: "store_created", entityType: "store", entityId: id }),
     ]);
     created.push({ id, name, pin });
   }
   return c.json({ created, skipped }, 201);
+});
+
+/** Zona o sector de la tienda (texto libre; vacío = sin zona). Sirve para medir las campañas por zona. */
+adminRoutes.post("/stores/:id/zone", async (c) => {
+  const id = parse(z.uuid(), c.req.param("id"));
+  const { zone } = parse(z.object({ zone: zoneName }), await readJson(c));
+  const found = await c.env.DB.prepare("SELECT id FROM stores WHERE id = ?").bind(id).first();
+  if (!found) throw new ApiError(404, "not_found", "No encontramos esa tienda.");
+  const now = c.get("now").toISOString();
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE stores SET zone = ? WHERE id = ?").bind(zone || null, id),
+    auditStatement(c.env.DB, now, { actorUserId: c.get("user").id, action: "store_zone_changed", entityType: "store", entityId: id }),
+  ]);
+  return c.json({ zone: zone || null });
 });
 
 adminRoutes.post("/stores/:id/reset-pin", async (c) => {

@@ -22,7 +22,7 @@ describe("el analista solo recibe estadísticas agregadas", () => {
     for (const secret of ["Zoraida", "Chumpitaz", "987001122", "zoraida.unica", "00424242", red.body.redemption.id, v.id, v.email, "Rosa", "consent", "contact", "phone", "email"]) {
       expect(raw.toLowerCase(), `no debe aparecer "${secret}"`).not.toContain(secret.toLowerCase());
     }
-    expect(Object.keys(report.body).sort()).toEqual(["byCampaign", "byDay", "byHour", "byMonth", "byWeek", "filters", "inventory", "redemptionsInRange"]);
+    expect(Object.keys(report.body).sort()).toEqual(["byCampaign", "byDay", "byHour", "byMonth", "byWeek", "byZone", "filters", "inventory", "redemptionsInRange"]);
     expect(Object.keys(camps.body.campaigns[0]).sort()).toEqual(["id", "name"]);
   });
 

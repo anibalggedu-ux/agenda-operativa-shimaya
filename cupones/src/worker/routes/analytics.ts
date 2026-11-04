@@ -36,6 +36,7 @@ export interface Report {
   byMonth: { month: string; count: number }[];
   byHour: { hour: number; count: number }[];
   byCampaign: { campaignId: string; name: string; issued: number; redeemed: number; redemptionRate: number | null }[];
+  byZone: { zone: string | null; stores: number; issued: number; redeemed: number; redemptionRate: number | null }[];
 }
 
 export async function buildReport(db: D1Database, now: Date, f: ReportFilters): Promise<Report> {
@@ -44,12 +45,12 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
 
   // Cohorte de inventario: cupones EMITIDOS (created_at) dentro del rango y de la campaña.
   // Cada consulta arma sus propios parámetros: D1 rechaza bindings que el SQL no usa.
-  const invFrom = (q: Q) => {
+  const invFrom = (q: Q, withStore = false) => {
     const where = ["1 = 1"];
     if (f.campaignId) where.push(`c.campaign_id = ${q.p(f.campaignId)}`);
     if (fromIso) where.push(`c.created_at >= ${q.p(fromIso)}`);
     if (toIso) where.push(`c.created_at < ${q.p(toIso)}`);
-    return `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id WHERE ${where.join(" AND ")}`;
+    return `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id ${withStore ? "LEFT JOIN stores st ON st.id = c.store_id " : ""}WHERE ${where.join(" AND ")}`;
   };
   const stateQ = new Q();
   const nowP = stateQ.p(now.toISOString());
@@ -57,6 +58,13 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
   const campQ = new Q();
   const campSql = `SELECT ca.id AS campaignId, ca.name, COUNT(*) AS issued, SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
            ${invFrom(campQ)} GROUP BY ca.id, ca.name ORDER BY issued DESC, ca.name`;
+
+  // Por zona: cupones emitidos y canjeados por la zona de la tienda (sin zona / sin tienda = null).
+  const zoneQ = new Q();
+  const zoneSql = `SELECT st.zone AS zone, COUNT(DISTINCT c.store_id) AS stores, COUNT(*) AS issued,
+           SUM(CASE WHEN c.status = 'redeemed' THEN 1 ELSE 0 END) AS redeemed
+           ${invFrom(zoneQ, true)}
+           GROUP BY st.zone ORDER BY (st.zone IS NULL), st.zone COLLATE NOCASE`;
 
   // Actividad: canjes realizados (redeemed_at) dentro del rango y de la campaña.
   const act = new Q();
@@ -67,9 +75,10 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
   const actFrom = `FROM redemptions r WHERE ${actWhere.join(" AND ")}`;
   const lima = "r.redeemed_at, '-5 hours'";
 
-  const [byState, byCampaign, total, day, week, month, hour] = await db.batch([
+  const [byState, byCampaign, byZone, total, day, week, month, hour] = await db.batch([
     db.prepare(stateSql).bind(...stateQ.params),
     db.prepare(campSql).bind(...campQ.params),
+    db.prepare(zoneSql).bind(...zoneQ.params),
     db.prepare(`SELECT COUNT(*) AS n ${actFrom}`).bind(...act.params),
     db.prepare(`SELECT strftime('%Y-%m-%d', ${lima}) AS k, COUNT(*) AS n ${actFrom} GROUP BY k ORDER BY k`).bind(...act.params),
     db
@@ -95,6 +104,10 @@ export async function buildReport(db: D1Database, now: Date, f: ReportFilters): 
     byWeek: ((week?.results ?? []) as { k: string; n: number }[]).map((r) => ({ weekStart: r.k, count: r.n })),
     byMonth: ((month?.results ?? []) as { k: string; n: number }[]).map((r) => ({ month: r.k, count: r.n })),
     byHour: hours,
+    byZone: ((byZone?.results ?? []) as { zone: string | null; stores: number; issued: number; redeemed: number }[]).map((r) => ({
+      ...r,
+      redemptionRate: rate(r.redeemed, r.issued),
+    })),
     byCampaign: ((byCampaign?.results ?? []) as { campaignId: string; name: string; issued: number; redeemed: number }[]).map((r) => ({
       ...r,
       redemptionRate: rate(r.redeemed, r.issued),

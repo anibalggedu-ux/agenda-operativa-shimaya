@@ -14,6 +14,7 @@ interface Report {
   byMonth: { month: string; count: number }[];
   byHour: { hour: number; count: number }[];
   byCampaign: { campaignId: string; name: string; issued: number; redeemed: number; redemptionRate: number | null }[];
+  byZone: { zone: string | null; stores: number; issued: number; redeemed: number; redemptionRate: number | null }[];
 }
 
 type Grain = "day" | "week" | "month";
@@ -120,6 +121,39 @@ export function Analytics() {
                   {r.byCampaign.length ? <CampaignBars rows={r.byCampaign} /> : <Empty>Sin campañas con cupones en este filtro.</Empty>}
                 </section>
               </div>
+
+              <section className="card">
+                <h3>Cupones por zona</h3>
+                {r.byZone.length ? (
+                  <div className="table-wrap">
+                    <table className="data stack">
+                      <thead>
+                        <tr>
+                          <th>Zona</th>
+                          <th className="num">Tiendas</th>
+                          <th className="num">Emitidos</th>
+                          <th className="num">Canjeados</th>
+                          <th className="num">Tasa de canje</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.byZone.map((z) => (
+                          <tr key={z.zone ?? "(sin zona)"}>
+                            <td data-label="Zona">{z.zone ?? "Sin zona"}</td>
+                            <td data-label="Tiendas" className="num">{num(z.stores)}</td>
+                            <td data-label="Emitidos" className="num">{num(z.issued)}</td>
+                            <td data-label="Canjeados" className="num">{num(z.redeemed)}</td>
+                            <td data-label="Tasa de canje" className="num">{pct(z.redemptionRate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <Empty>Sin cupones en este filtro.</Empty>
+                )}
+                <p className="muted small">La zona sale de la tienda a la que pertenece cada cupón. Asigna zonas en Tiendas y PIN; las tiendas sin zona y los cupones anteriores sin tienda aparecen como “Sin zona”.</p>
+              </section>
 
               <h2>Canjes</h2>
               <section className="card">
