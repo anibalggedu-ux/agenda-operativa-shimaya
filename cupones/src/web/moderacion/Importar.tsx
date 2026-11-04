@@ -3,7 +3,7 @@ import { formatLima } from "../../shared/time";
 import { ApiClientError, api, errorMessage, qs } from "../api";
 import { useApi } from "../hooks";
 import { Banner, Dialog, Field, Pager, Spinner, num } from "../ui";
-import { CampaignSelect, DataGrid } from "./comunes";
+import { CampaignSelect, DataGrid, StoreSelect } from "./comunes";
 
 interface Summary {
   total: number;
@@ -17,6 +17,7 @@ type Mode = "todo_o_nada" | "parcial";
 
 export function Importar() {
   const [campaignId, setCampaignId] = useState("");
+  const [storeId, setStoreId] = useState("");
   const [csv, setCsv] = useState("");
   const [mode, setMode] = useState<Mode>("todo_o_nada");
   const [preview, setPreview] = useState<Summary | null>(null);
@@ -50,9 +51,9 @@ export function Importar() {
     setResult(null);
     try {
       if (kind === "preview") {
-        setPreview(await api<Summary>("POST", "/api/admin/imports/preview", { body: { campaignId, csv, mode } }));
+        setPreview(await api<Summary>("POST", "/api/admin/imports/preview", { body: { campaignId, storeId, csv, mode } }));
       } else {
-        const r = await api<Summary & { imported: number }>("POST", "/api/admin/imports/confirm", { body: { campaignId, csv, mode } });
+        const r = await api<Summary & { imported: number }>("POST", "/api/admin/imports/confirm", { body: { campaignId, storeId, csv, mode } });
         setResult({ tone: "ok", text: `Importación completada: ${num(r.imported)} cupones creados${r.invalid ? ` y ${num(r.invalid)} filas rechazadas (quedaron registradas)` : ""}.` });
         setPreview(null);
         setCsv("");
@@ -69,13 +70,14 @@ export function Importar() {
     }
   }
 
-  const ready = campaignId && csv.trim().length > 0;
+  const ready = campaignId && storeId && csv.trim().length > 0;
   return (
     <>
       <section className="card">
         <h2>Importar cupones desde CSV</h2>
         <p className="muted small">Una columna con los códigos (con o sin encabezado “codigo”); se aceptan , ; o tabulación. Máximo 2000 filas por archivo. Si usas Excel, formatea la columna como <strong>Texto</strong> para no perder los ceros iniciales: aquí no se rellenan solos.</p>
         <CampaignSelect value={campaignId} onChange={(v) => { setCampaignId(v); invalidate(); }} all="Elige una campaña" />
+        <StoreSelect value={storeId} onChange={(v) => { setStoreId(v); invalidate(); }} all="Elige una tienda" />
         <Field label="Archivo CSV">{(a) => <input {...a} type="file" accept=".csv,text/csv,text/plain" onChange={onFile} />}</Field>
         <Field label="…o pega los códigos" hint="Uno por línea">
           {(a) => <textarea {...a} spellCheck={false} value={csv} onChange={(e) => { setCsv(e.target.value); invalidate(); }} />}
@@ -85,7 +87,7 @@ export function Importar() {
           <label className="check"><input type="radio" name="modo" checked={mode === "todo_o_nada"} onChange={() => { setMode("todo_o_nada"); invalidate(); }} /><span><strong>Todo o nada (recomendado):</strong> si una sola fila falla, no se crea ningún cupón. Los errores quedan registrados.</span></label>
           <label className="check"><input type="radio" name="modo" checked={mode === "parcial"} onChange={() => { setMode("parcial"); invalidate(); }} /><span><strong>Parcial:</strong> se importan las filas válidas y se rechazan las demás. Los errores quedan registrados.</span></label>
         </fieldset>
-        <p className="muted small">Nunca se sobrescriben cupones existentes: un código repetido se rechaza.</p>
+        <p className="muted small">Los cupones se crean para la tienda elegida: cada tienda tiene sus propios códigos. Nunca se sobrescriben cupones existentes: un código repetido en esa tienda se rechaza.</p>
         {error && <Banner tone="bad" icon="⚠">{error}</Banner>}
         {result && <Banner tone={result.tone} icon={result.tone === "ok" ? "✔" : "✖"}>{result.text}</Banner>}
         <div className="actions inline">

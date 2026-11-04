@@ -114,14 +114,34 @@ export function uniqueCode(length = 8): string {
   return String(n).padStart(length, "0").slice(-length);
 }
 
-export async function coupon(campaignId: string, o: Partial<{ code: string; status: "available" | "redeemed" | "voided"; length: number }> = {}) {
+export interface StoreSeed {
+  id: string;
+  name: string;
+  pin: string;
+  user: User;
+}
+
+let storeIp = 0;
+/** Crea una tienda por la API del moderador y entra como ella con su PIN (rol validador). */
+export async function storeWithSession(api: Api, moderator: User, name = `Tienda ${newId().slice(0, 6)}`): Promise<StoreSeed> {
+  const created = await api.call("POST", "/api/admin/stores", { cookie: moderator.cookie, body: { names: [name] } });
+  if (created.status !== 201) throw new Error(`crear tienda falló: ${created.status}`);
+  const { id, pin } = created.body.created[0] as { id: string; pin: string };
+  const login = await api.call("POST", "/api/auth/pin-login", { body: { storeId: id, pin }, ip: `192.0.2.${(storeIp++ % 250) + 1}` });
+  if (login.status !== 200) throw new Error(`pin-login falló: ${login.status}`);
+  const row = await env.DB.prepare("SELECT user_id FROM stores WHERE id = ?").bind(id).first<{ user_id: string }>();
+  const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0]!;
+  return { id, name, pin, user: { id: row!.user_id, email: "", cookie } };
+}
+
+export async function coupon(campaignId: string, o: Partial<{ code: string; status: "available" | "redeemed" | "voided"; length: number; storeId: string | null }> = {}) {
   const id = newId();
   const code = o.code ?? uniqueCode(o.length ?? 8);
   const status = o.status ?? "available";
   await env.DB.prepare(
-    "INSERT INTO coupons (id, code, campaign_id, status, void_reason, voided_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO coupons (id, code, campaign_id, status, void_reason, voided_at, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
-    .bind(id, code, campaignId, status, status === "voided" ? "prueba" : null, status === "voided" ? "2026-10-01T00:00:00.000Z" : null)
+    .bind(id, code, campaignId, status, status === "voided" ? "prueba" : null, status === "voided" ? "2026-10-01T00:00:00.000Z" : null, o.storeId ?? null)
     .run();
   return { id, code };
 }

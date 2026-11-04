@@ -201,6 +201,7 @@ adminRoutes.patch("/campaigns/:id", async (c) => {
 const couponSearch = z
   .object({
     campaignId: z.uuid().optional(),
+    storeId: z.uuid().optional(),
     state: z.enum(STATE_ORDER as [CouponState, ...CouponState[]]).optional(),
     code: z.string().trim().regex(/^\d{1,16}$/, "Solo números.").optional(),
   })
@@ -214,14 +215,15 @@ adminRoutes.post("/coupons/search", async (c) => {
   // La consulta de conteo y la de página comparten parámetros: ambas deben referenciar la hora (D1 rechaza bindings sin usar).
   const where = [`${nowP} IS NOT NULL`];
   if (f.campaignId) where.push(`c.campaign_id = ${q.p(f.campaignId)}`);
+  if (f.storeId) where.push(`c.store_id = ${q.p(f.storeId)}`);
   if (f.state) where.push(`(${eff}) = ${q.p(f.state)}`);
   if (f.code) where.push(`c.code LIKE ${q.p(`${f.code}%`)}`);
   return c.json(
     await paged(
       c.env.DB,
-      `SELECT c.id, c.code, ca.name AS campaign, ${eff} AS state, c.created_at AS createdAt,
+      `SELECT c.id, c.code, ca.name AS campaign, st.name AS store, ${eff} AS state, c.created_at AS createdAt,
               c.void_reason AS voidReason, c.voided_at AS voidedAt, r.redeemed_at AS redeemedAt`,
-      `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id LEFT JOIN redemptions r ON r.coupon_id = c.id
+      `FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id LEFT JOIN stores st ON st.id = c.store_id LEFT JOIN redemptions r ON r.coupon_id = c.id
         WHERE ${where.join(" AND ")}`,
       q,
       "c.created_at DESC, c.id",
@@ -232,8 +234,9 @@ adminRoutes.post("/coupons/search", async (c) => {
 });
 
 adminRoutes.post("/coupons", async (c) => {
-  const v = parse(z.object({ campaignId: z.uuid(), code: codeSchema }).strict(), await readJson(c));
+  const v = parse(z.object({ campaignId: z.uuid(), storeId: z.uuid(), code: codeSchema }).strict(), await readJson(c));
   const db = c.env.DB;
+  await assertStoreExists(db, v.storeId);
   const campaign = await db.prepare("SELECT code_length AS codeLength FROM campaigns WHERE id = ?").bind(v.campaignId).first<{ codeLength: number }>();
   if (!campaign) throw new ApiError(404, "not_found", "No encontramos esa campaña.");
   const problem = codeProblem(v.code, campaign.codeLength);
@@ -244,12 +247,12 @@ adminRoutes.post("/coupons", async (c) => {
   try {
     await db.batch([
       db
-        .prepare("INSERT INTO coupons (id, code, campaign_id, created_by, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)")
-        .bind(id, v.code, v.campaignId, user.id, t),
+        .prepare("INSERT INTO coupons (id, code, campaign_id, store_id, created_by, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)")
+        .bind(id, v.code, v.campaignId, v.storeId, user.id, t),
       auditStatement(db, t, { actorUserId: user.id, action: "coupon_created", entityType: "coupon", entityId: id }),
     ]);
   } catch {
-    throw new ApiError(409, "code_exists", "Ese código ya existe. Los códigos son únicos en toda la aplicación.", {
+    throw new ApiError(409, "code_exists", "Ese código ya existe en esa tienda. Cada tienda tiene sus propios códigos, sin repetirse dentro de la tienda.", {
       fieldErrors: { code: "Ese código ya existe." },
     });
   }
@@ -294,6 +297,7 @@ adminRoutes.post("/coupons/:id/void", async (c) => {
 const importBody = z
   .object({
     campaignId: z.uuid(),
+    storeId: z.uuid(),
     csv: z.string().min(1, "Pega o carga el contenido del CSV.").max(400_000),
     mode: z.enum(["todo_o_nada", "parcial"]).default("todo_o_nada"),
   })
@@ -303,13 +307,21 @@ const MAX_STORED_ERRORS = 200;
 
 interface Analysis {
   campaignId: string;
+  storeId: string;
   rows: (ImportRow & { error: string | null })[];
   total: number;
   validCodes: string[];
   errors: { rowNumber: number; code: string; error: string }[];
 }
 
-async function analyzeImport(db: D1Database, campaignId: string, csv: string): Promise<Analysis> {
+async function assertStoreExists(db: D1Database, storeId: string): Promise<void> {
+  if (!(await db.prepare("SELECT 1 AS x FROM stores WHERE id = ?").bind(storeId).first())) {
+    throw new ApiError(404, "not_found", "No encontramos esa tienda.");
+  }
+}
+
+async function analyzeImport(db: D1Database, campaignId: string, storeId: string, csv: string): Promise<Analysis> {
+  await assertStoreExists(db, storeId);
   const campaign = await db.prepare("SELECT code_length AS codeLength FROM campaigns WHERE id = ?").bind(campaignId).first<{ codeLength: number }>();
   if (!campaign) throw new ApiError(404, "not_found", "No encontramos esa campaña.");
   const { rows, tooManyRows } = parseCouponCsv(csv, campaign.codeLength);
@@ -322,14 +334,15 @@ async function analyzeImport(db: D1Database, campaignId: string, csv: string): P
   const existing = new Set<string>();
   if (candidates.length > 0) {
     const r = await db
-      .prepare("SELECT code FROM coupons WHERE code IN (SELECT value FROM json_each(?1))")
-      .bind(JSON.stringify(candidates))
+      .prepare("SELECT code FROM coupons WHERE store_id = ?2 AND code IN (SELECT value FROM json_each(?1))")
+      .bind(JSON.stringify(candidates), storeId)
       .all<{ code: string }>();
     for (const row of r.results) existing.add(row.code);
   }
-  for (const r of rows) if (!r.error && existing.has(r.code)) r.error = "Ese código ya existe en la base de datos.";
+  for (const r of rows) if (!r.error && existing.has(r.code)) r.error = "Ese código ya existe en esa tienda.";
   return {
     campaignId,
+    storeId,
     rows,
     total: rows.length,
     validCodes: rows.filter((r) => !r.error).map((r) => r.code),
@@ -347,7 +360,7 @@ const summarize = (a: Analysis) => ({
 
 adminRoutes.post("/imports/preview", async (c) => {
   const b = parse(importBody, await readJson(c));
-  return c.json(summarize(await analyzeImport(c.env.DB, b.campaignId, b.csv)));
+  return c.json(summarize(await analyzeImport(c.env.DB, b.campaignId, b.storeId, b.csv)));
 });
 
 adminRoutes.post("/imports/confirm", async (c) => {
@@ -356,7 +369,7 @@ adminRoutes.post("/imports/confirm", async (c) => {
   const user = c.get("user");
   const t = c.get("now").toISOString();
   // El servidor vuelve a validar todo: no confía en la vista previa que armó el navegador.
-  const a = await analyzeImport(db, b.campaignId, b.csv);
+  const a = await analyzeImport(db, b.campaignId, b.storeId, b.csv);
   const batchId = newId();
   const rejectAll = b.mode === "todo_o_nada" && a.errors.length > 0;
   const toInsert = rejectAll ? [] : a.validCodes;
@@ -378,10 +391,10 @@ adminRoutes.post("/imports/confirm", async (c) => {
         .bind(batchId, JSON.stringify(stored)),
       db
         .prepare(
-          `INSERT INTO coupons (id, code, campaign_id, status, import_batch_id, created_by, created_at, updated_at)
-           SELECT lower(hex(randomblob(16))), value, ?1, 'available', ?2, ?3, ?4, ?4 FROM json_each(?5)`,
+          `INSERT INTO coupons (id, code, campaign_id, store_id, status, import_batch_id, created_by, created_at, updated_at)
+           SELECT lower(hex(randomblob(16))), value, ?1, ?6, 'available', ?2, ?3, ?4, ?4 FROM json_each(?5)`,
         )
-        .bind(b.campaignId, batchId, user.id, t, JSON.stringify(toInsert)),
+        .bind(b.campaignId, batchId, user.id, t, JSON.stringify(toInsert), b.storeId),
       auditStatement(db, t, {
         actorUserId: user.id,
         action: rejectAll ? "import_rejected" : "import_completed",

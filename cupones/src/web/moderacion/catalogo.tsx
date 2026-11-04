@@ -4,7 +4,7 @@ import { STATE_ORDER, STATE_SHORT, type CouponState } from "../../shared/types";
 import { ApiClientError, api, errorMessage } from "../api";
 import { useApi } from "../hooks";
 import { Banner, Dialog, Empty, Field, Pager, Spinner, StateBadge, num } from "../ui";
-import { CampaignSelect, DataGrid } from "./comunes";
+import { CampaignSelect, DataGrid, StoreSelect } from "./comunes";
 
 interface Campaign {
   id: string;
@@ -126,6 +126,7 @@ interface CouponRow {
   id: string;
   code: string;
   campaign: string;
+  store: string | null;
   state: CouponState;
   createdAt: string;
   voidReason: string | null;
@@ -133,11 +134,11 @@ interface CouponRow {
 }
 
 export function Cupones() {
-  const [f, setF] = useState({ campaignId: "", state: "", code: "" });
+  const [f, setF] = useState({ campaignId: "", storeId: "", state: "", code: "" });
   const [page, setPage] = useState(1);
   const [voiding, setVoiding] = useState<CouponRow | null>(null);
   const [creating, setCreating] = useState(false);
-  const body = { ...(f.campaignId ? { campaignId: f.campaignId } : {}), ...(f.state ? { state: f.state } : {}), ...(f.code ? { code: f.code } : {}), page, pageSize: 20 };
+  const body = { ...(f.campaignId ? { campaignId: f.campaignId } : {}), ...(f.storeId ? { storeId: f.storeId } : {}), ...(f.state ? { state: f.state } : {}), ...(f.code ? { code: f.code } : {}), page, pageSize: 20 };
   const list = useSearch(body);
   return (
     <section className="card">
@@ -147,6 +148,7 @@ export function Cupones() {
       </div>
       <div className="row">
         <CampaignSelect value={f.campaignId} onChange={(v) => { setF({ ...f, campaignId: v }); setPage(1); }} />
+        <StoreSelect value={f.storeId} onChange={(v) => { setF({ ...f, storeId: v }); setPage(1); }} />
         <Field label="Estado">
           {(a) => (
             <select {...a} value={f.state} onChange={(e) => { setF({ ...f, state: e.target.value }); setPage(1); }}>
@@ -163,10 +165,11 @@ export function Cupones() {
       {!list.data && !list.error && <p role="status"><Spinner /> Cargando…</p>}
       {list.data && (list.data.items.length === 0 ? <Empty mascot>No hay cupones con estos filtros.</Empty> : (
         <>
-          <DataGrid head={[{ label: "Código" }, { label: "Campaña" }, { label: "Estado" }, { label: "Creado (Lima)" }, { label: "Notas" }, { label: "" }]}>
+          <DataGrid head={[{ label: "Código" }, { label: "Tienda" }, { label: "Campaña" }, { label: "Estado" }, { label: "Creado (Lima)" }, { label: "Notas" }, { label: "" }]}>
             {list.data.items.map((c) => (
               <tr key={c.id}>
                 <td data-label="Código" className="mono">{c.code}</td>
+                <td data-label="Tienda">{c.store ?? "Todas (anterior)"}</td>
                 <td data-label="Campaña">{c.campaign}</td>
                 <td data-label="Estado"><StateBadge state={c.state} /></td>
                 <td data-label="Creado (Lima)" className="small">{formatLima(c.createdAt)}</td>
@@ -240,6 +243,7 @@ function VoidDialog({ coupon, onClose, onDone }: { coupon: CouponRow; onClose():
 
 function CreateDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
   const [campaignId, setCampaignId] = useState("");
+  const [storeId, setStoreId] = useState("");
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fail, setFail] = useState<string | null>(null);
@@ -251,7 +255,7 @@ function CreateDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) 
     setErrors({});
     setFail(null);
     try {
-      await api("POST", "/api/admin/coupons", { body: { campaignId, code } });
+      await api("POST", "/api/admin/coupons", { body: { campaignId, storeId, code } });
       onDone();
     } catch (err) {
       if (err instanceof ApiClientError && Object.keys(err.fieldErrors).length) setErrors(err.fieldErrors);
@@ -265,11 +269,12 @@ function CreateDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) 
       <form onSubmit={submit} noValidate>
         {fail && <Banner tone="bad" icon="⚠">{fail}</Banner>}
         <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaña" all="Elige una campaña" />
+        <StoreSelect value={storeId} onChange={setStoreId} all="Elige una tienda" />
         <Field label="Código" hint="Solo números, con la longitud de la campaña. Conserva los ceros iniciales." error={errors.code}>
           {(a) => <input {...a} className="code-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={16} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />}
         </Field>
         <div className="actions inline">
-          <button type="submit" disabled={busy || !campaignId || !code}>{busy && <Spinner />} Crear</button>
+          <button type="submit" disabled={busy || !campaignId || !storeId || !code}>{busy && <Spinner />} Crear</button>
           <button type="button" className="secondary" onClick={onClose}>Cancelar</button>
         </div>
       </form>

@@ -20,6 +20,25 @@ export function CampaignSelect({ value, onChange, label = "Campaña", all = "Tod
   );
 }
 
+export function StoreSelect({ value, onChange, label = "Tienda", all = "Todas" }: { value: string; onChange(v: string): void; label?: string; all?: string | null }) {
+  const { data } = useApi<{ stores: { id: string; name: string; active: boolean }[] }>("/api/admin/stores");
+  return (
+    <Field label={label}>
+      {(a) => (
+        <select {...a} value={value} onChange={(e) => onChange(e.target.value)}>
+          {all !== null && <option value="">{all}</option>}
+          {data?.stores.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {s.active ? "" : " (desactivada)"}
+            </option>
+          ))}
+        </select>
+      )}
+    </Field>
+  );
+}
+
 export function WorkerSelect({ value, onChange }: { value: string; onChange(v: string): void }) {
   const { data } = useApi<{ workers: { id: string; name: string }[] }>("/api/admin/workers");
   return (

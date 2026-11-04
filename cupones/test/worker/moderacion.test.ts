@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { campaign, count, coupon, makeApi, redeem, lookup, userWithSession } from "./helpers";
+import { campaign, count, coupon, makeApi, redeem, lookup, storeWithSession, userWithSession } from "./helpers";
 
 describe("anulación de cupones", () => {
   it("anula un cupón disponible con motivo, y deja de poder canjearse", async () => {
@@ -130,15 +130,21 @@ describe("campañas, cupones individuales y consultas del moderador", () => {
     expect((await redeem(api, v, c.code)).status).toBe(409);
   });
 
-  it("cupón individual: valida longitud y unicidad global", async () => {
+  it("cupón individual: valida longitud y unicidad dentro de cada tienda", async () => {
     const api = makeApi();
     const m = await userWithSession(api, "moderador");
     const a = await campaign(api, { codeLength: 6 });
     const b = await campaign(api, { codeLength: 6 });
-    expect((await api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId: a.id, code: "001122" } })).status).toBe(201);
-    expect((await api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId: b.id, code: "001122" } })).status).toBe(409);
-    expect((await api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId: a.id, code: "00112" } })).status).toBe(422);
-    expect((await api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId: a.id, code: "00112x" } })).status).toBe(422);
+    const minka = await storeWithSession(api, m);
+    const polo = await storeWithSession(api, m);
+    const crear = (campaignId: string, storeId: string, code: string) => api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId, storeId, code } });
+    expect((await crear(a.id, minka.id, "001122")).status).toBe(201);
+    expect((await crear(b.id, minka.id, "001122")).status).toBe(409);
+    expect((await crear(a.id, polo.id, "001122")).status).toBe(201);
+    expect((await crear(a.id, minka.id, "00112")).status).toBe(422);
+    expect((await crear(a.id, minka.id, "00112x")).status).toBe(422);
+    expect((await api.call("POST", "/api/admin/coupons", { cookie: m.cookie, body: { campaignId: a.id, code: "334455" } })).status).toBe(422);
+    expect((await crear(a.id, crypto.randomUUID(), "334455")).status).toBe(404);
   });
 
   it("listado de cupones con filtros por estado efectivo, campaña y prefijo de código; paginado en servidor", async () => {

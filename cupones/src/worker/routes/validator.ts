@@ -25,14 +25,25 @@ interface CouponRow {
   ends_at: string;
 }
 
-async function findCoupon(db: D1Database, code: string, now: string): Promise<CouponRow | null> {
+/**
+ * Cada tienda tiene su propio juego de códigos: el validador solo alcanza los cupones de SU tienda
+ * (la tienda sale de la sesión, nunca de lo que envíe el navegador) y los que no tienen tienda
+ * asignada (anteriores a la separación por tienda). Si hubiera ambos con el mismo código, gana el de la tienda.
+ */
+const scopedCouponId = (codeParam: string, userParam: string) =>
+  `(SELECT k.id FROM coupons k
+     WHERE k.code = ${codeParam}
+       AND (k.store_id = (SELECT s.id FROM stores s WHERE s.user_id = ${userParam}) OR k.store_id IS NULL)
+     ORDER BY k.store_id IS NULL LIMIT 1)`;
+
+async function findCoupon(db: D1Database, code: string, now: string, userId: string): Promise<CouponRow | null> {
   return db
     .prepare(
       `SELECT c.id, ${effectiveStatusSql("?2")} AS state, ca.name AS campaign, ca.benefit, ca.starts_at, ca.ends_at
          FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id
-        WHERE c.code = ?1`,
+        WHERE c.id = ${scopedCouponId("?1", "?3")}`,
     )
-    .bind(code, now)
+    .bind(code, now, userId)
     .first<CouponRow>();
 }
 
@@ -78,7 +89,7 @@ validatorRoutes.post("/coupons/lookup", async (c) => {
   await assertNotGuessing(c);
 
   const code = await readCode(c);
-  const row = await findCoupon(c.env.DB, code, now.toISOString());
+  const row = await findCoupon(c.env.DB, code, now.toISOString(), user.id);
   if (!row) {
     await recordFailedCode(c);
     return c.json<LookupResult>({ state: "not_found", message: STATE_LABELS.not_found });
@@ -155,7 +166,7 @@ validatorRoutes.post("/redemptions", async (c) => {
           `INSERT INTO redemptions (id, coupon_id, campaign_id, redeemed_by, redeemed_at, idempotency_key)
            SELECT ?1, c.id, c.campaign_id, ?2, ?3, ?4
              FROM coupons c JOIN campaigns ca ON ca.id = c.campaign_id
-            WHERE c.code = ?5 AND ${effectiveStatusSql("?3")} = 'available'`,
+            WHERE c.id = ${scopedCouponId("?5", "?2")} AND ${effectiveStatusSql("?3")} = 'available'`,
         )
         .bind(id, user.id, t, key, code),
       db
@@ -177,7 +188,7 @@ validatorRoutes.post("/redemptions", async (c) => {
   if (stored && stored.code === code) return redeemedResponse(c, stored, stored.id !== id);
 
   // No se canjeó: el cupón no existe o no está disponible. Se informa el motivo real.
-  const row = await findCoupon(db, code, t);
+  const row = await findCoupon(db, code, t, user.id);
   if (!row) {
     await recordFailedCode(c);
     throw new ApiError(404, "not_found", STATE_LABELS.not_found, { state: "not_found" });
