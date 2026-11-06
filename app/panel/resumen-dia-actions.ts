@@ -110,11 +110,15 @@ export async function obtenerResumenPersonal(): Promise<ResumenPersonal> {
       .order("created_at", { ascending: true }),
     // Permisos/vacaciones que el propio usuario pidió y ya quedaron
     // aprobados (tabla aparte de asignaciones_especiales) — mismo motivo.
+    // Sin "Hora de ingreso especial": ese día se trabaja normal (caso real:
+    // Anibal, 5 nov -- su jueves trabajado se saltaba como día libre y la
+    // alerta de "salida sin marcar" apuntaba al miércoles anterior).
     supabase
       .from("solicitudes_permiso")
       .select("fecha_inicio, fecha_fin")
       .eq("usuario_id", sesion.id)
       .eq("estado", "aprobado")
+      .neq("tipo", "Hora de ingreso especial")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
   ]);
@@ -417,11 +421,13 @@ export async function obtenerResumenOperativo(): Promise<ResumenOperativo> {
       // vigente para el mismo día de la misma persona.
       .order("created_at", { ascending: true }),
     // Permisos/vacaciones pedidos por cada empleado y ya aprobados (tabla
-    // aparte de asignaciones_especiales) — mismo motivo.
+    // aparte de asignaciones_especiales) — mismo motivo. Sin "Hora de
+    // ingreso especial": ese día se trabaja normal, no es un día libre.
     supabase
       .from("solicitudes_permiso")
       .select("usuario_id, fecha_inicio, fecha_fin")
       .eq("estado", "aprobado")
+      .neq("tipo", "Hora de ingreso especial")
       .gte("fecha_fin", desdeAlerta)
       .lte("fecha_inicio", diaLaboral),
     supabase.from("alertas_puntualidad_atendidas").select("usuario_id, tipo, fecha_referencia"),

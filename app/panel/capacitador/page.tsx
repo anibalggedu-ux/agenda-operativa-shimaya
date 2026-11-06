@@ -10,7 +10,6 @@ import BreakWidget from "../break-widget";
 import MisSolicitudes from "../supervisor/mis-solicitudes";
 import MisMarcaciones from "../supervisor/mis-marcaciones";
 import EventosDeHoy from "../eventos-hoy";
-import BloqueColapsable from "../bloque-colapsable";
 import RankingCapacitadores from "./ranking-capacitadores";
 import KilometrosDelMes from "../analitica/kilometros-del-mes";
 import ResumenDelDia from "../resumen-del-dia";
@@ -81,9 +80,7 @@ export default async function PanelCapacitador() {
       contenido: (
         <div className="space-y-6">
           <BreakWidget />
-          <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
-            <EventosDeHoy />
-          </BloqueColapsable>
+          <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
         </div>

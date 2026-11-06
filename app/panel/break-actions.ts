@@ -118,6 +118,9 @@ export async function obtenerPermiteBreakHoy(): Promise<boolean> {
         .select("fecha_inicio, fecha_fin")
         .eq("usuario_id", sesion.id)
         .eq("estado", "aprobado")
+        // "Hora de ingreso especial" también queda aprobada acá, pero ese día
+        // se trabaja normal -- no debe ocultar el break.
+        .neq("tipo", "Hora de ingreso especial")
         .lte("fecha_inicio", diaLaboral)
         .gte("fecha_fin", diaLaboral),
       supabase

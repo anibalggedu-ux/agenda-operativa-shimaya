@@ -277,11 +277,19 @@ export async function obtenerMapaOperativoHoy(): Promise<MapaOperativoHoy> {
       .eq("activo", true)
       .in("rol", ["supervisor", "capacitador"])
       .not("nombre", "ilike", "%generico%"),
-    supabase.from("asignaciones_especiales").select("usuario_id").lte("fecha_inicio", hoy).gte("fecha_fin", hoy),
+    // "Hora de ingreso especial" y "Trabaja su descanso" no son ausencias:
+    // ese día la persona trabaja normal, no debe figurar "de permiso".
+    supabase
+      .from("asignaciones_especiales")
+      .select("usuario_id")
+      .not("tipo", "in", '("Hora de ingreso especial","Trabaja su descanso")')
+      .lte("fecha_inicio", hoy)
+      .gte("fecha_fin", hoy),
     supabase
       .from("solicitudes_permiso")
       .select("usuario_id")
       .eq("estado", "aprobado")
+      .neq("tipo", "Hora de ingreso especial")
       .lte("fecha_inicio", hoy)
       .gte("fecha_fin", hoy),
   ]);

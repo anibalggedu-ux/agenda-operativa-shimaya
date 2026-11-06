@@ -47,9 +47,10 @@ export async function GET(req: Request) {
   // Ausencias de los próximos días: vacaciones, permisos, licencias, descansos especiales, misiones y permisos aprobados.
   const desde = hoyPeru();
   const hasta = sumarDias(desde, 28);
+  // "Hora de ingreso especial" y "Trabaja su descanso" no son ausencias: ese día la persona trabaja (y está disponible).
   const [{ data: especiales }, { data: permisos }] = await Promise.all([
-    supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
-    supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
+    supabase.from("asignaciones_especiales").select("usuario_id, tipo, fecha_inicio, fecha_fin").not("tipo", "in", '("Hora de ingreso especial","Trabaja su descanso")').lte("fecha_inicio", hasta).gte("fecha_fin", desde),
+    supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado").neq("tipo", "Hora de ingreso especial").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
   ]);
   // Tiendas asignadas de forma permanente a cada supervisor (sin fecha de fin): la app de Apoyos las usa para saber quién aprueba el horario de cada tienda.
   const { data: asignadas } = await supabase.from("tiendas_permanentes").select("usuario_id, tiendas(nombre)").is("fecha_fin", null);

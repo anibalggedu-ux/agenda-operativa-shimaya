@@ -12,6 +12,7 @@ import { comprimirFotoComoBase64 } from "@/lib/comprimir-imagen";
 import { obtenerUbicacionActual } from "@/lib/geolocalizacion";
 import { recordarUnaVez, reproducirSonidoAlerta, reproducirSonidoExito } from "@/lib/sonido";
 import { formatearHora } from "@/lib/fechas";
+import BloqueColapsable from "./bloque-colapsable";
 import {
   agregarMarcacionPendiente,
   pareceFallaDeConexion,
@@ -294,16 +295,23 @@ export default function EventosDeHoy() {
 
   if (cargando || eventos.length === 0) return null;
 
+  // El bloque se arma acá (y no en cada panel) para que solo exista cuando
+  // hay un evento hoy, y abierto: antes vivía dentro de un BloqueColapsable
+  // cerrado por defecto que ni siquiera cargaba su contenido hasta tocarlo,
+  // y la tarjeta para marcar llegada/salida quedaba escondida (caso real:
+  // Anibal, 6 nov, reunión en 28 de Julio).
   return (
-    <div className="space-y-3">
-      <h3 className="flex items-center gap-1.5 text-xs font-black tracking-widest text-marca-tenue">
-        <Calendar className="w-3.5 h-3.5 text-marca-rojoclaro" /> EVENTOS DE HOY
-      </h3>
+    <BloqueColapsable
+      icono={<Calendar />}
+      titulo="Eventos de hoy"
+      badge={eventos.length === 1 ? "1 evento" : `${eventos.length} eventos`}
+      abiertoPorDefecto
+    >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {eventos.map((e) => (
           <TarjetaEvento key={e.comunicadoId} evento={e} onMarcado={cargar} />
         ))}
       </div>
-    </div>
+    </BloqueColapsable>
   );
 }
