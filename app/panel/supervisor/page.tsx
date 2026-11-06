@@ -75,9 +75,7 @@ export default async function PanelSupervisor() {
           <BloqueColapsable icono={<Store />} titulo="Tiendas fijas">
             <TiendasFijas />
           </BloqueColapsable>
-          <BloqueColapsable icono={<Calendar />} titulo="Eventos de hoy">
-            <EventosDeHoy />
-          </BloqueColapsable>
+          <EventosDeHoy />
           <SelectorTiendas supervisorNombre={sesion.nombre} mostrarDescansoFijo={false} />
           <MisMarcaciones />
         </div>

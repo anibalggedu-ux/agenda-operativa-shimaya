@@ -52,6 +52,9 @@ export async function GET(request: Request) {
       .from("solicitudes_permiso")
       .select("usuario_id")
       .eq("estado", "aprobado")
+      // "Hora de ingreso especial" no exime: se avisa igual contra la hora
+      // especial (ver horaEspecialHoyPorUsuario abajo).
+      .neq("tipo", "Hora de ingreso especial")
       .lte("fecha_inicio", diaLaboral)
       .gte("fecha_fin", diaLaboral),
     supabase.from("alertas_puntualidad_push").select("usuario_id").eq("fecha", diaLaboral),

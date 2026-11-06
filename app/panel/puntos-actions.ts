@@ -150,7 +150,13 @@ export type PuntosUsuario = {
 // puntos_heredados -- un regalo es una transferencia real, no un bono.
 async function obtenerNetoRegalosPorUsuario(): Promise<Map<string, number>> {
   const supabase = supabaseServer();
-  const { data } = await supabase.from("historia_regalos").select("usuario_id_regala, usuario_id_recibe, puntos");
+  const { data } = await leerTodasLasFilas((desde, hasta) =>
+    supabase
+      .from("historia_regalos")
+      .select("usuario_id_regala, usuario_id_recibe, puntos")
+      .order("id", { ascending: true })
+      .range(desde, hasta)
+  );
 
   const neto = new Map<string, number>();
   (data ?? []).forEach((r: any) => {
@@ -207,6 +213,28 @@ type FilaAsistenciaConRol = {
 
 const TAMANO_PAGINA_ASISTENCIA = 1000;
 
+// Mismo problema que obtenerTodaLaAsistenciaConHora (ver abajo), para
+// cualquier otra tabla que el cálculo de puntos lea entera: sin paginar,
+// todo lo que pasara de 1000 filas simplemente no llegaba. Caso real:
+// rutas_diarias pasó las 1000 filas (1420 en nov 2026) y los reportes
+// nuevos dejaron de sumar sus 10 pts (Antony Montalbán). `pagina` debe traer
+// un ORDER BY estable, si no el corte entre páginas puede repetir o saltar
+// filas.
+async function leerTodasLasFilas<T>(
+  pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const filas: T[] = [];
+  let desde = 0;
+  while (true) {
+    const { data, error } = await pagina(desde, desde + TAMANO_PAGINA_ASISTENCIA - 1);
+    if (error) return { data: filas, error };
+    filas.push(...(data ?? []));
+    if (!data || data.length < TAMANO_PAGINA_ASISTENCIA) break;
+    desde += TAMANO_PAGINA_ASISTENCIA;
+  }
+  return { data: filas, error: null };
+}
+
 // PostgREST limita cada respuesta a un máximo de filas (1000 por defecto) --
 // sin paginar, una vez que la tabla de asistencia superó esa cifra (ya
 // pasó: más de 1000 marcaciones acumuladas desde 2024), una parte
@@ -260,16 +288,31 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
       // Cuentas de prueba -- no deben aparecer en el ranking de puntos/vitrina.
       .not("nombre", "ilike", "%generico%"),
     obtenerTodaLaAsistenciaConHora(supabase),
-    supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha"),
+    leerTodasLasFilas((desde, hasta) =>
+      supabase.from("rutas_diarias").select("usuario_id, tienda_id, fecha").order("id", { ascending: true }).range(desde, hasta)
+    ),
     // Rutas ya asignadas pero aún no reportadas (se borran de aquí y pasan a
     // rutas_diarias recién cuando se envía el reporte — ver guardarReporte
     // en supervisor/actions.ts). Un viaje de provincia cuenta desde el día
     // que se asigna, no desde que se reporta, así que se incluyen acá.
-    supabase.from("rutas_activas").select("usuario_id, tienda_id, fecha_planificada"),
+    leerTodasLasFilas((desde, hasta) =>
+      supabase
+        .from("rutas_activas")
+        .select("usuario_id, tienda_id, fecha_planificada")
+        .order("id", { ascending: true })
+        .range(desde, hasta)
+    ),
     supabase.from("tiendas").select("id").eq("es_provincia", true),
     obtenerNetoRegalosPorUsuario(),
     obtenerConfiguracionBonoHistoria(),
-    supabase.from("historia_publicaciones").select("usuario_id"),
+    leerTodasLasFilas((desde, hasta) =>
+      supabase
+        .from("historia_publicaciones")
+        .select("usuario_id")
+        .order("usuario_id", { ascending: true })
+        .order("fecha", { ascending: true })
+        .range(desde, hasta)
+    ),
     // Puntos por responder encuestas completas: se guardan en cada respuesta
     // al enviarla, así que cambiar o borrar la encuesta después no los quita.
     supabase.from("encuesta_respuestas").select("usuario_id, puntos_ganados").gt("puntos_ganados", 0),
@@ -278,7 +321,14 @@ async function calcularPuntosDeTodos(): Promise<PuntosUsuario[]> {
     // 22-23 sep 2026: un permiso real que nunca se registró como tal en el
     // sistema le cortó la racha a cero sin que hubiera falta alguna de su
     // parte).
-    supabase.from("solicitudes_permiso").select("usuario_id, fecha_inicio, fecha_fin").eq("estado", "aprobado"),
+    // "Hora de ingreso especial" también queda como solicitud aprobada, pero
+    // ese día se trabaja normal (se evalúa contra su propia hora, ver
+    // asignaciones_especiales abajo) -- no es un día libre.
+    supabase
+      .from("solicitudes_permiso")
+      .select("usuario_id, fecha_inicio, fecha_fin")
+      .eq("estado", "aprobado")
+      .neq("tipo", "Hora de ingreso especial"),
     // Asignaciones especiales (Misión Especial, Licencia, Vacaciones,
     // Permiso puestas directamente por Coordinador desde "Asignar rutas" --
     // esta tabla no tiene flujo de aprobación aparte, ya es la asignación en
